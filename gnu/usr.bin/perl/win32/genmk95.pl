@@ -64,7 +64,6 @@ while (<$in>)
  if (/^(.*?)(&&|\|\|)(.*)$/)  # two commands separated by && or ||
  {
     my ($one, $sep, $two) = ($1, $2, $3);
-    $one =~ s/^\t(?:-(?!-))?\@?(.*?)$/\t$1/;   # no -,@ in group recipes
 LINE_CONT:
     if ($two =~ /\\\s*$/)
     {
@@ -78,7 +77,6 @@ LINE_CONT:
     next;
  }
      # fall through - no need for special handling
- s/^\t(?:-(?!-))?\@?(.*?)$/\t$1/;      # no -,@ in group recipes
  print $out "$_\n";
 }
 print $out "]\n" if ($inrec);
