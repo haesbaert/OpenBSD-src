@@ -4,18 +4,7 @@ BEGIN {
     chdir 't' if -d 't';
     @INC = '../lib';
 }
-
-{
-    # Silence the deprecation warnings from bigint.pl for the purpose
-    # of testing. These tests will be removed along with bigint.pl in
-    # the next major release of perl.
-    local $SIG{__WARN__} = sub {
-        if ($_[0] !~ /deprecated/) {
-            print(STDERR @_);
-        }
-    };
-    require "bigint.pl";
-}
+require "bigint.pl";
 
 $test = 0;
 $| = 1;
