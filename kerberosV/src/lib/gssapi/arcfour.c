@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 - 2004 Kungliga Tekniska Högskolan
+ * Copyright (c) 2003 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -33,30 +33,11 @@
 
 #include "gssapi_locl.h"
 
-RCSID("$KTH: arcfour.c,v 1.17 2005/05/06 07:13:32 lha Exp $");
-
 /*
  * Implements draft-brezak-win2k-krb-rc4-hmac-04.txt
- *
- * The arcfour message have the following formats:
- *
- * MIC token
- * 	TOK_ID[2] = 01 01
- *	SGN_ALG[2] = 11 00
- *	Filler[4]
- *	SND_SEQ[8]
- *	SGN_CKSUM[8]
- *
- * WRAP token
- *	TOK_ID[2] = 02 01
- *	SGN_ALG[2];
- *	SEAL_ALG[2]
- *	Filler[2]
- *	SND_SEQ[2]
- *	SGN_CKSUM[8]
- *	Confounder[8]
  */
 
+RCSID("$KTH: arcfour.c,v 1.12.2.3 2003/09/19 15:15:11 lha Exp $");
 
 static krb5_error_code
 arcfour_mic_key(krb5_context context, krb5_keyblock *key,
@@ -164,7 +145,7 @@ _gssapi_get_mic_arcfour(OM_uint32 * minor_status,
     u_char k6_data[16], *p0, *p;
     RC4_KEY rc4_key;
     
-    gssapi_krb5_encap_length (22, &len, &total_len, GSS_KRB5_MECHANISM);
+    gssapi_krb5_encap_length (22, &len, &total_len);
     
     message_token->length = total_len;
     message_token->value  = malloc (total_len);
@@ -174,8 +155,7 @@ _gssapi_get_mic_arcfour(OM_uint32 * minor_status,
     }
     
     p0 = _gssapi_make_mech_header(message_token->value,
-				  len,
-				  GSS_KRB5_MECHANISM);
+				  len);
     p = p0;
     
     *p++ = 0x01; /* TOK_ID */
@@ -209,7 +189,6 @@ _gssapi_get_mic_arcfour(OM_uint32 * minor_status,
 	return GSS_S_FAILURE;
     }
 
-    HEIMDAL_MUTEX_lock(&context_handle->ctx_id_mutex);
     krb5_auth_con_getlocalseqnumber (gssapi_krb5_context,
 				     context_handle->auth_context,
 				     &seq_number);
@@ -219,7 +198,6 @@ _gssapi_get_mic_arcfour(OM_uint32 * minor_status,
     krb5_auth_con_setlocalseqnumber (gssapi_krb5_context,
 				     context_handle->auth_context,
 				     ++seq_number);
-    HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
     
     memset (p + 4, (context_handle->more_flags & LOCAL) ? 0 : 0xff, 4);
 
@@ -244,7 +222,7 @@ _gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
 			   char *type)
 {
     krb5_error_code ret;
-    int32_t seq_number;
+    int32_t seq_number, seq_number2;
     OM_uint32 omret;
     char cksum_data[8], k6_data[16], SND_SEQ[8];
     u_char *p;
@@ -256,8 +234,7 @@ _gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
     p = token_buffer->value;
     omret = gssapi_krb5_verify_header (&p,
 				       token_buffer->length,
-				       type,
-				       GSS_KRB5_MECHANISM);
+				       type);
     if (omret)
 	return omret;
     
@@ -315,11 +292,18 @@ _gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
 	return GSS_S_BAD_MIC;
     }
     
-    HEIMDAL_MUTEX_lock(&context_handle->ctx_id_mutex);
-    omret = _gssapi_msg_order_check(context_handle->order, seq_number);
-    HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
-    if (omret)
-	return omret;
+    krb5_auth_con_getlocalseqnumber (gssapi_krb5_context,
+				      context_handle->auth_context,
+				      &seq_number2);
+
+    if (seq_number != seq_number2) {
+	*minor_status = 0;
+	return GSS_S_UNSEQ_TOKEN;
+    }
+
+    krb5_auth_con_setlocalseqnumber (gssapi_krb5_context,
+				      context_handle->auth_context,
+				      ++seq_number2);
 
     *minor_status = 0;
     return GSS_S_COMPLETE;
@@ -345,8 +329,8 @@ _gssapi_wrap_arcfour(OM_uint32 * minor_status,
 	*conf_state = 0;
 
     datalen = input_message_buffer->length + 1 /* padding */;
-    len = datalen + GSS_ARCFOUR_WRAP_TOKEN_SIZE;
-     _gssapi_encap_length(len, &len, &total_len, GSS_KRB5_MECHANISM);
+    len = datalen + 30;
+    gssapi_krb5_encap_length (len, &len, &total_len);
 
     output_message_buffer->length = total_len;
     output_message_buffer->value  = malloc (total_len);
@@ -356,8 +340,7 @@ _gssapi_wrap_arcfour(OM_uint32 * minor_status,
     }
     
     p0 = _gssapi_make_mech_header(output_message_buffer->value,
-				  len,
-				  GSS_KRB5_MECHANISM);
+				  len);
     p = p0;
 
     *p++ = 0x02; /* TOK_ID */
@@ -376,7 +359,6 @@ _gssapi_wrap_arcfour(OM_uint32 * minor_status,
 
     p = NULL;
 
-    HEIMDAL_MUTEX_lock(&context_handle->ctx_id_mutex);
     krb5_auth_con_getlocalseqnumber (gssapi_krb5_context,
 				     context_handle->auth_context,
 				     &seq_number);
@@ -386,7 +368,6 @@ _gssapi_wrap_arcfour(OM_uint32 * minor_status,
     krb5_auth_con_setlocalseqnumber (gssapi_krb5_context,
 				     context_handle->auth_context,
 				     ++seq_number);
-    HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
 
     memset (p0 + 8 + 4,
 	    (context_handle->more_flags & LOCAL) ? 0 : 0xff,
@@ -478,7 +459,7 @@ OM_uint32 _gssapi_unwrap_arcfour(OM_uint32 *minor_status,
     u_char Klocaldata[16];
     krb5_keyblock Klocal;
     krb5_error_code ret;
-    int32_t seq_number;
+    int32_t seq_number, seq_number2;
     size_t datalen;
     OM_uint32 omret;
     char k6_data[16], SND_SEQ[8], Confounder[8];
@@ -495,8 +476,7 @@ OM_uint32 _gssapi_unwrap_arcfour(OM_uint32 *minor_status,
 
     p0 = input_message_buffer->value;
     omret = _gssapi_verify_mech_header(&p0,
-				       input_message_buffer->length,
-				       GSS_KRB5_MECHANISM);
+				       input_message_buffer->length);
     if (omret)
 	return omret;
     p = p0;
@@ -622,11 +602,18 @@ OM_uint32 _gssapi_unwrap_arcfour(OM_uint32 *minor_status,
 	return GSS_S_BAD_MIC;
     }
 
-    HEIMDAL_MUTEX_lock(&context_handle->ctx_id_mutex);
-    omret = _gssapi_msg_order_check(context_handle->order, seq_number);
-    HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
-    if (omret)
-	return omret;
+    krb5_auth_getremoteseqnumber (gssapi_krb5_context,
+				  context_handle->auth_context,
+				  &seq_number2);
+
+    if (seq_number != seq_number2) {
+	*minor_status = 0;
+	return GSS_S_UNSEQ_TOKEN;
+    }
+
+    krb5_auth_con_setremoteseqnumber (gssapi_krb5_context,
+				      context_handle->auth_context,
+				      ++seq_number2);
 
     if (conf_state)
 	*conf_state = conf_flag;
