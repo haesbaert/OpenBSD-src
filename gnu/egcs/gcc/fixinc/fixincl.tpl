@@ -22,14 +22,16 @@ _FOR fix =]
  *  Description [=_eval _index 1 + "#%3d -" _printf=] [=hackname _Cap=] fix
  */
 tSCC z[=hackname _cap=]Name[] =
-     [=hackname _cap _krstr=];
+     [=hackname _cap _str=];
 /*
  *  File name selection pattern
  */[=
 
   _IF files _exist=]
-tSCC z[=hackname _cap=]List[] =
-  "[=_FOR files =]|[=files=][=/files=]|";[=
+tSCC z[=hackname _cap=]List[] =[=
+    _FOR files=]
+        "|" [=files _str=][=
+    /files=] "|";[=
 
   _ELSE =]
 #define z[=hackname _cap=]List (char*)NULL[=
@@ -41,7 +43,7 @@ tSCC z[=hackname _cap=]List[] =
   _IF mach _exist=]
 tSCC* apz[=hackname _cap=]Machs[] = {[=
     _FOR mach =]
-        [=mach _krstr=],[=
+        [=mach _str=],[=
     /mach=]
         (const char*)NULL };[=
 
@@ -58,7 +60,7 @@ tSCC* apz[=hackname _cap=]Machs[] = {[=
  */[=
     _FOR exesel =]
 tSCC z[=hackname _cap=]Select[=_eval _index=][] =
-       [=exesel _krstr=];[=
+       [=exesel _str=];[=
     /exesel =][=
 
   _ELIF select _exist=]
@@ -68,7 +70,7 @@ tSCC z[=hackname _cap=]Select[=_eval _index=][] =
  */[=
     _FOR select =]
 tSCC z[=hackname _cap=]Select[=_eval _index=][] =
-       [=select _krstr=];[=
+       [=select _str=];[=
     /select =][=
   _ENDIF =][=
 
@@ -79,7 +81,7 @@ tSCC z[=hackname _cap=]Select[=_eval _index=][] =
  */[=
     _FOR bypass =]
 tSCC z[=hackname _cap=]Bypass[=_eval _index=][] =
-       [=bypass _krstr=];[=
+       [=bypass _str=];[=
     /bypass =][=
   _ENDIF =][=
 
@@ -90,7 +92,7 @@ tSCC z[=hackname _cap=]Bypass[=_eval _index=][] =
  */[=
     _FOR test =]
 tSCC z[=hackname _cap=]Test[=_eval _index=][] =
-       [=test _krstr=];[=
+       [=test _str=];[=
     /test =][=
   _ENDIF =][=
 
@@ -157,9 +159,9 @@ tTestDesc a[=hackname _cap=]Tests[] = {[=
  */
 const char* apz[=hackname _cap=]Patch[] = {[=
     _IF   sed         _exist =] "sed"[=_FOR sed=],
-    "-e", [=sed _krstr=][=/sed=][=
+    "-e", [=sed _str=][=/sed=][=
     _ELIF shell       _exist =] "sh", "-c",
-    [=shell _krstr=][=
+    [=shell _str=][=
     _ENDIF=],
     (char*)NULL };
 
@@ -179,8 +181,6 @@ _FOR fix ",\n" =]
      [=hackname  _up=]_TEST_CT, [=
        _IF not_machine _exist =]FD_MACH_IFNOT[=
        _ELSE                  =]FD_MACH_ONLY[=
-       _ENDIF =][=
-       _IF shell       _exist =] | FD_SHELL_SCRIPT[=
        _ENDIF =],
      a[=hackname _cap=]Tests,   apz[=hackname _cap=]Patch }[=
 

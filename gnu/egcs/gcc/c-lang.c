@@ -175,9 +175,7 @@ finish_file ()
     {
       tree fnname = get_file_function_name ('I');
       start_function (void_list_node,
-		      build_parse_node (CALL_EXPR, fnname, 
-					tree_cons (NULL_TREE, NULL_TREE, 
-						   void_list_node),
+		      build_parse_node (CALL_EXPR, fnname, void_list_node,
 					NULL_TREE),
 		      NULL_TREE, NULL_TREE, 0);
       fnname = DECL_ASSEMBLER_NAME (current_function_decl);
@@ -197,9 +195,7 @@ finish_file ()
     {
       tree fnname = get_file_function_name ('D');
       start_function (void_list_node,
-		      build_parse_node (CALL_EXPR, fnname, 
-					tree_cons (NULL_TREE, NULL_TREE,
-						   void_list_node),
+		      build_parse_node (CALL_EXPR, fnname, void_list_node,
 					NULL_TREE),
 		      NULL_TREE, NULL_TREE, 0);
       fnname = DECL_ASSEMBLER_NAME (current_function_decl);

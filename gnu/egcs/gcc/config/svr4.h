@@ -247,9 +247,8 @@ do {				 				\
 #define DWARF_DEBUGGING_INFO
 
 /* All ELF targets can support DWARF-2.  */
-#ifndef DWARF2_DEBUGGING_INFO
+
 #define DWARF2_DEBUGGING_INFO
-#endif
 
 /* The numbers used to denote specific machine registers in the System V
    Release 4 DWARF debugging information are quite likely to be totally

@@ -49,33 +49,33 @@ public:
   typedef typename _Sequence::reference       reference;
   typedef typename _Sequence::const_reference const_reference;
 protected:
-  _Sequence c;
+  _Sequence _M_c;
 public:
-  queue() : c() {}
-  explicit queue(const _Sequence& __c) : c(__c) {}
+  queue() : _M_c() {}
+  explicit queue(const _Sequence& __c) : _M_c(__c) {}
 
-  bool empty() const { return c.empty(); }
-  size_type size() const { return c.size(); }
-  reference front() { return c.front(); }
-  const_reference front() const { return c.front(); }
-  reference back() { return c.back(); }
-  const_reference back() const { return c.back(); }
-  void push(const value_type& __x) { c.push_back(__x); }
-  void pop() { c.pop_front(); }
+  bool empty() const { return _M_c.empty(); }
+  size_type size() const { return _M_c.size(); }
+  reference front() { return _M_c.front(); }
+  const_reference front() const { return _M_c.front(); }
+  reference back() { return _M_c.back(); }
+  const_reference back() const { return _M_c.back(); }
+  void push(const value_type& __x) { _M_c.push_back(__x); }
+  void pop() { _M_c.pop_front(); }
 };
 
 template <class _Tp, class _Sequence>
 bool 
 operator==(const queue<_Tp, _Sequence>& __x, const queue<_Tp, _Sequence>& __y)
 {
-  return __x.c == __y.c;
+  return __x._M_c == __y._M_c;
 }
 
 template <class _Tp, class _Sequence>
 bool
 operator<(const queue<_Tp, _Sequence>& __x, const queue<_Tp, _Sequence>& __y)
 {
-  return __x.c < __y.c;
+  return __x._M_c < __y._M_c;
 }
 
 #ifdef __STL_FUNCTION_TMPL_PARTIAL_ORDER
@@ -125,69 +125,69 @@ public:
   typedef typename _Sequence::reference       reference;
   typedef typename _Sequence::const_reference const_reference;
 protected:
-  _Sequence c;
-  _Compare comp;
+  _Sequence _M_c;
+  _Compare _M_comp;
 public:
-  priority_queue() : c() {}
-  explicit priority_queue(const _Compare& __x) :  c(), comp(__x) {}
+  priority_queue() : _M_c() {}
+  explicit priority_queue(const _Compare& __x) :  _M_c(), _M_comp(__x) {}
   priority_queue(const _Compare& __x, const _Sequence& __s) 
-    : c(__s), comp(__x) 
-    { make_heap(c.begin(), c.end(), comp); }
+    : _M_c(__s), _M_comp(__x) 
+    { make_heap(_M_c.begin(), _M_c.end(), _M_comp); }
 
 #ifdef __STL_MEMBER_TEMPLATES
   template <class _InputIterator>
   priority_queue(_InputIterator __first, _InputIterator __last) 
-    : c(__first, __last) { make_heap(c.begin(), c.end(), comp); }
+    : _M_c(__first, __last) { make_heap(_M_c.begin(), _M_c.end(), _M_comp); }
 
   template <class _InputIterator>
   priority_queue(_InputIterator __first, 
                  _InputIterator __last, const _Compare& __x)
-    : c(__first, __last), comp(__x) 
-    { make_heap(c.begin(), c.end(), comp); }
+    : _M_c(__first, __last), _M_comp(__x) 
+    { make_heap(_M_c.begin(), _M_c.end(), _M_comp); }
 
   template <class _InputIterator>
   priority_queue(_InputIterator __first, _InputIterator __last,
                  const _Compare& __x, const _Sequence& __s)
-  : c(__s), comp(__x)
+  : _M_c(__s), _M_comp(__x)
   { 
-    c.insert(c.end(), __first, __last);
-    make_heap(c.begin(), c.end(), comp);
+    _M_c.insert(_M_c.end(), __first, __last);
+    make_heap(_M_c.begin(), _M_c.end(), _M_comp);
   }
 
 #else /* __STL_MEMBER_TEMPLATES */
   priority_queue(const value_type* __first, const value_type* __last) 
-    : c(__first, __last) { make_heap(c.begin(), c.end(), comp); }
+    : _M_c(__first, __last) { make_heap(_M_c.begin(), _M_c.end(), _M_comp); }
 
   priority_queue(const value_type* __first, const value_type* __last, 
                  const _Compare& __x) 
-    : c(__first, __last), comp(__x)
-    { make_heap(c.begin(), c.end(), comp); }
+    : _M_c(__first, __last), _M_comp(__x)
+    { make_heap(_M_c.begin(), _M_c.end(), _M_comp); }
 
   priority_queue(const value_type* __first, const value_type* __last, 
                  const _Compare& __x, const _Sequence& __c)
-    : c(__c), comp(__x) 
+    : _M_c(__c), _M_comp(__x) 
   { 
-    c.insert(c.end(), __first, __last);
-    make_heap(c.begin(), c.end(), comp);
+    _M_c.insert(_M_c.end(), __first, __last);
+    make_heap(_M_c.begin(), _M_c.end(), _M_comp);
   }
 #endif /* __STL_MEMBER_TEMPLATES */
 
-  bool empty() const { return c.empty(); }
-  size_type size() const { return c.size(); }
-  const_reference top() const { return c.front(); }
+  bool empty() const { return _M_c.empty(); }
+  size_type size() const { return _M_c.size(); }
+  const_reference top() const { return _M_c.front(); }
   void push(const value_type& __x) {
     __STL_TRY {
-      c.push_back(__x); 
-      push_heap(c.begin(), c.end(), comp);
+      _M_c.push_back(__x); 
+      push_heap(_M_c.begin(), _M_c.end(), _M_comp);
     }
-    __STL_UNWIND(c.clear());
+    __STL_UNWIND(_M_c.clear());
   }
   void pop() {
     __STL_TRY {
-      pop_heap(c.begin(), c.end(), comp);
-      c.pop_back();
+      pop_heap(_M_c.begin(), _M_c.end(), _M_comp);
+      _M_c.pop_back();
     }
-    __STL_UNWIND(c.clear());
+    __STL_UNWIND(_M_c.clear());
   }
 };
 

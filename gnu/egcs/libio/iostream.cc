@@ -1,5 +1,5 @@
 /* This is part of libio/iostream, providing -*- C++ -*- input/output.
-   Copyright (C) 1993, 1997, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997 Free Software Foundation, Inc.
 
    This file is part of the GNU IO Library.  This library is free
    software; you can redistribute it and/or modify it under the
@@ -71,8 +71,6 @@ int skip_ws(streambuf* sb)
 istream& istream::get(char& c)
 {
     if (ipfx1()) {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	int ch = _strbuf->sbumpc();
 	if (ch == EOF) {
 	  set(ios::eofbit|ios::failbit);
@@ -82,8 +80,6 @@ istream& istream::get(char& c)
 	  c = (char)ch;
 	  _gcount = 1;
 	}
-	isfx();
-	_IO_cleanup_region_end (0);
     }
     else
       _gcount = 0;
@@ -106,12 +102,10 @@ istream& istream::ignore(int n /* = 1 */, int delim /* = EOF */)
 {
     _gcount = 0;
     if (ipfx1()) {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	register streambuf* sb = _strbuf;
 	if (delim == EOF) {
 	    _gcount = sb->ignore(n);
-	    goto unlock;
+	    return *this;
 	}
 	for (;;) {
 #if 0
@@ -128,9 +122,6 @@ istream& istream::ignore(int n /* = 1 */, int delim /* = EOF */)
 	    if (ch == delim)
 		break;
 	}
-    unlock:
-	isfx();
-	_IO_cleanup_region_end (0);
     }
     return *this;
 }
@@ -138,13 +129,9 @@ istream& istream::ignore(int n /* = 1 */, int delim /* = EOF */)
 istream& istream::read(char *s, streamsize n)
 {
     if (ipfx1()) {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	_gcount = _strbuf->sgetn(s, n);
 	if (_gcount != n)
 	    set(ios::failbit|ios::eofbit);
-	isfx();
-	_IO_cleanup_region_end (0);
     }
     else
       _gcount = 0;
@@ -197,15 +184,11 @@ streampos istream::tellg()
 istream& istream::operator>>(char& c)
 {
     if (ipfx0()) {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	int ch = _strbuf->sbumpc();
 	if (ch == EOF)
 	    set(ios::eofbit|ios::failbit);
 	else
 	    c = (char)ch;
-	isfx();
-	_IO_cleanup_region_end (0);
     }
     return *this;
 }
@@ -217,8 +200,6 @@ istream::operator>> (char* ptr)
   int w = width(0);
   if (ipfx0())
     {
-      _IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				_strbuf);
       register streambuf* sb = _strbuf;
       for (;;)
 	{
@@ -238,8 +219,6 @@ istream::operator>> (char* ptr)
 	}
       if (p == ptr)
 	set(ios::failbit);
-      isfx();
-      _IO_cleanup_region_end (0);
     }
   *p = '\0';
   return *this;
@@ -255,9 +234,6 @@ static int read_int(istream& stream, unsigned LONGEST& val, int& neg)
 {
     if (!stream.ipfx0())
       return 0;
-    int retval;
-    _IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-			      stream._strbuf);
     register streambuf* sb = stream.rdbuf();
     int base = 10;
     int ndigits = 0;
@@ -278,7 +254,7 @@ static int read_int(istream& stream, unsigned LONGEST& val, int& neg)
 	    ch = sb->sbumpc();
 	    if (ch == EOF) {
 		val = 0;
-		goto unlock;
+		return 1;
 	    }
 	    if (ch == 'x' || ch == 'X') {
 		base = 16;
@@ -314,26 +290,19 @@ static int read_int(istream& stream, unsigned LONGEST& val, int& neg)
 	    if (ndigits == 0)
 		goto fail;
 	    else
-		goto unlock;
+		return 1;
 	}
 	ndigits++;
 	val = base * val + digit;
 	ch = sb->sbumpc();
     }
-  unlock:
-    retval = 1;
-    goto out;
+    return 1;
   fail:
     stream.set(ios::failbit);
-    retval = 0;
-    goto out;
+    return 0;
   eof_fail:
     stream.set(ios::failbit|ios::eofbit);
-    retval = 0;
-  out:
-    stream.isfx();
-    _IO_cleanup_region_end (0);
-    return retval;
+    return 0;
 }
 
 #define READ_INT(TYPE) \
@@ -365,8 +334,6 @@ istream& istream::operator>>(long double& x)
 {
     if (ipfx0())
       {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 #if _G_HAVE_LONG_DOUBLE_IO
 	scan("%Lg", &x);
 #else
@@ -374,8 +341,6 @@ istream& istream::operator>>(long double& x)
 	scan("%lg", &y);
 	x = y;
 #endif
-	isfx();
-	_IO_cleanup_region_end (0);
       }
     return *this;
 }
@@ -383,34 +348,20 @@ istream& istream::operator>>(long double& x)
 istream& istream::operator>>(double& x)
 {
     if (ipfx0())
-      {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	scan("%lg", &x);
-	isfx();
-	_IO_cleanup_region_end (0);
-      }
     return *this;
 }
 
 istream& istream::operator>>(float& x)
 {
     if (ipfx0())
-      {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	scan("%g", &x);
-	isfx();
-	_IO_cleanup_region_end (0);
-      }
     return *this;
 }
 
 istream& istream::operator>>(register streambuf* sbuf)
 {
     if (ipfx0()) {
-	_IO_cleanup_region_start ((void (*) __P ((void *))) _IO_funlockfile,
-				  _strbuf);
 	register streambuf* inbuf = rdbuf();
 	// FIXME: Should optimize!
 	for (;;) {
@@ -424,8 +375,6 @@ istream& istream::operator>>(register streambuf* sbuf)
 		break;
 	    }
 	}
-	isfx();
-	_IO_cleanup_region_end (0);
     }
     return *this;
 }
@@ -687,10 +636,6 @@ ostream& ostream::operator<<(double n)
 				      /* extra: */ 0,
 #if __GLIBC_MINOR__ >= 1
 				      /* is_char: */ 0,
-#if __GLIBC_MINOR__ >= 2
-				      /* wide: */ 0,
-				      /* i18n: */ 0,
-#endif
 #endif
 #endif
 				      /* pad: */ fill()
@@ -797,10 +742,6 @@ ostream& ostream::operator<<(long double n)
 				  /* extra: */ 0,
 #if __GLIBC_MINOR__ >= 1
 				  /* is_char: */ 0,
-#if __GLIBC_MINOR__ >= 2
-				  /* wide: */ 0,
-				  /* i18n: */ 0,
-#endif
 #endif
 #endif
 				  /* pad: */ fill()
@@ -848,8 +789,8 @@ ostream& ostream::operator<<(const char *s)
       if (flags() & ios::left && padding > 0) // Left adjustment.
 	if (_IO_padn(sbuf, fill_char, padding) != padding)
 	  set(ios::badbit);
-     failed:
       osfx();
+     failed:
       _IO_cleanup_region_end (0);
     }
   return *this;

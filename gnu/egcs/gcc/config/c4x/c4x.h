@@ -303,9 +303,7 @@ extern int target_flags;
 #define TARGET_C40		(target_flags & C40_FLAG)
 #define TARGET_C44		(target_flags & C44_FLAG)
 
-/* Define some options to control code generation.  */
 #define TARGET_LOAD_ADDRESS	(1 || (! TARGET_C3X && ! TARGET_SMALL))
-#define TARGET_EXPOSE_LDP	0
 
 /* -mrpts            allows the use of the RPTS instruction irregardless.
    -mrpts=max-cycles will use RPTS if the number of cycles is constant
@@ -1666,20 +1664,6 @@ extern struct rtx_def *c4x_legitimize_address ();
   }									\
 }
 
-extern struct rtx_def *c4x_legitimize_reload_address ();
-#define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)     \
-{									\
-  rtx new;								\
-  new = c4x_legitimize_reload_address (X, MODE, insn);			\
-  if (new != NULL_RTX)							\
-  {									\
-    (X) = new;								\
-   /* We do not have to call push_reload because we do not require      \
-      any more reloads.  */						\
-    goto WIN;								\
-  }									\
-}
-
 
 /* No mode-dependent addresses on the C4x are autoincrements.  */
 
@@ -1700,9 +1684,7 @@ extern struct rtx_def *c4x_legitimize_reload_address ();
    restricted subset of CONST_INT and CONST_DOUBLE.  Disallow
    LABEL_REF and SYMBOL_REF (except on the C40 with the big memory
    model) so that the symbols will be forced into the constant pool.
-   On second thoughts, let's do this with the move expanders since
-   the alias analysis has trouble if we force constant addresses
-   into memory.
+   On second thoughts, lets do this with the move expanders.
 */
 
 #define LEGITIMATE_CONSTANT_P(X)				\
@@ -2096,7 +2078,7 @@ dtors_section ()							\
     fprintf (FILE, "\n");					\
 }
 
-#define ASM_FILE_END(FILE) fprintf (FILE, "\t.end\n")
+#define ASM_FILE_END(FILE)   fprintf (FILE, "\t.end\n")
 
 /* We need to have a data section we can identify so that we can set
    the DP register back to a data pointer in the small memory model.
@@ -2107,7 +2089,7 @@ dtors_section ()							\
     if (! TARGET_TI) fputs ("gcc2_compiled.:\n", FILE);	\
       fputs ("\t.data\ndata_sec:\n", FILE);
 
-#define ASM_COMMENT_START ";"
+#define ASM_COMMENT_START	";"
 
 #define ASM_APP_ON ""
 #define ASM_APP_OFF ""
@@ -2266,10 +2248,8 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 #define CPP_PREDEFINES ""
 
-/* Output of Uninitialized Variables  */
-
-/* This says how to output an assembler line to define a local
-   uninitialized variable.  */
+/* This says how to output an assembler line
+   to define a local common symbol.  */
 
 #undef ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
@@ -2277,8 +2257,7 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
   assemble_name (FILE, (NAME)),		\
   fprintf (FILE, ",%u\n", (ROUNDED)))
 
-/* This says how to output an assembler line to define a global
-   uninitialized variable.  */
+/* Output of Uninitialized Variables  */
 
 #undef ASM_OUTPUT_COMMON
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \

@@ -1,6 +1,5 @@
 /* Output Dwarf2 format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000 Free Software
-   Foundation, Inc.
+   Copyright (C) 1992, 93, 95-98, 1999 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -720,8 +719,6 @@ dwarf_cfi_name (cfi_opc)
       return "DW_CFA_GNU_window_save";
     case DW_CFA_GNU_args_size:
       return "DW_CFA_GNU_args_size";
-    case DW_CFA_GNU_negative_offset_extended:
-      return "DW_CFA_GNU_negative_offset_extended";
 
     default:
       return "DW_CFA_<unknown>";
@@ -951,10 +948,7 @@ reg_save (label, reg, sreg, offset)
 
       offset /= DWARF_CIE_DATA_ALIGNMENT;
       if (offset < 0)
-	{
-	  cfi->dw_cfi_opc = DW_CFA_GNU_negative_offset_extended;
-	  offset = -offset;
-	}
+	abort ();
       cfi->dw_cfi_oprnd2.dw_cfi_offset = offset;
     }
   else
@@ -1641,7 +1635,6 @@ output_cfi (cfi, fde)
 	  break;
 #endif
 	case DW_CFA_offset_extended:
-	case DW_CFA_GNU_negative_offset_extended:
 	case DW_CFA_def_cfa:
 	  output_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num);
           fputc ('\n', asm_out_file);
@@ -2433,22 +2426,6 @@ static unsigned pending_types;
    be enough for most typical programs.	 */
 #define PENDING_TYPES_INCREMENT 64
 
-/* A pointer to the base of a list of incomplete types which might be
-   completed at some later time.  */
-
-static tree *incomplete_types_list;
-
-/* Number of elements currently allocated for the incomplete_types_list.  */
-static unsigned incomplete_types_allocated;
-
-/* Number of elements of incomplete_types_list currently in use.  */
-static unsigned incomplete_types;
-
-/* Size (in elements) of increments by which we may expand the incomplete
-   types list.  Actually, a single hunk of space of this size should
-   be enough for most typical programs.	 */
-#define INCOMPLETE_TYPES_INCREMENT 64
-
 /* Record whether the function being analyzed contains inlined functions.  */
 static int current_function_has_inlines;
 #if 0 && defined (MIPS_DEBUGGING_INFO)
@@ -2751,10 +2728,8 @@ static char debug_line_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 	dyn_string_append (STR, NAME + 1);		\
       else						\
 	{						\
-	  char *newstr;					\
-	  STRIP_NAME_ENCODING (newstr, NAME);		\
 	  dyn_string_append (STR, user_label_prefix);	\
-	  dyn_string_append (STR, newstr);		\
+	  dyn_string_append (STR, NAME);		\
 	}						\
   }							\
   while (0)
@@ -5142,11 +5117,6 @@ output_abbrev_section ()
 
       fprintf (asm_out_file, "\t%s\t0,0\n", ASM_BYTE_OP);
     }
-
-  /* We need to properly terminate the abbrev table for this
-     compilation unit, as per the standard, and not rely on
-     workarounds in e.g. gdb.  */
-  fprintf (asm_out_file, "\t%s\t0\n", ASM_BYTE_OP);
 }
 
 /* Output location description stack opcode's operands (if any).  */
@@ -7195,8 +7165,7 @@ add_location_or_const_value_attribute (die, decl)
 	    rtl = DECL_INCOMING_RTL (decl);
 	  else if (! BYTES_BIG_ENDIAN
 		   && TREE_CODE (declared_type) == INTEGER_TYPE
-		   && (GET_MODE_SIZE (TYPE_MODE (declared_type))
-		       <= GET_MODE_SIZE (TYPE_MODE (passed_type))))
+		   && TYPE_SIZE (declared_type) <= TYPE_SIZE (passed_type))
 		rtl = DECL_INCOMING_RTL (decl);
 	}
 
@@ -8061,39 +8030,6 @@ output_pending_types_for_scope (context_die)
       gen_type_die (type, context_die);
       if (!TREE_ASM_WRITTEN (type))
 	abort ();
-    }
-}
-
-/* Remember a type in the incomplete_types_list.  */
-
-static void
-add_incomplete_type (type)
-     tree type;
-{
-  if (incomplete_types == incomplete_types_allocated)
-    {
-      incomplete_types_allocated += INCOMPLETE_TYPES_INCREMENT;
-      incomplete_types_list
-	= (tree *) xrealloc (incomplete_types_list,
-			     sizeof (tree) * incomplete_types_allocated);
-    }
-
-  incomplete_types_list[incomplete_types++] = type;
-}
-
-/* Walk through the list of incomplete types again, trying once more to
-   emit full debugging info for them.  */
-
-static void
-retry_incomplete_types ()
-{
-  register tree type;
-
-  while (incomplete_types)
-    {
-      --incomplete_types;
-      type = incomplete_types_list[incomplete_types];
-      gen_type_die (type, comp_unit_die);
     }
 }
 
@@ -9088,13 +9024,7 @@ gen_struct_or_union_type_die (type, context_die)
 	}
     }
   else
-    {
-      add_AT_flag (type_die, DW_AT_declaration, 1);
-
-      /* We can't do this for function-local types, and we don't need to.  */
-      if (TREE_PERMANENT (type))
-	add_incomplete_type (type);
-    }
+    add_AT_flag (type_die, DW_AT_declaration, 1);
 }
 
 /* Generate a DIE for a subroutine _type_.  */
@@ -10062,10 +9992,6 @@ dwarf2out_finish ()
 	}
       free (node);
     }
-
-  /* Walk through the list of incomplete types again, trying once more to
-     emit full debugging info for them.  */
-  retry_incomplete_types ();
 
   /* Traverse the DIE tree and add sibling attributes to those DIE's
      that have children.  */

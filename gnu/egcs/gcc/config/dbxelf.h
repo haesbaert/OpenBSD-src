@@ -80,19 +80,15 @@ while (0)
    current function.  */
 
 #undef  ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(FILE, LINE)				\
+#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
 do									\
   {									\
     static int sym_lineno = 1;						\
-    char temp[256];							\
-    ASM_GENERATE_INTERNAL_LABEL (temp, "LM", sym_lineno);		\
-    fprintf (FILE, ".stabn 68,0,%d,", LINE);				\
-    assemble_name (FILE, temp);						\
-    putc ('-', FILE);							\
-    assemble_name (FILE,						\
+    fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
+	     line, sym_lineno);						\
+    assemble_name (file,						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
-    putc ('\n', FILE);							\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);			\
+    fprintf (file, "\n.LM%d:\n", sym_lineno);				\
     sym_lineno += 1;							\
   }									\
 while (0)
@@ -103,7 +99,7 @@ while (0)
 
 #undef  DBX_OUTPUT_MAIN_SOURCE_FILE_END
 #define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME)			\
-  asm_fprintf (FILE,							\
-	       "\t.text\n\t.stabs \"\",%d,0,0,%LLetext\n%LLetext:\n", N_SO)
+  fprintf (FILE,							\
+	   "\t.text\n\t.stabs \"\",%d,0,0,Letext\nLetext:\n", N_SO)
 
 #endif /* __DBX_ELF_H */

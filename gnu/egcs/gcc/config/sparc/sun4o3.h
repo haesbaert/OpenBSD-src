@@ -1,9 +1,9 @@
 #include "sparc/sparc.h"
 
-/* Override the name of the mcount profiling function.  */
-
-#undef MCOUNT_FUNCTION
-#define MCOUNT_FUNCTION "*.mcount"
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(FILE, LABELNO)  \
+  fprintf (FILE, "\tsethi %%hi(LP%d),%%o0\n\tcall .mcount\n\tor %%lo(LP%d),%%o0,%%o0\n", \
+	   (LABELNO), (LABELNO))
 
 /* LINK_SPEC is needed only for SunOS 4.  */
 

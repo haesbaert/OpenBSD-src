@@ -93,9 +93,6 @@
 /* Whether strsignal must be declared even if <string.h> is included.  */
 #undef NEED_DECLARATION_STRSIGNAL
 
-/* Whether strstr must be declared even if <string.h> is included.  */
-#undef NEED_DECLARATION_STRSTR
-
 /* Whether getcwd must be declared even if <unistd.h> is included.  */
 #undef NEED_DECLARATION_GETCWD
 

@@ -70,7 +70,7 @@ struct _ffestw_
     ffewhereLine line_;		/* Where first token of statement triggering
 				   state */
     ffewhereColumn col_;	/* was seen in source file. */
-    int uses_;			/* # uses (new+use-kill calls). */
+    char uses_;			/* # uses (new+use-kill calls). */
     ffestvState state_;
     int substate_;		/* Used on a per-block-state basis. */
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
