@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1993, 1994, 1995, 1996
+ * Copyright (c) 1997
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,38 +17,48 @@
  * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- *
- * @(#) $Header: /cvs/OpenBSD/src/usr.sbin/tcpdump/Attic/os-solaris2.h,v 1.1 1996/12/12 16:22:46 bitblt Exp $ (LBL)
  */
 
-/* Prototypes missing in SunOS 5 */
-int	daemon(int, int);
-int	dn_expand(u_char *, u_char *, u_char *, u_char *, int);
-int	dn_skipname(u_char *, u_char *);
-int	flock(int, int);
-int	getdtablesize(void);
-int	gethostname(char *, int);
-int	getpagesize(void);
-char	*getusershell(void);
-char	*getwd(char *);
-int	iruserok(u_int, int, char *, char *);
-#ifdef __STDC__
-struct	utmp;
-void	login(struct utmp *);
+#ifndef lint
+static const char rcsid[] =
+    "@(#) $Header: /cvs/OpenBSD/src/usr.sbin/tcpdump/savestr.c,v 1.1 1999/07/28 20:41:36 jakob Exp $ (LBL)";
 #endif
-int	logout(const char *);
-int	res_query(char *, int, int, u_char *, int);
-int	setenv(const char *, const char *, int);
-#if defined(_STDIO_H) && defined(HAVE_SETLINEBUF)
-int	setlinebuf(FILE *);
+
+#include <sys/types.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "gnuc.h"
+#ifdef HAVE_OS_PROTO_H
+#include "os-proto.h"
 #endif
-int	sigblock(int);
-int	sigsetmask(int);
-char    *strerror(int);
-int	snprintf(char *, size_t, const char *, ...);
-int	strcasecmp(const char *, const char *);
-void	unsetenv(const char *);
-#ifdef __STDC__
-struct	timeval;
-#endif
-int	utimes(const char *, struct timeval *);
+
+#include "savestr.h"
+
+/* A replacement for strdup() that cuts down on malloc() overhead */
+char *
+savestr(register const char *str)
+{
+	register u_int size;
+	register char *p;
+	static char *strptr = NULL;
+	static u_int strsize = 0;
+
+	size = strlen(str) + 1;
+	if (size > strsize) {
+		strsize = 1024;
+		if (strsize < size)
+			strsize = size;
+		strptr = (char *)malloc(strsize);
+		if (strptr == NULL) {
+			fprintf(stderr, "savestr: malloc\n");
+			exit(1);
+		}
+	}
+	(void)strcpy(strptr, str);
+	p = strptr;
+	strptr += size;
+	strsize -= size;
+	return (p);
+}
