@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2001 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -31,7 +31,7 @@
  * SUCH DAMAGE. 
  */
 
-/* $KTH: parse_units.h,v 1.9 2005/04/12 11:28:59 lha Exp $ */
+/* $KTH: parse_units.h,v 1.6 1999/12/02 16:58:51 joda Exp $ */
 
 #ifndef __PARSE_UNITS_H__
 #define __PARSE_UNITS_H__
@@ -39,41 +39,35 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#ifndef ROKEN_LIB_FUNCTION
-#ifdef _WIN32
-#define ROKEN_LIB_FUNCTION _stdcall
-#else
-#define ROKEN_LIB_FUNCTION
-#endif
-#endif
-
 struct units {
     const char *name;
     unsigned mult;
 };
 
-int ROKEN_LIB_FUNCTION
+typedef struct units units;
+
+int
 parse_units (const char *s, const struct units *units,
 	     const char *def_unit);
 
-void ROKEN_LIB_FUNCTION
+void
 print_units_table (const struct units *units, FILE *f);
 
-int ROKEN_LIB_FUNCTION
+int
 parse_flags (const char *s, const struct units *units,
 	     int orig);
 
-int ROKEN_LIB_FUNCTION
+size_t
 unparse_units (int num, const struct units *units, char *s, size_t len);
 
-int ROKEN_LIB_FUNCTION
+size_t
 unparse_units_approx (int num, const struct units *units, char *s,
 		      size_t len);
 
-int ROKEN_LIB_FUNCTION
+size_t
 unparse_flags (int num, const struct units *units, char *s, size_t len);
 
-void ROKEN_LIB_FUNCTION
+void
 print_flags_table (const struct units *units, FILE *f);
 
 #endif /* __PARSE_UNITS_H__ */

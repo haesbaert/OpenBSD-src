@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2001 Kungliga Tekniska Högskolan
+ * Copyright (c) 1999 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -31,26 +31,18 @@
  * SUCH DAMAGE. 
  */
 
-/* $KTH: parse_bytes.h,v 1.4 2005/04/13 13:19:07 lha Exp $ */
+/* $KTH: parse_bytes.h,v 1.2 1999/12/02 16:58:51 joda Exp $ */
 
 #ifndef __PARSE_BYTES_H__
 #define __PARSE_BYTES_H__
 
-#ifndef ROKEN_LIB_FUNCTION
-#ifdef _WIN32
-#define ROKEN_LIB_FUNCTION _stdcall
-#else
-#define ROKEN_LIB_FUNCTION
-#endif
-#endif
-
-int ROKEN_LIB_FUNCTION
+int
 parse_bytes (const char *s, const char *def_unit);
 
-int ROKEN_LIB_FUNCTION
+size_t
 unparse_bytes (int t, char *s, size_t len);
 
-int ROKEN_LIB_FUNCTION
+size_t
 unparse_bytes_short (int t, char *s, size_t len);
 
 #endif /* __PARSE_BYTES_H__ */

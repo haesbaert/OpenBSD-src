@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2002 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997 - 200 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -32,9 +32,8 @@
  */
 
 #include "krb5_locl.h"
-#include "store-int.h"
 
-RCSID("$KTH: store_emem.c,v 1.14 2004/05/25 21:43:29 lha Exp $");
+RCSID("$KTH: store_emem.c,v 1.10 2000/05/19 14:39:49 assar Exp $");
 
 typedef struct emem_storage{
     unsigned char *base;
@@ -61,10 +60,8 @@ emem_store(krb5_storage *sp, const void *data, size_t size)
     if(size > s->base + s->size - s->ptr){
 	void *base;
 	size_t sz, off;
+	sz = 2 * (size + (s->ptr - s->base)); /* XXX */
 	off = s->ptr - s->base;
-	sz = off + size;
-	if (sz < 4096)
-	    sz *= 2;
 	base = realloc(s->base, sz);
 	if(base == NULL)
 	    return 0;
@@ -107,19 +104,16 @@ emem_seek(krb5_storage *sp, off_t offset, int whence)
 static void
 emem_free(krb5_storage *sp)
 {
-    emem_storage *s = sp->data;
-    memset(s->base, 0, s->len);
-    free(s->base);
+    free(((emem_storage*)sp->data)->base);
 }
 
-krb5_storage * KRB5_LIB_FUNCTION
+krb5_storage *
 krb5_storage_emem(void)
 {
     krb5_storage *sp = malloc(sizeof(krb5_storage));
     emem_storage *s = malloc(sizeof(*s));
     sp->data = s;
     sp->flags = 0;
-    sp->eof_code = HEIM_ERR_EOF;
     s->size = 1024;
     s->base = malloc(s->size);
     s->len = 0;

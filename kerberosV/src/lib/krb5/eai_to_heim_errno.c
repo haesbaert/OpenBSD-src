@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2001 Kungliga Tekniska Högskolan
+ * Copyright (c) 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -33,24 +33,16 @@
 
 #include <krb5_locl.h>
 
-RCSID("$KTH: eai_to_heim_errno.c,v 1.5 2004/05/25 21:23:35 lha Exp $");
+RCSID("$KTH: eai_to_heim_errno.c,v 1.1 2000/07/08 13:03:36 joda Exp $");
 
-/*
- * convert the getaddrinfo error code in `eai_errno' into a
- * krb5_error_code. `system_error' should have the value of the errno
- * after the failed call.
- */
-
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_eai_to_heim_errno(int eai_errno, int system_error)
+krb5_error_code
+krb5_eai_to_heim_errno(int eai_errno)
 {
     switch(eai_errno) {
     case EAI_NOERROR:
 	return 0;
-#ifdef EAI_ADDRFAMILY
     case EAI_ADDRFAMILY:
 	return HEIM_EAI_ADDRFAMILY;
-#endif
     case EAI_AGAIN:
 	return HEIM_EAI_AGAIN;
     case EAI_BADFLAGS:
@@ -61,10 +53,8 @@ krb5_eai_to_heim_errno(int eai_errno, int system_error)
 	return HEIM_EAI_FAMILY;
     case EAI_MEMORY:
 	return HEIM_EAI_MEMORY;
-#if defined(EAI_NODATA) && EAI_NODATA != EAI_NONAME
     case EAI_NODATA:
 	return HEIM_EAI_NODATA;
-#endif
     case EAI_NONAME:
 	return HEIM_EAI_NONAME;
     case EAI_SERVICE:
@@ -72,26 +62,7 @@ krb5_eai_to_heim_errno(int eai_errno, int system_error)
     case EAI_SOCKTYPE:
 	return HEIM_EAI_SOCKTYPE;
     case EAI_SYSTEM:
-	return system_error;
-    default:
-	return HEIM_EAI_UNKNOWN; /* XXX */
-    }
-}
-
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_h_errno_to_heim_errno(int eai_errno)
-{
-    switch(eai_errno) {
-    case 0:
-	return 0;
-    case HOST_NOT_FOUND:
-	return HEIM_EAI_NONAME;
-    case TRY_AGAIN:
-	return HEIM_EAI_AGAIN;
-    case NO_RECOVERY:
-	return HEIM_EAI_FAIL;
-    case NO_DATA:
-	return HEIM_EAI_NONAME;
+	return errno;
     default:
 	return HEIM_EAI_UNKNOWN; /* XXX */
     }

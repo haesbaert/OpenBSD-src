@@ -33,7 +33,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: hstrerror.c,v 1.26 2005/04/12 11:28:51 lha Exp $");
+RCSID("$KTH: hstrerror.c,v 1.23 1999/12/05 13:18:55 assar Exp $");
 #endif
 
 #ifndef HAVE_HSTRERROR
@@ -44,6 +44,10 @@ RCSID("$KTH: hstrerror.c,v 1.26 2005/04/12 11:28:51 lha Exp $");
 #include "roken.h"
 #if (defined(SunOS) && (SunOS >= 50))
 #undef hstrerror
+#endif
+
+#ifndef HAVE_H_ERRNO
+int h_errno = -17; /* Some magic number */
 #endif
 
 #if !(defined(HAVE_H_ERRLIST) && defined(HAVE_H_NERR))
@@ -60,14 +64,14 @@ const
 int h_nerr = { sizeof h_errlist / sizeof h_errlist[0] };
 #else
 
-#if !HAVE_DECL_H_ERRLIST
+#ifndef HAVE_H_ERRLIST_DECLARATION
 extern const char *h_errlist[];
 extern int h_nerr;
 #endif
 
 #endif
 
-const char * ROKEN_LIB_FUNCTION
+const char *
 hstrerror(int herr)
 {
     if (0 <= herr && herr < h_nerr)

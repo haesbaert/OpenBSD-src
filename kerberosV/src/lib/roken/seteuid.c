@@ -33,7 +33,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: seteuid.c,v 1.11 2005/04/12 11:29:05 lha Exp $");
+RCSID("$KTH: seteuid.c,v 1.10 1999/12/02 16:58:52 joda Exp $");
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -42,7 +42,7 @@ RCSID("$KTH: seteuid.c,v 1.11 2005/04/12 11:29:05 lha Exp $");
 
 #include "roken.h"
 
-int ROKEN_LIB_FUNCTION
+int
 seteuid(uid_t euid)
 {
 #ifdef HAVE_SETREUID

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2001 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997, 1999 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -31,29 +31,14 @@
  * SUCH DAMAGE. 
  */
 
-/* $KTH: symbol.h,v 1.11 2003/10/03 00:28:29 lha Exp $ */
+/* $KTH: symbol.h,v 1.5 1999/12/02 17:05:02 joda Exp $ */
 
 #ifndef _SYMBOL_H
 #define _SYMBOL_H
 
-enum typetype { 
-    TApplication,
-    TBitString,
-    TBoolean,
-    TChoice,
-    TEnumerated,
-    TGeneralString,
-    TGeneralizedTime,
-    TInteger, 
-    TNull,
-    TOID,
-    TOctetString,
-    TSequence,
-    TSequenceOf,
-    TType, 
-    TUInteger,
-    TUTF8String
-};
+enum typetype { TInteger, TOctetString, TBitString, TSequence, TSequenceOf,
+		TGeneralizedTime, TGeneralString, TApplication, TType, 
+		TUInteger };
 
 typedef enum typetype Typetype;
 
@@ -66,7 +51,6 @@ struct member {
   int optional;
   struct type *type;
   struct member *next, *prev;
-  char *defval;
 };
 
 typedef struct member Member;

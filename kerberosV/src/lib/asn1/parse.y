@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2001 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997 - 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -31,7 +31,7 @@
  * SUCH DAMAGE. 
  */
 
-/* $KTH: parse.y,v 1.23 2004/10/13 17:41:48 lha Exp $ */
+/* $KTH: parse.y,v 1.16 2000/07/08 11:35:47 assar Exp $ */
 
 %{
 #ifdef HAVE_CONFIG_H
@@ -44,7 +44,7 @@
 #include "lex.h"
 #include "gen_locl.h"
 
-RCSID("$KTH: parse.y,v 1.23 2004/10/13 17:41:48 lha Exp $");
+RCSID("$KTH: parse.y,v 1.16 2000/07/08 11:35:47 assar Exp $");
 
 static Type *new_type (Typetype t);
 void yyerror (char *);
@@ -58,31 +58,24 @@ static void append (Member *l, Member *r);
   char *name;
   Type *type;
   Member *member;
-  char *defval;
 }
 
-%token INTEGER SEQUENCE CHOICE OF OCTET STRING GeneralizedTime GeneralString 
-%token BIT APPLICATION OPTIONAL EEQUAL TBEGIN END DEFINITIONS ENUMERATED
-%token UTF8String NULLTYPE
-%token EXTERNAL DEFAULT
-%token DOTDOT DOTDOTDOT
-%token BOOLEAN
+%token INTEGER SEQUENCE OF OCTET STRING GeneralizedTime GeneralString
+%token BIT APPLICATION OPTIONAL EEQUAL TBEGIN END DEFINITIONS EXTERNAL
+%token DOTDOT
 %token IMPORTS FROM
-%token OBJECT IDENTIFIER
-%token <name> IDENT 
+%token <name> IDENTIFIER 
 %token <constant> CONSTANT
 
 %type <constant> constant optional2
 %type <type> type
-%type <member> memberdecls memberdecl memberdeclstart bitdecls bitdecl
-
-%type <defval> defvalue
+%type <member> memberdecls memberdecl bitdecls bitdecl
 
 %start envelope
 
 %%
 
-envelope	: IDENT DEFINITIONS EEQUAL TBEGIN specification END {}
+envelope	: IDENTIFIER DEFINITIONS EEQUAL TBEGIN specification END {}
 		;
 
 specification	:
@@ -94,23 +87,22 @@ declaration	: imports_decl
 		| constant_decl
 		;
 
-referencenames	: IDENT ',' referencenames
+referencenames	: IDENTIFIER ',' referencenames
 		{
 			Symbol *s = addsym($1);
 			s->stype = Stype;
 		}
-		| IDENT
+		| IDENTIFIER
 		{
 			Symbol *s = addsym($1);
 			s->stype = Stype;
 		}
 		;
 
-imports_decl	: IMPORTS referencenames FROM IDENT ';'
-		{ add_import($4); }
+imports_decl	: IMPORTS referencenames FROM IDENTIFIER ';'
 		;
 
-type_decl	: IDENT EEQUAL type
+type_decl	: IDENTIFIER EEQUAL type
 		{
 		  Symbol *s = addsym ($1);
 		  s->stype = Stype;
@@ -119,7 +111,7 @@ type_decl	: IDENT EEQUAL type
 		}
 		;
 
-constant_decl	: IDENT type EEQUAL constant
+constant_decl	: IDENTIFIER type EEQUAL constant
 		{
 		  Symbol *s = addsym ($1);
 		  s->stype = SConstant;
@@ -142,16 +134,8 @@ type		: INTEGER     { $$ = new_type(TInteger); }
 			$$ = new_type(TInteger);
 			$$->members = $3;
                 }
-		| OBJECT IDENTIFIER { $$ = new_type(TOID); }
-		| ENUMERATED '{' bitdecls '}'
-		{
-			$$ = new_type(TEnumerated);
-			$$->members = $3;
-		}
 		| OCTET STRING { $$ = new_type(TOctetString); }
 		| GeneralString { $$ = new_type(TGeneralString); }
-		| UTF8String { $$ = new_type(TUTF8String); }
-                | NULLTYPE { $$ = new_type(TNull); }
 		| GeneralizedTime { $$ = new_type(TGeneralizedTime); }
 		| SEQUENCE OF type
 		{
@@ -163,17 +147,12 @@ type		: INTEGER     { $$ = new_type(TInteger); }
 		  $$ = new_type(TSequence);
 		  $$->members = $3;
 		}
-		| CHOICE '{' memberdecls '}'
-		{
-		  $$ = new_type(TChoice);
-		  $$->members = $3;
-		}
 		| BIT STRING '{' bitdecls '}'
 		{
 		  $$ = new_type(TBitString);
 		  $$->members = $4;
 		}
-		| IDENT
+		| IDENTIFIER
 		{
 		  Symbol *s = addsym($1);
 		  $$ = new_type(TType);
@@ -188,55 +167,36 @@ type		: INTEGER     { $$ = new_type(TInteger); }
 		  $$->subtype = $5;
 		  $$->application = $3;
 		}
-		| BOOLEAN     { $$ = new_type(TBoolean); }
 		;
 
 memberdecls	: { $$ = NULL; }
 		| memberdecl	{ $$ = $1; }
-		| memberdecls  ',' DOTDOTDOT { $$ = $1; }
 		| memberdecls ',' memberdecl { $$ = $1; append($$, $3); }
 		;
 
-memberdeclstart : IDENT '[' constant ']' type
+memberdecl	: IDENTIFIER '[' constant ']' type optional2
 		{
 		  $$ = malloc(sizeof(*$$));
 		  $$->name = $1;
 		  $$->gen_name = strdup($1);
 		  output_name ($$->gen_name);
 		  $$->val = $3;
-		  $$->optional = 0;
-		  $$->defval = NULL;
+		  $$->optional = $6;
 		  $$->type = $5;
 		  $$->next = $$->prev = $$;
 		}
 		;
 
-
-memberdecl	: memberdeclstart optional2
-		{ $1->optional = $2 ; $$ = $1; }
-		| memberdeclstart defvalue
-		{ $1->defval = $2 ; $$ = $1; }
-		| memberdeclstart
-		{ $$ = $1; }
-		;
-
-
-optional2	: OPTIONAL { $$ = 1; }
-		;
-
-defvalue	: DEFAULT constant
-		{ asprintf(&$$, "%d", $2); }
-		| DEFAULT '"' IDENT '"'
-		{ $$ = strdup ($3); }
+optional2	: { $$ = 0; }
+		| OPTIONAL { $$ = 1; }
 		;
 
 bitdecls	: { $$ = NULL; }
 		| bitdecl { $$ = $1; }
-		| bitdecls ',' DOTDOTDOT { $$ = $1; }
 		| bitdecls ',' bitdecl { $$ = $1; append($$, $3); }
 		;
 
-bitdecl		: IDENT '(' constant ')'
+bitdecl		: IDENTIFIER '(' constant ')'
 		{
 		  $$ = malloc(sizeof(*$$));
 		  $$->name = $1;
@@ -250,8 +210,7 @@ bitdecl		: IDENT '(' constant ')'
 		;
 
 constant	: CONSTANT	{ $$ = $1; }
-		| '-' CONSTANT	{ $$ = -$2; }
-		| IDENT	{
+		| IDENTIFIER	{
 				  Symbol *s = addsym($1);
 				  if(s->stype != SConstant)
 				    error_message ("%s is not a constant\n",
@@ -273,8 +232,7 @@ new_type (Typetype tt)
 {
   Type *t = malloc(sizeof(*t));
   if (t == NULL) {
-      error_message ("out of memory in malloc(%lu)", 
-		     (unsigned long)sizeof(*t));
+      error_message ("out of memory in malloc(%u)", sizeof(*t));
       exit (1);
   }
   t->type = tt;

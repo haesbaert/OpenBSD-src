@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2002 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997 - 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -33,41 +33,41 @@
 
 #include "krb5_locl.h"
 
-RCSID("$KTH: get_in_tkt.c,v 1.115 2004/12/29 18:55:14 lha Exp $");
+RCSID("$KTH: get_in_tkt.c,v 1.97 2000/08/18 06:47:54 assar Exp $");
 
-krb5_error_code KRB5_LIB_FUNCTION
+krb5_error_code
 krb5_init_etype (krb5_context context,
 		 unsigned *len,
-		 krb5_enctype **val,
+		 int **val,
 		 const krb5_enctype *etypes)
 {
     int i;
     krb5_error_code ret;
-    krb5_enctype *tmp = NULL;
+    krb5_enctype *tmp;
 
     ret = 0;
-    if (etypes == NULL) {
+    if (etypes)
+	tmp = (krb5_enctype*)etypes;
+    else {
 	ret = krb5_get_default_in_tkt_etypes(context,
 					     &tmp);
 	if (ret)
 	    return ret;
-	etypes = tmp;
     }
 
-    for (i = 0; etypes[i]; ++i)
+    for (i = 0; tmp[i]; ++i)
 	;
     *len = i;
-    *val = malloc(i * sizeof(**val));
+    *val = malloc(i * sizeof(int));
     if (i != 0 && *val == NULL) {
 	ret = ENOMEM;
-	krb5_set_error_string(context, "malloc: out of memory");
 	goto cleanup;
     }
     memmove (*val,
-	     etypes,
+	     tmp,
 	     i * sizeof(*tmp));
 cleanup:
-    if (tmp != NULL)
+    if (etypes == NULL)
 	free (tmp);
     return ret;
 }
@@ -133,13 +133,12 @@ _krb5_extract_ticket(krb5_context context,
     krb5_error_code ret;
     krb5_principal tmp_principal;
     int tmp;
-    size_t len;
     time_t tmp_time;
     krb5_timestamp sec_now;
 
-    ret = _krb5_principalname2krb5_principal (&tmp_principal,
-					      rep->kdc_rep.cname,
-					      rep->kdc_rep.crealm);
+    ret = principalname2krb5_principal (&tmp_principal,
+					rep->kdc_rep.cname,
+					rep->kdc_rep.crealm);
     if (ret)
 	goto out;
 
@@ -149,7 +148,6 @@ _krb5_extract_ticket(krb5_context context,
 	tmp = krb5_principal_compare (context, tmp_principal, creds->client);
 	if (!tmp) {
 	    krb5_free_principal (context, tmp_principal);
-	    krb5_clear_error_string (context);
 	    ret = KRB5KRB_AP_ERR_MODIFIED;
 	    goto out;
 	}
@@ -159,20 +157,27 @@ _krb5_extract_ticket(krb5_context context,
     creds->client = tmp_principal;
 
     /* extract ticket */
-    ASN1_MALLOC_ENCODE(Ticket, creds->ticket.data, creds->ticket.length, 
-		       &rep->kdc_rep.ticket, &len, ret);
-    if(ret)
-	goto out;
-    if (creds->ticket.length != len)
-	krb5_abortx(context, "internal error in ASN.1 encoder");
-    creds->second_ticket.length = 0;
-    creds->second_ticket.data   = NULL;
+    {
+	unsigned char *buf;
+	size_t len;
+	len = length_Ticket(&rep->kdc_rep.ticket);
+	buf = malloc(len);
+	if(buf == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+	encode_Ticket(buf + len - 1, len, &rep->kdc_rep.ticket, &len);
+	creds->ticket.data = buf;
+	creds->ticket.length = len;
+	creds->second_ticket.length = 0;
+	creds->second_ticket.data   = NULL;
+    }
 
     /* compare server */
 
-    ret = _krb5_principalname2krb5_principal (&tmp_principal,
-					      rep->kdc_rep.ticket.sname,
-					      rep->kdc_rep.ticket.realm);
+    ret = principalname2krb5_principal (&tmp_principal,
+					rep->kdc_rep.ticket.sname,
+					rep->kdc_rep.ticket.realm);
     if (ret)
 	goto out;
     if(allow_server_mismatch){
@@ -184,7 +189,6 @@ _krb5_extract_ticket(krb5_context context,
 	krb5_free_principal (context, tmp_principal);
 	if (!tmp) {
 	    ret = KRB5KRB_AP_ERR_MODIFIED;
-	    krb5_clear_error_string (context);
 	    goto out;
 	}
     }
@@ -209,15 +213,13 @@ _krb5_extract_ticket(krb5_context context,
 
     if (nonce != rep->enc_part.nonce) {
 	ret = KRB5KRB_AP_ERR_MODIFIED;
-	krb5_set_error_string(context, "malloc: out of memory");
 	goto out;
     }
 
     /* set kdc-offset */
 
     krb5_timeofday (context, &sec_now);
-    if (rep->enc_part.flags.initial
-	&& context->kdc_sec_offset == 0
+    if (context->kdc_sec_offset == 0
 	&& krb5_config_get_bool (context, NULL,
 				 "libdefaults",
 				 "kdc_timesync",
@@ -236,16 +238,11 @@ _krb5_extract_ticket(krb5_context context,
     if (creds->times.starttime == 0
 	&& abs(tmp_time - sec_now) > context->max_skew) {
 	ret = KRB5KRB_AP_ERR_SKEW;
-	krb5_set_error_string (context,
-			       "time skew (%d) larger than max (%d)",
-			       abs(tmp_time - sec_now),
-			       (int)context->max_skew);
 	goto out;
     }
 
     if (creds->times.starttime != 0
 	&& tmp_time != creds->times.starttime) {
-	krb5_clear_error_string (context);
 	ret = KRB5KRB_AP_ERR_MODIFIED;
 	goto out;
     }
@@ -259,7 +256,6 @@ _krb5_extract_ticket(krb5_context context,
 
     if (creds->times.renew_till != 0
 	&& tmp_time > creds->times.renew_till) {
-	krb5_clear_error_string (context);
 	ret = KRB5KRB_AP_ERR_MODIFIED;
 	goto out;
     }
@@ -270,7 +266,6 @@ _krb5_extract_ticket(krb5_context context,
 
     if (creds->times.endtime != 0
 	&& rep->enc_part.endtime > creds->times.endtime) {
-	krb5_clear_error_string (context);
 	ret = KRB5KRB_AP_ERR_MODIFIED;
 	goto out;
     }
@@ -308,50 +303,52 @@ make_pa_enc_timestamp(krb5_context context, PA_DATA *pa,
 		      krb5_enctype etype, krb5_keyblock *key)
 {
     PA_ENC_TS_ENC p;
-    unsigned char *buf;
-    size_t buf_size;
+    u_char buf[1024];
     size_t len;
     EncryptedData encdata;
     krb5_error_code ret;
-    int32_t usec;
+    int32_t sec, usec;
     int usec2;
     krb5_crypto crypto;
     
-    krb5_us_timeofday (context, &p.patimestamp, &usec);
+    krb5_us_timeofday (context, &sec, &usec);
+    p.patimestamp = sec;
     usec2         = usec;
     p.pausec      = &usec2;
 
-    ASN1_MALLOC_ENCODE(PA_ENC_TS_ENC, buf, buf_size, &p, &len, ret);
+    ret = encode_PA_ENC_TS_ENC(buf + sizeof(buf) - 1,
+			       sizeof(buf),
+			       &p,
+			       &len);
     if (ret)
 	return ret;
-    if(buf_size != len)
-	krb5_abortx(context, "internal error in ASN.1 encoder");
+
     ret = krb5_crypto_init(context, key, 0, &crypto);
-    if (ret) {
-	free(buf);
+    if (ret)
 	return ret;
-    }
     ret = krb5_encrypt_EncryptedData(context, 
 				     crypto,
 				     KRB5_KU_PA_ENC_TIMESTAMP,
-				     buf,
+				     buf + sizeof(buf) - len,
 				     len,
 				     0,
 				     &encdata);
-    free(buf);
     krb5_crypto_destroy(context, crypto);
     if (ret)
 	return ret;
 		    
-    ASN1_MALLOC_ENCODE(EncryptedData, buf, buf_size, &encdata, &len, ret);
+    ret = encode_EncryptedData(buf + sizeof(buf) - 1,
+			       sizeof(buf),
+			       &encdata, 
+			       &len);
     free_EncryptedData(&encdata);
     if (ret)
 	return ret;
-    if(buf_size != len)
-	krb5_abortx(context, "internal error in ASN.1 encoder");
     pa->padata_type = KRB5_PADATA_ENC_TIMESTAMP;
-    pa->padata_value.length = len;
-    pa->padata_value.data = buf;
+    pa->padata_value.length = 0;
+    krb5_data_copy(&pa->padata_value,
+		   buf + sizeof(buf) - len,
+		   len);
     return 0;
 }
 
@@ -361,14 +358,14 @@ add_padata(krb5_context context,
 	   krb5_principal client,
 	   krb5_key_proc key_proc,
 	   krb5_const_pointer keyseed,
-	   krb5_enctype *enctypes,
+	   int *enctypes, 
 	   unsigned netypes,
 	   krb5_salt *salt)
 {
     krb5_error_code ret;
     PA_DATA *pa2;
     krb5_salt salt2;
-    krb5_enctype *ep;
+    int *ep;
     int i;
     
     if(salt == NULL) {
@@ -377,16 +374,14 @@ add_padata(krb5_context context,
 	salt = &salt2;
     }
     if (!enctypes) {
-	enctypes = context->etypes;
+	enctypes = (int *)context->etypes; /* XXX */
 	netypes = 0;
 	for (ep = enctypes; *ep != ETYPE_NULL; ep++)
 	    netypes++;
     }
     pa2 = realloc (md->val, (md->len + netypes) * sizeof(*md->val));
-    if (pa2 == NULL) {
-	krb5_set_error_string(context, "malloc: out of memory");
+    if (pa2 == NULL)
 	return ENOMEM;
-    }
     md->val = pa2;
 
     for (i = 0; i < netypes; ++i) {
@@ -431,19 +426,17 @@ init_as_req (krb5_context context,
     a->req_body.cname = malloc(sizeof(*a->req_body.cname));
     if (a->req_body.cname == NULL) {
 	ret = ENOMEM;
-	krb5_set_error_string(context, "malloc: out of memory");
 	goto fail;
     }
     a->req_body.sname = malloc(sizeof(*a->req_body.sname));
     if (a->req_body.sname == NULL) {
 	ret = ENOMEM;
-	krb5_set_error_string(context, "malloc: out of memory");
 	goto fail;
     }
-    ret = _krb5_principal2principalname (a->req_body.cname, creds->client);
+    ret = krb5_principal2principalname (a->req_body.cname, creds->client);
     if (ret)
 	goto fail;
-    ret = _krb5_principal2principalname (a->req_body.sname, creds->server);
+    ret = krb5_principal2principalname (a->req_body.sname, creds->server);
     if (ret)
 	goto fail;
     ret = copy_Realm(&creds->client->realm, &a->req_body.realm);
@@ -454,7 +447,6 @@ init_as_req (krb5_context context,
 	a->req_body.from = malloc(sizeof(*a->req_body.from));
 	if (a->req_body.from == NULL) {
 	    ret = ENOMEM;
-	    krb5_set_error_string(context, "malloc: out of memory");
 	    goto fail;
 	}
 	*a->req_body.from = creds->times.starttime;
@@ -467,7 +459,6 @@ init_as_req (krb5_context context,
 	a->req_body.rtime = malloc(sizeof(*a->req_body.rtime));
 	if (a->req_body.rtime == NULL) {
 	    ret = ENOMEM;
-	    krb5_set_error_string(context, "malloc: out of memory");
 	    goto fail;
 	}
 	*a->req_body.rtime = creds->times.renew_till;
@@ -490,19 +481,13 @@ init_as_req (krb5_context context,
 	a->req_body.addresses = malloc(sizeof(*a->req_body.addresses));
 	if (a->req_body.addresses == NULL) {
 	    ret = ENOMEM;
-	    krb5_set_error_string(context, "malloc: out of memory");
 	    goto fail;
 	}
 
 	if (addrs)
 	    ret = krb5_copy_addresses(context, addrs, a->req_body.addresses);
-	else {
+	else
 	    ret = krb5_get_all_client_addrs (context, a->req_body.addresses);
-	    if(ret == 0 && a->req_body.addresses->len == 0) {
-		free(a->req_body.addresses);
-		a->req_body.addresses = NULL;
-	    }
-	}
 	if (ret)
 	    return ret;
     }
@@ -515,15 +500,20 @@ init_as_req (krb5_context context,
 	ALLOC(a->padata, 1);
 	if(a->padata == NULL) {
 	    ret = ENOMEM;
-	    krb5_set_error_string(context, "malloc: out of memory");
 	    goto fail;
 	}
-	a->padata->val = NULL;
-	a->padata->len = 0;
 	for(i = 0; i < preauth->len; i++) {
 	    if(preauth->val[i].type == KRB5_PADATA_ENC_TIMESTAMP){
 		int j;
-
+		PA_DATA *tmp = realloc(a->padata->val, 
+				       (a->padata->len + 
+					preauth->val[i].info.len) * 
+				       sizeof(*a->padata->val));
+		if(tmp == NULL) {
+		    ret = ENOMEM;
+		    goto fail;
+		}
+		a->padata->val = tmp;
 		for(j = 0; j < preauth->val[i].info.len; j++) {
 		    krb5_salt *sp = &salt;
 		    if(preauth->val[i].info.val[j].salttype)
@@ -537,12 +527,10 @@ init_as_req (krb5_context context,
 			    sp = NULL;
 			else
 			    krb5_data_zero(&salt.saltvalue);
-		    ret = add_padata(context, a->padata, creds->client, 
-				     key_proc, keyseed, 
-				     &preauth->val[i].info.val[j].etype, 1,
-				     sp);
-		    if (ret == 0)
-			break;
+		    add_padata(context, a->padata, creds->client, 
+			       key_proc, keyseed, 
+			       &preauth->val[i].info.val[j].etype, 1,
+			       sp);
 		}
 	    }
 	}
@@ -554,7 +542,6 @@ init_as_req (krb5_context context,
 	ALLOC(a->padata, 1);
 	if (a->padata == NULL) {
 	    ret = ENOMEM;
-	    krb5_set_error_string(context, "malloc: out of memory");
 	    goto fail;
 	}
 	a->padata->len = 0;
@@ -572,8 +559,6 @@ init_as_req (krb5_context context,
 		   key_proc, keyseed, a->req_body.etype.val,
 		   a->req_body.etype.len, &salt);
     } else {
-	krb5_set_error_string (context, "pre-auth type %d not supported",
-			       *ptypes);
 	ret = KRB5_PREAUTH_BAD_TYPE;
 	goto fail;
     }
@@ -586,7 +571,7 @@ fail:
 static int
 set_ptypes(krb5_context context,
 	   KRB_ERROR *error, 
-	   const krb5_preauthtype **ptypes,
+	   krb5_preauthtype **ptypes,
 	   krb5_preauthdata **preauth)
 {
     static krb5_preauthdata preauth2;
@@ -625,7 +610,7 @@ set_ptypes(krb5_context context,
     return(1);
 }
 
-krb5_error_code KRB5_LIB_FUNCTION
+krb5_error_code
 krb5_get_in_cred(krb5_context context,
 		 krb5_flags options,
 		 const krb5_addresses *addrs,
@@ -643,7 +628,7 @@ krb5_get_in_cred(krb5_context context,
     AS_REQ a;
     krb5_kdc_rep rep;
     krb5_data req, resp;
-    size_t len;
+    char buf[BUFSIZ];
     krb5_salt salt;
     krb5_keyblock *key;
     size_t size;
@@ -675,20 +660,21 @@ krb5_get_in_cred(krb5_context context,
 	if (my_preauth) {
 	    free_ETYPE_INFO(&my_preauth->val[0].info);
 	    free (my_preauth->val);
-	    my_preauth = NULL;
 	}
 	if (ret)
 	    return ret;
 
-	ASN1_MALLOC_ENCODE(AS_REQ, req.data, req.length, &a, &len, ret);
+	ret = encode_AS_REQ ((unsigned char*)buf + sizeof(buf) - 1,
+			     sizeof(buf),
+			     &a,
+			     &req.length);
 	free_AS_REQ(&a);
 	if (ret)
 	    return ret;
-	if(len != req.length)
-	    krb5_abortx(context, "internal error in ASN.1 encoder");
+
+	req.data = buf + sizeof(buf) - req.length;
 
 	ret = krb5_sendto_kdc (context, &req, &creds->client->realm, &resp);
-	krb5_data_free(&req);
 	if (ret)
 	    return ret;
 
@@ -704,7 +690,7 @@ krb5_get_in_cred(krb5_context context,
 		ret = KRB5KRB_AP_ERR_V4_REPLY;
 	    krb5_data_free(&resp);
 	    if (ret2 == 0) {
-		ret = krb5_error_from_rd_error(context, &error, creds);
+		ret = error.error_code;
 		/* if no preauth was set and KDC requires it, give it
                    one more try */
 		if (!ptypes && !preauth
@@ -715,8 +701,7 @@ krb5_get_in_cred(krb5_context context,
 		    && set_ptypes(context, &error, &ptypes, &my_preauth)) {
 		    done = 0;
 		    preauth = my_preauth;
-		    krb5_free_error_contents(context, &error);
-		    krb5_clear_error_string(context);
+		    free_KRB_ERROR(&error);
 		    continue;
 		}
 		if(ret_as_reply)
@@ -784,7 +769,7 @@ out:
     return ret;
 }
 
-krb5_error_code KRB5_LIB_FUNCTION
+krb5_error_code
 krb5_get_in_tkt(krb5_context context,
 		krb5_flags options,
 		const krb5_addresses *addrs,
@@ -817,7 +802,7 @@ krb5_get_in_tkt(krb5_context context,
 			    ret_as_reply);
     if(ret) 
 	return ret;
-    if (ccache)
-	ret = krb5_cc_store_cred (context, ccache, creds);
+    ret = krb5_cc_store_cred (context, ccache, creds);
+    krb5_free_creds_contents (context, creds);
     return ret;
 }

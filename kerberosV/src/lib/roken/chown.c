@@ -33,12 +33,12 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: chown.c,v 1.4 2005/04/12 11:28:35 lha Exp $");
+RCSID("$KTH: chown.c,v 1.3 1999/12/02 16:58:45 joda Exp $");
 #endif
 
 #include "roken.h"
 
-int ROKEN_LIB_FUNCTION
+int
 chown(const char *path, uid_t owner, gid_t group)
 {
   return 0;

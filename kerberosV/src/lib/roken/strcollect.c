@@ -33,7 +33,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: strcollect.c,v 1.2 2005/04/12 11:29:07 lha Exp $");
+RCSID("$KTH: strcollect.c,v 1.1 2000/01/09 10:57:43 assar Exp $");
 #endif
 
 #include <stdarg.h>
@@ -69,7 +69,7 @@ sub (char **argv, int i, int argc, va_list *ap)
  * terminated by NULL.
  */
 
-char ** ROKEN_LIB_FUNCTION
+char **
 vstrcollect(va_list *ap)
 {
     return sub (NULL, 0, 0, ap);
@@ -79,7 +79,7 @@ vstrcollect(va_list *ap)
  *
  */
 
-char ** ROKEN_LIB_FUNCTION
+char **
 strcollect(char *first, ...)
 {
     va_list ap;

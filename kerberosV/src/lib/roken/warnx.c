@@ -33,12 +33,12 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: warnx.c,v 1.7 2005/04/12 11:29:17 lha Exp $");
+RCSID("$KTH: warnx.c,v 1.6 1999/12/02 16:58:54 joda Exp $");
 #endif
 
 #include "err.h"
 
-void ROKEN_LIB_FUNCTION
+void
 warnx(const char *fmt, ...)
 {
   va_list ap;

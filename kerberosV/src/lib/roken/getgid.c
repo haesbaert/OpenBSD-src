@@ -38,10 +38,9 @@
 
 #ifndef HAVE_GETGID
 
-RCSID("$KTH: getgid.c,v 1.3 2005/04/12 11:28:46 lha Exp $");
+RCSID("$KTH: getgid.c,v 1.2 1999/12/02 16:58:46 joda Exp $");
 
-int ROKEN_LIB_FUNCTION
-getgid(void)
+int getgid(void)
 {
     return 17;
 }

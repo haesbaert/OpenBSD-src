@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2003 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997 - 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -33,31 +33,7 @@
 
 #include "gssapi_locl.h"
 
-RCSID("$KTH: context_time.c,v 1.10 2003/06/03 15:08:00 lha Exp $");
-
-OM_uint32
-gssapi_lifetime_left(OM_uint32 *minor_status, 
-		     OM_uint32 lifetime,
-		     OM_uint32 *lifetime_rec)
-{
-    krb5_timestamp timeret;
-    krb5_error_code kret;
-
-    kret = krb5_timeofday(gssapi_krb5_context, &timeret);
-    if (kret) {
-	*minor_status = kret;
-	gssapi_krb5_set_error_string ();
-	return GSS_S_FAILURE;
-    }
-
-    if (lifetime < timeret) 
-	*lifetime_rec = 0;
-    else
-	*lifetime_rec = lifetime - timeret;
-
-    return GSS_S_COMPLETE;
-}
-
+RCSID("$KTH: context_time.c,v 1.3 2000/02/06 08:14:16 assar Exp $");
 
 OM_uint32 gss_context_time
            (OM_uint32 * minor_status,
@@ -66,22 +42,23 @@ OM_uint32 gss_context_time
            )
 {
     OM_uint32 lifetime;
-    OM_uint32 major_status;
+    OM_uint32 ret;
+    krb5_error_code kret;
+    krb5_timestamp timeret;
 
-    GSSAPI_KRB5_INIT ();
+    gssapi_krb5_init();
 
-    HEIMDAL_MUTEX_lock(&context_handle->ctx_id_mutex);
-    lifetime = context_handle->lifetime;
-    HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
+    ret = gss_inquire_context(minor_status, context_handle,
+			      NULL, NULL, &lifetime, NULL, NULL, NULL, NULL);
+    if (ret) {
+        return ret;
+    }
 
-    major_status = gssapi_lifetime_left(minor_status, lifetime, time_rec);
-    if (major_status != GSS_S_COMPLETE)
-	return major_status;
+    kret = krb5_timeofday(gssapi_krb5_context, &timeret);
+    if (kret) {
+        return GSS_S_FAILURE;
+    }
 
-    *minor_status = 0;
-
-    if (*time_rec == 0)
-	return GSS_S_CONTEXT_EXPIRED;
-	
+    *time_rec = lifetime - timeret;
     return GSS_S_COMPLETE;
 }

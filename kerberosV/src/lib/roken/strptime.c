@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include "roken.h"
 
-RCSID("$KTH: strptime.c,v 1.6 2005/05/18 09:54:53 lha Exp $");
+RCSID("$KTH: strptime.c,v 1.2 1999/11/12 15:29:55 assar Exp $");
 
 static const char *abb_weekdays[] = {
     "Sun",
@@ -79,7 +79,7 @@ static const char *abb_month[] = {
 static const char *full_month[] = {
     "January",
     "February",
-    "March",
+    "Mars",
     "April",
     "May",
     "June",
@@ -204,7 +204,7 @@ set_week_number_mon4 (struct tm *timeptr, int wnum)
  *
  */
 
-char * ROKEN_LIB_FUNCTION
+char *
 strptime (const char *buf, const char *format, struct tm *timeptr)
 {
     char c;
@@ -213,8 +213,8 @@ strptime (const char *buf, const char *format, struct tm *timeptr)
 	char *s;
 	int ret;
 
-	if (isspace ((unsigned char)c)) {
-	    while (isspace ((unsigned char)*buf))
+	if (isspace (c)) {
+	    while (isspace (*buf))
 		++buf;
 	} else if (c == '%' && format[1] != '\0') {
 	    c = *++format;
@@ -310,8 +310,10 @@ strptime (const char *buf, const char *format, struct tm *timeptr)
 		buf = s;
 		break;
 	    case 'n' :
-		while (isspace (*buf))
-		    buf++;
+		if (*buf == '\n')
+		    ++buf;
+		else
+		    return NULL;
 		break;
 	    case 'p' :
 		ret = match_string (&buf, ampm);
@@ -343,8 +345,10 @@ strptime (const char *buf, const char *format, struct tm *timeptr)
 		buf = s;
 		break;
 	    case 't' :
-		while (isspace (*buf))
-		    buf++;
+		if (*buf == '\t')
+		    ++buf;
+		else
+		    return NULL;
 		break;
 	    case 'T' :		/* %H:%M:%S */
 	    case 'X' :

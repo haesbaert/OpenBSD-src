@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2002 Kungliga Tekniska Högskolan
+ * Copyright (c) 1999 - 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -35,7 +35,7 @@
 
 /* keytab backend for HDB databases */
 
-RCSID("$KTH: keytab.c,v 1.6 2003/09/19 00:19:58 lha Exp $");
+RCSID("$KTH: keytab.c,v 1.3 2000/08/27 04:31:42 assar Exp $");
 
 struct hdb_data {
     char *dbname;
@@ -54,10 +54,8 @@ hdb_resolve(krb5_context context, const char *name, krb5_keytab id)
     const char *db, *mkey;
 
     d = malloc(sizeof(*d));
-    if(d == NULL) {
-	krb5_set_error_string(context, "malloc: out of memory");
+    if(d == NULL)
 	return ENOMEM;
-    }
     db = name;
     mkey = strchr(name, ':');
     if(mkey == NULL || mkey[1] == '\0') {
@@ -67,7 +65,6 @@ hdb_resolve(krb5_context context, const char *name, krb5_keytab id)
 	    d->dbname = strdup(name);
 	    if(d->dbname == NULL) {
 		free(d);
-		krb5_set_error_string(context, "malloc: out of memory");
 		return ENOMEM;
 	    }
 	}
@@ -79,7 +76,6 @@ hdb_resolve(krb5_context context, const char *name, krb5_keytab id)
 	    d->dbname = malloc(mkey - db);
 	    if(d->dbname == NULL) {
 		free(d);
-		krb5_set_error_string(context, "malloc: out of memory");
 		return ENOMEM;
 	    }
 	    memmove(d->dbname, db, mkey - db);
@@ -89,7 +85,6 @@ hdb_resolve(krb5_context context, const char *name, krb5_keytab id)
 	if(d->mkey == NULL) {
 	    free(d->dbname);
 	    free(d);
-	    krb5_set_error_string(context, "malloc: out of memory");
 	    return ENOMEM;
 	}
     }
@@ -144,7 +139,7 @@ find_db (krb5_context context,
 	 const char **mkey,
 	 krb5_const_principal principal)
 {
-    const krb5_config_binding *top_bind = NULL;
+    krb5_config_binding *top_bind = NULL;
     krb5_config_binding *default_binding = NULL;
     krb5_config_binding *db;
     krb5_realm *prealm = krb5_princ_realm(context, (krb5_principal)principal);
@@ -209,19 +204,19 @@ hdb_get_entry(krb5_context context,
 	return ret;
     ret = hdb_set_master_keyfile (context, db, mkey);
     if (ret) {
-	(*db->hdb_destroy)(context, db);
+	(*db->destroy)(context, db);
 	return ret;
     }
 	
-    ret = (*db->hdb_open)(context, db, O_RDONLY, 0);
+    ret = (*db->open)(context, db, O_RDONLY, 0);
     if (ret) {
-	(*db->hdb_destroy)(context, db);
+	(*db->destroy)(context, db);
 	return ret;
     }
     ent.principal = (krb5_principal)principal;
-    ret = (*db->hdb_fetch)(context, db, HDB_F_DECRYPT, &ent);
-    (*db->hdb_close)(context, db);
-    (*db->hdb_destroy)(context, db);
+    ret = (*db->fetch)(context, db, HDB_F_DECRYPT, &ent);
+    (*db->close)(context, db);
+    (*db->destroy)(context, db);
 
     if(ret == HDB_ERR_NOENTRY)
 	return KRB5_KT_NOTFOUND;

@@ -33,7 +33,7 @@
 
 #include "gen_locl.h"
 
-RCSID("$KTH: gen_glue.c,v 1.8 2005/04/25 18:07:07 lha Exp $");
+RCSID("$KTH: gen_glue.c,v 1.7 1999/12/02 17:05:02 joda Exp $");
 
 static void
 generate_2int (const Symbol *s)
@@ -103,11 +103,11 @@ generate_units (const Symbol *s)
     int tag = -1;
 
     fprintf (headerfile,
-	     "const struct units * asn1_%s_units(void);",
+	     "extern struct units %s_units[];",
 	     s->gen_name);
 
     fprintf (codefile,
-	     "static struct units %s_units[] = {\n",
+	     "struct units %s_units[] = {\n",
 	     s->gen_name);
 
     if(t->members)
@@ -122,14 +122,6 @@ generate_units (const Symbol *s)
     fprintf (codefile,
 	     "\t{NULL,\t0}\n"
 	     "};\n\n");
-
-    fprintf (codefile,
-	     "const struct units * asn1_%s_units(void){\n"
-	     "return %s_units;\n"
-	     "}\n\n",
-	     s->gen_name, s->gen_name);
-
-
 }
 
 void

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997-2004 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997-2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -32,10 +32,9 @@
  */
 
 #include "kadmin_locl.h"
-#include "kadmin-commands.h"
 #include <kadm5/private.h>
 
-RCSID("$KTH: init.c,v 1.38 2005/05/03 11:11:54 lha Exp $");
+RCSID("$KTH: init.c,v 1.27 2000/09/10 19:20:16 joda Exp $");
 
 static kadm5_ret_t
 create_random_entry(krb5_principal princ,
@@ -48,13 +47,6 @@ create_random_entry(krb5_principal princ,
     int mask = 0;
     krb5_keyblock *keys;
     int n_keys, i;
-    char *name;
-
-    ret = krb5_unparse_name(context, princ, &name);
-    if (ret) {
-	krb5_warn(context, ret, "failed to unparse principal name");
-	return ret;
-    }
 
     memset(&ent, 0, sizeof(ent));
     ent.principal = princ;
@@ -71,103 +63,103 @@ create_random_entry(krb5_principal princ,
     mask |= KADM5_ATTRIBUTES;
 
     ret = kadm5_create_principal(kadm_handle, &ent, mask, "hemlig");
-    if(ret) {
-	krb5_warn(context, ret, "create_random_entry(%s): randkey failed", 
-		  name);
-	goto out;
-    }
+    if(ret)
+	return ret;
     ret = kadm5_randkey_principal(kadm_handle, princ, &keys, &n_keys);
-    if(ret) {
-	krb5_warn(context, ret, "create_random_entry*%s): randkey failed",
-		  name);
-	goto out;
-    }
+    if(ret)
+	return ret;
     for(i = 0; i < n_keys; i++)
 	krb5_free_keyblock_contents(context, &keys[i]);
     free(keys);
     ret = kadm5_get_principal(kadm_handle, princ, &ent, 
 			      KADM5_PRINCIPAL | KADM5_ATTRIBUTES);
-    if(ret) {
-	krb5_warn(context, ret, "create_random_entry(%s): "
-		  "unable to get principal", name);
-	goto out;
-    }
+    if(ret)
+	return ret;
     ent.attributes &= (~KRB5_KDB_DISALLOW_ALL_TIX);
     ent.kvno = 1;
     ret = kadm5_modify_principal(kadm_handle, &ent, 
 				 KADM5_ATTRIBUTES|KADM5_KVNO);
     kadm5_free_principal_ent (kadm_handle, &ent);
-    if(ret) {
-	krb5_warn(context, ret, "create_random_entry(%s): "
-		  "unable to modify principal", name);
-	goto out;
-    }
- out:
-    free(name);
-    return ret;
+    if(ret)
+	return ret;
+    return 0;
 }
 
-extern int local_flag;
+static struct getargs args[] = {
+    { "realm-max-ticket-life",  0,	arg_string,	NULL,
+      "realm max ticket lifetime" },
+    { "realm-max-renewable-life",  0,	arg_string,	NULL,
+      "realm max renewable lifetime" },
+};
+
+static int num_args = sizeof(args) / sizeof(args[0]);
+
+static void
+usage(void)
+{
+    arg_printusage (args, num_args, "init", "realm...");
+}
 
 int
-init(struct init_options *opt, int argc, char **argv)
+init(int argc, char **argv)
 {
     kadm5_ret_t ret;
     int i;
+    char *realm_max_life  = NULL;
+    char *realm_max_rlife = NULL;
     HDB *db;
+    int optind = 0;
     krb5_deltat max_life, max_rlife;
 
-    if(!local_flag) {
-	krb5_warnx(context, "init is only available in local (-l) mode");
+    args[0].value = &realm_max_life;
+    args[1].value = &realm_max_rlife;
+
+    if(getarg(args, num_args, argc, argv, &optind)) {
+	usage();
 	return 0;
     }
 
-    if (opt->realm_max_ticket_life_string) {
-	if (str2deltat (opt->realm_max_ticket_life_string, &max_life) != 0) {
-	    krb5_warnx (context, "unable to parse \"%s\"", 
-			opt->realm_max_ticket_life_string);
+    if(argc - optind < 1) {
+	usage();
+	return 0;
+    }
+
+    if (realm_max_life) {
+	if (str2deltat (realm_max_life, &max_life) != 0) {
+	    krb5_warnx (context, "unable to parse `%s'", realm_max_life);
 	    return 0;
 	}
     }
-    if (opt->realm_max_renewable_life_string) {
-	if (str2deltat (opt->realm_max_renewable_life_string, &max_rlife) != 0) {
-	    krb5_warnx (context, "unable to parse \"%s\"", 
-			opt->realm_max_renewable_life_string);
+    if (realm_max_rlife) {
+	if (str2deltat (realm_max_rlife, &max_rlife) != 0) {
+	    krb5_warnx (context, "unable to parse `%s'", realm_max_rlife);
 	    return 0;
 	}
     }
 
     db = _kadm5_s_get_db(kadm_handle);
 
-    ret = db->hdb_open(context, db, O_RDWR | O_CREAT, 0600);
+    ret = db->open(context, db, O_RDWR | O_CREAT, 0600);
     if(ret){
 	krb5_warn(context, ret, "hdb_open");
 	return 0;
     }
-    db->hdb_close(context, db);
-    for(i = 0; i < argc; i++){
+    db->close(context, db);
+    for(i = optind; i < argc; i++){
 	krb5_principal princ;
 	const char *realm = argv[i];
 
 	/* Create `krbtgt/REALM' */
-	ret = krb5_make_principal(context, &princ, realm,
-				  KRB5_TGS_NAME, realm, NULL);
-	if(ret)
-	    return 0;
-	if (opt->realm_max_ticket_life_string == NULL) {
+	krb5_make_principal(context, &princ, realm,
+			    KRB5_TGS_NAME, realm, NULL);
+	if (realm_max_life == NULL) {
 	    max_life = 0;
-	    if(edit_deltat ("Realm max ticket life", &max_life, NULL, 0)) {
-		krb5_free_principal(context, princ);
-		return 0;
-	    }
+	    edit_deltat ("Realm max ticket life", &max_life, NULL, 0);
 	}
-	if (opt->realm_max_renewable_life_string == NULL) {
+	if (realm_max_rlife == NULL) {
 	    max_rlife = 0;
-	    if(edit_deltat("Realm max renewable ticket life", &max_rlife,
-			   NULL, 0)) {
-		krb5_free_principal(context, princ);
-		return 0;
-	    }
+	    edit_deltat("Realm max renewable ticket life", &max_rlife,
+			NULL, 0);
 	}
 	create_random_entry(princ, max_life, max_rlife, 0);
 	krb5_free_principal(context, princ);
@@ -175,16 +167,11 @@ init(struct init_options *opt, int argc, char **argv)
 	/* Create `kadmin/changepw' */
 	krb5_make_principal(context, &princ, realm, 
 			    "kadmin", "changepw", NULL);
-	/*
-	 * The Windows XP (at least) password changing protocol
-	 * request the `kadmin/changepw' ticket with `renewable_ok,
-	 * renewable, forwardable' and so fails if we disallow
-	 * forwardable here.
-	 */
 	create_random_entry(princ, 5*60, 5*60, 
 			    KRB5_KDB_DISALLOW_TGT_BASED|
 			    KRB5_KDB_PWCHANGE_SERVICE|
 			    KRB5_KDB_DISALLOW_POSTDATED|
+			    KRB5_KDB_DISALLOW_FORWARDABLE|
 			    KRB5_KDB_DISALLOW_RENEWABLE|
 			    KRB5_KDB_DISALLOW_PROXIABLE|
 			    KRB5_KDB_REQUIRES_PRE_AUTH);

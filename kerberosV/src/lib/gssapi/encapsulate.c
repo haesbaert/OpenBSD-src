@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2003 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997 - 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -33,48 +33,26 @@
 
 #include "gssapi_locl.h"
 
-RCSID("$KTH: encapsulate.c,v 1.8 2003/09/04 18:08:55 lha Exp $");
+RCSID("$KTH: encapsulate.c,v 1.5 2000/08/27 02:46:23 assar Exp $");
 
 void
-_gssapi_encap_length (size_t data_len,
-		      size_t *len,
-		      size_t *total_len,
-		      const gss_OID mech)
+gssapi_krb5_encap_length (size_t data_len,
+			  size_t *len,
+			  size_t *total_len)
 {
     size_t len_len;
 
-    *len = 1 + 1 + mech->length + data_len;
+    *len = 1 + 1 + GSS_KRB5_MECHANISM->length + 2 + data_len;
 
     len_len = length_len(*len);
 
     *total_len = 1 + len_len + *len;
 }
 
-void
-gssapi_krb5_encap_length (size_t data_len,
-			  size_t *len,
-			  size_t *total_len,
-			  const gss_OID mech)
-{
-    _gssapi_encap_length(data_len + 2, len, total_len, mech);
-}
-
 u_char *
 gssapi_krb5_make_header (u_char *p,
 			 size_t len,
-			 const u_char *type,
-			 const gss_OID mech)
-{
-    p = _gssapi_make_mech_header(p, len, mech);
-    memcpy (p, type, 2);
-    p += 2;
-    return p;
-}
-
-u_char *
-_gssapi_make_mech_header(u_char *p,
-			 size_t len,
-			 const gss_OID mech)
+			 u_char *type)
 {
     int e;
     size_t len_len, foo;
@@ -86,9 +64,11 @@ _gssapi_make_mech_header(u_char *p,
 	abort ();
     p += len_len;
     *p++ = 0x06;
-    *p++ = mech->length;
-    memcpy (p, mech->elements, mech->length);
-    p += mech->length;
+    *p++ = GSS_KRB5_MECHANISM->length;
+    memcpy (p, GSS_KRB5_MECHANISM->elements, GSS_KRB5_MECHANISM->length);
+    p += GSS_KRB5_MECHANISM->length;
+    memcpy (p, type, 2);
+    p += 2;
     return p;
 }
 
@@ -97,57 +77,23 @@ _gssapi_make_mech_header(u_char *p,
  */
 
 OM_uint32
-_gssapi_encapsulate(
-    OM_uint32 *minor_status,
-    const krb5_data *in_data,
-    gss_buffer_t output_token,
-    const gss_OID mech
-)
-{
-    size_t len, outer_len;
-    u_char *p;
-
-    _gssapi_encap_length (in_data->length, &len, &outer_len, mech);
-    
-    output_token->length = outer_len;
-    output_token->value  = malloc (outer_len);
-    if (output_token->value == NULL) {
-	*minor_status = ENOMEM;
-	return GSS_S_FAILURE;
-    }	
-
-    p = _gssapi_make_mech_header (output_token->value, len, mech);
-    memcpy (p, in_data->data, in_data->length);
-    return GSS_S_COMPLETE;
-}
-
-/*
- * Give it a krb5_data and it will encapsulate with extra GSS-API krb5
- * wrappings.
- */
-
-OM_uint32
 gssapi_krb5_encapsulate(
-			OM_uint32 *minor_status,    
 			const krb5_data *in_data,
 			gss_buffer_t output_token,
-			const u_char *type,
-			const gss_OID mech
+			u_char *type
 )
 {
     size_t len, outer_len;
     u_char *p;
 
-    gssapi_krb5_encap_length (in_data->length, &len, &outer_len, mech);
+    gssapi_krb5_encap_length (in_data->length, &len, &outer_len);
     
     output_token->length = outer_len;
     output_token->value  = malloc (outer_len);
-    if (output_token->value == NULL) {
-	*minor_status = ENOMEM;
+    if (output_token->value == NULL)
 	return GSS_S_FAILURE;
-    }	
 
-    p = gssapi_krb5_make_header (output_token->value, len, type, mech);
+    p = gssapi_krb5_make_header (output_token->value, len, type);
     memcpy (p, in_data->data, in_data->length);
     return GSS_S_COMPLETE;
 }

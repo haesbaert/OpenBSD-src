@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2001 Kungliga Tekniska Högskolan
+ * Copyright (c) 1999 - 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  * 
@@ -33,7 +33,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: getaddrinfo.c,v 1.13 2005/04/12 11:28:43 lha Exp $");
+RCSID("$KTH: getaddrinfo.c,v 1.9 2000/07/24 02:34:20 assar Exp $");
 #endif
 
 #include "roken.h"
@@ -172,13 +172,6 @@ const_v6 (struct addrinfo *a, void *data, int port)
 }
 #endif
 
-/* this is mostly a hack for some versions of AIX that has a prototype
-   for in6addr_loopback but no actual symbol in libc */
-#if defined(HAVE_IPV6) && !defined(HAVE_IN6ADDR_LOOPBACK) && defined(IN6ADDR_LOOPBACK_INIT)
-#define in6addr_loopback _roken_in6addr_loopback
-struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
-#endif
-
 static int
 get_null (const struct addrinfo *hints,
 	  int port, int protocol, int socktype,
@@ -222,6 +215,26 @@ get_null (const struct addrinfo *hints,
     return 0;
 }
 
+/*
+ * Try to find a fqdn (with `.') in he if possible, else return h_name
+ */
+
+static char *
+find_fqdn (const struct hostent *he)
+{
+    char *ret = he->h_name;
+    char **h;
+
+    if (strchr (ret, '.') == NULL)
+	for (h = he->h_aliases; *h; ++h) {
+	    if (strchr (*h, '.') != NULL) {
+		ret = *h;
+		break;
+	    }
+	}
+    return ret;
+}
+
 static int
 add_hostent (int port, int protocol, int socktype,
 	     struct addrinfo ***current,
@@ -234,23 +247,22 @@ add_hostent (int port, int protocol, int socktype,
 
     if (*flags & AI_CANONNAME) {
 	struct hostent *he2 = NULL;
-	const char *tmp_canon;
 
-	tmp_canon = hostent_find_fqdn (he);
-	if (strchr (tmp_canon, '.') == NULL) {
+	canonname = find_fqdn (he);
+	if (strchr (canonname, '.') == NULL) {
 	    int error;
 
 	    he2 = getipnodebyaddr (he->h_addr_list[0], he->h_length,
 				   he->h_addrtype, &error);
 	    if (he2 != NULL) {
-		const char *tmp = hostent_find_fqdn (he2);
+		char *tmp = find_fqdn (he2);
 
 		if (strchr (tmp, '.') != NULL)
-		    tmp_canon = tmp;
+		    canonname = tmp;
 	    }
 	}
 
-	canonname = strdup (tmp_canon);
+	canonname = strdup (canonname);
 	if (he2 != NULL)
 	    freehostent (he2);
 	if (canonname == NULL)
@@ -368,7 +380,7 @@ get_nodes (const char *nodename,
  * };
  */
 
-int ROKEN_LIB_FUNCTION
+int
 getaddrinfo(const char *nodename,
 	    const char *servname,
 	    const struct addrinfo *hints,

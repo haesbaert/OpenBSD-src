@@ -33,7 +33,7 @@
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
-RCSID("$KTH: strsep.c,v 1.4 2005/04/12 11:29:10 lha Exp $");
+RCSID("$KTH: strsep.c,v 1.3 1999/12/02 16:58:53 joda Exp $");
 #endif
 
 #include <string.h>
@@ -42,7 +42,7 @@ RCSID("$KTH: strsep.c,v 1.4 2005/04/12 11:29:10 lha Exp $");
 
 #ifndef HAVE_STRSEP
 
-char * ROKEN_LIB_FUNCTION
+char *
 strsep(char **str, const char *delim)
 {
     char *save = *str;

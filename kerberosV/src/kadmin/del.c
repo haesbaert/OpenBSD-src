@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2004 Kungliga Tekniska Högskolan
+ * Copyright (c) 1997, 1998, 2000 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden). 
  * All rights reserved. 
  *
@@ -32,9 +32,8 @@
  */
 
 #include "kadmin_locl.h"
-#include "kadmin-commands.h"
 
-RCSID("$KTH: del.c,v 1.11 2004/07/05 11:41:22 joda Exp $");
+RCSID("$KTH: del.c,v 1.5 2000/09/10 19:17:00 joda Exp $");
 
 static int
 do_del_entry(krb5_principal principal, void *data)
@@ -42,13 +41,40 @@ do_del_entry(krb5_principal principal, void *data)
     return kadm5_delete_principal(kadm_handle, principal);
 }
 
-int
-del_entry(void *opt, int argc, char **argv)
+static struct getargs args[] = {
+    { "help", 'h', arg_flag, NULL }
+};
+
+static int num_args = sizeof(args) / sizeof(args[0]);
+
+static void
+usage(void)
 {
+    arg_printusage (args, num_args, "delete", "principal...");
+}
+
+
+int
+del_entry(int argc, char **argv)
+{
+    int optind = 0;
+    int help_flag = 0;
+
     int i;
     krb5_error_code ret;
 
-    for(i = 0; i < argc; i++)
-	ret = foreach_principal(argv[i], do_del_entry, "del", NULL);
+    args[0].value = &help_flag;
+
+    if(getarg(args, num_args, argc, argv, &optind)) {
+	usage ();
+	return 0;
+    }
+    if(optind == argc || help_flag) {
+	usage ();
+	return 0;
+    }
+
+    for(i = 1; i < argc; i++)
+	ret = foreach_principal(argv[i], do_del_entry, NULL);
     return 0;
 }
