@@ -31,9 +31,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 #include "krb5_locl.h"
-#include <err.h>
 
-RCSID("$KTH: derived-key-test.c,v 1.3 2005/04/30 15:18:27 lha Exp $");
+RCSID("$KTH: derived-key-test.c,v 1.1 2001/03/12 07:44:52 assar Exp $");
 
 enum { MAXSIZE = 24 };
 
@@ -77,7 +76,7 @@ static struct testcase {
     {0}
 };
 
-int KRB5_LIB_FUNCTION
+int
 main(int argc, char **argv)
 {
     struct testcase *t;
