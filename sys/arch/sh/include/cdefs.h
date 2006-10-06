@@ -1,4 +1,4 @@
-/*	$OpenBSD: cdefs.h,v 1.1.1.1 2006/10/06 21:02:55 miod Exp $	*/
+/*	$OpenBSD: cdefs.h,v 1.1 2006/10/06 21:02:55 miod Exp $	*/
 
 #ifndef	_SH_CDEFS_H_
 #define	_SH_CDEFS_H_
