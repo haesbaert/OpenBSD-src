@@ -1,5 +1,5 @@
 # $FreeBSD: src/gnu/usr.bin/cc/Makefile,v 1.41.8.1 2009/04/15 03:14:26 kensmith Exp $
-# $OpenBSD: Makefile,v 1.1.1.1 2009/10/15 20:50:19 robert Exp $
+# $OpenBSD: Makefile,v 1.1 2009/10/15 20:50:19 robert Exp $
 
 .include <bsd.own.mk>
 
