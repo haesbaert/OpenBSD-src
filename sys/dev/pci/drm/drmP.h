@@ -118,6 +118,8 @@ typedef u_int32_t u32;
 typedef u_int16_t u16;
 typedef u_int8_t u8;
 
+typedef uint16_t __le16;
+
 /* DRM_READMEMORYBARRIER() prevents reordering of reads.
  * DRM_WRITEMEMORYBARRIER() prevents reordering of writes.
  * DRM_MEMORYBARRIER() prevents reordering of reads and writes.
@@ -190,6 +192,17 @@ do {									\
 #define DRM_DEBUG(fmt, arg...) do { } while(/* CONSTCOND */ 0)
 #endif
 
+#ifdef DRMDEBUG
+#undef DRM_DEBUG_KMS
+#define DRM_DEBUG_KMS(fmt, arg...) do {					\
+	if (drm_debug_flag)						\
+		printf("[" DRM_NAME ":pid%d:%s] " fmt, curproc->p_pid,	\
+			__func__ , ## arg);				\
+} while (0)
+#else
+#define DRM_DEBUG_KMS(fmt, arg...) do { } while(/* CONSTCOND */ 0)
+#endif
+
 struct drm_pcidev {
 	int vendor;
 	int device;
@@ -257,6 +270,7 @@ struct drm_file {
 	int					 master;
 	int					 minor;
 	u_int					 obj_id; /*next gem id*/
+	TAILQ_HEAD(, drm_framebuffer)		 fbs;
 };
 
 struct drm_lock_data {
@@ -429,6 +443,12 @@ struct drm_handle {
 	uint32_t		 handle;
 };
 
+struct drm_mode_handle {
+	SPLAY_ENTRY(drm_mode_handle) entry;
+	struct drm_mode_object	*obj;
+	uint32_t		 handle;
+};
+
 struct drm_driver_info {
 	int	(*firstopen)(struct drm_device *);
 	int	(*open)(struct drm_device *, struct drm_file *);
@@ -472,8 +492,26 @@ struct drm_driver_info {
 #define DRIVER_SG		0x20
 #define DRIVER_IRQ		0x40
 #define DRIVER_GEM		0x80
+#define DRIVER_MODESET		0x100
 
 	u_int	flags;
+};
+
+#include "drm_crtc.h"
+
+/* mode specified on the command line */
+struct drm_cmdline_mode {
+	boolean_t specified;
+	boolean_t refresh_specified;
+	boolean_t bpp_specified;
+	int xres, yres;
+	int bpp;
+	int refresh;
+	boolean_t rb;
+	boolean_t interlace;
+	boolean_t cvt;
+	boolean_t margins;
+	enum drm_connector_force force;
 };
 
 /** 
@@ -527,6 +565,8 @@ struct drm_device {
 	void			*dev_private;
 	struct drm_local_map	*agp_buffer_map;
 
+	struct drm_mode_config	 mode_config; /* Current mode config */
+
 	/* GEM info */
 	struct mutex		 obj_name_lock;
 	atomic_t		 obj_count;
@@ -541,6 +581,8 @@ struct drm_device {
 	uint32_t		 flush_domains;
 	SPLAY_HEAD(drm_name_tree, drm_obj)	name_tree;
 	struct pool				objpl;
+	
+	/* mode stuff */
 };
 
 struct drm_attach_args {
@@ -736,6 +778,13 @@ drm_unlock_obj(struct drm_obj *obj)
 {
 	simple_unlock(&obj->uobj);
 }
+
+static __inline__ int drm_core_check_feature(struct drm_device *dev,
+					     int feature)
+{
+	return ((dev->driver->flags & feature) ? 1 : 0);
+}
+
 #ifdef DRMLOCKDEBUG
 
 #define DRM_ASSERT_HELD(obj)		\

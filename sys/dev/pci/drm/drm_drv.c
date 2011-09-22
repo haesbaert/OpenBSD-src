@@ -500,7 +500,7 @@ drmclose(dev_t kdev, int flags, int fmt, struct proc *p)
 		drm_reclaim_buffers(dev, file_priv);
 
 	mtx_enter(&dev->event_lock);
-	for (i = 0; i < dev->vblank->vb_num; i++) {
+	for (i = 0; dev->vblank && i < dev->vblank->vb_num; i++) {
 		struct drmevlist *list = &dev->vblank->vb_crtcs[i].vbl_events;
 		for (ev = TAILQ_FIRST(list); ev != TAILQ_END(list);
 		    ev = evtmp) {
@@ -706,6 +706,54 @@ drmioctl(dev_t kdev, u_long cmd, caddr_t data, int flags,
 		 * requested version 1.1 or greater.
 		 */
 			return (EBUSY);
+		case DRM_IOCTL_MODE_GETRESOURCES:
+			return drm_mode_getresources(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETCRTC:
+			return drm_mode_getcrtc(dev, data, file_priv);
+		case DRM_IOCTL_MODE_SETCRTC:
+			return drm_mode_setcrtc(dev, data, file_priv);
+		case DRM_IOCTL_MODE_CURSOR:
+			return drm_mode_cursor_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETGAMMA:
+			return drm_mode_gamma_get_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_SETGAMMA:
+			return drm_mode_gamma_set_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETENCODER:
+			return drm_mode_getencoder(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETCONNECTOR:
+			return drm_mode_getconnector(dev, data, file_priv);
+		case DRM_IOCTL_MODE_ATTACHMODE:
+			return drm_mode_attachmode_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_DETACHMODE:
+			return drm_mode_detachmode_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETPROPERTY:
+			return drm_mode_getproperty_ioctl(dev, data, 
+			    file_priv);
+		case DRM_IOCTL_MODE_SETPROPERTY:
+			return drm_mode_connector_property_set_ioctl(dev, 
+			    data, file_priv);
+		case DRM_IOCTL_MODE_GETPROPBLOB:
+			return drm_mode_getblob_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETFB:
+			return drm_mode_getfb(dev, data, file_priv);
+		case DRM_IOCTL_MODE_ADDFB:
+			return drm_mode_addfb(dev, data, file_priv);
+		case DRM_IOCTL_MODE_RMFB:
+			return drm_mode_rmfb(dev, data, file_priv);
+#if 0
+		case DRM_IOCTL_MODE_PAGE_FLIP:
+			return drm_mode_page_flip_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_DIRTYFB:
+			return drm_mode_dirtyfb_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_CREATE_DUMB:
+			return drm_mode_create_dumb_ioctl(dev, data, 
+			    file_priv);
+		case DRM_IOCTL_MODE_MAP_DUMB:
+			return drm_mode_mmap_dump_ioctl(dev, data, file_priv);
+		case DRM_IOCTL_MODE_DESTROY_DUMB:
+			return drm_mode_destroy_dumb_ioctl(dev, data, 
+			    file_priv);
+#endif
 		}
 	}
 	if (dev->driver->ioctl != NULL)

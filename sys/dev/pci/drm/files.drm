@@ -13,6 +13,10 @@ file   dev/pci/drm/drm_irq.c		drm
 file   dev/pci/drm/drm_lock.c		drm
 file   dev/pci/drm/drm_memory.c		drm
 file   dev/pci/drm/drm_scatter.c	drm
+file   dev/pci/drm/drm_crtc.c		drm
+file   dev/pci/drm/drm_modes.c		drm
+file   dev/pci/drm/drm_crtc_helper.c	drm
+file   dev/pci/drm/drm_edid.c		drm
 
 device	inteldrm: drmbase
 attach	inteldrm at drmdev
