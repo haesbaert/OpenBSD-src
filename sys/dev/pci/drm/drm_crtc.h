@@ -106,6 +106,8 @@ enum drm_mode_status {
 
 #define CRTC_INTERLACE_HALVE_V 0x1 /* halve V values for interlacing */
 
+TAILQ_HEAD(drm_mode_list, drm_display_mode);
+
 struct drm_display_mode {
 	/* Header */
 	TAILQ_ENTRY(drm_display_mode) head;
@@ -493,18 +495,18 @@ struct drm_connector {
 	boolean_t interlace_allowed;
 	boolean_t doublescan_allowed;
 	/* list of modes on this connector */
-	TAILQ_HEAD(drm_mode_list, drm_display_mode) modes;
+	struct drm_mode_list modes;
 
 	int initial_x, initial_y;
 	enum drm_connector_status status;
 
 	/* these are modes added by probing with DDC or the BIOS */
-	TAILQ_HEAD(, drm_display_mode) probed_modes;
+	struct drm_mode_list probed_modes;
 
 	struct drm_display_info display_info;
 	const struct drm_connector_funcs *funcs;
 
-	TAILQ_HEAD(, drm_display_mode) user_modes;
+	struct drm_mode_list user_modes;
 	struct drm_property_blob *edid_blob_ptr;
 	u32 property_ids[DRM_CONNECTOR_MAX_PROPERTY];
 	uint64_t property_values[DRM_CONNECTOR_MAX_PROPERTY];
