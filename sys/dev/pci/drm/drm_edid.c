@@ -35,7 +35,58 @@
 
 #include <dev/i2c/i2cvar.h>
 
+typedef void detailed_cb(struct detailed_timing *timing, void *closure);
+
 u8 * drm_do_get_edid(struct drm_connector *, struct i2c_controller *);
+boolean_t drm_edid_block_valid(u8 *);
+int drm_do_probe_ddc_edid(struct i2c_controller *, unsigned char *, int, int);
+boolean_t drm_edid_is_zero(u8 *, int);
+boolean_t edid_vendor(struct edid *, char *);
+u32 edid_get_quirks(struct edid *);
+void edid_fixup_preferred(struct drm_connector *, u32);
+void cea_for_each_detailed_block(u8 *, detailed_cb *, void *);
+void vtb_for_each_detailed_block(u8 *, detailed_cb *, void *);
+void drm_for_each_detailed_block(u8 *, detailed_cb *, void *);
+void is_rb(struct detailed_timing *, void *);
+boolean_t drm_monitor_supports_rb(struct edid *);
+void find_gtf2(struct detailed_timing *, void *);
+int drm_gtf2_hbreak(struct edid *);
+int drm_gtf2_2c(struct edid *);
+int drm_gtf2_m(struct edid *);
+int drm_gtf2_k(struct edid *);
+int drm_gtf2_2j(struct edid *);
+int standard_timing_level(struct edid *);
+int bad_std_timing(u8, u8);
+struct drm_display_mode *drm_mode_std(struct drm_connector *, struct edid *,
+    struct std_timing *, int);
+void drm_mode_do_interlace_quirk(struct drm_display_mode *,
+    struct detailed_pixel_timing *);
+struct drm_display_mode *
+drm_mode_detailed(struct drm_device *, struct edid *,
+    struct detailed_timing *, u32);
+boolean_t mode_is_rb(const struct drm_display_mode *);
+boolean_t mode_in_hsync_range(const struct drm_display_mode *, struct edid *, 
+    u8 *);
+boolean_t mode_in_vsync_range(const struct drm_display_mode *,
+    struct edid *, u8 *);
+u32 range_pixel_clock(struct edid *, u8 *);
+boolean_t mode_in_range(const struct drm_display_mode *, struct edid *,
+    struct detailed_timing *);
+int drm_gtf_modes_for_range(struct drm_connector *, struct edid *,
+    struct detailed_timing *);
+void do_inferred_modes(struct detailed_timing *, void *);
+int add_inferred_modes(struct drm_connector *, struct edid *);
+int drm_est3_modes(struct drm_connector *, struct detailed_timing *);
+void do_established_modes(struct detailed_timing *, void *);
+int add_established_modes(struct drm_connector *, struct edid *);
+void do_standard_modes(struct detailed_timing *, void *);
+int add_standard_modes(struct drm_connector *, struct edid *);
+int drm_cvt_modes(struct drm_connector *, struct detailed_timing *);
+void do_cvt_mode(struct detailed_timing *, void *);
+int add_cvt_modes(struct drm_connector *, struct edid *);
+void do_detailed_mode(struct detailed_timing *, void *);
+int add_detailed_modes(struct drm_connector *, struct edid *, u32);
+void drm_add_display_info(struct edid *, struct drm_display_info *);
 
 #define version_greater(edid, maj, min) \
 	(((edid)->version > (maj)) || \
@@ -82,7 +133,7 @@ struct detailed_mode_closure {
 #define LEVEL_GTF2	2
 #define LEVEL_CVT	3
 
-static struct edid_quirk {
+struct edid_quirk {
 	char *vendor;
 	int product_id;
 	u32 quirks;
@@ -126,7 +177,7 @@ static struct edid_quirk {
 
 /*** DDC fetch and block validation ***/
 
-static const u8 edid_header[] = {
+const u8 edid_header[] = {
 	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00
 };
 
@@ -150,7 +201,7 @@ int drm_edid_header_is_valid(const u8 *raw_edid)
  * Sanity check the EDID block (base or extension).  Return 0 if the block
  * doesn't check out, or 1 if it's valid.
  */
-static boolean_t
+boolean_t
 drm_edid_block_valid(u8 *raw_edid)
 {
 	int i;
@@ -238,7 +289,7 @@ boolean_t drm_edid_is_valid(struct edid *edid)
  *
  * Try to fetch EDID information by calling i2c driver function.
  */
-static int
+int
 drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 		      int block, int len)
 {
@@ -273,7 +324,8 @@ drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 	return 0;
 }
 
-static boolean_t drm_edid_is_zero(u8 *in_edid, int length)
+boolean_t
+drm_edid_is_zero(u8 *in_edid, int length)
 {
 	int i;
 	u32 *raw_edid = (u32 *)in_edid;
@@ -358,20 +410,6 @@ out:
 }
 
 /**
- * Probe DDC presence.
- *
- * \param adapter : i2c device adaptor
- * \return 1 on success
- */
-static boolean_t
-drm_probe_ddc(struct i2c_controller *adapter)
-{
-	unsigned char out;
-
-	return (drm_do_probe_ddc_edid(adapter, &out, 0, 1) == 0);
-}
-
-/**
  * drm_get_edid - get EDID data, if available
  * @connector: connector we're probing
  * @adapter: i2c adapter to use for DDC
@@ -385,8 +423,9 @@ struct edid *drm_get_edid(struct drm_connector *connector,
 			  struct i2c_controller *adapter)
 {
 	struct edid *edid = NULL;
+	unsigned char out;
 
-	if (drm_probe_ddc(adapter))
+	if (drm_do_probe_ddc_edid(adapter, &out, 0, 1) == 0)
 		edid = (struct edid *)drm_do_get_edid(connector, adapter);
 
 	connector->display_info.raw_edid = (char *)edid;
@@ -405,7 +444,8 @@ struct edid *drm_get_edid(struct drm_connector *connector,
  *
  * Returns TRUE if @vendor is in @edid, FALSE otherwise
  */
-static boolean_t edid_vendor(struct edid *edid, char *vendor)
+boolean_t
+edid_vendor(struct edid *edid, char *vendor)
 {
 	char edid_vendor[3];
 
@@ -423,7 +463,8 @@ static boolean_t edid_vendor(struct edid *edid, char *vendor)
  *
  * This tells subsequent routines what fixes they need to apply.
  */
-static u32 edid_get_quirks(struct edid *edid)
+u32
+edid_get_quirks(struct edid *edid)
 {
 	struct edid_quirk *quirk;
 	int i;
@@ -450,7 +491,8 @@ static u32 edid_get_quirks(struct edid *edid)
  * Walk the mode list for @connector, clearing the preferred status
  * on existing modes and setting it anew for the right mode ala @quirks.
  */
-static void edid_fixup_preferred(struct drm_connector *connector,
+void
+edid_fixup_preferred(struct drm_connector *connector,
 				 u32 quirks)
 {
 	struct drm_display_mode *t, *cur_mode, *preferred_mode;
@@ -506,9 +548,7 @@ struct drm_display_mode *drm_mode_find_dmt(struct drm_device *dev,
 	return mode;
 }
 
-typedef void detailed_cb(struct detailed_timing *timing, void *closure);
-
-static void
+void
 cea_for_each_detailed_block(u8 *ext, detailed_cb *cb, void *closure)
 {
 	int i, n = 0;
@@ -535,7 +575,7 @@ cea_for_each_detailed_block(u8 *ext, detailed_cb *cb, void *closure)
 		cb((struct detailed_timing *)(det_base + 18 * i), closure);
 }
 
-static void
+void
 vtb_for_each_detailed_block(u8 *ext, detailed_cb *cb, void *closure)
 {
 	unsigned int i, n = min((int)ext[0x02], 6);
@@ -548,7 +588,7 @@ vtb_for_each_detailed_block(u8 *ext, detailed_cb *cb, void *closure)
 		cb((struct detailed_timing *)(det_base + 18 * i), closure);
 }
 
-static void
+void
 drm_for_each_detailed_block(u8 *raw_edid, detailed_cb *cb, void *closure)
 {
 	int i;
@@ -575,7 +615,7 @@ drm_for_each_detailed_block(u8 *raw_edid, detailed_cb *cb, void *closure)
 	}
 }
 
-static void
+void
 is_rb(struct detailed_timing *t, void *data)
 {
 	u8 *r = (u8 *)t;
@@ -585,7 +625,7 @@ is_rb(struct detailed_timing *t, void *data)
 }
 
 /* EDID 1.4 defines this explicitly.  For EDID 1.3, we guess, badly. */
-static boolean_t
+boolean_t
 drm_monitor_supports_rb(struct edid *edid)
 {
 	if (edid->revision >= 4) {
@@ -597,7 +637,7 @@ drm_monitor_supports_rb(struct edid *edid)
 	return ((edid->input & DRM_EDID_INPUT_DIGITAL) != 0);
 }
 
-static void
+void
 find_gtf2(struct detailed_timing *t, void *data)
 {
 	u8 *r = (u8 *)t;
@@ -606,7 +646,7 @@ find_gtf2(struct detailed_timing *t, void *data)
 }
 
 /* Secondary GTF curve kicks in above some break frequency */
-static int
+int
 drm_gtf2_hbreak(struct edid *edid)
 {
 	u8 *r = NULL;
@@ -614,7 +654,7 @@ drm_gtf2_hbreak(struct edid *edid)
 	return r ? (r[12] * 2) : 0;
 }
 
-static int
+int
 drm_gtf2_2c(struct edid *edid)
 {
 	u8 *r = NULL;
@@ -622,7 +662,7 @@ drm_gtf2_2c(struct edid *edid)
 	return r ? r[13] : 0;
 }
 
-static int
+int
 drm_gtf2_m(struct edid *edid)
 {
 	u8 *r = NULL;
@@ -630,7 +670,7 @@ drm_gtf2_m(struct edid *edid)
 	return r ? (r[15] << 8) + r[14] : 0;
 }
 
-static int
+int
 drm_gtf2_k(struct edid *edid)
 {
 	u8 *r = NULL;
@@ -638,7 +678,7 @@ drm_gtf2_k(struct edid *edid)
 	return r ? r[16] : 0;
 }
 
-static int
+int
 drm_gtf2_2j(struct edid *edid)
 {
 	u8 *r = NULL;
@@ -650,7 +690,8 @@ drm_gtf2_2j(struct edid *edid)
  * standard_timing_level - get std. timing level(CVT/GTF/DMT)
  * @edid: EDID block to scan
  */
-static int standard_timing_level(struct edid *edid)
+int
+standard_timing_level(struct edid *edid)
 {
 	if (edid->revision >= 2) {
 		if (edid->revision >= 4 && (edid->features & DRM_EDID_FEATURE_DEFAULT_GTF))
@@ -666,7 +707,7 @@ static int standard_timing_level(struct edid *edid)
  * 0 is reserved.  The spec says 0x01 fill for unused timings.  Some old
  * monitors fill with ascii space (0x20) instead.
  */
-static int
+int
 bad_std_timing(u8 a, u8 b)
 {
 	return (a == 0x00 && b == 0x00) ||
@@ -682,7 +723,7 @@ bad_std_timing(u8 a, u8 b)
  * Take the standard timing params (in this case width, aspect, and refresh)
  * and convert them into a real mode using CVT/GTF/DMT.
  */
-static struct drm_display_mode *
+struct drm_display_mode *
 drm_mode_std(struct drm_connector *connector, struct edid *edid,
 	     struct std_timing *t, int revision)
 {
@@ -789,7 +830,7 @@ drm_mode_std(struct drm_connector *connector, struct edid *edid,
  * The format list here is from CEA, in frame size.  Technically we
  * should be checking refresh rate too.  Whatever.
  */
-static void
+void
 drm_mode_do_interlace_quirk(struct drm_display_mode *mode,
 			    struct detailed_pixel_timing *pt)
 {
@@ -833,10 +874,9 @@ drm_mode_do_interlace_quirk(struct drm_display_mode *mode,
  * An EDID detailed timing block contains enough info for us to create and
  * return a new struct drm_display_mode.
  */
-static struct drm_display_mode *drm_mode_detailed(struct drm_device *dev,
-						  struct edid *edid,
-						  struct detailed_timing *timing,
-						  u32 quirks)
+struct drm_display_mode *
+drm_mode_detailed(struct drm_device *dev, struct edid *edid,
+    struct detailed_timing *timing, u32 quirks)
 {
 	struct drm_display_mode *mode;
 	struct detailed_pixel_timing *pt = &timing->data.pixel_data;
@@ -923,7 +963,7 @@ static struct drm_display_mode *drm_mode_detailed(struct drm_device *dev,
 	return mode;
 }
 
-static boolean_t
+boolean_t
 mode_is_rb(const struct drm_display_mode *mode)
 {
 	return (mode->htotal - mode->hdisplay == 160) &&
@@ -932,7 +972,7 @@ mode_is_rb(const struct drm_display_mode *mode)
 	       (mode->vsync_start - mode->vdisplay == 3);
 }
 
-static boolean_t
+boolean_t
 mode_in_hsync_range(const struct drm_display_mode *mode,
 		    struct edid *edid, u8 *t)
 {
@@ -949,7 +989,7 @@ mode_in_hsync_range(const struct drm_display_mode *mode,
 	return (hsync <= hmax && hsync >= hmin);
 }
 
-static boolean_t
+boolean_t
 mode_in_vsync_range(const struct drm_display_mode *mode,
 		    struct edid *edid, u8 *t)
 {
@@ -966,7 +1006,7 @@ mode_in_vsync_range(const struct drm_display_mode *mode,
 	return (vsync <= vmax && vsync >= vmin);
 }
 
-static u32
+u32
 range_pixel_clock(struct edid *edid, u8 *t)
 {
 	/* unspecified */
@@ -981,7 +1021,7 @@ range_pixel_clock(struct edid *edid, u8 *t)
 	return t[9] * 10000 + 5001;
 }
 
-static boolean_t
+boolean_t
 mode_in_range(const struct drm_display_mode *mode, struct edid *edid,
 	      struct detailed_timing *timing)
 {
@@ -1013,7 +1053,7 @@ mode_in_range(const struct drm_display_mode *mode, struct edid *edid,
  * XXX If drm_dmt_modes ever regrows the CVT-R modes (and it will) this will
  * need to account for them.
  */
-static int
+int
 drm_gtf_modes_for_range(struct drm_connector *connector, struct edid *edid,
 			struct detailed_timing *timing)
 {
@@ -1034,7 +1074,7 @@ drm_gtf_modes_for_range(struct drm_connector *connector, struct edid *edid,
 	return modes;
 }
 
-static void
+void
 do_inferred_modes(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
@@ -1047,7 +1087,7 @@ do_inferred_modes(struct detailed_timing *timing, void *c)
 							  timing);
 }
 
-static int
+int
 add_inferred_modes(struct drm_connector *connector, struct edid *edid)
 {
 	struct detailed_mode_closure closure = {
@@ -1061,7 +1101,7 @@ add_inferred_modes(struct drm_connector *connector, struct edid *edid)
 	return closure.modes;
 }
 
-static int
+int
 drm_est3_modes(struct drm_connector *connector, struct detailed_timing *timing)
 {
 	int i, j, m, modes = 0;
@@ -1090,7 +1130,7 @@ drm_est3_modes(struct drm_connector *connector, struct detailed_timing *timing)
 	return modes;
 }
 
-static void
+void
 do_established_modes(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
@@ -1107,7 +1147,7 @@ do_established_modes(struct detailed_timing *timing, void *c)
  * Each EDID block contains a bitmap of the supported "established modes" list
  * (defined above).  Tease them out and add them to the global modes list.
  */
-static int
+int
 add_established_modes(struct drm_connector *connector, struct edid *edid)
 {
 	struct drm_device *dev = connector->dev;
@@ -1137,7 +1177,7 @@ add_established_modes(struct drm_connector *connector, struct edid *edid)
 	return modes + closure.modes;
 }
 
-static void
+void
 do_standard_modes(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
@@ -1169,7 +1209,7 @@ do_standard_modes(struct detailed_timing *timing, void *c)
  * Standard modes can be calculated using the appropriate standard (DMT,
  * GTF or CVT. Grab them from @edid and add them to the list.
  */
-static int
+int
 add_standard_modes(struct drm_connector *connector, struct edid *edid)
 {
 	int i, modes = 0;
@@ -1198,8 +1238,9 @@ add_standard_modes(struct drm_connector *connector, struct edid *edid)
 	return modes + closure.modes;
 }
 
-static int drm_cvt_modes(struct drm_connector *connector,
-			 struct detailed_timing *timing)
+int 
+drm_cvt_modes(struct drm_connector *connector,
+    struct detailed_timing *timing)
 {
 	int i, j, modes = 0;
 	struct drm_display_mode *newmode;
@@ -1247,7 +1288,7 @@ static int drm_cvt_modes(struct drm_connector *connector,
 	return modes;
 }
 
-static void
+void
 do_cvt_mode(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
@@ -1257,7 +1298,7 @@ do_cvt_mode(struct detailed_timing *timing, void *c)
 		closure->modes += drm_cvt_modes(closure->connector, timing);
 }
 
-static int
+int
 add_cvt_modes(struct drm_connector *connector, struct edid *edid)
 {	
 	struct detailed_mode_closure closure = {
@@ -1272,7 +1313,7 @@ add_cvt_modes(struct drm_connector *connector, struct edid *edid)
 	return closure.modes;
 }
 
-static void
+void
 do_detailed_mode(struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
@@ -1300,7 +1341,7 @@ do_detailed_mode(struct detailed_timing *timing, void *c)
  * @edid: EDID block to scan
  * @quirks: quirks to apply
  */
-static int
+int
 add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 		   u32 quirks)
 {
@@ -1329,7 +1370,8 @@ add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 /**
  * Search EDID for CEA extension block.
  */
-u8 *drm_find_cea_extension(struct edid *edid)
+u8 *
+drm_find_cea_extension(struct edid *edid)
 {
 	u8 *edid_ext = NULL;
 	int i;
@@ -1358,7 +1400,8 @@ u8 *drm_find_cea_extension(struct edid *edid)
  * Parse the CEA extension according to CEA-861-B.
  * Return TRUE if HDMI, FALSE if not or unknown.
  */
-boolean_t drm_detect_hdmi_monitor(struct edid *edid)
+boolean_t
+drm_detect_hdmi_monitor(struct edid *edid)
 {
 	u8 *edid_ext;
 	int i, hdmi_id;
@@ -1405,7 +1448,8 @@ end:
  * audio' is not defined in EDID.
  *
  */
-boolean_t drm_detect_monitor_audio(struct edid *edid)
+boolean_t
+drm_detect_monitor_audio(struct edid *edid)
 {
 	u8 *edid_ext;
 	int i, j;
@@ -1450,7 +1494,8 @@ end:
  * structure that's part of the connector.  Useful for tracking bpp and
  * color spaces.
  */
-static void drm_add_display_info(struct edid *edid,
+void
+drm_add_display_info(struct edid *edid,
 				 struct drm_display_info *info)
 {
 	u8 *edid_ext;
@@ -1517,7 +1562,8 @@ static void drm_add_display_info(struct edid *edid,
  *
  * Return number of modes added or 0 if we couldn't find any.
  */
-int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
+int
+drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 {
 	int num_modes = 0;
 	u32 quirks;
@@ -1572,8 +1618,9 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
  *
  * Return number of modes added or 0 if we couldn't find any.
  */
-int drm_add_modes_noedid(struct drm_connector *connector,
-			int hdisplay, int vdisplay)
+int
+drm_add_modes_noedid(struct drm_connector *connector,
+    int hdisplay, int vdisplay)
 {
 	int i, count, num_modes = 0;
 	struct drm_display_mode *mode;
