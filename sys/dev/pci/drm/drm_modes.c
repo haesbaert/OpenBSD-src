@@ -36,14 +36,14 @@
 
 #define KHZ2PICOS(a) (1000000000UL/(a))
 
-void drm_mode_validate_clocks(struct drm_device *, 
+void drm_mode_validate_clocks(struct drm_device *,
     struct drm_mode_list *, int *, int *, int);
 boolean_t drm_mode_parse_command_line_for_connector(const char *,
     struct drm_connector *,
     struct drm_cmdline_mode *);
 struct drm_display_mode *drm_mode_create_from_cmdline_mode(
     struct drm_device *, struct drm_cmdline_mode *);
-int drm_mode_compare(void *, struct drm_mode_list *, struct drm_mode_list *);
+int drm_mode_compare(struct drm_display_mode *, struct drm_display_mode *);
 long simple_strtol(const char *, char **, int);
 
 /**
@@ -85,7 +85,7 @@ void drm_mode_debug_printmodeline(struct drm_display_mode *mode)
  * according to the hdisplay, vdisplay, vrefresh.
  * It is based from the VESA(TM) Coordinated Video Timing Generator by
  * Graham Loveridge April 9, 2003 available at
- * http://www.elo.utfsm.cl/~elo212/docs/CVTd6r1.xls 
+ * http://www.elo.utfsm.cl/~elo212/docs/CVTd6r1.xls
  *
  * And it is copied from xf86CVTmode in xserver/hw/xfree86/modes/xf86cvt.c.
  * What I have done is to translate it by using integer calculation.
@@ -897,11 +897,9 @@ void drm_mode_prune_invalid(struct drm_device *dev,
  * Negative if @lh_a is better than @lh_b, zero if they're equivalent, or
  * positive if @lh_b is better than @lh_a.
  */
-int drm_mode_compare(void *priv, struct drm_mode_list *lh_a, 
-    struct drm_mode_list* lh_b)
+int drm_mode_compare(struct drm_display_mode *a,
+    struct drm_display_mode* b)
 {
-	struct drm_display_mode *a = TAILQ_FIRST(lh_a);
-	struct drm_display_mode *b = TAILQ_FIRST(lh_b);
 	int diff;
 
 	diff = ((b->type & DRM_MODE_TYPE_PREFERRED) != 0) -
@@ -925,11 +923,29 @@ int drm_mode_compare(void *priv, struct drm_mode_list *lh_a,
  *
  * Sort @mode_list by favorability, putting good modes first.
  */
-void drm_mode_sort(struct drm_mode_list *mode_list)
+RB_HEAD(drm_mode_sort, drm_display_mode);
+
+RB_PROTOTYPE(drm_mode_sort, drm_display_mode, sort, drm_mode_compare);
+
+
+void
+drm_mode_sort(struct drm_mode_list *mode_list)
 {
+	struct drm_display_mode *mode, *t;
+	struct drm_mode_sort drm_mode_tree;
+
 	DRM_DEBUG_KMS("drm_mode_sort\n");
-	/* XXX */
+
+	RB_INIT(&drm_mode_tree);
+	TAILQ_FOREACH_SAFE(mode, mode_list, head, t) {
+		RB_INSERT(drm_mode_sort, &drm_mode_tree, mode);
+		TAILQ_REMOVE(mode_list, mode, head);
+	}
+	RB_FOREACH(mode, drm_mode_sort, &drm_mode_tree)
+		TAILQ_INSERT_TAIL(mode_list, mode, head);
 }
+
+RB_GENERATE(drm_mode_sort, drm_display_mode, sort, drm_mode_compare);
 
 /**
  * drm_mode_connector_list_update - update the mode list for the connector

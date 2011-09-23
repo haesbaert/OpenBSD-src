@@ -163,6 +163,8 @@ struct drm_display_mode {
 
 	int vrefresh;		/* in Hz */
 	int hsync;		/* in kHz */
+	/* Link for sorting */
+	RB_ENTRY(drm_display_mode) sort;
 };
 
 enum drm_connector_status {
