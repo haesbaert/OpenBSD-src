@@ -1,4 +1,4 @@
-/*	$OpenBSD: common.c,v 1.1.1.1 2012/07/13 17:49:53 eric Exp $	*/
+/*	$OpenBSD: common.c,v 1.1 2012/07/13 17:49:53 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *

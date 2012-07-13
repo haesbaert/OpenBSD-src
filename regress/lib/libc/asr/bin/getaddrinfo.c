@@ -1,4 +1,4 @@
-/*	$OpenBSD: getaddrinfo.c,v 1.1.1.1 2012/07/13 17:49:54 eric Exp $	*/
+/*	$OpenBSD: getaddrinfo.c,v 1.1 2012/07/13 17:49:54 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
