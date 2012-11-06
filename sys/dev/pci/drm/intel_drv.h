@@ -35,6 +35,8 @@ extern void gen6_update_ring_freq(struct inteldrm_softc *dev_priv);
 extern void gen6_disable_rps(struct drm_device *dev);
 extern void intel_init_emon(struct drm_device *dev);
 
+extern int intel_fbdev_init(struct drm_device *dev);
+
 
 /* these are outputs from the chip - integrated only
    external chips are via DVO or SDVO output */

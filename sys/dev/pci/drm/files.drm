@@ -20,9 +20,13 @@ file   dev/pci/drm/drm_edid.c		drm
 
 device	inteldrm: drmbase
 attach	inteldrm at drmdev
+file	dev/pci/drm/i915_dma.c		inteldrm
 file	dev/pci/drm/i915_drv.c		inteldrm
+file	dev/pci/drm/i915_gem.c		inteldrm
+file	dev/pci/drm/i915_gem_gtt.c	inteldrm
 file	dev/pci/drm/i915_irq.c		inteldrm
 file	dev/pci/drm/i915_suspend.c	inteldrm
+file	dev/pci/drm/intel_bios.c	inteldrm
 file	dev/pci/drm/intel_display.c	inteldrm
 file	dev/pci/drm/intel_fb.c		inteldrm
 file	dev/pci/drm/intel_lvds.c	inteldrm

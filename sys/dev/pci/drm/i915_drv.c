@@ -540,6 +540,9 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	    dev->agp->info.ai_aperture_size, BUS_SPACE_MAP_LINEAR |
 	    BUS_SPACE_MAP_PREFETCHABLE, &dev_priv->agph))
 		panic("can't map aperture");
+
+	/* XXX */
+	i915_load_modeset_init(dev);
 }
 
 int

@@ -32,6 +32,7 @@
 #define _I915_DRV_H_
 
 #include "i915_reg.h"
+#include "intel_bios.h"
 
 /* General customization:
  */
@@ -413,6 +414,8 @@ struct inteldrm_softc {
 		uint32_t bit_6_swizzle_y;
 	} mm;
 
+	bool flip_pending_is_done;
+
 	struct drm_connector *int_lvds_connector;
 	struct drm_connector *int_edp_connector;
 };
@@ -537,8 +540,17 @@ extern void i915_restore_display(struct inteldrm_softc *);
 extern int i915_save_state(struct inteldrm_softc *);
 extern int i915_restore_state(struct inteldrm_softc *);
 
+/* i915_gem.c */
+void i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev);
+
+/* i915_gem_gtt.c */
+void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
+
 /* modesetting */
 extern void intel_modeset_init(struct drm_device *dev);
+extern void intel_modeset_gem_init(struct drm_device *dev);
+int i915_load_modeset_init(struct drm_device *dev);
+
 
 /* XXX need bus_space_write_8, this evaluated arguments twice */
 static __inline void

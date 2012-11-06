@@ -562,6 +562,7 @@ struct drm_device {
 	int		  irq_enabled;	/* True if the irq handler is enabled */
 
 	/* VBLANK support */
+	int			 vblank_disable_allowed;
 	struct drm_vblank_info	*vblank;		/* One per ctrc */
 	struct mutex		 event_lock;
 

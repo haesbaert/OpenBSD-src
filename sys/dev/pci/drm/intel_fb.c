@@ -7,3 +7,9 @@ void intel_fb_output_poll_changed(struct drm_device *dev)
 {
 	printf("%s stub\n", __func__);
 }
+
+int intel_fbdev_init(struct drm_device *dev)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}

@@ -279,3 +279,8 @@ void intel_modeset_init(struct drm_device *dev)
 	callout_init(&dev_priv->idle_callout, CALLOUT_MPSAFE);
 #endif
 }
+
+void intel_modeset_gem_init(struct drm_device *dev)
+{
+	printf("%s stub\n", __func__);
+}
