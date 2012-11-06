@@ -124,6 +124,10 @@ typedef uint16_t __le16;
 	__typeof( ((type *)0)->member ) *__mptr = (ptr);        \
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
+#ifndef __DECONST
+#define __DECONST(type, var)    ((type)(__uintptr_t)(const void *)(var))
+#endif
+
 /* DRM_READMEMORYBARRIER() prevents reordering of reads.
  * DRM_WRITEMEMORYBARRIER() prevents reordering of writes.
  * DRM_MEMORYBARRIER() prevents reordering of reads and writes.

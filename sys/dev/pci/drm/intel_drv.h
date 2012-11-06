@@ -25,6 +25,16 @@ extern void intel_encoder_destroy(struct drm_encoder *encoder);
 extern void intel_connector_attach_encoder(struct intel_connector *connector,
 					   struct intel_encoder *encoder);
 extern int intel_panel_setup_backlight(struct drm_device *dev);
+extern void intel_fb_output_poll_changed(struct drm_device *dev);
+extern int intel_plane_init(struct drm_device *dev, enum pipe pipe);
+extern void intel_init_clock_gating(struct drm_device *dev);
+extern void ironlake_enable_drps(struct drm_device *dev);
+extern void ironlake_disable_drps(struct drm_device *dev);
+extern void gen6_enable_rps(struct inteldrm_softc *dev_priv);
+extern void gen6_update_ring_freq(struct inteldrm_softc *dev_priv);
+extern void gen6_disable_rps(struct drm_device *dev);
+extern void intel_init_emon(struct drm_device *dev);
+
 
 /* these are outputs from the chip - integrated only
    external chips are via DVO or SDVO output */

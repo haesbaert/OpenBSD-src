@@ -139,6 +139,8 @@ struct inteldrm_softc {
 	u_int32_t		 gt_irq_mask_reg;
 	u_int32_t		 pch_irq_mask_reg;
 
+	int			 num_pipe;
+
 	struct mutex		 fence_lock;
 	struct inteldrm_fence	 fence_regs[16]; /* 965 */
 	int			 fence_reg_start; /* 4 by default */
@@ -534,6 +536,9 @@ extern void i915_save_display(struct inteldrm_softc *);
 extern void i915_restore_display(struct inteldrm_softc *);
 extern int i915_save_state(struct inteldrm_softc *);
 extern int i915_restore_state(struct inteldrm_softc *);
+
+/* modesetting */
+extern void intel_modeset_init(struct drm_device *dev);
 
 /* XXX need bus_space_write_8, this evaluated arguments twice */
 static __inline void
