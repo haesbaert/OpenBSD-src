@@ -237,8 +237,7 @@ bool intel_lvds_init(struct drm_device *dev)
 	 * Attempt to get the fixed panel mode from DDC.  Assume that the
 	 * preferred mode is the right one.
 	 */
-#ifdef notyet
-	intel_lvds->edid = drm_get_edid(connector, dev_priv->gmbus[pin]);
+	intel_lvds->edid = drm_get_edid(connector, dev_priv->ddc);
 	if (intel_lvds->edid) {
 		if (drm_add_edid_modes(connector,
 				       intel_lvds->edid)) {
@@ -249,10 +248,6 @@ bool intel_lvds_init(struct drm_device *dev)
 			intel_lvds->edid = NULL;
 		}
 	}
-#else
-	printf("%s skipping getting edid from DDC\n", __func__);
-	intel_lvds->edid = NULL;
-#endif
 	if (!intel_lvds->edid) {
 		/* Didn't get an EDID, so
 		 * Set wide sync ranges so we get all modes

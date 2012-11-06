@@ -96,6 +96,8 @@ struct inteldrm_softc {
 	bus_space_tag_t		 bst;
 	struct agp_map		*agph;
 
+	i2c_tag_t		 ddc;
+
 	u_long			 flags;
 	u_int16_t		 pci_device;
 	int			 gen;
