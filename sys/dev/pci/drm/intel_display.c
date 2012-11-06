@@ -17,7 +17,9 @@ void intel_encoder_destroy(struct drm_encoder *encoder)
 void intel_connector_attach_encoder(struct intel_connector *connector,
 				    struct intel_encoder *encoder)
 {
-	printf("%s stub\n", __func__);
+	connector->encoder = encoder;
+	drm_mode_connector_attach_encoder(&connector->base,
+					  &encoder->base);
 }
 
 static void intel_setup_outputs(struct drm_device *dev)

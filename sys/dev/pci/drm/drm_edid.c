@@ -250,6 +250,14 @@ drm_edid_block_valid(u8 *raw_edid)
 bad:
 	if (raw_edid) {
 		printf("Raw EDID:\n");
+		for (i = 0; i < EDID_LENGTH; i++) {
+			if (i % 16 == 0)
+				printf("\n");
+			else if (i % 8 == 0)
+				printf(" ");
+			printf("%02x ", raw_edid[i]);
+		}
+		printf("\n");
 		//print_hex_dump(KERN_ERR, " \t", DUMP_PREFIX_NONE, 16, 1,
 		//	       raw_edid, EDID_LENGTH, FALSE);
 	}
@@ -293,6 +301,7 @@ int
 drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 		      int block, int len)
 {
+	printf("%s stub\n", __func__);
 #ifdef notyet
 	unsigned char start = block * EDID_LENGTH;
 	int ret, retries = 5;
@@ -320,6 +329,8 @@ drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 		ret = i2c_transfer(adapter, msgs, 2);
 	} while (ret != 2 && --retries);
 	return ret == 2 ? 0 : -1;
+#else
+	bzero(buf, len);
 #endif
 	return 0;
 }

@@ -74,6 +74,9 @@
 #include "drm_atomic.h"
 #include "agp.h"
 
+#define DRMDEBUG
+#define DRM_DEBUG_KMS
+
 #define __OS_HAS_AGP		(NAGP > 0)
 
 #if BYTE_ORDER == BIG_ENDIAN
