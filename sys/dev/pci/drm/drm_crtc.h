@@ -417,7 +417,7 @@ struct drm_connector_funcs {
 	 * probing.
 	 */
 	enum drm_connector_status (*detect)(struct drm_connector *connector,
-					    boolean_t force);
+					    bool force);
 	int (*fill_modes)(struct drm_connector *connector, uint32_t max_width, uint32_t max_height);
 	int (*set_property)(struct drm_connector *connector, struct drm_property *property,
 			     uint64_t val);
@@ -628,10 +628,6 @@ struct drm_mode_config {
 	struct drm_property *dithering_mode_property;
 	struct drm_property *dirty_info_property;
 };
-
-#define container_of(ptr, type, member) ({			\
-	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
-	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define obj_to_crtc(x) container_of(x, struct drm_crtc, base)
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)

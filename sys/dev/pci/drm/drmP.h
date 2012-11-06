@@ -120,6 +120,10 @@ typedef u_int8_t u8;
 
 typedef uint16_t __le16;
 
+#define container_of(ptr, type, member) ({                      \
+	__typeof( ((type *)0)->member ) *__mptr = (ptr);        \
+	(type *)( (char *)__mptr - offsetof(type,member) );})
+
 /* DRM_READMEMORYBARRIER() prevents reordering of reads.
  * DRM_WRITEMEMORYBARRIER() prevents reordering of writes.
  * DRM_MEMORYBARRIER() prevents reordering of reads and writes.

@@ -23,6 +23,9 @@ attach	inteldrm at drmdev
 file	dev/pci/drm/i915_drv.c		inteldrm
 file	dev/pci/drm/i915_irq.c		inteldrm
 file	dev/pci/drm/i915_suspend.c	inteldrm
+file	dev/pci/drm/intel_display.c	inteldrm
+file	dev/pci/drm/intel_panel.c	inteldrm
+file	dev/pci/drm/intel_lvds.c	inteldrm
 
 device	radeondrm: drmbase
 attach	radeondrm at drmdev

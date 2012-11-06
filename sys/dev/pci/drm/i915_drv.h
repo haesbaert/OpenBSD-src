@@ -410,6 +410,9 @@ struct inteldrm_softc {
 		/** Bit 6 swizzling required for Y tiling */
 		uint32_t bit_6_swizzle_y;
 	} mm;
+
+	struct drm_connector *int_lvds_connector;
+	struct drm_connector *int_edp_connector;
 };
 
 struct inteldrm_file {

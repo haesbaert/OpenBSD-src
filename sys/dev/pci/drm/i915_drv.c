@@ -307,7 +307,8 @@ static const struct drm_driver_info inteldrm_driver = {
 	.patchlevel		= DRIVER_PATCHLEVEL,
 
 	.flags			= DRIVER_AGP | DRIVER_AGP_REQUIRE |
-				    DRIVER_MTRR | DRIVER_IRQ | DRIVER_GEM,
+				    DRIVER_MTRR | DRIVER_IRQ | DRIVER_GEM |
+				    DRIVER_MODESET,
 };
 
 int

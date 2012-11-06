@@ -49,7 +49,7 @@ struct drm_crtc_helper_funcs {
 	void (*commit)(struct drm_crtc *crtc);
 
 	/* Provider can fixup or change mode timings before modeset occurs */
-	boolean_t (*mode_fixup)(struct drm_crtc *crtc,
+	bool (*mode_fixup)(struct drm_crtc *crtc,
 			   struct drm_display_mode *mode,
 			   struct drm_display_mode *adjusted_mode);
 	/* Actually set the mode */
@@ -76,7 +76,7 @@ struct drm_encoder_helper_funcs {
 	void (*save)(struct drm_encoder *encoder);
 	void (*restore)(struct drm_encoder *encoder);
 
-	boolean_t (*mode_fixup)(struct drm_encoder *encoder,
+	bool (*mode_fixup)(struct drm_encoder *encoder,
 			   struct drm_display_mode *mode,
 			   struct drm_display_mode *adjusted_mode);
 	void (*prepare)(struct drm_encoder *encoder);
