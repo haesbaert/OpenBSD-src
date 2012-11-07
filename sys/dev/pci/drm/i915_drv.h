@@ -72,6 +72,45 @@ struct inteldrm_ring {
 	u_int32_t		 woffset;
 };
 
+struct inteldrm_softc;
+
+struct drm_i915_display_funcs {
+	void (*dpms)(struct drm_crtc *crtc, int mode);
+	bool (*fbc_enabled)(struct drm_device *dev);
+	void (*enable_fbc)(struct drm_crtc *crtc, unsigned long interval);
+	void (*disable_fbc)(struct drm_device *dev);
+	int (*get_display_clock_speed)(struct drm_device *dev);
+	int (*get_fifo_size)(struct drm_device *dev, int plane);
+	void (*update_wm)(struct drm_device *dev);
+	void (*update_sprite_wm)(struct drm_device *dev, int pipe,
+				 uint32_t sprite_width, int pixel_size);
+	int (*crtc_mode_set)(struct drm_crtc *crtc,
+			     struct drm_display_mode *mode,
+			     struct drm_display_mode *adjusted_mode,
+			     int x, int y,
+			     struct drm_framebuffer *old_fb);
+	void (*write_eld)(struct drm_connector *connector,
+			  struct drm_crtc *crtc);
+	void (*fdi_link_train)(struct drm_crtc *crtc);
+	void (*init_clock_gating)(struct drm_device *dev);
+	void (*init_pch_clock_gating)(struct drm_device *dev);
+#ifdef notyet
+	int (*queue_flip)(struct drm_device *dev, struct drm_crtc *crtc,
+			  struct drm_framebuffer *fb,
+			  struct drm_i915_gem_object *obj);
+#endif
+	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
+	void (*force_wake_put)(struct inteldrm_softc *dev_priv);
+	int (*update_plane)(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+			    int x, int y);
+	/* clock updates for mode set */
+	/* cursor updates */
+	/* render clock increase/decrease */
+	/* display clock increase/decrease */
+	/* pll clock increase/decrease */
+};
+
+
 struct opregion_header;
 struct opregion_acpi;
 struct opregion_swsci;
@@ -94,6 +133,11 @@ struct inteldrm_fence {
 	TAILQ_ENTRY(inteldrm_fence)	 list;
 	struct drm_obj			*obj;
 	u_int32_t			 last_rendering_seqno;
+};
+
+enum intel_pch {
+	PCH_IBX,	/* Ibexpeak PCH */
+	PCH_CPT,	/* Cougarpoint PCH */
 };
 
 /*
@@ -202,6 +246,10 @@ struct inteldrm_softc {
 
 	/* protects access to request_list */
 	struct mutex		 request_lock;
+
+	enum intel_pch pch_type;
+
+	struct drm_i915_display_funcs display;
 
 	/* Register state */
 	u8 saveLBB;
@@ -461,6 +509,8 @@ struct inteldrm_softc {
 
 	struct drm_connector *int_lvds_connector;
 	struct drm_connector *int_edp_connector;
+
+	unsigned int fsb_freq, mem_freq, is_ddr3;
 };
 
 struct inteldrm_file {
@@ -594,6 +644,10 @@ extern void intel_modeset_init(struct drm_device *dev);
 extern void intel_modeset_gem_init(struct drm_device *dev);
 int i915_load_modeset_init(struct drm_device *dev);
 
+extern void __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
+extern void __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv);
+extern void __gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv);
+extern void __gen6_gt_force_wake_mt_put(struct inteldrm_softc *dev_priv);
 
 /* XXX need bus_space_write_8, this evaluated arguments twice */
 static __inline void
@@ -624,8 +678,10 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define I915_READ(reg)		bus_space_read_4(dev_priv->regs->bst,	\
 				    dev_priv->regs->bsh, (reg))
+#define I915_READ_NOTRACE(reg)	I915_READ(reg)
 #define I915_WRITE(reg,val)	bus_space_write_4(dev_priv->regs->bst,	\
 				    dev_priv->regs->bsh, (reg), (val))
+#define I915_WRITE_NOTRACE(reg)	I915_WRITE(reg)
 #define I915_READ16(reg)	bus_space_read_2(dev_priv->regs->bst,	\
 				    dev_priv->regs->bsh, (reg))
 #define I915_WRITE16(reg,val)	bus_space_write_2(dev_priv->regs->bst,	\
@@ -692,6 +748,13 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define IS_I9XX(dev_priv) ((dev_priv)->flags & CHIP_I9XX)
 
+/* XXX */
+#define IS_BROADWATER(dev_priv) (0)
+#define IS_CRESTLINE(dev_priv) (0)
+#define IS_PINEVIEW_G(dev_priv) (0)
+#define IS_PINEVIEW_M(dev_priv) (0)
+#define IS_PINEVIEW(dev_priv) ((dev_priv)->flags & CHIP_PINEVIEW)
+
 #define IS_IRONLAKE(dev_priv) ((dev_priv)->flags & CHIP_IRONLAKE)
 #define IS_IRONLAKE_D(dev_priv) ((dev_priv)->flags & CHIP_IRONLAKE_D)
 #define IS_IRONLAKE_M(dev_priv) ((dev_priv)->flags & CHIP_IRONLAKE_M)
@@ -699,6 +762,8 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_SANDYBRIDGE(dev_priv) ((dev_priv)->flags & CHIP_SANDYBRIDGE)
 #define IS_SANDYBRIDGE_D(dev_priv) ((dev_priv)->flags & CHIP_SANDYBRIDGE_D)
 #define IS_SANDYBRIDGE_M(dev_priv) ((dev_priv)->flags & CHIP_SANDYBRIDGE_M)
+
+#define IS_IVYBRIDGE(dev_priv) ((dev_priv)->flags & CHIP_IVYBRIDGE)
 
 #define IS_MOBILE(dev_priv) (dev_priv->flags & CHIP_M)
 
@@ -710,6 +775,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_GEN2(dev_priv)	(dev_priv->flags & CHIP_GEN2)
 #define IS_GEN3(dev_priv)	(dev_priv->flags & CHIP_GEN3)
 #define IS_GEN4(dev_priv)	(dev_priv->flags & CHIP_GEN4)
+#define IS_GEN5(dev_priv)	(dev_priv->flags & CHIP_IRONLAKE)
 #define IS_GEN6(dev_priv)	(dev_priv->flags & CHIP_GEN6)
 #define IS_GEN7(dev_priv)	(dev_priv->flags & CHIP_GEN7)
 
@@ -719,6 +785,10 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
     IS_GEN7(dev))
 
 #define INTEL_INFO(dev)		(dev)
+
+#define INTEL_PCH_TYPE(dev)	(dev->pch_type)
+#define HAS_PCH_CPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_CPT)
+#define HAS_PCH_IBX(dev)	(INTEL_PCH_TYPE(dev) == PCH_IBX)
 
 /*
  * Interrupts that are always left unmasked.

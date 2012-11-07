@@ -37,6 +37,8 @@ extern void intel_init_emon(struct drm_device *dev);
 
 extern int intel_fbdev_init(struct drm_device *dev);
 
+/* For use by IVB LP watermark workaround in intel_sprite.c */
+extern void sandybridge_update_wm(struct drm_device *dev);
 
 /* these are outputs from the chip - integrated only
    external chips are via DVO or SDVO output */

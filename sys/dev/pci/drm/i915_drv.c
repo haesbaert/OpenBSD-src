@@ -5436,3 +5436,27 @@ i915_ringbuffer_info(int kdev)
 }
 
 #endif
+
+void
+__gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
+{
+	printf("%s stub\n", __func__);
+}
+
+void
+__gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv)
+{
+	printf("%s stub\n", __func__);
+}
+
+void
+__gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv)
+{
+	printf("%s stub\n", __func__);
+}
+
+void
+__gen6_gt_force_wake_mt_put(struct inteldrm_softc *dev_priv)
+{
+	printf("%s stub\n", __func__);
+}
