@@ -136,8 +136,10 @@ struct inteldrm_fence {
 };
 
 enum intel_pch {
+	PCH_NONE = 0,	/* No PCH present */
 	PCH_IBX,	/* Ibexpeak PCH */
 	PCH_CPT,	/* Cougarpoint PCH */
+	PCH_LPT,	/* Lynxpoint PCH */
 };
 
 /*
@@ -203,6 +205,7 @@ struct inteldrm_softc {
 	u_int32_t		 pch_irq_mask_reg;
 
 	int			 num_pipe;
+	int			 num_pch_pll;
 
 	struct intel_opregion	 opregion;
 
@@ -643,6 +646,7 @@ void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
 extern void intel_modeset_init(struct drm_device *dev);
 extern void intel_modeset_gem_init(struct drm_device *dev);
 int i915_load_modeset_init(struct drm_device *dev);
+extern void intel_detect_pch(struct inteldrm_softc *dev_priv);
 
 extern void __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv);

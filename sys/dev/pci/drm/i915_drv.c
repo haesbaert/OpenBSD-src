@@ -516,6 +516,15 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
 
+	if (IS_IVYBRIDGE(dev_priv))
+		dev_priv->num_pipe = 3;
+	else if (IS_MOBILE(dev_priv) || !IS_GEN2(dev_priv))
+		dev_priv->num_pipe = 2;
+	else
+		dev_priv->num_pipe = 1;
+
+	intel_detect_pch(dev_priv);
+
 	/* All intel chipsets need to be treated as agp, so just pass one */
 	dev_priv->drmdev = drm_attach_pci(&inteldrm_driver, pa, 1, self);
 
@@ -5436,6 +5445,56 @@ i915_ringbuffer_info(int kdev)
 }
 
 #endif
+
+#define PCI_VENDOR_INTEL		0x8086
+#define INTEL_PCH_DEVICE_ID_MASK	0xff00
+#define INTEL_PCH_IBX_DEVICE_ID_TYPE	0x3b00
+#define INTEL_PCH_CPT_DEVICE_ID_TYPE	0x1c00
+#define INTEL_PCH_PPT_DEVICE_ID_TYPE	0x1e00
+#define INTEL_PCH_LPT_DEVICE_ID_TYPE	0x8c00
+
+static int
+intel_pch_match(struct pci_attach_args *pa)
+{
+	if (PCI_VENDOR(pa->pa_id) == PCI_VENDOR_INTEL &&
+	    PCI_CLASS(pa->pa_class) == PCI_CLASS_BRIDGE &&
+	    PCI_SUBCLASS(pa->pa_class) == PCI_SUBCLASS_BRIDGE_ISA)
+		return (1);
+	return (0);
+}
+
+void
+intel_detect_pch(struct inteldrm_softc *dev_priv)
+{
+	struct pci_attach_args	pa;
+	if (pci_find_device(&pa, intel_pch_match) == 0) {
+		DRM_DEBUG_KMS("No Intel PCI-ISA bridge found\n");
+	}
+	switch (PCI_PRODUCT(pa.pa_id) & INTEL_PCH_DEVICE_ID_MASK) {
+	case INTEL_PCH_IBX_DEVICE_ID_TYPE:
+		dev_priv->pch_type = PCH_IBX;
+		dev_priv->num_pch_pll = 2;
+		DRM_DEBUG_KMS("Found Ibex Peak PCH\n");
+		break;
+	case INTEL_PCH_CPT_DEVICE_ID_TYPE:
+		dev_priv->pch_type = PCH_CPT;
+		dev_priv->num_pch_pll = 2;
+		DRM_DEBUG_KMS("Found CougarPoint PCH\n");
+		break;
+	case INTEL_PCH_PPT_DEVICE_ID_TYPE:
+		/* PantherPoint is CPT compatible */
+		dev_priv->pch_type = PCH_CPT;
+		dev_priv->num_pch_pll = 2;
+		DRM_DEBUG_KMS("Found PatherPoint PCH\n");
+		break;
+	case INTEL_PCH_LPT_DEVICE_ID_TYPE:
+		dev_priv->pch_type = PCH_LPT;
+		dev_priv->num_pch_pll = 0;
+		DRM_DEBUG_KMS("Found LynxPoint PCH\n");
+	default:
+		DRM_DEBUG_KMS("No PCH detected\n");
+	}
+}
 
 void
 __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
