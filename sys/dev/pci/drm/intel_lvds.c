@@ -131,6 +131,56 @@ static bool intel_lvds_supported(struct drm_device *dev)
 	return IS_MOBILE(dev_priv) && !IS_I830(dev_priv);
 }
 
+/*
+ * Enumerate the child dev array parsed from VBT to check whether
+ * the LVDS is present.
+ * If it is present, return 1.
+ * If it is not present, return false.
+ * If no child dev is parsed from VBT, it assumes that the LVDS is present.
+ */
+static bool lvds_is_present_in_vbt(struct drm_device *dev,
+				   u8 *i2c_pin)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	int i;
+
+	if (!dev_priv->child_dev_num)
+		return true;
+
+	for (i = 0; i < dev_priv->child_dev_num; i++) {
+		struct child_device_config *child = dev_priv->child_dev + i;
+
+		/* If the device type is not LFP, continue.
+		 * We have to check both the new identifiers as well as the
+		 * old for compatibility with some BIOSes.
+		 */
+		if (child->device_type != DEVICE_TYPE_INT_LFP &&
+		    child->device_type != DEVICE_TYPE_LFP)
+			continue;
+
+		if (child->i2c_pin)
+		    *i2c_pin = child->i2c_pin;
+
+		/* However, we cannot trust the BIOS writers to populate
+		 * the VBT correctly.  Since LVDS requires additional
+		 * information from AIM blocks, a non-zero addin offset is
+		 * a good indicator that the LVDS is actually present.
+		 */
+		if (child->addin_offset)
+			return true;
+
+		/* But even then some BIOS writers perform some black magic
+		 * and instantiate the device without reference to any
+		 * additional data.  Trust that if the VBT was written into
+		 * the OpRegion then they have validated the LVDS's existence.
+		 */
+		if (dev_priv->opregion.vbt)
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * intel_lvds_init - setup LVDS connectors on this device
  * @dev: drm device
@@ -150,7 +200,7 @@ bool intel_lvds_init(struct drm_device *dev)
 	struct drm_crtc *crtc;
 	u32 lvds;
 	int pipe;
-//	u8 pin;
+	u8 pin;
 
 	if (!intel_lvds_supported(dev))
 		return false;
@@ -161,13 +211,11 @@ bool intel_lvds_init(struct drm_device *dev)
 		return false;
 #endif
 
-#ifdef notyet
 	pin = GMBUS_PORT_PANEL;
 	if (!lvds_is_present_in_vbt(dev, &pin)) {
 		DRM_DEBUG_KMS("LVDS is not present in VBT\n");
 		return false;
 	}
-#endif
 
 	if (HAS_PCH_SPLIT(dev_priv)) {
 		if ((I915_READ(PCH_LVDS) & LVDS_DETECTED) == 0)
@@ -270,7 +318,6 @@ bool intel_lvds_init(struct drm_device *dev)
 		}
 	}
 
-#ifdef notyet
 	/* Failed to get EDID, what about VBT? */
 	if (dev_priv->lfp_lvds_vbt_mode) {
 		intel_lvds->fixed_mode =
@@ -281,7 +328,6 @@ bool intel_lvds_init(struct drm_device *dev)
 			goto out;
 		}
 	}
-#endif
 
 	/*
 	 * If we didn't get EDID, try checking if the panel is already turned

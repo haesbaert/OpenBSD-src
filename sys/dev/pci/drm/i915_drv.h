@@ -72,6 +72,22 @@ struct inteldrm_ring {
 	u_int32_t		 woffset;
 };
 
+struct opregion_header;
+struct opregion_acpi;
+struct opregion_swsci;
+struct opregion_asle;
+
+struct intel_opregion {
+	struct opregion_header *header;
+	struct opregion_acpi *acpi;
+	struct opregion_swsci *swsci;
+	struct opregion_asle *asle;
+	void *vbt;
+	u32 *lid_state;
+};
+#define OPREGION_SIZE            (8*1024)
+
+
 #define I915_FENCE_REG_NONE -1
 
 struct inteldrm_fence {
@@ -143,6 +159,31 @@ struct inteldrm_softc {
 	u_int32_t		 pch_irq_mask_reg;
 
 	int			 num_pipe;
+
+	struct intel_opregion	 opregion;
+
+	int crt_ddc_pin;
+
+	/* LVDS info */
+	int backlight_level;  /* restore backlight to this value */
+	bool backlight_enabled;
+	struct drm_display_mode *lfp_lvds_vbt_mode; /* if any */
+	struct drm_display_mode *sdvo_lvds_vbt_mode; /* if any */
+
+	/* Feature bits from the VBIOS */
+	unsigned int int_tv_support:1;
+	unsigned int lvds_dither:1;
+	unsigned int lvds_vbt:1;
+	unsigned int int_crt_support:1;
+	unsigned int lvds_use_ssc:1;
+	unsigned int display_clock_mode:1;
+	int lvds_ssc_freq;
+
+	bool			 render_reclock_avail;
+	bool			 lvds_downclock_avail;
+	int			 lvds_downclock;
+	int			 child_dev_num;
+	struct child_device_config *child_dev;
 
 	struct mutex		 fence_lock;
 	struct inteldrm_fence	 fence_regs[16]; /* 965 */
