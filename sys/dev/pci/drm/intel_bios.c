@@ -645,6 +645,11 @@ static const struct dmi_system_id intel_no_opregion_vbt[] = {
 	{ }
 };
 
+bool dmi_check_system(const struct dmi_system_id *sysid)
+{
+	return (false);
+}
+
 /**
  * intel_parse_bios - find VBT and initialize settings from the BIOS
  * @dev: DRM device
@@ -663,7 +668,6 @@ intel_parse_bios(struct drm_device *dev)
 
 	init_vbt_defaults(dev_priv);
 
-#ifdef notyet
 	/* XXX Should this validation be moved to intel_opregion.c? */
 	if (!dmi_check_system(intel_no_opregion_vbt) && dev_priv->opregion.vbt) {
 		struct vbt_header *vbt = dev_priv->opregion.vbt;
@@ -674,7 +678,6 @@ intel_parse_bios(struct drm_device *dev)
 		} else
 			dev_priv->opregion.vbt = NULL;
 	}
-#endif
 	bios = NULL;
 
 #if 1
