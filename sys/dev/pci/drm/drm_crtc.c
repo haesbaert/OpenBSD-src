@@ -551,6 +551,62 @@ void drm_encoder_cleanup(struct drm_encoder *encoder)
 	// mutex_unlock(&dev->mode_config.mutex);
 }
 
+int drm_plane_init(struct drm_device *dev, struct drm_plane *plane,
+		   unsigned long possible_crtcs,
+		   const struct drm_plane_funcs *funcs,
+		   const uint32_t *formats, uint32_t format_count,
+		   bool priv)
+{
+	int ret;
+
+	// mutex_lock(&dev->mode_config.mutex);
+
+	ret = drm_mode_object_get(dev, &plane->base, DRM_MODE_OBJECT_PLANE);
+	if (ret)
+		goto out;
+
+	plane->dev = dev;
+	plane->funcs = funcs;
+	plane->format_types = malloc(sizeof(uint32_t) * format_count,
+	    M_DRM, M_WAITOK);
+
+	memcpy(plane->format_types, formats, format_count * sizeof(uint32_t));
+	plane->format_count = format_count;
+	plane->possible_crtcs = possible_crtcs;
+
+	/* private planes are not exposed to userspace, but depending on
+	 * display hardware, might be convenient to allow sharing programming
+	 * for the scanout engine with the crtc implementation.
+	 */
+	if (!priv) {
+		TAILQ_INSERT_TAIL(&dev->mode_config.plane_list, plane, head);
+		dev->mode_config.num_plane++;
+	} else {
+		TAILQ_INIT(&plane->plane_list);
+	}
+
+out:
+	// mutex_unlock(&dev->mode_config.mutex);
+
+	return ret;
+}
+
+void drm_plane_cleanup(struct drm_plane *plane)
+{
+	struct drm_device *dev = plane->dev;
+
+	// mutex_lock(&dev->mode_config.mutex);
+	free(plane->format_types, M_DRM);
+	drm_mode_object_put(dev, &plane->base);
+	/* if not added to a list, it must be a private plane */
+	if (!TAILQ_EMPTY(&plane->plane_list)) {
+		TAILQ_REMOVE(&plane->plane_list, plane, head);
+		dev->mode_config.num_plane--;
+	}
+	// mutex_unlock(&dev->mode_config.mutex);
+}
+
+
 /**
  * drm_mode_create - create a new display mode
  * @dev: DRM device
@@ -875,6 +931,7 @@ void drm_mode_config_init(struct drm_device *dev)
 	TAILQ_INIT(&dev->mode_config.encoder_list);
 	TAILQ_INIT(&dev->mode_config.property_list);
 	TAILQ_INIT(&dev->mode_config.property_blob_list);
+	TAILQ_INIT(&dev->mode_config.plane_list);
 	SPLAY_INIT(&dev->mode_config.mode_tree);
 
 	// mutex_lock(&dev->mode_config.mutex);

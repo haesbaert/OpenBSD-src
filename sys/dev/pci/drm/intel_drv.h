@@ -1,3 +1,11 @@
+#include "i915_drm.h"
+
+struct intel_framebuffer {
+	struct drm_framebuffer base;
+#ifdef notyet
+	struct drm_i915_gem_object *obj;
+#endif
+};
 
 struct intel_encoder {
 	struct drm_encoder		 base;
@@ -26,6 +34,29 @@ struct intel_crtc {
 
 	bool no_pll; /* tertiary pipe for IVB */
 	bool use_pll_a;
+};
+
+struct intel_plane {
+	struct drm_plane base;
+	enum pipe pipe;
+//	struct drm_i915_gem_object *obj;
+	bool primary_disabled;
+	int max_downscale;
+	u32 lut_r[1024], lut_g[1024], lut_b[1024];
+#ifdef notyet
+	void (*update_plane)(struct drm_plane *plane,
+			     struct drm_framebuffer *fb,
+			     struct drm_i915_gem_object *obj,
+			     int crtc_x, int crtc_y,
+			     unsigned int crtc_w, unsigned int crtc_h,
+			     uint32_t x, uint32_t y,
+			     uint32_t src_w, uint32_t src_h);
+#endif
+	void (*disable_plane)(struct drm_plane *plane);
+	int (*update_colorkey)(struct drm_plane *plane,
+			       struct drm_intel_sprite_colorkey *key);
+	void (*get_colorkey)(struct drm_plane *plane,
+			     struct drm_intel_sprite_colorkey *key);
 };
 
 #define to_intel_crtc(x) container_of(x, struct intel_crtc, base)
@@ -100,3 +131,8 @@ intel_get_crtc_for_pipe(struct drm_device *dev, int pipe)
 	printf("%s stub\n", __func__);
 	return (NULL);
 }
+
+extern int intel_sprite_set_colorkey(struct drm_device *dev, void *data,
+				     struct drm_file *file_priv);
+extern int intel_sprite_get_colorkey(struct drm_device *dev, void *data,
+				     struct drm_file *file_priv);

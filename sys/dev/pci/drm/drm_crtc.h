@@ -39,6 +39,7 @@ struct drm_framebuffer;
 #define DRM_MODE_OBJECT_PROPERTY 0xb0b0b0b0
 #define DRM_MODE_OBJECT_FB 0xfbfbfbfb
 #define DRM_MODE_OBJECT_BLOB 0xbbbbbbbb
+#define DRM_MODE_OBJECT_PLANE 0xeeeeeeee
 
 struct drm_mode_object {
 	uint32_t id;
@@ -280,6 +281,7 @@ struct drm_crtc;
 struct drm_connector;
 struct drm_encoder;
 struct drm_pending_vblank_event;
+struct drm_plane;
 
 /**
  * drm_crtc_funcs - control CRTCs for a given device
@@ -530,6 +532,63 @@ struct drm_connector {
 };
 
 /**
+ * drm_plane_funcs - driver plane control functions
+ * @update_plane: update the plane configuration
+ * @disable_plane: shut down the plane
+ * @destroy: clean up plane resources
+ */
+struct drm_plane_funcs {
+	int (*update_plane)(struct drm_plane *plane,
+			    struct drm_crtc *crtc, struct drm_framebuffer *fb,
+			    int crtc_x, int crtc_y,
+			    unsigned int crtc_w, unsigned int crtc_h,
+			    uint32_t src_x, uint32_t src_y,
+			    uint32_t src_w, uint32_t src_h);
+	int (*disable_plane)(struct drm_plane *plane);
+	void (*destroy)(struct drm_plane *plane);
+};
+
+/**
+ * drm_plane - central DRM plane control structure
+ * @dev: DRM device this plane belongs to
+ * @head: for list management
+ * @base: base mode object
+ * @possible_crtcs: pipes this plane can be bound to
+ * @format_types: array of formats supported by this plane
+ * @format_count: number of formats supported
+ * @crtc: currently bound CRTC
+ * @fb: currently bound fb
+ * @gamma_size: size of gamma table
+ * @gamma_store: gamma correction table
+ * @enabled: enabled flag
+ * @funcs: helper functions
+ * @helper_private: storage for drver layer
+ */
+struct drm_plane {
+	struct drm_device *dev;
+	TAILQ_ENTRY(drm_plane) head;
+	TAILQ_HEAD(_plane, drm_plane) plane_list;
+
+	struct drm_mode_object base;
+
+	uint32_t possible_crtcs;
+	uint32_t *format_types;
+	uint32_t format_count;
+
+	struct drm_crtc *crtc;
+	struct drm_framebuffer *fb;
+
+	/* CRTC gamma size for reporting to userspace */
+	uint32_t gamma_size;
+	uint16_t *gamma_store;
+
+	bool enabled;
+
+	const struct drm_plane_funcs *funcs;
+	void *helper_private;
+};
+
+/**
  * struct drm_mode_set
  *
  * Represents a single crtc the connectors that it drives with what mode
@@ -584,6 +643,8 @@ struct drm_mode_config {
 	TAILQ_HEAD(connector, drm_connector) connector_list;
 	int num_encoder;
 	TAILQ_HEAD(encoder, drm_encoder) encoder_list;
+	int num_plane;
+	TAILQ_HEAD(gplane, drm_plane) plane_list;
 
 	int num_crtc;
 	TAILQ_HEAD(crtc, drm_crtc) crtc_list;
@@ -657,6 +718,13 @@ extern void drm_encoder_init(struct drm_device *dev,
 			     struct drm_encoder *encoder,
 			     const struct drm_encoder_funcs *funcs,
 			     int encoder_type);
+extern int drm_plane_init(struct drm_device *dev,
+			  struct drm_plane *plane,
+			  unsigned long possible_crtcs,
+			  const struct drm_plane_funcs *funcs,
+			  const uint32_t *formats, uint32_t format_count,
+			  bool priv);
+extern void drm_plane_cleanup(struct drm_plane *plane);
 
 extern void drm_encoder_cleanup(struct drm_encoder *encoder);
 
