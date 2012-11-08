@@ -73,7 +73,21 @@ extern void intel_encoder_destroy(struct drm_encoder *encoder);
 
 extern void intel_connector_attach_encoder(struct intel_connector *connector,
 					   struct intel_encoder *encoder);
+
+/* intel_panel.c */
+extern void intel_fixed_panel_mode(struct drm_display_mode *fixed_mode,
+				   struct drm_display_mode *adjusted_mode);
+extern void intel_pch_panel_fitting(struct drm_device *dev,
+				    int fitting_mode,
+				    const struct drm_display_mode *mode,
+				    struct drm_display_mode *adjusted_mode);
+extern u32 intel_panel_get_max_backlight(struct drm_device *dev);
+extern u32 intel_panel_get_backlight(struct drm_device *dev);
+extern void intel_panel_set_backlight(struct drm_device *dev, u32 level);
 extern int intel_panel_setup_backlight(struct drm_device *dev);
+extern void intel_panel_enable_backlight(struct drm_device *dev);
+extern void intel_panel_disable_backlight(struct drm_device *dev);
+extern void intel_panel_destroy_backlight(struct drm_device *dev);
 extern enum drm_connector_status intel_panel_detect(struct drm_device *dev);
 
 static inline struct intel_encoder *intel_attached_encoder(struct drm_connector *connector)

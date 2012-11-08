@@ -521,6 +521,9 @@ struct inteldrm_softc {
 		uint32_t bit_6_swizzle_y;
 	} mm;
 
+	/* Panel fitter placement and size for Ironlake+ */
+	u32 pch_pf_pos, pch_pf_size;
+
 	struct drm_crtc *plane_to_crtc_mapping[3];
 	struct drm_crtc *pipe_to_crtc_mapping[3];
 
