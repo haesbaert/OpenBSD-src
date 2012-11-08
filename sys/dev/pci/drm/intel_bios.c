@@ -344,8 +344,6 @@ static void
 parse_sdvo_device_mapping(struct inteldrm_softc *dev_priv,
 			  struct bdb_header *bdb)
 {
-	printf("%s stub\n", __func__);
-#if 0
 	struct sdvo_device_mapping *p_mapping;
 	struct bdb_general_definitions *p_defs;
 	struct child_device_config *p_child;
@@ -430,7 +428,6 @@ parse_sdvo_device_mapping(struct inteldrm_softc *dev_priv,
 		DRM_DEBUG_KMS("No SDVO device info is found in VBT\n");
 	}
 	return;
-#endif
 }
 
 static void

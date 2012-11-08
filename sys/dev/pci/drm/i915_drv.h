@@ -147,6 +147,15 @@ struct inteldrm_fence {
 	u_int32_t			 last_rendering_seqno;
 };
 
+struct sdvo_device_mapping {
+	u8 initialized;
+	u8 dvo_port;
+	u8 slave_addr;
+	u8 dvo_wiring;
+	u8 i2c_pin;
+	u8 ddc_pin;
+};
+
 enum intel_pch {
 	PCH_NONE = 0,	/* No PCH present */
 	PCH_IBX,	/* Ibexpeak PCH */
@@ -521,6 +530,7 @@ struct inteldrm_softc {
 		uint32_t bit_6_swizzle_y;
 	} mm;
 
+	struct sdvo_device_mapping sdvo_mappings[2];
 	/* Panel fitter placement and size for Ironlake+ */
 	u32 pch_pf_pos, pch_pf_size;
 
