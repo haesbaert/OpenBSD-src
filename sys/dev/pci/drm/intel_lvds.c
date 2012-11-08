@@ -20,6 +20,12 @@ struct intel_lvds {
 	struct drm_display_mode	*fixed_mode;
 };
 
+static struct intel_lvds *intel_attached_lvds(struct drm_connector *connector)
+{
+	return container_of(intel_attached_encoder(connector),
+			    struct intel_lvds, base);
+}
+
 static void intel_lvds_dpms(struct drm_encoder *encoder, int mode)
 {
 	printf("%s stub\n", __func__);
@@ -50,21 +56,8 @@ static void intel_lvds_commit(struct drm_encoder *encoder)
 	printf("%s stub\n", __func__);
 }
 
-static int intel_lvds_get_modes(struct drm_connector *connector)
-{
-	printf("%s stub\n", __func__);
-	return 0;
-}
-
 static int intel_lvds_mode_valid(struct drm_connector *connector,
 				 struct drm_display_mode *mode)
-{
-	printf("%s stub\n", __func__);
-	return 0;
-}
-
-static enum drm_connector_status
-intel_lvds_detect(struct drm_connector *connector, bool force)
 {
 	printf("%s stub\n", __func__);
 	return 0;
@@ -81,6 +74,46 @@ static int intel_lvds_set_property(struct drm_connector *connector,
 static void intel_lvds_destroy(struct drm_connector *connector)
 {
 	printf("%s stub\n", __func__);
+}
+
+/**
+ * Detect the LVDS connection.
+ *
+ * Since LVDS doesn't have hotlug, we use the lid as a proxy.  Open means
+ * connected and closed means disconnected.  We also send hotplug events as
+ * needed, using lid status notification from the input layer.
+ */
+static enum drm_connector_status
+intel_lvds_detect(struct drm_connector *connector, bool force)
+{
+	struct drm_device *dev = connector->dev;
+	enum drm_connector_status status;
+
+	status = intel_panel_detect(dev);
+	if (status != connector_status_unknown)
+		return status;
+
+	return connector_status_connected;
+}
+
+/**
+ * Return the list of DDC modes if available, or the BIOS fixed mode otherwise.
+ */
+static int intel_lvds_get_modes(struct drm_connector *connector)
+{
+	struct intel_lvds *intel_lvds = intel_attached_lvds(connector);
+	struct drm_device *dev = connector->dev;
+	struct drm_display_mode *mode;
+
+	if (intel_lvds->edid)
+		return drm_add_edid_modes(connector, intel_lvds->edid);
+
+	mode = drm_mode_duplicate(dev, intel_lvds->fixed_mode);
+	if (mode == NULL)
+		return 0;
+
+	drm_mode_probed_add(connector, mode);
+	return 1;
 }
 
 static const struct drm_encoder_helper_funcs intel_lvds_helper_funcs = {

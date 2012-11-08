@@ -74,6 +74,13 @@ extern void intel_encoder_destroy(struct drm_encoder *encoder);
 extern void intel_connector_attach_encoder(struct intel_connector *connector,
 					   struct intel_encoder *encoder);
 extern int intel_panel_setup_backlight(struct drm_device *dev);
+extern enum drm_connector_status intel_panel_detect(struct drm_device *dev);
+
+static inline struct intel_encoder *intel_attached_encoder(struct drm_connector *connector)
+{
+	return to_intel_connector(connector)->encoder;
+}
+
 extern void intel_fb_output_poll_changed(struct drm_device *dev);
 extern int intel_plane_init(struct drm_device *dev, enum pipe pipe);
 extern void intel_init_clock_gating(struct drm_device *dev);
