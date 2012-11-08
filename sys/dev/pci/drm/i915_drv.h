@@ -169,6 +169,7 @@ struct inteldrm_softc {
 	bus_dma_tag_t		 dmat;
 	bus_space_tag_t		 bst;
 	struct agp_map		*agph;
+	bus_space_handle_t	 opregion_ioh;
 
 	i2c_tag_t		 ddc;
 
@@ -653,6 +654,13 @@ extern int i915_restore_state(struct inteldrm_softc *);
 
 /* i915_gem.c */
 void i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev);
+
+/* intel_opregion.c */
+int intel_opregion_setup(struct drm_device *dev);
+extern int intel_opregion_init(struct drm_device *dev);
+extern void intel_opregion_fini(struct drm_device *dev);
+extern void opregion_asle_intr(struct drm_device *dev);
+extern void opregion_enable_asle(struct drm_device *dev);
 
 /* i915_gem_gtt.c */
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);

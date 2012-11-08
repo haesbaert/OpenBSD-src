@@ -30,6 +30,7 @@ file	dev/pci/drm/intel_bios.c	inteldrm
 file	dev/pci/drm/intel_display.c	inteldrm
 file	dev/pci/drm/intel_fb.c		inteldrm
 file	dev/pci/drm/intel_lvds.c	inteldrm
+file	dev/pci/drm/intel_opregion.c	inteldrm
 file	dev/pci/drm/intel_panel.c	inteldrm
 file	dev/pci/drm/intel_sprite.c	inteldrm
 
