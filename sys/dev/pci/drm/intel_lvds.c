@@ -56,13 +56,6 @@ static void intel_lvds_commit(struct drm_encoder *encoder)
 	printf("%s stub\n", __func__);
 }
 
-static int intel_lvds_mode_valid(struct drm_connector *connector,
-				 struct drm_display_mode *mode)
-{
-	printf("%s stub\n", __func__);
-	return 0;
-}
-
 static int intel_lvds_set_property(struct drm_connector *connector,
 				   struct drm_property *property,
 				   uint64_t value)
@@ -74,6 +67,20 @@ static int intel_lvds_set_property(struct drm_connector *connector,
 static void intel_lvds_destroy(struct drm_connector *connector)
 {
 	printf("%s stub\n", __func__);
+}
+
+static int intel_lvds_mode_valid(struct drm_connector *connector,
+				 struct drm_display_mode *mode)
+{
+	struct intel_lvds *intel_lvds = intel_attached_lvds(connector);
+	struct drm_display_mode *fixed_mode = intel_lvds->fixed_mode;
+
+	if (mode->hdisplay > fixed_mode->hdisplay)
+		return MODE_PANEL;
+	if (mode->vdisplay > fixed_mode->vdisplay)
+		return MODE_PANEL;
+
+	return MODE_OK;
 }
 
 /**
