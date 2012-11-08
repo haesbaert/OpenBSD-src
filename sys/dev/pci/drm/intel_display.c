@@ -2,6 +2,7 @@
 #include "drm.h"
 #include "i915_drv.h"
 #include "intel_drv.h"
+#include "drm_crtc_helper.h"
 
 struct drm_encoder *intel_best_encoder(struct drm_connector *connector)
 {
@@ -173,11 +174,6 @@ static const struct drm_mode_config_funcs intel_mode_funcs = {
 };
 
 static void intel_init_quirks(struct drm_device *dev)
-{
-	printf("%s stub\n", __func__);
-}
-
-static void intel_crtc_init(struct drm_device *dev, int pipe)
 {
 	printf("%s stub\n", __func__);
 }
@@ -488,6 +484,286 @@ static int i845_get_fifo_size(struct drm_device *dev, int plane)
 	printf("%s stub\n", __func__);
 	return 0;
 }
+
+static void intel_disable_plane(struct inteldrm_softc *dev_priv,
+				enum plane plane, enum pipe pipe)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void intel_disable_pipe(struct inteldrm_softc *dev_priv,
+			       enum pipe pipe)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void intel_crtc_dpms(struct drm_crtc *crtc, int mode)
+{
+	printf("%s stub\n", __func__);
+}
+
+static bool intel_crtc_mode_fixup(struct drm_crtc *crtc,
+				  struct drm_display_mode *mode,
+				  struct drm_display_mode *adjusted_mode)
+{
+	printf("%s stub\n", __func__);
+	return false;
+}
+
+static int intel_crtc_mode_set(struct drm_crtc *crtc,
+			       struct drm_display_mode *mode,
+			       struct drm_display_mode *adjusted_mode,
+			       int x, int y,
+			       struct drm_framebuffer *old_fb)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+static int
+intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
+		    struct drm_framebuffer *old_fb)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+static int
+intel_pipe_set_base_atomic(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+			   int x, int y, enum mode_set_atomic state)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+void intel_crtc_load_lut(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void intel_crtc_disable(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+static int intel_crtc_cursor_set(struct drm_crtc *crtc,
+				 struct drm_file *file,
+				 uint32_t handle,
+				 uint32_t width, uint32_t height)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+static int intel_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+static void intel_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
+				 u16 *blue, uint32_t start, uint32_t size)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void intel_crtc_destroy(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void ironlake_crtc_enable(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void ironlake_crtc_disable(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void i9xx_crtc_enable(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+static void i9xx_crtc_disable(struct drm_crtc *crtc)
+{
+	printf("%s stub\n", __func__);
+}
+
+/* Prepare for a mode set.
+ *
+ * Note we could be a lot smarter here.  We need to figure out which outputs
+ * will be enabled, which disabled (in short, how the config will changes)
+ * and perform the minimum necessary steps to accomplish that, e.g. updating
+ * watermarks, FBC configuration, making sure PLLs are programmed correctly,
+ * panel fitting is in the proper state, etc.
+ */
+static void i9xx_crtc_prepare(struct drm_crtc *crtc)
+{
+	i9xx_crtc_disable(crtc);
+}
+
+static void i9xx_crtc_commit(struct drm_crtc *crtc)
+{
+	i9xx_crtc_enable(crtc);
+}
+
+static void ironlake_crtc_prepare(struct drm_crtc *crtc)
+{
+	ironlake_crtc_disable(crtc);
+}
+
+static void ironlake_crtc_commit(struct drm_crtc *crtc)
+{
+	ironlake_crtc_enable(crtc);
+}
+
+static int intel_crtc_page_flip(struct drm_crtc *crtc,
+				struct drm_framebuffer *fb,
+				struct drm_pending_vblank_event *event)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+static void intel_sanitize_modesetting(struct drm_device *dev,
+				       int pipe, int plane)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	u32 reg, val;
+
+	/* Clear any frame start delays used for debugging left by the BIOS */
+	for_each_pipe(pipe) {
+		reg = PIPECONF(pipe);
+		I915_WRITE(reg, I915_READ(reg) & ~PIPECONF_FRAME_START_DELAY_MASK);
+	}
+
+	if (HAS_PCH_SPLIT(dev_priv))
+		return;
+
+	/* Who knows what state these registers were left in by the BIOS or
+	 * grub?
+	 *
+	 * If we leave the registers in a conflicting state (e.g. with the
+	 * display plane reading from the other pipe than the one we intend
+	 * to use) then when we attempt to teardown the active mode, we will
+	 * not disable the pipes and planes in the correct order -- leaving
+	 * a plane reading from a disabled pipe and possibly leading to
+	 * undefined behaviour.
+	 */
+
+	reg = DSPCNTR(plane);
+	val = I915_READ(reg);
+
+	if ((val & DISPLAY_PLANE_ENABLE) == 0)
+		return;
+	if (!!(val & DISPPLANE_SEL_PIPE_MASK) == pipe)
+		return;
+
+	/* This display plane is active and attached to the other CPU pipe. */
+	pipe = !pipe;
+
+	/* Disable the plane and wait for it to stop reading from the pipe. */
+	intel_disable_plane(dev_priv, plane, pipe);
+	intel_disable_pipe(dev_priv, pipe);
+}
+
+static void intel_crtc_reset(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+
+	/* Reset flags back to the 'unknown' status so that they
+	 * will be correctly set on the initial modeset.
+	 */
+	intel_crtc->dpms_mode = -1;
+
+	/* We need to fix up any BIOS configuration that conflicts with
+	 * our expectations.
+	 */
+	intel_sanitize_modesetting(dev, intel_crtc->pipe, intel_crtc->plane);
+}
+
+static struct drm_crtc_helper_funcs intel_helper_funcs = {
+	.dpms = intel_crtc_dpms,
+	.mode_fixup = intel_crtc_mode_fixup,
+	.mode_set = intel_crtc_mode_set,
+	.mode_set_base = intel_pipe_set_base,
+	.mode_set_base_atomic = intel_pipe_set_base_atomic,
+	.load_lut = intel_crtc_load_lut,
+	.disable = intel_crtc_disable,
+};
+
+static const struct drm_crtc_funcs intel_crtc_funcs = {
+	.reset = intel_crtc_reset,
+	.cursor_set = intel_crtc_cursor_set,
+	.cursor_move = intel_crtc_cursor_move,
+	.gamma_set = intel_crtc_gamma_set,
+	.set_config = drm_crtc_helper_set_config,
+	.destroy = intel_crtc_destroy,
+	.page_flip = intel_crtc_page_flip,
+};
+
+static void intel_crtc_init(struct drm_device *dev, int pipe)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc;
+	int i;
+
+	intel_crtc = malloc(sizeof(struct intel_crtc) +
+	    (INTELFB_CONN_LIMIT * sizeof(struct drm_connector *)),
+	    M_DRM, M_WAITOK | M_ZERO);
+
+	drm_crtc_init(dev, &intel_crtc->base, &intel_crtc_funcs);
+
+	drm_mode_crtc_set_gamma_size(&intel_crtc->base, 256);
+	for (i = 0; i < 256; i++) {
+		intel_crtc->lut_r[i] = i;
+		intel_crtc->lut_g[i] = i;
+		intel_crtc->lut_b[i] = i;
+	}
+
+	/* Swap pipes & planes for FBC on pre-965 */
+	intel_crtc->pipe = pipe;
+	intel_crtc->plane = pipe;
+	if (IS_MOBILE(dev_priv) && IS_GEN3(dev_priv)) {
+		DRM_DEBUG_KMS("swapping pipes & planes for FBC\n");
+		intel_crtc->plane = !pipe;
+	}
+
+	KASSERT(pipe < nitems(dev_priv->plane_to_crtc_mapping) &&
+	    dev_priv->plane_to_crtc_mapping[intel_crtc->plane] == NULL);
+#ifdef notyet
+	    ("plane_to_crtc is already initialized"));
+#endif
+	dev_priv->plane_to_crtc_mapping[intel_crtc->plane] = &intel_crtc->base;
+	dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe] = &intel_crtc->base;
+
+	intel_crtc_reset(&intel_crtc->base);
+	intel_crtc->active = true; /* force the pipe off on setup_init_config */
+	intel_crtc->bpp = 24; /* default for pre-Ironlake */
+
+	if (HAS_PCH_SPLIT(dev_priv)) {
+		if (pipe == 2 && IS_IVYBRIDGE(dev_priv))
+			intel_crtc->no_pll = true;
+		intel_helper_funcs.prepare = ironlake_crtc_prepare;
+		intel_helper_funcs.commit = ironlake_crtc_commit;
+	} else {
+		intel_helper_funcs.prepare = i9xx_crtc_prepare;
+		intel_helper_funcs.commit = i9xx_crtc_commit;
+	}
+
+	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
+
+	intel_crtc->busy = false;
+
+#ifdef notyet
+	callout_init(&intel_crtc->idle_callout, CALLOUT_MPSAFE);
+#endif
+}
+
 
 struct cxsr_latency {
 	int is_desktop;

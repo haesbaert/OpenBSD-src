@@ -14,7 +14,25 @@ struct intel_connector {
 
 struct intel_crtc {
 	struct drm_crtc			 base;
+	enum pipe			 pipe;
+	enum plane			 plane;
+	u8				 lut_r[256];
+	u8				 lut_g[256];
+	u8				 lut_b[256];
+	int				 dpms_mode;
+	bool active; /* is the crtc on? independent of the dpms mode */
+	bool busy; /* is scanout buffer being updated frequently? */
+	unsigned int bpp;
+
+	bool no_pll; /* tertiary pipe for IVB */
+	bool use_pll_a;
 };
+
+#define to_intel_crtc(x) container_of(x, struct intel_crtc, base)
+#define to_intel_connector(x) container_of(x, struct intel_connector, base)
+#define to_intel_encoder(x) container_of(x, struct intel_encoder, base)
+#define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
+#define to_intel_plane(x) container_of(x, struct intel_plane, base)
 
 extern bool intel_lvds_init(struct drm_device *dev);
 extern struct drm_encoder *intel_best_encoder(struct drm_connector *connector);
@@ -37,8 +55,13 @@ extern void intel_init_emon(struct drm_device *dev);
 
 extern int intel_fbdev_init(struct drm_device *dev);
 
+extern void intel_crtc_load_lut(struct drm_crtc *crtc);
+
 /* For use by IVB LP watermark workaround in intel_sprite.c */
 extern void sandybridge_update_wm(struct drm_device *dev);
+
+/* maximum connectors per crtcs in the mode set */
+#define INTELFB_CONN_LIMIT 4
 
 /* these are outputs from the chip - integrated only
    external chips are via DVO or SDVO output */

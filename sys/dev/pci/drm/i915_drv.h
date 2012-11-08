@@ -46,7 +46,19 @@
 enum pipe {
 	PIPE_A = 0,
 	PIPE_B,
+	PIPE_C,
+	I915_MAX_PIPES
 };
+#define pipe_name(p) ((p) + 'A')
+
+enum plane {
+	PLANE_A = 0,
+	PLANE_B,
+	PLANE_C,
+};
+#define plane_name(p) ((p) + 'A')
+
+#define for_each_pipe(p) for ((p) = 0; (p) < dev_priv->num_pipe; (p)++)
 
 /* Interface history:
  *
@@ -507,6 +519,9 @@ struct inteldrm_softc {
 		/** Bit 6 swizzling required for Y tiling */
 		uint32_t bit_6_swizzle_y;
 	} mm;
+
+	struct drm_crtc *plane_to_crtc_mapping[3];
+	struct drm_crtc *pipe_to_crtc_mapping[3];
 
 	bool flip_pending_is_done;
 
