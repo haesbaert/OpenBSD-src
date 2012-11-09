@@ -27,6 +27,7 @@
  */
 #include "drmP.h"
 #include "drm.h"
+#include "drm_dp_helper.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
 #include "intel_bios.h"
@@ -440,11 +441,9 @@ parse_driver_features(struct inteldrm_softc *dev_priv,
 	if (!driver)
 		return;
 
-#ifdef notyet
 	if (SUPPORTS_EDP(dev_priv) &&
 	    driver->lvds_config == BDB_DRIVER_FEATURE_EDP)
 		dev_priv->edp.support = 1;
-#endif
 
 	if (driver->dual_frequency)
 		dev_priv->render_reclock_avail = true;
@@ -453,15 +452,13 @@ parse_driver_features(struct inteldrm_softc *dev_priv,
 static void
 parse_edp(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 {
-	printf("%s stub\n", __func__);
-#if 0
 	struct bdb_edp *edp;
 	struct edp_power_seq *edp_pps;
 	struct edp_link_params *edp_link_params;
 
 	edp = find_section(bdb, BDB_EDP);
 	if (!edp) {
-		if (SUPPORTS_EDP(dev_priv->dev) && dev_priv->edp.support) {
+		if (SUPPORTS_EDP(dev_priv) && dev_priv->edp.support) {
 			DRM_DEBUG_KMS("No eDP BDB found but eDP panel "
 				      "supported, assume %dbpp panel color "
 				      "depth.\n",
@@ -530,7 +527,6 @@ parse_edp(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 		dev_priv->edp.vswing = DP_TRAIN_VOLTAGE_SWING_1200;
 		break;
 	}
-#endif
 }
 
 static void
@@ -616,10 +612,8 @@ init_vbt_defaults(struct inteldrm_softc *dev_priv)
 	dev_priv->lvds_ssc_freq = intel_bios_ssc_frequency(dev_priv, 1);
 	DRM_DEBUG_KMS("Set default to SSC at %dMHz\n", dev_priv->lvds_ssc_freq);
 
-#ifdef notyet
 	/* eDP data */
 	dev_priv->edp.bpp = 18;
-#endif
 }
 
 static int intel_no_opregion_vbt_callback(const struct dmi_system_id *id)

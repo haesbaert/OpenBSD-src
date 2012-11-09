@@ -247,6 +247,17 @@ struct inteldrm_softc {
 	unsigned int lvds_use_ssc:1;
 	unsigned int display_clock_mode:1;
 	int lvds_ssc_freq;
+	struct {
+		int rate;
+		int lanes;
+		int preemphasis;
+		int vswing;
+
+		bool initialized;
+		bool support;
+		int bpp;
+		struct edp_power_seq pps;
+	} edp;
 
 	bool			 render_reclock_avail;
 	bool			 lvds_downclock_avail;
@@ -819,6 +830,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_GEN6(dev_priv)	(dev_priv->flags & CHIP_GEN6)
 #define IS_GEN7(dev_priv)	(dev_priv->flags & CHIP_GEN7)
 
+#define SUPPORTS_EDP(dev)	(IS_IRONLAKE_M(dev))
 #define I915_HAS_FBC(dev)	(IS_I965GM(dev) || IS_GM45(dev))
 
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \
