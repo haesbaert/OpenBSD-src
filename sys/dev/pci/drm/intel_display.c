@@ -178,12 +178,6 @@ static void intel_init_quirks(struct drm_device *dev)
 	printf("%s stub\n", __func__);
 }
 
-/* Disable the VGA plane that we never use */
-static void i915_disable_vga(struct drm_device *dev)
-{
-	printf("%s stub\n", __func__);
-}
-
 void intel_init_clock_gating(struct drm_device *dev)
 {
 	printf("%s stub\n", __func__);
@@ -1051,6 +1045,31 @@ static void intel_init_display(struct drm_device *dev)
 #endif
 }
 
+/* Disable the VGA plane that we never use */
+static void i915_disable_vga(struct drm_device *dev)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	u8 sr1;
+	u32 vga_reg;
+
+printf("%s skipping vga disable for now...\n", __func__);
+return;
+
+	if (HAS_PCH_SPLIT(dev_priv))
+		vga_reg = CPU_VGACNTRL;
+	else
+		vga_reg = VGACNTRL;
+
+//	vga_get_uninterruptible(dev->pdev, VGA_RSRC_LEGACY_IO);
+	outb(VGA_SR_INDEX, 1);
+	sr1 = inb(VGA_SR_DATA);
+	outb(VGA_SR_DATA, sr1 | 1<<5);
+//	vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
+	DELAY(300);
+
+	I915_WRITE(vga_reg, VGA_DISP_DISABLE);
+	POSTING_READ(vga_reg);
+}
 
 void intel_modeset_init(struct drm_device *dev)
 {
