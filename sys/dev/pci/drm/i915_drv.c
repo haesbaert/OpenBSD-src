@@ -533,7 +533,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	intel_opregion_setup(dev);
 	intel_setup_bios(dev);
-	intel_opregion_init(dev);
 
 	/* XXX would be a lot nicer to get agp info before now */
 	uvm_page_physload(atop(dev->agp->base), atop(dev->agp->base +
@@ -557,6 +556,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	/* XXX */
 	i915_load_modeset_init(dev);
+	intel_opregion_init(dev);
 }
 
 int
