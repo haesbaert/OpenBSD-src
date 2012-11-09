@@ -171,6 +171,153 @@ static bool intel_lvds_supported(struct drm_device *dev)
 	return IS_MOBILE(dev_priv) && !IS_I830(dev_priv);
 }
 
+static int intel_no_lvds_dmi_callback(const struct dmi_system_id *id)
+{
+	DRM_DEBUG_KMS("Skipping LVDS initialization for %s\n", id->ident);
+	return 1;
+}
+
+/* These systems claim to have LVDS, but really don't */
+static const struct dmi_system_id intel_no_lvds[] = {
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Apple Mac Mini (Core series)",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Apple"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Macmini1,1"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Apple Mac Mini (Core 2 series)",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Apple"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Macmini2,1"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "MSI IM-945GSE-A",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "MSI"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "A9830IMS"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Dell Studio Hybrid",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Studio Hybrid 140g"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Dell OptiPlex FX170",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "OptiPlex FX170"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "AOpen Mini PC",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "AOpen"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "i965GMx-IF"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "AOpen Mini PC MP915",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "AOpen"),
+			DMI_MATCH(DMI_BOARD_NAME, "i915GMx-F"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "AOpen i915GMm-HFS",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "AOpen"),
+			DMI_MATCH(DMI_BOARD_NAME, "i915GMm-HFS"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+                .ident = "AOpen i45GMx-I",
+                .matches = {
+                        DMI_MATCH(DMI_BOARD_VENDOR, "AOpen"),
+                        DMI_MATCH(DMI_BOARD_NAME, "i45GMx-I"),
+                },
+        },
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Aopen i945GTt-VFA",
+		.matches = {
+			DMI_MATCH(DMI_PRODUCT_VERSION, "AO00001JW"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Clientron U800",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Clientron"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "U800"),
+		},
+	},
+	{
+                .callback = intel_no_lvds_dmi_callback,
+                .ident = "Clientron E830",
+                .matches = {
+                        DMI_MATCH(DMI_SYS_VENDOR, "Clientron"),
+                        DMI_MATCH(DMI_PRODUCT_NAME, "E830"),
+                },
+        },
+        {
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Asus EeeBox PC EB1007",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK Computer INC."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "EB1007"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Asus AT5NM10T-I",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+			DMI_MATCH(DMI_BOARD_NAME, "AT5NM10T-I"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Hewlett-Packard t5745",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "hp t5745"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "Hewlett-Packard st5747",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "hp st5747"),
+		},
+	},
+	{
+		.callback = intel_no_lvds_dmi_callback,
+		.ident = "MSI Wind Box DC500",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "MICRO-STAR INTERNATIONAL CO., LTD"),
+			DMI_MATCH(DMI_BOARD_NAME, "MS-7469"),
+		},
+	},
+
+	{ }	/* terminating entry */
+};
+
 /*
  * Enumerate the child dev array parsed from VBT to check whether
  * the LVDS is present.
@@ -245,11 +392,9 @@ bool intel_lvds_init(struct drm_device *dev)
 	if (!intel_lvds_supported(dev))
 		return false;
 
-#ifdef notyet
 	/* Skip init on machines we know falsely report LVDS */
 	if (dmi_check_system(intel_no_lvds))
 		return false;
-#endif
 
 	pin = GMBUS_PORT_PANEL;
 	if (!lvds_is_present_in_vbt(dev, &pin)) {
@@ -260,12 +405,10 @@ bool intel_lvds_init(struct drm_device *dev)
 	if (HAS_PCH_SPLIT(dev_priv)) {
 		if ((I915_READ(PCH_LVDS) & LVDS_DETECTED) == 0)
 			return false;
-#ifdef notyet
 		if (dev_priv->edp.support) {
 			DRM_DEBUG_KMS("disable LVDS for eDP support\n");
 			return false;
 		}
-#endif
 	}
 
 	intel_lvds = malloc(sizeof(struct intel_lvds), M_DRM,
