@@ -4,6 +4,8 @@
 #include "intel_drv.h"
 #include "drm_crtc_helper.h"
 
+int i915_panel_use_ssc = -1;
+
 struct drm_encoder *intel_best_encoder(struct drm_connector *connector)
 {
 	printf("%s stub\n", __func__);
@@ -23,13 +25,173 @@ void intel_connector_attach_encoder(struct intel_connector *connector,
 					  &encoder->base);
 }
 
+static int intel_encoder_clones(struct drm_device *dev, int type_mask)
+{
+	struct drm_encoder *encoder;
+	struct intel_encoder *intel_encoder;
+	int index_mask = 0;
+	int entry = 0;
+
+	TAILQ_FOREACH(encoder, &dev->mode_config.encoder_list, head) {
+		if (type_mask & intel_encoder->clone_mask)
+			index_mask |= (1 << entry);
+		entry++;
+	}
+
+	return index_mask;
+}
+
+#ifdef notyet
+static bool has_edp_a(struct drm_device *dev)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+
+	if (!IS_MOBILE(dev_priv))
+		return false;
+
+	if ((I915_READ(DP_A) & DP_DETECTED) == 0)
+		return false;
+
+	if (IS_GEN5(dev_priv) &&
+	    (I915_READ(ILK_DISPLAY_CHICKEN_FUSES) & ILK_eDP_A_DISABLE))
+		return false;
+
+	return true;
+}
+#endif
+
+static inline bool intel_panel_use_ssc(struct inteldrm_softc *dev_priv)
+{
+	if (i915_panel_use_ssc >= 0)
+		return i915_panel_use_ssc != 0;
+	return dev_priv->lvds_use_ssc
+	    && !(dev_priv->quirks & QUIRK_LVDS_SSC_DISABLE);
+}
+
+
+/*
+ * Initialize reference clocks when the driver loads
+ */
+void ironlake_init_pch_refclk(struct drm_device *dev)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct drm_mode_config *mode_config = &dev->mode_config;
+	struct drm_encoder *encoder;
+	struct intel_encoder *intel_encoder;
+	u32 temp;
+	bool has_lvds = false;
+	bool has_cpu_edp = false;
+	bool has_pch_edp = false;
+	bool has_panel = false;
+	bool has_ck505 = false;
+	bool can_ssc = false;
+
+	/* We need to take the global config into account */
+	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
+		switch (intel_encoder->type) {
+		case INTEL_OUTPUT_LVDS:
+			has_panel = true;
+			has_lvds = true;
+			break;
+		case INTEL_OUTPUT_EDP:
+			has_panel = true;
+			if (intel_encoder_is_pch_edp(encoder))
+				has_pch_edp = true;
+			else
+				has_cpu_edp = true;
+			break;
+		}
+	}
+
+	if (HAS_PCH_IBX(dev_priv)) {
+		has_ck505 = dev_priv->display_clock_mode;
+		can_ssc = has_ck505;
+	} else {
+		has_ck505 = false;
+		can_ssc = true;
+	}
+
+	DRM_DEBUG_KMS("has_panel %d has_lvds %d has_pch_edp %d has_cpu_edp %d has_ck505 %d\n",
+		      has_panel, has_lvds, has_pch_edp, has_cpu_edp,
+		      has_ck505);
+
+	/* Ironlake: try to setup display ref clock before DPLL
+	 * enabling. This is only under driver's control after
+	 * PCH B stepping, previous chipset stepping should be
+	 * ignoring this setting.
+	 */
+	temp = I915_READ(PCH_DREF_CONTROL);
+	/* Always enable nonspread source */
+	temp &= ~DREF_NONSPREAD_SOURCE_MASK;
+
+	if (has_ck505)
+		temp |= DREF_NONSPREAD_CK505_ENABLE;
+	else
+		temp |= DREF_NONSPREAD_SOURCE_ENABLE;
+
+	if (has_panel) {
+		temp &= ~DREF_SSC_SOURCE_MASK;
+		temp |= DREF_SSC_SOURCE_ENABLE;
+
+		/* SSC must be turned on before enabling the CPU output  */
+		if (intel_panel_use_ssc(dev_priv) && can_ssc) {
+			DRM_DEBUG_KMS("Using SSC on panel\n");
+			temp |= DREF_SSC1_ENABLE;
+		} else
+			temp &= ~DREF_SSC1_ENABLE;
+
+		/* Get SSC going before enabling the outputs */
+		I915_WRITE(PCH_DREF_CONTROL, temp);
+		POSTING_READ(PCH_DREF_CONTROL);
+		DELAY(200);
+
+		temp &= ~DREF_CPU_SOURCE_OUTPUT_MASK;
+
+		/* Enable CPU source on CPU attached eDP */
+		if (has_cpu_edp) {
+			if (intel_panel_use_ssc(dev_priv) && can_ssc) {
+				DRM_DEBUG_KMS("Using SSC on eDP\n");
+				temp |= DREF_CPU_SOURCE_OUTPUT_DOWNSPREAD;
+			}
+			else
+				temp |= DREF_CPU_SOURCE_OUTPUT_NONSPREAD;
+		} else
+			temp |= DREF_CPU_SOURCE_OUTPUT_DISABLE;
+
+		I915_WRITE(PCH_DREF_CONTROL, temp);
+		POSTING_READ(PCH_DREF_CONTROL);
+		DELAY(200);
+	} else {
+		DRM_DEBUG_KMS("Disabling SSC entirely\n");
+
+		temp &= ~DREF_CPU_SOURCE_OUTPUT_MASK;
+
+		/* Turn off CPU output */
+		temp |= DREF_CPU_SOURCE_OUTPUT_DISABLE;
+
+		I915_WRITE(PCH_DREF_CONTROL, temp);
+		POSTING_READ(PCH_DREF_CONTROL);
+		DELAY(200);
+
+		/* Turn off the SSC source */
+		temp &= ~DREF_SSC_SOURCE_MASK;
+		temp |= DREF_SSC_SOURCE_DISABLE;
+
+		/* Turn off SSC1 */
+		temp &= ~ DREF_SSC1_ENABLE;
+
+		I915_WRITE(PCH_DREF_CONTROL, temp);
+		POSTING_READ(PCH_DREF_CONTROL);
+		DELAY(200);
+	}
+}
+
 static void intel_setup_outputs(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-#ifdef notyet
-	struct intel_encoder *encoder;
-	bool dpd_is_edp = false;
-#endif
+	struct drm_encoder *encoder;
+	struct intel_encoder *intel_encoder;
+//	bool dpd_is_edp = false;
 	bool has_lvds;
 
 	has_lvds = intel_lvds_init(dev);
@@ -48,13 +210,9 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (dpd_is_edp && (I915_READ(PCH_DP_D) & DP_DETECTED))
 			intel_dp_init(dev, PCH_DP_D);
 	}
-#endif
 
-#ifdef notyet
 	intel_crt_init(dev);
-#endif
 
-#ifdef notyet
 	if (HAS_PCH_SPLIT(dev_priv)) {
 		int found;
 
@@ -89,18 +247,18 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (!dpd_is_edp && (I915_READ(PCH_DP_D) & DP_DETECTED))
 			intel_dp_init(dev, PCH_DP_D);
 
-	} else if (SUPPORTS_DIGITAL_OUTPUTS(dev)) {
+	} else if (SUPPORTS_DIGITAL_OUTPUTS(dev_priv)) {
 		bool found = false;
 
 		if (I915_READ(SDVOB) & SDVO_DETECTED) {
 			DRM_DEBUG_KMS("probing SDVOB\n");
 			found = intel_sdvo_init(dev, SDVOB);
-			if (!found && SUPPORTS_INTEGRATED_HDMI(dev)) {
+			if (!found && SUPPORTS_INTEGRATED_HDMI(dev_priv)) {
 				DRM_DEBUG_KMS("probing HDMI on SDVOB\n");
 				intel_hdmi_init(dev, SDVOB);
 			}
 
-			if (!found && SUPPORTS_INTEGRATED_DP(dev)) {
+			if (!found && SUPPORTS_INTEGRATED_DP(dev_priv)) {
 				DRM_DEBUG_KMS("probing DP_B\n");
 				intel_dp_init(dev, DP_B);
 			}
@@ -115,40 +273,35 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 		if (!found && (I915_READ(SDVOC) & SDVO_DETECTED)) {
 
-			if (SUPPORTS_INTEGRATED_HDMI(dev)) {
+			if (SUPPORTS_INTEGRATED_HDMI(dev_priv)) {
 				DRM_DEBUG_KMS("probing HDMI on SDVOC\n");
 				intel_hdmi_init(dev, SDVOC);
 			}
-			if (SUPPORTS_INTEGRATED_DP(dev)) {
+			if (SUPPORTS_INTEGRATED_DP(dev_priv)) {
 				DRM_DEBUG_KMS("probing DP_C\n");
 				intel_dp_init(dev, DP_C);
 			}
 		}
 
-		if (SUPPORTS_INTEGRATED_DP(dev) &&
+		if (SUPPORTS_INTEGRATED_DP(dev_priv) &&
 		    (I915_READ(DP_D) & DP_DETECTED)) {
 			DRM_DEBUG_KMS("probing DP_D\n");
 			intel_dp_init(dev, DP_D);
 		}
-	} else if (IS_GEN2(dev)) {
-#if 1
-		KIB_NOTYET();
-#else
+	} else if (IS_GEN2(dev_priv)) {
 		intel_dvo_init(dev);
-#endif
 	}
+
+	if (SUPPORTS_TV(dev_priv))
+		intel_tv_init(dev);
 #endif // notyet
 
-#ifdef notyet
-	if (SUPPORTS_TV(dev))
-		intel_tv_init(dev);
-#endif
-
-#ifdef notyet
-	list_for_each_entry(encoder, &dev->mode_config.encoder_list, base.head) {
-		encoder->base.possible_crtcs = encoder->crtc_mask;
-		encoder->base.possible_clones =
-			intel_encoder_clones(dev, encoder->clone_mask);
+	TAILQ_FOREACH(encoder, &dev->mode_config.encoder_list, head) {
+	
+		intel_encoder = to_intel_encoder(encoder);
+		encoder->possible_crtcs = intel_encoder->crtc_mask;
+		encoder->possible_clones =
+			intel_encoder_clones(dev, intel_encoder->clone_mask);
 	}
 
 	/* disable all the possible outputs/crtcs before entering KMS mode */
@@ -156,7 +309,6 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 	if (HAS_PCH_SPLIT(dev_priv))
 		ironlake_init_pch_refclk(dev);
-#endif
 }
 
 static struct drm_framebuffer *

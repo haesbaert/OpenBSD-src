@@ -65,7 +65,15 @@ struct intel_plane {
 #define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
 #define to_intel_plane(x) container_of(x, struct intel_plane, base)
 
+extern void intel_crt_init(struct drm_device *dev);
+extern void intel_hdmi_init(struct drm_device *dev, int sdvox_reg);
+extern bool intel_sdvo_init(struct drm_device *dev, int output_device);
+extern void intel_dvo_init(struct drm_device *dev);
+extern void intel_tv_init(struct drm_device *dev);
 extern bool intel_lvds_init(struct drm_device *dev);
+extern void intel_dp_init(struct drm_device *dev, int dp_reg);
+extern bool intel_dpd_is_edp(struct drm_device *dev);
+extern bool intel_encoder_is_pch_edp(struct drm_encoder *encoder);
 extern struct drm_encoder *intel_best_encoder(struct drm_connector *connector);
 extern struct drm_display_mode *intel_crtc_mode_get(struct drm_device *dev,
 						    struct drm_crtc *crtc);

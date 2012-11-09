@@ -163,6 +163,9 @@ enum intel_pch {
 	PCH_LPT,	/* Lynxpoint PCH */
 };
 
+#define QUIRK_PIPEA_FORCE	(1<<0)
+#define QUIRK_LVDS_SSC_DISABLE	(1<<1)
+
 /*
  * lock ordering:
  * exec lock,
@@ -185,6 +188,7 @@ struct inteldrm_softc {
 	u_long			 flags;
 	u_int16_t		 pci_device;
 	int			 gen;
+	uint8_t			 supports_tv;
 
 	pci_chipset_tag_t	 pc;
 	pcitag_t		 tag;
@@ -295,6 +299,8 @@ struct inteldrm_softc {
 	enum intel_pch pch_type;
 
 	struct drm_i915_display_funcs display;
+
+	unsigned long quirks;
 
 	/* Register state */
 	u8 saveLBB;
@@ -565,6 +571,13 @@ struct inteldrm_softc {
 	unsigned int fsb_freq, mem_freq, is_ddr3;
 };
 
+enum hdmi_force_audio {
+	HDMI_AUDIO_OFF_DVI = -2,	/* no aux data for HDMI-DVI converter */
+	HDMI_AUDIO_OFF,			/* force turn off HDMI audio */
+	HDMI_AUDIO_AUTO,		/* trust EDID */
+	HDMI_AUDIO_ON,			/* force turn on HDMI audio */
+};
+
 struct inteldrm_file {
 	struct drm_file	file_priv;
 	struct {
@@ -702,6 +715,7 @@ void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
 extern void intel_modeset_init(struct drm_device *dev);
 extern void intel_modeset_gem_init(struct drm_device *dev);
 int i915_load_modeset_init(struct drm_device *dev);
+extern void ironlake_init_pch_refclk(struct drm_device *dev);
 extern void intel_detect_pch(struct inteldrm_softc *dev_priv);
 
 extern void __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
@@ -847,7 +861,11 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_GEN6(dev_priv)	(dev_priv->flags & CHIP_GEN6)
 #define IS_GEN7(dev_priv)	(dev_priv->flags & CHIP_GEN7)
 
-#define SUPPORTS_EDP(dev)	(IS_IRONLAKE_M(dev))
+#define SUPPORTS_DIGITAL_OUTPUTS(dev)	(!IS_GEN2(dev) && !IS_PINEVIEW(dev))
+#define SUPPORTS_INTEGRATED_HDMI(dev)	(IS_G4X(dev) || IS_GEN5(dev))
+#define SUPPORTS_INTEGRATED_DP(dev)	(IS_G4X(dev) || IS_GEN5(dev))
+#define SUPPORTS_EDP(dev)		(IS_IRONLAKE_M(dev))
+#define SUPPORTS_TV(dev)		(INTEL_INFO(dev)->supports_tv)
 #define I915_HAS_FBC(dev)	(IS_I965GM(dev) || IS_GM45(dev))
 
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \

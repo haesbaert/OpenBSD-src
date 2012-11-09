@@ -4,7 +4,6 @@
 #include "drm_crtc_helper.h"
 #include "i915_drv.h"
 #include "intel_drv.h"
-//#include "drm_linux_list.h"
 
 /* Private structure for the integrated LVDS support */
 struct intel_lvds {

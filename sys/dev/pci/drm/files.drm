@@ -27,12 +27,18 @@ file	dev/pci/drm/i915_gem_gtt.c	inteldrm
 file	dev/pci/drm/i915_irq.c		inteldrm
 file	dev/pci/drm/i915_suspend.c	inteldrm
 file	dev/pci/drm/intel_bios.c	inteldrm
+file	dev/pci/drm/intel_crt.c		inteldrm
 file	dev/pci/drm/intel_display.c	inteldrm
+file	dev/pci/drm/intel_dp.c		inteldrm
+file	dev/pci/drm/intel_dvo.c		inteldrm
 file	dev/pci/drm/intel_fb.c		inteldrm
+file	dev/pci/drm/intel_hdmi.c	inteldrm
 file	dev/pci/drm/intel_lvds.c	inteldrm
 file	dev/pci/drm/intel_opregion.c	inteldrm
 file	dev/pci/drm/intel_panel.c	inteldrm
+file	dev/pci/drm/intel_sdvo.c	inteldrm
 file	dev/pci/drm/intel_sprite.c	inteldrm
+file	dev/pci/drm/intel_tv.c		inteldrm
 
 device	radeondrm: drmbase
 attach	radeondrm at drmdev
