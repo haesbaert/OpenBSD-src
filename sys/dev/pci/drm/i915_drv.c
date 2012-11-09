@@ -515,6 +515,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->list_lock, IPL_NONE);
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
+	mtx_init(&dev_priv->gt_lock, IPL_NONE);
 
 	if (IS_IVYBRIDGE(dev_priv))
 		dev_priv->num_pipe = 3;
@@ -5503,23 +5504,106 @@ intel_detect_pch(struct inteldrm_softc *dev_priv)
 void
 __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
 {
-	printf("%s stub\n", __func__);
+	int count;
+
+	count = 0;
+	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_ACK) & 1))
+		DELAY(10000);
+
+	I915_WRITE_NOTRACE(FORCEWAKE, 1);
+	POSTING_READ(FORCEWAKE);
+
+	count = 0;
+	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_ACK) & 1) == 0)
+		DELAY(10000);
 }
 
 void
 __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv)
 {
-	printf("%s stub\n", __func__);
+	int count;
+
+	count = 0;
+	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_MT_ACK) & 1))
+		DELAY(10000);
+
+	I915_WRITE_NOTRACE(FORCEWAKE_MT, (1<<16) | 1);
+	POSTING_READ(FORCEWAKE_MT);
+
+	count = 0;
+	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_MT_ACK) & 1) == 0)
+		DELAY(10000);
+}
+
+void
+gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
+{
+
+	mtx_enter(&dev_priv->gt_lock);
+	if (dev_priv->forcewake_count++ == 0)
+		dev_priv->display.force_wake_get(dev_priv);
+	mtx_leave(&dev_priv->gt_lock);
+}
+
+static void
+gen6_gt_check_fifodbg(struct inteldrm_softc *dev_priv)
+{
+	u32 gtfifodbg;
+
+	gtfifodbg = I915_READ_NOTRACE(GTFIFODBG);
+	if ((gtfifodbg & GT_FIFO_CPU_ERROR_MASK) != 0) {
+		printf("MMIO read or write has been dropped %x\n", gtfifodbg);
+		I915_WRITE_NOTRACE(GTFIFODBG, GT_FIFO_CPU_ERROR_MASK);
+	}
 }
 
 void
 __gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv)
 {
-	printf("%s stub\n", __func__);
+
+	I915_WRITE_NOTRACE(FORCEWAKE, 0);
+	/* The below doubles as a POSTING_READ */
+	gen6_gt_check_fifodbg(dev_priv);
 }
 
 void
 __gen6_gt_force_wake_mt_put(struct inteldrm_softc *dev_priv)
 {
-	printf("%s stub\n", __func__);
+
+	I915_WRITE_NOTRACE(FORCEWAKE_MT, (1<<16) | 0);
+	/* The below doubles as a POSTING_READ */
+	gen6_gt_check_fifodbg(dev_priv);
+}
+
+void
+gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv)
+{
+
+	mtx_enter(&dev_priv->gt_lock);
+	if (--dev_priv->forcewake_count == 0)
+ 		dev_priv->display.force_wake_put(dev_priv);
+	mtx_leave(&dev_priv->gt_lock);
+}
+
+int
+__gen6_gt_wait_for_fifo(struct inteldrm_softc *dev_priv)
+{
+	int ret = 0;
+
+	if (dev_priv->gt_fifo_count < GT_FIFO_NUM_RESERVED_ENTRIES) {
+		int loop = 500;
+		u32 fifo = I915_READ_NOTRACE(GT_FIFO_FREE_ENTRIES);
+		while (fifo <= GT_FIFO_NUM_RESERVED_ENTRIES && loop--) {
+			DELAY(10000);
+			fifo = I915_READ_NOTRACE(GT_FIFO_FREE_ENTRIES);
+		}
+		if (loop < 0 && fifo <= GT_FIFO_NUM_RESERVED_ENTRIES) {
+			printf("%s loop\n", __func__);
+			++ret;
+		}
+		dev_priv->gt_fifo_count = fifo;
+	}
+	dev_priv->gt_fifo_count--;
+
+	return (ret);
 }

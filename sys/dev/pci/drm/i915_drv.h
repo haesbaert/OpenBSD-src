@@ -193,6 +193,15 @@ struct inteldrm_softc {
 
 	struct vga_pci_bar	*regs;
 
+	/** gt_fifo_count and the subsequent register write are synchronized
+	 * with dev->struct_mutex. */
+	unsigned gt_fifo_count;
+	/** forcewake_count is protected by gt_lock */
+	unsigned forcewake_count;
+	/** gt_lock is also taken in irq contexts. */
+	struct mutex gt_lock;
+
+
 	union flush {
 		struct {
 			bus_space_tag_t		bst;
@@ -700,6 +709,14 @@ extern void __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_mt_put(struct inteldrm_softc *dev_priv);
 
+/* On SNB platform, before reading ring registers forcewake bit
+ * must be set to prevent GT core from power down and stale values being
+ * returned.
+ */
+void gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
+void gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv);
+int __gen6_gt_wait_for_fifo(struct inteldrm_softc *dev_priv);
+
 /* XXX need bus_space_write_8, this evaluated arguments twice */
 static __inline void
 write64(struct inteldrm_softc *dev_priv, bus_size_t off, u_int64_t reg)
@@ -732,7 +749,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define I915_READ_NOTRACE(reg)	I915_READ(reg)
 #define I915_WRITE(reg,val)	bus_space_write_4(dev_priv->regs->bst,	\
 				    dev_priv->regs->bsh, (reg), (val))
-#define I915_WRITE_NOTRACE(reg)	I915_WRITE(reg)
+#define I915_WRITE_NOTRACE(reg,val)	I915_WRITE(reg, val)
 #define I915_READ16(reg)	bus_space_read_2(dev_priv->regs->bst,	\
 				    dev_priv->regs->bsh, (reg))
 #define I915_WRITE16(reg,val)	bus_space_write_2(dev_priv->regs->bst,	\
