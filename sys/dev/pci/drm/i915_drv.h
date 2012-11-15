@@ -156,6 +156,11 @@ struct sdvo_device_mapping {
 	u8 ddc_pin;
 };
 
+struct gmbus_port {
+	struct inteldrm_softc *dev_priv;
+	int port;
+};
+
 enum intel_pch {
 	PCH_NONE = 0,	/* No PCH present */
 	PCH_IBX,	/* Ibexpeak PCH */
@@ -183,7 +188,8 @@ struct inteldrm_softc {
 	struct agp_map		*agph;
 	bus_space_handle_t	 opregion_ioh;
 
-	i2c_tag_t		 ddc;
+	struct i2c_controller	 ddc;
+	struct gmbus_port	 gp;
 
 	u_long			 flags;
 	u_int16_t		 pci_device;
@@ -699,6 +705,9 @@ extern void i915_save_display(struct inteldrm_softc *);
 extern void i915_restore_display(struct inteldrm_softc *);
 extern int i915_save_state(struct inteldrm_softc *);
 extern int i915_restore_state(struct inteldrm_softc *);
+
+/* intel_i2c.c */
+extern int intel_setup_gmbus(struct inteldrm_softc *);
 
 /* i915_gem.c */
 void i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev);

@@ -301,7 +301,7 @@ int
 drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 		      int block, int len)
 {
-	printf("%s stub\n", __func__);
+	printf("%s work in progress\n", __func__);
 #ifdef notyet
 	unsigned char start = block * EDID_LENGTH;
 	int ret, retries = 5;
@@ -330,7 +330,12 @@ drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 	} while (ret != 2 && --retries);
 	return ret == 2 ? 0 : -1;
 #else
+	uint8_t cmd = 0;
+
 	bzero(buf, len);
+	iic_acquire_bus(adapter, 0);
+	iic_exec(adapter, I2C_OP_READ_WITH_STOP, DDC_ADDR, &cmd, 1, buf, len, 0);
+	iic_release_bus(adapter, 0);
 #endif
 	return 0;
 }

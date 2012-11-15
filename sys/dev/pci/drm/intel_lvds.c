@@ -467,7 +467,7 @@ bool intel_lvds_init(struct drm_device *dev)
 	 * Attempt to get the fixed panel mode from DDC.  Assume that the
 	 * preferred mode is the right one.
 	 */
-	intel_lvds->edid = drm_get_edid(connector, dev_priv->ddc);
+	intel_lvds->edid = drm_get_edid(connector, &dev_priv->ddc);
 	if (intel_lvds->edid) {
 		if (drm_add_edid_modes(connector,
 				       intel_lvds->edid)) {

@@ -10,11 +10,6 @@ void	gmbus_i2c_release_bus(void *, int);
 int	gmbus_i2c_exec(void *, i2c_op_t, i2c_addr_t, const void *, size_t,
 	    void *buf, size_t, int);
 
-struct gmbus_port {
-	struct inteldrm_softc *dev_priv;
-	int port;
-};
-
 int
 gmbus_i2c_acquire_bus(void *cookie, int flags)
 {
@@ -117,7 +112,7 @@ i915_i2c_probe(struct inteldrm_softc *dev_priv)
 		dev_priv->gpio_mmio_base = 0;
 
 	gp.dev_priv = dev_priv;
-	gp.port = GMBUS_PORT_VGADDC;
+	gp.port = GMBUS_PORT_PANEL;
 
 	ic.ic_cookie = &gp;
 	ic.ic_acquire_bus = gmbus_i2c_acquire_bus;
@@ -134,4 +129,18 @@ i915_i2c_probe(struct inteldrm_softc *dev_priv)
 	for (i = 0; i < sizeof(buf); i++)
 		printf(" 0x%02x", buf[i]);
 	printf("\n");
+}
+
+int
+intel_setup_gmbus(struct inteldrm_softc *dev_priv)
+{
+	dev_priv->gp.dev_priv = dev_priv;
+	dev_priv->gp.port = GMBUS_PORT_PANEL;
+
+	dev_priv->ddc.ic_cookie = &dev_priv->gp;
+	dev_priv->ddc.ic_acquire_bus = gmbus_i2c_acquire_bus;
+	dev_priv->ddc.ic_release_bus = gmbus_i2c_release_bus;
+	dev_priv->ddc.ic_exec = gmbus_i2c_exec;
+
+	return (0);
 }

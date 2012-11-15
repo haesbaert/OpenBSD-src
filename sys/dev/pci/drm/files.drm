@@ -33,6 +33,7 @@ file	dev/pci/drm/intel_dp.c		inteldrm
 file	dev/pci/drm/intel_dvo.c		inteldrm
 file	dev/pci/drm/intel_fb.c		inteldrm
 file	dev/pci/drm/intel_hdmi.c	inteldrm
+file	dev/pci/drm/intel_i2c.c		inteldrm
 file	dev/pci/drm/intel_lvds.c	inteldrm
 file	dev/pci/drm/intel_opregion.c	inteldrm
 file	dev/pci/drm/intel_panel.c	inteldrm
