@@ -21,7 +21,8 @@ gmbus_i2c_acquire_bus(void *cookie, int flags)
 	struct gmbus_port *gp = cookie;
 	struct inteldrm_softc *dev_priv = gp->dev_priv;
 
-	I915_WRITE(GMBUS0, GMBUS_RATE_100KHZ | gp->port);
+	I915_WRITE(dev_priv->gpio_mmio_base + GMBUS0,
+	    GMBUS_RATE_100KHZ | gp->port);
 
 	return (0);
 }
@@ -32,7 +33,7 @@ gmbus_i2c_release_bus(void *cookie, int flags)
 	struct gmbus_port *gp = cookie;
 	struct inteldrm_softc *dev_priv = gp->dev_priv;
 
-	I915_WRITE(GMBUS0, 0);
+	I915_WRITE(dev_priv->gpio_mmio_base + GMBUS0, 0);
 }
 
 int
@@ -42,6 +43,7 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 	struct gmbus_port *gp = cookie;
 	struct inteldrm_softc *dev_priv = gp->dev_priv;
 	uint32_t reg, st, val;
+	int reg_offset = dev_priv->gpio_mmio_base;
 	uint8_t *b;
 	int i, retries;
 
@@ -62,13 +64,13 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 	if (cmdlen > 0)
 		reg |= (b[0] << GMBUS_SLAVE_INDEX_SHIFT);
 	reg |= (len << GMBUS_BYTE_COUNT_SHIFT);
-	I915_WRITE(GMBUS1, reg | GMBUS_SW_RDY);
+	I915_WRITE(GMBUS1 + reg_offset, reg | GMBUS_SW_RDY);
 
 	if (I2C_OP_READ_P(op)) {
 		b = buf;
 		while (len > 0) {
 			for (retries = 50; retries > 0; retries--) {
-				st = I915_READ(GMBUS2);
+				st = I915_READ(GMBUS2 + reg_offset);
 				if (st & (GMBUS_SATOER | GMBUS_HW_RDY))
 					break;
 				DELAY(1000);
@@ -78,7 +80,7 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 			if ((st & GMBUS_HW_RDY) == 0)
 				return (ETIMEDOUT);
 
-			val = I915_READ(GMBUS3);
+			val = I915_READ(GMBUS3 + reg_offset);
 			for (i = 0; i < 4 && len > 0; i++, len--) {
 				*b++ = val & 0xff;
 				val >>= 8;
@@ -87,7 +89,7 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 	}
 
 	for (retries = 10; retries > 0; retries--) {
-		st = I915_READ(GMBUS2);
+		st = I915_READ(GMBUS2 + reg_offset);
 		if ((st & GMBUS_ACTIVE) == 0)
 			break;
 		DELAY(1000);
@@ -108,6 +110,11 @@ i915_i2c_probe(struct inteldrm_softc *dev_priv)
 	uint8_t buf[128];
 	uint8_t cmd;
 	int err, i;
+
+	if (HAS_PCH_SPLIT(dev_priv))
+		dev_priv->gpio_mmio_base = PCH_GPIOA - GPIOA;
+	else
+		dev_priv->gpio_mmio_base = 0;
 
 	gp.dev_priv = dev_priv;
 	gp.port = GMBUS_PORT_VGADDC;
