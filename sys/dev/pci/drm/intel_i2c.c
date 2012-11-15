@@ -134,6 +134,11 @@ i915_i2c_probe(struct inteldrm_softc *dev_priv)
 int
 intel_setup_gmbus(struct inteldrm_softc *dev_priv)
 {
+	if (HAS_PCH_SPLIT(dev_priv))
+		dev_priv->gpio_mmio_base = PCH_GPIOA - GPIOA;
+	else
+		dev_priv->gpio_mmio_base = 0;
+
 	dev_priv->gp.dev_priv = dev_priv;
 	dev_priv->gp.port = GMBUS_PORT_PANEL;
 
