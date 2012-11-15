@@ -197,6 +197,8 @@ struct inteldrm_softc {
 
 	struct vga_pci_bar	*regs;
 
+	uint32_t		 gpio_mmio_base;
+
 	/** gt_fifo_count and the subsequent register write are synchronized
 	 * with dev->struct_mutex. */
 	unsigned gt_fifo_count;
