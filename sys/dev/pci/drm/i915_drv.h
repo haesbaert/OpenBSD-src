@@ -708,6 +708,7 @@ extern int i915_restore_state(struct inteldrm_softc *);
 
 /* intel_i2c.c */
 extern int intel_setup_gmbus(struct inteldrm_softc *);
+extern void intel_gmbus_set_port(struct inteldrm_softc *, int);
 
 /* i915_gem.c */
 void i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev);

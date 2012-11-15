@@ -144,3 +144,9 @@ intel_setup_gmbus(struct inteldrm_softc *dev_priv)
 
 	return (0);
 }
+
+void
+intel_gmbus_set_port(struct inteldrm_softc *dev_priv, int port)
+{
+	dev_priv->gp.port = port;	
+}
