@@ -745,15 +745,15 @@ drmioctl(dev_t kdev, u_long cmd, caddr_t data, int flags,
 			return drm_mode_page_flip_ioctl(dev, data, file_priv);
 		case DRM_IOCTL_MODE_DIRTYFB:
 			return drm_mode_dirtyfb_ioctl(dev, data, file_priv);
+#endif
 		case DRM_IOCTL_MODE_CREATE_DUMB:
 			return drm_mode_create_dumb_ioctl(dev, data, 
 			    file_priv);
 		case DRM_IOCTL_MODE_MAP_DUMB:
-			return drm_mode_mmap_dump_ioctl(dev, data, file_priv);
+			return drm_mode_mmap_dumb_ioctl(dev, data, file_priv);
 		case DRM_IOCTL_MODE_DESTROY_DUMB:
 			return drm_mode_destroy_dumb_ioctl(dev, data, 
 			    file_priv);
-#endif
 		}
 	}
 	if (dev->driver->ioctl != NULL)

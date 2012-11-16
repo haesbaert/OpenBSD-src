@@ -2844,7 +2844,6 @@ void drm_mode_config_reset(struct drm_device *dev)
 			connector->funcs->reset(connector);
 }
 
-#ifdef notyet
 int drm_mode_create_dumb_ioctl(struct drm_device *dev,
 			       void *data, struct drm_file *file_priv)
 {
@@ -2877,7 +2876,6 @@ int drm_mode_destroy_dumb_ioctl(struct drm_device *dev,
 
 	return dev->driver->dumb_destroy(file_priv, dev, args->handle);
 }
-#endif
 
 int drm_mode_handle_cmp(struct drm_mode_handle *a, struct drm_mode_handle *b)
 {

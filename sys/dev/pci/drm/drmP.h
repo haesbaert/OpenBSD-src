@@ -484,6 +484,13 @@ struct drm_driver_info {
 	int	(*gem_fault)(struct drm_obj *, struct uvm_faultinfo *, off_t,
 		    vaddr_t, vm_page_t *, int, int, vm_prot_t, int);
 
+	int	(*dumb_create)(struct drm_file *file_priv,
+		    struct drm_device *dev, struct drm_mode_create_dumb *args);
+	int	(*dumb_map_offset)(struct drm_file *file_priv,
+		    struct drm_device *dev, uint32_t handle, uint64_t *offset);
+	int	(*dumb_destroy)(struct drm_file *file_priv,
+		    struct drm_device *dev, uint32_t handle);
+
 	size_t	gem_size;
 	size_t	buf_priv_size;
 	size_t	file_priv_size;
