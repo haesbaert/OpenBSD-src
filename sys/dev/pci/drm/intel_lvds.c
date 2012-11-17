@@ -25,9 +25,111 @@ static struct intel_lvds *intel_attached_lvds(struct drm_connector *connector)
 			    struct intel_lvds, base);
 }
 
+static struct intel_lvds *to_intel_lvds(struct drm_encoder *encoder)
+{
+	return container_of(encoder, struct intel_lvds, base.base);
+}
+
+/**
+ * Sets the power state for the panel.
+ */
+static void intel_lvds_enable(struct intel_lvds *intel_lvds)
+{
+	struct drm_device *dev = intel_lvds->base.base.dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	u32 ctl_reg, lvds_reg, stat_reg;
+	int retries;
+
+	if (HAS_PCH_SPLIT(dev_priv)) {
+		ctl_reg = PCH_PP_CONTROL;
+		lvds_reg = PCH_LVDS;
+		stat_reg = PCH_PP_STATUS;
+	} else {
+		ctl_reg = PP_CONTROL;
+		lvds_reg = LVDS;
+		stat_reg = PP_STATUS;
+	}
+
+	I915_WRITE(lvds_reg, I915_READ(lvds_reg) | LVDS_PORT_EN);
+
+	if (intel_lvds->pfit_dirty) {
+		/*
+		 * Enable automatic panel scaling so that non-native modes
+		 * fill the screen.  The panel fitter should only be
+		 * adjusted whilst the pipe is disabled, according to
+		 * register description and PRM.
+		 */
+		DRM_DEBUG_KMS("applying panel-fitter: %x, %x\n",
+			      intel_lvds->pfit_control,
+			      intel_lvds->pfit_pgm_ratios);
+
+		I915_WRITE(PFIT_PGM_RATIOS, intel_lvds->pfit_pgm_ratios);
+		I915_WRITE(PFIT_CONTROL, intel_lvds->pfit_control);
+		intel_lvds->pfit_dirty = false;
+	}
+
+	I915_WRITE(ctl_reg, I915_READ(ctl_reg) | POWER_TARGET_ON);
+	POSTING_READ(lvds_reg);
+	for (retries = 1000; retries > 0; retries--) {
+		if ((I915_READ(stat_reg) & PP_ON) != 0)
+			break;
+		DELAY(1000);
+	}
+	if (retries == 0)
+		DRM_ERROR("timed out waiting for panel to power on\n");
+
+	intel_panel_enable_backlight(dev);
+}
+
+static void intel_lvds_disable(struct intel_lvds *intel_lvds)
+{
+	struct drm_device *dev = intel_lvds->base.base.dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	u32 ctl_reg, lvds_reg, stat_reg;
+	int retries;
+
+printf("skipping %s\n", __func__);
+return;
+
+	if (HAS_PCH_SPLIT(dev_priv)) {
+		ctl_reg = PCH_PP_CONTROL;
+		lvds_reg = PCH_LVDS;
+		stat_reg = PCH_PP_STATUS;
+	} else {
+		ctl_reg = PP_CONTROL;
+		lvds_reg = LVDS;
+		stat_reg = PP_STATUS;
+	}
+
+	intel_panel_disable_backlight(dev);
+
+	I915_WRITE(ctl_reg, I915_READ(ctl_reg) & ~POWER_TARGET_ON);
+	for (retries = 1000; retries > 0; retries--) {
+		if ((I915_READ(stat_reg) & PP_ON) == 0)
+			break;
+	}
+	if (retries == 0)
+		DRM_ERROR("timed out waiting for panel to power off\n");
+
+	if (intel_lvds->pfit_control) {
+		I915_WRITE(PFIT_CONTROL, 0);
+		intel_lvds->pfit_dirty = true;
+	}
+
+	I915_WRITE(lvds_reg, I915_READ(lvds_reg) & ~LVDS_PORT_EN);
+	POSTING_READ(lvds_reg);
+}
+
 static void intel_lvds_dpms(struct drm_encoder *encoder, int mode)
 {
-	printf("%s stub\n", __func__);
+	struct intel_lvds *intel_lvds = to_intel_lvds(encoder);
+
+	if (mode == DRM_MODE_DPMS_ON)
+		intel_lvds_enable(intel_lvds);
+	else
+		intel_lvds_disable(intel_lvds);
+
+	/* XXX: We never power down the LVDS pairs. */
 }
 
 static bool intel_lvds_mode_fixup(struct drm_encoder *encoder, 
