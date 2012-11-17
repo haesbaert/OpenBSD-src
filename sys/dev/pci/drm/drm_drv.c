@@ -708,10 +708,16 @@ drmioctl(dev_t kdev, u_long cmd, caddr_t data, int flags,
 			return (EBUSY);
 		case DRM_IOCTL_MODE_GETRESOURCES:
 			return drm_mode_getresources(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETPLANERESOURCES:
+			return drm_mode_getplane_res(dev, data, file_priv);
 		case DRM_IOCTL_MODE_GETCRTC:
 			return drm_mode_getcrtc(dev, data, file_priv);
 		case DRM_IOCTL_MODE_SETCRTC:
 			return drm_mode_setcrtc(dev, data, file_priv);
+		case DRM_IOCTL_MODE_GETPLANE:
+			return drm_mode_getplane(dev, data, file_priv);
+		case DRM_IOCTL_MODE_SETPLANE:
+			return drm_mode_setplane(dev, data, file_priv);
 		case DRM_IOCTL_MODE_CURSOR:
 			return drm_mode_cursor_ioctl(dev, data, file_priv);
 		case DRM_IOCTL_MODE_GETGAMMA:

@@ -245,6 +245,7 @@ struct drm_framebuffer {
 	unsigned int depth;
 	int bits_per_pixel;
 	int flags;
+	uint32_t pixel_format; /* fourcc format */
 	TAILQ_ENTRY(drm_framebuffer) filp_head;
 	/* if you are using the helper */
 	void *helper_private;
@@ -700,7 +701,7 @@ struct drm_mode_config {
 #define obj_to_fb(x) container_of(x, struct drm_framebuffer, base)
 #define obj_to_property(x) container_of(x, struct drm_property, base)
 #define obj_to_blob(x) container_of(x, struct drm_property_blob, base)
-
+#define obj_to_plane(x) container_of(x, struct drm_plane, base)
 
 extern void drm_crtc_init(struct drm_device *dev,
 			  struct drm_crtc *crtc,
@@ -819,13 +820,18 @@ extern struct drm_mode_object *drm_mode_object_find(struct drm_device *dev,
 /* IOCTLs */
 extern int drm_mode_getresources(struct drm_device *dev,
 				 void *data, struct drm_file *file_priv);
-
+extern int drm_mode_getplane_res(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv);
 extern int drm_mode_getcrtc(struct drm_device *dev,
 			    void *data, struct drm_file *file_priv);
 extern int drm_mode_getconnector(struct drm_device *dev,
 			      void *data, struct drm_file *file_priv);
 extern int drm_mode_setcrtc(struct drm_device *dev,
 			    void *data, struct drm_file *file_priv);
+extern int drm_mode_getplane(struct drm_device *dev,
+			     void *data, struct drm_file *file_priv);
+extern int drm_mode_setplane(struct drm_device *dev,
+			     void *data, struct drm_file *file_priv);
 extern int drm_mode_cursor_ioctl(struct drm_device *dev,
 				void *data, struct drm_file *file_priv);
 extern int drm_mode_addfb(struct drm_device *dev,

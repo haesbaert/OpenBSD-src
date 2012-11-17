@@ -1557,6 +1557,256 @@ out:
 }
 
 /**
+ * drm_mode_getplane_res - get plane info
+ * @dev: DRM device
+ * @data: ioctl data
+ * @file_priv: DRM file info
+ *
+ * LOCKING:
+ * Takes mode config lock.
+ *
+ * Return an plane count and set of IDs.
+ */
+int drm_mode_getplane_res(struct drm_device *dev, void *data,
+			    struct drm_file *file_priv)
+{
+	struct drm_mode_get_plane_res *plane_resp = data;
+	struct drm_mode_config *config;
+	struct drm_plane *plane;
+	uint32_t *plane_ptr;
+	int copied = 0, ret = 0;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return (EINVAL);
+
+	// mutex_lock(&dev->mode_config.mutex);
+	config = &dev->mode_config;
+
+	/*
+	 * This ioctl is called twice, once to determine how much space is
+	 * needed, and the 2nd time to fill it.
+	 */
+	if (config->num_plane &&
+	    (plane_resp->count_planes >= config->num_plane)) {
+		plane_ptr = (uint32_t *)(unsigned long)plane_resp->plane_id_ptr;
+
+		TAILQ_FOREACH(plane, &config->plane_list, head) {
+			if (copyout(&plane->base.id, plane_ptr + copied,
+			    sizeof(uint32_t))) {
+				ret = EFAULT;
+				goto out;
+			}
+			copied++;
+		}
+	}
+	plane_resp->count_planes = config->num_plane;
+
+out:
+	// mutex_unlock(&dev->mode_config.mutex);
+	return ret;
+}
+
+/**
+ * drm_mode_getplane - get plane info
+ * @dev: DRM device
+ * @data: ioctl data
+ * @file_priv: DRM file info
+ *
+ * LOCKING:
+ * Takes mode config lock.
+ *
+ * Return plane info, including formats supported, gamma size, any
+ * current fb, etc.
+ */
+int drm_mode_getplane(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	struct drm_mode_get_plane *plane_resp = data;
+	struct drm_mode_object *obj;
+	struct drm_plane *plane;
+	uint32_t *format_ptr;
+	int ret = 0;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return (EINVAL);
+
+	// mutex_lock(&dev->mode_config.mutex);
+	obj = drm_mode_object_find(dev, plane_resp->plane_id,
+				   DRM_MODE_OBJECT_PLANE);
+	if (!obj) {
+		ret = ENOENT;
+		goto out;
+	}
+	plane = obj_to_plane(obj);
+
+	if (plane->crtc)
+		plane_resp->crtc_id = plane->crtc->base.id;
+	else
+		plane_resp->crtc_id = 0;
+
+	if (plane->fb)
+		plane_resp->fb_id = plane->fb->base.id;
+	else
+		plane_resp->fb_id = 0;
+
+	plane_resp->plane_id = plane->base.id;
+	plane_resp->possible_crtcs = plane->possible_crtcs;
+	plane_resp->gamma_size = plane->gamma_size;
+
+	/*
+	 * This ioctl is called twice, once to determine how much space is
+	 * needed, and the 2nd time to fill it.
+	 */
+	if (plane->format_count &&
+	    (plane_resp->count_format_types >= plane->format_count)) {
+		format_ptr = (uint32_t *)(unsigned long)plane_resp->format_type_ptr;
+		if (copyout(format_ptr,
+				 plane->format_types,
+				 sizeof(uint32_t) * plane->format_count)) {
+			ret = EFAULT;
+			goto out;
+		}
+	}
+	plane_resp->count_format_types = plane->format_count;
+
+out:
+	// mutex_unlock(&dev->mode_config.mutex);
+	return ret;
+}
+
+/**
+ * drm_mode_setplane - set up or tear down an plane
+ * @dev: DRM device
+ * @data: ioctl data*
+ * @file_prive: DRM file info
+ *
+ * LOCKING:
+ * Takes mode config lock.
+ *
+ * Set plane info, including placement, fb, scaling, and other factors.
+ * Or pass a NULL fb to disable.
+ */
+int drm_mode_setplane(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	struct drm_mode_set_plane *plane_req = data;
+	struct drm_mode_object *obj;
+	struct drm_plane *plane;
+	struct drm_crtc *crtc;
+	struct drm_framebuffer *fb;
+	int ret = 0;
+	unsigned int fb_width, fb_height;
+	int i;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return (EINVAL);
+
+	// mutex_lock(&dev->mode_config.mutex);
+
+	/*
+	 * First, find the plane, crtc, and fb objects.  If not available,
+	 * we don't bother to call the driver.
+	 */
+	obj = drm_mode_object_find(dev, plane_req->plane_id,
+				   DRM_MODE_OBJECT_PLANE);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown plane ID %d\n",
+			      plane_req->plane_id);
+		ret = ENOENT;
+		goto out;
+	}
+	plane = obj_to_plane(obj);
+
+	/* No fb means shut it down */
+	if (!plane_req->fb_id) {
+		plane->funcs->disable_plane(plane);
+		plane->crtc = NULL;
+		plane->fb = NULL;
+		goto out;
+	}
+
+	obj = drm_mode_object_find(dev, plane_req->crtc_id,
+				   DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown crtc ID %d\n",
+			      plane_req->crtc_id);
+		ret = ENOENT;
+		goto out;
+	}
+	crtc = obj_to_crtc(obj);
+
+	obj = drm_mode_object_find(dev, plane_req->fb_id,
+				   DRM_MODE_OBJECT_FB);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown framebuffer ID %d\n",
+			      plane_req->fb_id);
+		ret = ENOENT;
+		goto out;
+	}
+	fb = obj_to_fb(obj);
+
+	/* Check whether this plane supports the fb pixel format. */
+	for (i = 0; i < plane->format_count; i++)
+		if (fb->pixel_format == plane->format_types[i])
+			break;
+	if (i == plane->format_count) {
+		DRM_DEBUG_KMS("Invalid pixel format 0x%08x\n", fb->pixel_format);
+		ret = EINVAL;
+		goto out;
+	}
+
+	fb_width = fb->width << 16;
+	fb_height = fb->height << 16;
+
+	/* Make sure source coordinates are inside the fb. */
+	if (plane_req->src_w > fb_width ||
+	    plane_req->src_x > fb_width - plane_req->src_w ||
+	    plane_req->src_h > fb_height ||
+	    plane_req->src_y > fb_height - plane_req->src_h) {
+		DRM_DEBUG_KMS("Invalid source coordinates "
+			      "%u.%06ux%u.%06u+%u.%06u+%u.%06u\n",
+			      plane_req->src_w >> 16,
+			      ((plane_req->src_w & 0xffff) * 15625) >> 10,
+			      plane_req->src_h >> 16,
+			      ((plane_req->src_h & 0xffff) * 15625) >> 10,
+			      plane_req->src_x >> 16,
+			      ((plane_req->src_x & 0xffff) * 15625) >> 10,
+			      plane_req->src_y >> 16,
+			      ((plane_req->src_y & 0xffff) * 15625) >> 10);
+		ret = ENOSPC;
+		goto out;
+	}
+
+	/* Give drivers some help against integer overflows */
+	if (plane_req->crtc_w > INT_MAX ||
+	    plane_req->crtc_x > INT_MAX - (int32_t) plane_req->crtc_w ||
+	    plane_req->crtc_h > INT_MAX ||
+	    plane_req->crtc_y > INT_MAX - (int32_t) plane_req->crtc_h) {
+		DRM_DEBUG_KMS("Invalid CRTC coordinates %ux%u+%d+%d\n",
+			      plane_req->crtc_w, plane_req->crtc_h,
+			      plane_req->crtc_x, plane_req->crtc_y);
+		ret = ERANGE;
+		goto out;
+	}
+
+	ret = -plane->funcs->update_plane(plane, crtc, fb,
+					 plane_req->crtc_x, plane_req->crtc_y,
+					 plane_req->crtc_w, plane_req->crtc_h,
+					 plane_req->src_x, plane_req->src_y,
+					 plane_req->src_w, plane_req->src_h);
+	if (!ret) {
+		plane->crtc = crtc;
+		plane->fb = fb;
+	}
+
+out:
+	// mutex_unlock(&dev->mode_config.mutex);
+
+	return ret;
+}
+
+
+/**
  * drm_mode_setcrtc - set CRTC configuration
  * @inode: inode from the ioctl
  * @filp: file * from the ioctl
