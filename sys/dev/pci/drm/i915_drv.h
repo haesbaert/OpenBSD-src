@@ -699,6 +699,20 @@ extern u32 i915_get_vblank_counter(struct drm_device *dev, int crtc);
 extern void i915_user_irq_get(struct inteldrm_softc *);
 extern void i915_user_irq_put(struct inteldrm_softc *);
 
+/* gem */
+void i915_gem_retire_requests(struct inteldrm_softc *);
+struct drm_obj  *i915_gem_find_inactive_object(struct inteldrm_softc *,
+	size_t);
+int i915_gem_object_unbind(struct drm_obj *, int);
+int i915_wait_request(struct inteldrm_softc *, uint32_t, int);
+u_int32_t i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
+#define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
+
+/* i915_gem_evict.c */
+int i915_gem_evict_everything(struct inteldrm_softc *, int);
+int i915_gem_evict_something(struct inteldrm_softc *, size_t, int);
+int i915_gem_evict_inactive(struct inteldrm_softc *, int);
+
 /* i915_suspend.c */
 
 extern void i915_save_display(struct inteldrm_softc *);

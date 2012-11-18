@@ -59,8 +59,6 @@
 #	define WATCH_INACTIVE
 #endif
 
-#define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
-
 int	inteldrm_probe(struct device *, void *, void *);
 void	inteldrm_attach(struct device *, struct device *, void *);
 int	inteldrm_detach(struct device *, int);
@@ -126,7 +124,6 @@ int	i915_gem_init_object(struct drm_obj *);
 void	i915_gem_free_object(struct drm_obj *);
 int	i915_gem_object_pin(struct drm_obj *, uint32_t, int);
 void	i915_gem_object_unpin(struct drm_obj *);
-void	i915_gem_retire_requests(struct inteldrm_softc *);
 void	i915_gem_retire_request(struct inteldrm_softc *,
 	    struct inteldrm_request *);
 void	i915_gem_retire_work_handler(void *, void*);
@@ -145,7 +142,6 @@ int	i915_gem_init_ringbuffer(struct inteldrm_softc *);
 int	inteldrm_start_ring(struct inteldrm_softc *);
 void	i915_gem_cleanup_ringbuffer(struct inteldrm_softc *);
 int	i915_gem_ring_throttle(struct drm_device *, struct drm_file *);
-int	i915_gem_evict_inactive(struct inteldrm_softc *, int);
 int	i915_gem_get_relocs_from_user(struct drm_i915_gem_exec_object2 *,
 	    u_int32_t, struct drm_i915_gem_relocation_entry **);
 int	i915_gem_put_relocs_to_user(struct drm_i915_gem_exec_object2 *,
@@ -157,15 +153,11 @@ int	i915_gem_object_pin_and_relocate(struct drm_obj *,
 	    struct drm_file *, struct drm_i915_gem_exec_object2 *,
 	    struct drm_i915_gem_relocation_entry *);
 int	i915_gem_object_bind_to_gtt(struct drm_obj *, bus_size_t, int);
-int	i915_wait_request(struct inteldrm_softc *, uint32_t, int);
 u_int32_t	i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
-int	i915_gem_object_unbind(struct drm_obj *, int);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 		     size_t);
 
-int	i915_gem_evict_everything(struct inteldrm_softc *, int);
-int	i915_gem_evict_something(struct inteldrm_softc *, size_t, int);
 int	i915_gem_object_set_to_gtt_domain(struct drm_obj *, int, int);
 int	i915_gem_object_set_to_cpu_domain(struct drm_obj *, int, int);
 int	i915_gem_object_flush_gpu_write_domain(struct drm_obj *, int, int, int);
@@ -1987,94 +1979,6 @@ i915_gem_object_unbind(struct drm_obj *obj, int interruptible)
 	return (0);
 }
 
-int
-i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
-    int interruptible)
-{
-	struct drm_obj		*obj;
-	struct inteldrm_request	*request;
-	struct inteldrm_obj	*obj_priv;
-	u_int32_t		 seqno;
-	int			 ret = 0, write_domain = 0;
-
-	for (;;) {
-		i915_gem_retire_requests(dev_priv);
-
-		/* If there's an inactive buffer available now, grab it
-		 * and be done.
-		 */
-		obj = i915_gem_find_inactive_object(dev_priv, min_size);
-		if (obj != NULL) {
-			obj_priv = (struct inteldrm_obj *)obj;
-			/* find inactive object returns the object with a
-			 * reference for us, and held
-			 */
-			KASSERT(obj_priv->pin_count == 0);
-			KASSERT(!inteldrm_is_active(obj_priv));
-			DRM_ASSERT_HELD(obj);
-
-			/* Wait on the rendering and unbind the buffer. */
-			ret = i915_gem_object_unbind(obj, interruptible);
-			drm_unhold_and_unref(obj);
-			return (ret);
-		}
-
-		/* If we didn't get anything, but the ring is still processing
-		 * things, wait for one of those things to finish and hopefully
-		 * leave us a buffer to evict.
-		 */
-		mtx_enter(&dev_priv->request_lock);
-		if ((request = TAILQ_FIRST(&dev_priv->mm.request_list))
-		    != NULL) {
-			seqno = request->seqno;
-			mtx_leave(&dev_priv->request_lock);
-
-			ret = i915_wait_request(dev_priv, seqno, interruptible);
-			if (ret)
-				return (ret);
-
-			continue;
-		}
-		mtx_leave(&dev_priv->request_lock);
-
-		/* If we didn't have anything on the request list but there
-		 * are buffers awaiting a flush, emit one and try again.
-		 * When we wait on it, those buffers waiting for that flush
-		 * will get moved to inactive.
-		 */
-		mtx_enter(&dev_priv->list_lock);
-		TAILQ_FOREACH(obj_priv, &dev_priv->mm.flushing_list, list) {
-			obj = &obj_priv->obj;
-			if (obj->size >= min_size) {
-				write_domain = obj->write_domain;
-				break;
-			}
-			obj = NULL;
-		}
-		mtx_leave(&dev_priv->list_lock);
-
-		if (write_domain) {
-			if (i915_gem_flush(dev_priv, write_domain,
-			    write_domain) == 0)
-				return (ENOMEM);
-			continue;
-		}
-
-		/*
-		 * If we didn't do any of the above, there's no single buffer
-		 * large enough to swap out for the new one, so just evict
-		 * everything and start again. (This should be rare.)
-		 */
-		if (!TAILQ_EMPTY(&dev_priv->mm.inactive_list))
-			return (i915_gem_evict_inactive(dev_priv,
-			    interruptible));
-		else
-			return (i915_gem_evict_everything(dev_priv,
-			    interruptible));
-	}
-	/* NOTREACHED */
-}
-
 struct drm_obj *
 i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
     size_t min_size)
@@ -2118,36 +2022,6 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 	return (best);
 }
 
-int
-i915_gem_evict_everything(struct inteldrm_softc *dev_priv, int interruptible)
-{
-	u_int32_t	seqno;
-	int		ret;
-
-	if (TAILQ_EMPTY(&dev_priv->mm.inactive_list) &&
-	    TAILQ_EMPTY(&dev_priv->mm.flushing_list) &&
-	    TAILQ_EMPTY(&dev_priv->mm.active_list))
-		return (ENOSPC);
-
-	seqno = i915_gem_flush(dev_priv, I915_GEM_GPU_DOMAINS,
-	    I915_GEM_GPU_DOMAINS);
-	if (seqno == 0)
-		return (ENOMEM);
-
-	if ((ret = i915_wait_request(dev_priv, seqno, interruptible)) != 0 ||
-	    (ret = i915_gem_evict_inactive(dev_priv, interruptible)) != 0)
-		return (ret);
-
-	/*
-	 * All lists should be empty because we flushed the whole queue, then
-	 * we evicted the whole shebang, only pinned objects are still bound.
-	 */
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.inactive_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
-
-	return (0);
-}
 /*
  * return required GTT alignment for an object, taking into account potential
  * fence register needs
@@ -3944,37 +3818,6 @@ i915_gem_free_object(struct drm_obj *obj)
 	drm_free(obj_priv->bit_17);
 	obj_priv->bit_17 = NULL;
 	/* XXX dmatag went away? */
-}
-
-/* Clear out the inactive list and unbind everything in it. */
-int
-i915_gem_evict_inactive(struct inteldrm_softc *dev_priv, int interruptible)
-{
-	struct inteldrm_obj	*obj_priv;
-	int			 ret = 0;
-
-	mtx_enter(&dev_priv->list_lock);
-	while ((obj_priv = TAILQ_FIRST(&dev_priv->mm.inactive_list)) != NULL) {
-		if (obj_priv->pin_count != 0) {
-			ret = EINVAL;
-			DRM_ERROR("Pinned object in unbind list\n");
-			break;
-		}
-		/* reference it so that we can frob it outside the lock */
-		drm_ref(&obj_priv->obj.uobj);
-		mtx_leave(&dev_priv->list_lock);
-
-		drm_hold_object(&obj_priv->obj);
-		ret = i915_gem_object_unbind(&obj_priv->obj, interruptible);
-		drm_unhold_and_unref(&obj_priv->obj);
-
-		mtx_enter(&dev_priv->list_lock);
-		if (ret)
-			break;
-	}
-	mtx_leave(&dev_priv->list_lock);
-
-	return (ret);
 }
 
 void
