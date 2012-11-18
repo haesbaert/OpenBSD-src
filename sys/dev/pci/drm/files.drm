@@ -26,6 +26,7 @@ file	dev/pci/drm/i915_gem.c		inteldrm
 file	dev/pci/drm/i915_gem_evict.c	inteldrm
 file	dev/pci/drm/i915_gem_execbuffer.c	inteldrm
 file	dev/pci/drm/i915_gem_gtt.c	inteldrm
+file	dev/pci/drm/i915_gem_tiling.c	inteldrm
 file	dev/pci/drm/i915_irq.c		inteldrm
 file	dev/pci/drm/i915_suspend.c	inteldrm
 file	dev/pci/drm/intel_bios.c	inteldrm
