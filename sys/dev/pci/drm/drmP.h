@@ -131,6 +131,8 @@ typedef uint16_t __le16;
 #define __DECONST(type, var)    ((type)(__uintptr_t)(const void *)(var))
 #endif
 
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+
 /* DRM_READMEMORYBARRIER() prevents reordering of reads.
  * DRM_WRITEMEMORYBARRIER() prevents reordering of writes.
  * DRM_MEMORYBARRIER() prevents reordering of reads and writes.
