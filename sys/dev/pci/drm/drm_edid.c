@@ -1491,6 +1491,64 @@ void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
 }
 
 /**
+ * drm_av_sync_delay - HDMI/DP sink audio-video sync delay in millisecond
+ * @connector: connector associated with the HDMI/DP sink
+ * @mode: the display mode
+ */
+int drm_av_sync_delay(struct drm_connector *connector,
+		      struct drm_display_mode *mode)
+{
+	int i = !!(mode->flags & DRM_MODE_FLAG_INTERLACE);
+	int a, v;
+
+	if (!connector->latency_present[0])
+		return 0;
+	if (!connector->latency_present[1])
+		i = 0;
+
+	a = connector->audio_latency[i];
+	v = connector->video_latency[i];
+
+	/*
+	 * HDMI/DP sink doesn't support audio or video?
+	 */
+	if (a == 255 || v == 255)
+		return 0;
+
+	/*
+	 * Convert raw EDID values to millisecond.
+	 * Treat unknown latency as 0ms.
+	 */
+	if (a)
+		a = min(2 * (a - 1), 500);
+	if (v)
+		v = min(2 * (v - 1), 500);
+
+	return max(v - a, 0);
+}
+
+/**
+ * drm_select_eld - select one ELD from multiple HDMI/DP sinks
+ * @encoder: the encoder just changed display mode
+ * @mode: the adjusted display mode
+ *
+ * It's possible for one encoder to be associated with multiple HDMI/DP sinks.
+ * The policy is now hard coded to simply use the first HDMI/DP sink's ELD.
+ */
+struct drm_connector *drm_select_eld(struct drm_encoder *encoder,
+				     struct drm_display_mode *mode)
+{
+	struct drm_connector *connector;
+	struct drm_device *dev = encoder->dev;
+
+	TAILQ_FOREACH(connector, &dev->mode_config.connector_list, head)
+		if (connector->encoder == encoder && connector->eld[0])
+			return connector;
+
+	return NULL;
+}
+
+/**
  * drm_detect_hdmi_monitor - detect whether monitor is hdmi.
  * @edid: monitor EDID information
  *

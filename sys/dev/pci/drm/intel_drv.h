@@ -73,6 +73,61 @@ struct intel_plane {
 #define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
 #define to_intel_plane(x) container_of(x, struct intel_plane, base)
 
+#define DIP_HEADER_SIZE	5
+
+#define DIP_TYPE_AVI    0x82
+#define DIP_VERSION_AVI 0x2
+#define DIP_LEN_AVI     13
+
+#define DIP_TYPE_SPD	0x83
+#define DIP_VERSION_SPD	0x1
+#define DIP_LEN_SPD	25
+#define DIP_SPD_UNKNOWN	0
+#define DIP_SPD_DSTB	0x1
+#define DIP_SPD_DVDP	0x2
+#define DIP_SPD_DVHS	0x3
+#define DIP_SPD_HDDVR	0x4
+#define DIP_SPD_DVC	0x5
+#define DIP_SPD_DSC	0x6
+#define DIP_SPD_VCD	0x7
+#define DIP_SPD_GAME	0x8
+#define DIP_SPD_PC	0x9
+#define DIP_SPD_BD	0xa
+#define DIP_SPD_SCD	0xb
+
+struct dip_infoframe {
+	uint8_t type;		/* HB0 */
+	uint8_t ver;		/* HB1 */
+	uint8_t len;		/* HB2 - body len, not including checksum */
+	uint8_t ecc;		/* Header ECC */
+	uint8_t checksum;	/* PB0 */
+	union {
+		struct {
+			/* PB1 - Y 6:5, A 4:4, B 3:2, S 1:0 */
+			uint8_t Y_A_B_S;
+			/* PB2 - C 7:6, M 5:4, R 3:0 */
+			uint8_t C_M_R;
+			/* PB3 - ITC 7:7, EC 6:4, Q 3:2, SC 1:0 */
+			uint8_t ITC_EC_Q_SC;
+			/* PB4 - VIC 6:0 */
+			uint8_t VIC;
+			/* PB5 - PR 3:0 */
+			uint8_t PR;
+			/* PB6 to PB13 */
+			uint16_t top_bar_end;
+			uint16_t bottom_bar_start;
+			uint16_t left_bar_end;
+			uint16_t right_bar_start;
+		} avi;
+		struct {
+			uint8_t vn[8];
+			uint8_t pd[16];
+			uint8_t sdi;
+		} spd;
+		uint8_t payload[27];
+	} __attribute__ ((packed)) body;
+} __attribute__((packed));
+
 int intel_connector_update_modes(struct drm_connector *connector,
 				struct edid *edid);
 int intel_ddc_get_modes(struct drm_connector *c, struct i2c_controller *adapter);
@@ -84,6 +139,7 @@ extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector)
 
 extern void intel_crt_init(struct drm_device *dev);
 extern void intel_hdmi_init(struct drm_device *dev, int sdvox_reg);
+void intel_dip_infoframe_csum(struct dip_infoframe *avi_if);
 extern bool intel_sdvo_init(struct drm_device *dev, int output_device);
 extern void intel_dvo_init(struct drm_device *dev);
 extern void intel_tv_init(struct drm_device *dev);
@@ -152,7 +208,8 @@ extern void intel_init_emon(struct drm_device *dev);
 extern int intel_fbdev_init(struct drm_device *dev);
 
 extern void intel_crtc_load_lut(struct drm_crtc *crtc);
-
+extern void intel_write_eld(struct drm_encoder *encoder,
+			    struct drm_display_mode *mode);
 extern void intel_cpt_verify_modeset(struct drm_device *dev, int pipe);
 
 /* For use by IVB LP watermark workaround in intel_sprite.c */
