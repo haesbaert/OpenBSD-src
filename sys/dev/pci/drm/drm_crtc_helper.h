@@ -102,12 +102,12 @@ struct drm_connector_helper_funcs {
 extern int drm_helper_probe_single_connector_modes(struct drm_connector *connector, uint32_t maxX, uint32_t maxY);
 extern void drm_helper_disable_unused_functions(struct drm_device *dev);
 extern int drm_crtc_helper_set_config(struct drm_mode_set *set);
-extern boolean_t drm_crtc_helper_set_mode(struct drm_crtc *crtc,
+extern bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 				     struct drm_display_mode *mode,
 				     int x, int y,
 				     struct drm_framebuffer *old_fb);
-extern boolean_t drm_helper_crtc_in_use(struct drm_crtc *crtc);
-extern boolean_t drm_helper_encoder_in_use(struct drm_encoder *encoder);
+extern bool drm_helper_crtc_in_use(struct drm_crtc *crtc);
+extern bool drm_helper_encoder_in_use(struct drm_encoder *encoder);
 
 extern void drm_helper_connector_dpms(struct drm_connector *connector, int mode);
 

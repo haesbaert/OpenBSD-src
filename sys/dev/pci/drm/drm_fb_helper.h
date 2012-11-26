@@ -80,7 +80,7 @@ struct drm_fb_helper {
 
 	/* we got a hotplug but fbdev wasn't running the console
 	   delay until next set_par */
-	boolean_t delayed_hotplug;
+	bool delayed_hotplug;
 };
 
 int drm_fb_helper_single_fb_probe(struct drm_fb_helper *helper,
@@ -103,7 +103,7 @@ int drm_fb_helper_setcolreg(unsigned regno,
 			    unsigned transp,
 			    struct fb_info *info);
 
-boolean_t drm_fb_helper_restore_fbdev_mode(struct drm_fb_helper *fb_helper);
+bool drm_fb_helper_restore_fbdev_mode(struct drm_fb_helper *fb_helper);
 void drm_fb_helper_restore(void);
 void drm_fb_helper_fill_var(struct fb_info *info, struct drm_fb_helper *fb_helper,
 			    uint32_t fb_width, uint32_t fb_height);
@@ -113,7 +113,7 @@ void drm_fb_helper_fill_fix(struct fb_info *info, uint32_t pitch,
 int drm_fb_helper_setcmap(struct fb_cmap *cmap, struct fb_info *info);
 
 int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper);
-boolean_t drm_fb_helper_initial_config(struct drm_fb_helper *fb_helper, int bpp_sel);
+bool drm_fb_helper_initial_config(struct drm_fb_helper *fb_helper, int bpp_sel);
 int drm_fb_helper_single_add_all_connectors(struct drm_fb_helper *fb_helper);
 int drm_fb_helper_debug_enter(struct fb_info *info);
 int drm_fb_helper_debug_leave(struct fb_info *info);

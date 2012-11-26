@@ -363,7 +363,7 @@ struct drm_crtc {
 	/* framebuffer the connector is currently bound to */
 	struct drm_framebuffer *fb;
 
-	boolean_t enabled;
+	bool enabled;
 
 	/* Requested mode from modesetting. */
 	struct drm_display_mode mode;
@@ -499,8 +499,8 @@ struct drm_connector {
 
 	int connector_type;
 	int connector_type_id;
-	boolean_t interlace_allowed;
-	boolean_t doublescan_allowed;
+	bool interlace_allowed;
+	bool doublescan_allowed;
 	/* list of modes on this connector */
 	struct drm_mode_list modes;
 
@@ -668,7 +668,7 @@ struct drm_mode_config {
 	// XXX resource_size_t fb_base;
 
 	/* output poll support */
-	boolean_t poll_enabled;
+	bool poll_enabled;
 	// XXX struct delayed_work output_poll_work;
 
 	/* pointers to standard properties */
@@ -764,7 +764,7 @@ extern void drm_mode_config_init(struct drm_device *dev);
 extern void drm_mode_config_reset(struct drm_device *dev);
 extern void drm_mode_config_cleanup(struct drm_device *dev);
 extern void drm_mode_set_name(struct drm_display_mode *mode);
-extern boolean_t drm_mode_equal(struct drm_display_mode *mode1, struct drm_display_mode *mode2);
+extern bool drm_mode_equal(struct drm_display_mode *mode1, struct drm_display_mode *mode2);
 extern int drm_mode_width(struct drm_display_mode *mode);
 extern int drm_mode_height(struct drm_display_mode *mode);
 
@@ -782,7 +782,7 @@ extern void drm_mode_validate_size(struct drm_device *dev,
 				   struct drm_mode_list *mode_list,
 				   int maxX, int maxY, int maxPitch);
 extern void drm_mode_prune_invalid(struct drm_device *dev,
-				   struct drm_mode_list *mode_list, boolean_t verbose);
+				   struct drm_mode_list *mode_list, bool verbose);
 extern void drm_mode_sort(struct drm_mode_list *mode_list);
 extern int drm_mode_hsync(const struct drm_display_mode *mode);
 extern int drm_mode_vrefresh(const struct drm_display_mode *mode);
@@ -807,7 +807,7 @@ extern void drm_framebuffer_cleanup(struct drm_framebuffer *fb);
 extern int drmfb_probe(struct drm_device *dev, struct drm_crtc *crtc);
 extern int drmfb_remove(struct drm_device *dev, struct drm_framebuffer *fb);
 extern void drm_crtc_probe_connector_modes(struct drm_device *dev, int maxX, int maxY);
-extern boolean_t drm_crtc_in_use(struct drm_crtc *crtc);
+extern bool drm_crtc_in_use(struct drm_crtc *crtc);
 
 extern int drm_connector_attach_property(struct drm_connector *connector,
 				      struct drm_property *property, uint64_t init_val);
@@ -832,7 +832,7 @@ extern int drm_mode_connector_attach_encoder(struct drm_connector *connector,
 					     struct drm_encoder *encoder);
 extern void drm_mode_connector_detach_encoder(struct drm_connector *connector,
 					   struct drm_encoder *encoder);
-extern boolean_t drm_mode_crtc_set_gamma_size(struct drm_crtc *crtc,
+extern bool drm_mode_crtc_set_gamma_size(struct drm_crtc *crtc,
 					 int gamma_size);
 extern struct drm_mode_object *drm_mode_object_find(struct drm_device *dev,
 		uint32_t id, uint32_t type);
@@ -887,25 +887,25 @@ extern int drm_mode_gamma_get_ioctl(struct drm_device *dev,
 extern int drm_mode_gamma_set_ioctl(struct drm_device *dev,
 				    void *data, struct drm_file *file_priv);
 extern u8 *drm_find_cea_extension(struct edid *edid);
-extern boolean_t drm_detect_hdmi_monitor(struct edid *edid);
-extern boolean_t drm_detect_monitor_audio(struct edid *edid);
+extern bool drm_detect_hdmi_monitor(struct edid *edid);
+extern bool drm_detect_monitor_audio(struct edid *edid);
 extern int drm_mode_page_flip_ioctl(struct drm_device *dev,
 				    void *data, struct drm_file *file_priv);
 extern struct drm_display_mode *drm_cvt_mode(struct drm_device *dev,
 				int hdisplay, int vdisplay, int vrefresh,
-				boolean_t reduced, boolean_t interlaced, boolean_t margins);
+				bool reduced, bool interlaced, bool margins);
 extern struct drm_display_mode *drm_gtf_mode(struct drm_device *dev,
 				int hdisplay, int vdisplay, int vrefresh,
-				boolean_t interlaced, int margins);
+				bool interlaced, int margins);
 extern struct drm_display_mode *drm_gtf_mode_complex(struct drm_device *dev,
 				int hdisplay, int vdisplay, int vrefresh,
-				boolean_t interlaced, int margins, int GTF_M,
+				bool interlaced, int margins, int GTF_M,
 				int GTF_2C, int GTF_K, int GTF_2J);
 extern int drm_add_modes_noedid(struct drm_connector *connector,
 				int hdisplay, int vdisplay);
 
 extern int drm_edid_header_is_valid(const u8 *raw_edid);
-extern boolean_t drm_edid_is_valid(struct edid *edid);
+extern bool drm_edid_is_valid(struct edid *edid);
 struct drm_display_mode *drm_mode_find_dmt(struct drm_device *dev,
 					   int hsize, int vsize, int fresh);
 

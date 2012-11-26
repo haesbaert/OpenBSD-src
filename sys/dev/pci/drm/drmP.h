@@ -521,16 +521,16 @@ struct drm_driver_info {
 
 /* mode specified on the command line */
 struct drm_cmdline_mode {
-	boolean_t specified;
-	boolean_t refresh_specified;
-	boolean_t bpp_specified;
+	bool specified;
+	bool refresh_specified;
+	bool bpp_specified;
 	int xres, yres;
 	int bpp;
 	int refresh;
-	boolean_t rb;
-	boolean_t interlace;
-	boolean_t cvt;
-	boolean_t margins;
+	bool rb;
+	bool interlace;
+	bool cvt;
+	bool margins;
 	enum drm_connector_force force;
 };
 

@@ -2892,7 +2892,7 @@ void drm_mode_connector_detach_encoder(struct drm_connector *connector,
 	}
 }
 
-boolean_t drm_mode_crtc_set_gamma_size(struct drm_crtc *crtc,
+bool drm_mode_crtc_set_gamma_size(struct drm_crtc *crtc,
 				  int gamma_size)
 {
 	crtc->gamma_size = gamma_size;
@@ -2901,10 +2901,10 @@ boolean_t drm_mode_crtc_set_gamma_size(struct drm_crtc *crtc,
 	    M_DRM, M_NOWAIT|M_ZERO);
 	if (!crtc->gamma_store) {
 		crtc->gamma_size = 0;
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 int drm_mode_gamma_set_ioctl(struct drm_device *dev,

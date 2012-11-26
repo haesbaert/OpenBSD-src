@@ -38,7 +38,7 @@
 
 void drm_mode_validate_clocks(struct drm_device *,
     struct drm_mode_list *, int *, int *, int);
-boolean_t drm_mode_parse_command_line_for_connector(const char *,
+bool drm_mode_parse_command_line_for_connector(const char *,
     struct drm_connector *,
     struct drm_cmdline_mode *);
 struct drm_display_mode *drm_mode_create_from_cmdline_mode(
@@ -93,7 +93,7 @@ void drm_mode_debug_printmodeline(struct drm_display_mode *mode)
 #define HV_FACTOR			1000
 struct drm_display_mode *drm_cvt_mode(struct drm_device *dev, int hdisplay,
 				      int vdisplay, int vrefresh,
-				      boolean_t reduced, boolean_t interlaced, boolean_t margins)
+				      bool reduced, bool interlaced, bool margins)
 {
 	/* 1) top/bottom margin size (% of height) - default: 1.8, */
 #define	CVT_MARGIN_PERCENTAGE		18
@@ -307,7 +307,7 @@ struct drm_display_mode *drm_cvt_mode(struct drm_device *dev, int hdisplay,
  */
 struct drm_display_mode *
 drm_gtf_mode_complex(struct drm_device *dev, int hdisplay, int vdisplay,
-		     int vrefresh, boolean_t interlaced, int margins,
+		     int vrefresh, bool interlaced, int margins,
 		     int GTF_M, int GTF_2C, int GTF_K, int GTF_2J)
 {	/* 1) top/bottom margin size (% of height) - default: 1.8, */
 #define	GTF_MARGIN_PERCENTAGE		18
@@ -504,7 +504,7 @@ drm_gtf_mode_complex(struct drm_device *dev, int hdisplay, int vdisplay,
  */
 struct drm_display_mode *
 drm_gtf_mode(struct drm_device *dev, int hdisplay, int vdisplay, int vrefresh,
-	     boolean_t lace, int margins)
+	     bool lace, int margins)
 {
 	return drm_gtf_mode_complex(dev, hdisplay, vdisplay, vrefresh, lace,
 				    margins, 600, 40 * 2, 128, 20 * 2);
@@ -521,7 +521,7 @@ drm_gtf_mode(struct drm_device *dev, int hdisplay, int vdisplay, int vrefresh,
  */
 void drm_mode_set_name(struct drm_display_mode *mode)
 {
-	boolean_t interlaced = !!(mode->flags & DRM_MODE_FLAG_INTERLACE);
+	bool interlaced = !!(mode->flags & DRM_MODE_FLAG_INTERLACE);
 
 	snprintf(mode->name, DRM_DISPLAY_MODE_LEN, "%dx%d%s",
 		 mode->hdisplay, mode->vdisplay,
@@ -710,8 +710,8 @@ void drm_mode_set_crtcinfo(struct drm_display_mode *p, int adjust_flags)
 	p->crtc_hblank_start = min(p->crtc_hsync_start, p->crtc_hdisplay);
 	p->crtc_hblank_end = max(p->crtc_hsync_end, p->crtc_htotal);
 
-	p->crtc_hadjusted = FALSE;
-	p->crtc_vadjusted = FALSE;
+	p->crtc_hadjusted = false;
+	p->crtc_vadjusted = false;
 }
 
 
@@ -753,17 +753,17 @@ struct drm_display_mode *drm_mode_duplicate(struct drm_device *dev,
  * Check to see if @mode1 and @mode2 are equivalent.
  *
  * RETURNS:
- * TRUE if the modes are equal, FALSE otherwise.
+ * true if the modes are equal, false otherwise.
  */
-boolean_t drm_mode_equal(struct drm_display_mode *mode1, struct drm_display_mode *mode2)
+bool drm_mode_equal(struct drm_display_mode *mode1, struct drm_display_mode *mode2)
 {
 	/* do clock check convert to PICOS so fb modes get matched
 	 * the same */
 	if (mode1->clock && mode2->clock) {
 		if (KHZ2PICOS(mode1->clock) != KHZ2PICOS(mode2->clock))
-			return FALSE;
+			return false;
 	} else if (mode1->clock != mode2->clock)
-		return FALSE;
+		return false;
 
 	if (mode1->hdisplay == mode2->hdisplay &&
 	    mode1->hsync_start == mode2->hsync_start &&
@@ -776,9 +776,9 @@ boolean_t drm_mode_equal(struct drm_display_mode *mode1, struct drm_display_mode
 	    mode1->vtotal == mode2->vtotal &&
 	    mode1->vscan == mode2->vscan &&
 	    mode1->flags == mode2->flags)
-		return TRUE;
+		return true;
 
-	return FALSE;
+	return false;
 }
 
 /**
@@ -838,10 +838,10 @@ void drm_mode_validate_clocks(struct drm_device *dev,
 	int i;
 
 	TAILQ_FOREACH(mode, mode_list, head) {
-		boolean_t good = FALSE;
+		bool good = false;
 		for (i = 0; i < n_ranges; i++) {
 			if (mode->clock >= min[i] && mode->clock <= max[i]) {
-				good = TRUE;
+				good = true;
 				break;
 			}
 		}
@@ -864,7 +864,7 @@ void drm_mode_validate_clocks(struct drm_device *dev,
  * status other than %MODE_OK, they are removed from @mode_list and freed.
  */
 void drm_mode_prune_invalid(struct drm_device *dev,
-			    struct drm_mode_list *mode_list, boolean_t verbose)
+			    struct drm_mode_list *mode_list, bool verbose)
 {
 	struct drm_display_mode *mode, *t;
 
@@ -1003,16 +1003,16 @@ void drm_mode_connector_list_update(struct drm_connector *connector)
  *
  * enable/enable Digital/disable bit at the end
  */
-boolean_t drm_mode_parse_command_line_for_connector(const char *mode_option,
+bool drm_mode_parse_command_line_for_connector(const char *mode_option,
 					       struct drm_connector *connector,
 					       struct drm_cmdline_mode *mode)
 {
 	const char *name;
 	unsigned int namelen;
-	boolean_t res_specified = FALSE, bpp_specified = FALSE, refresh_specified = FALSE;
+	bool res_specified = false, bpp_specified = false, refresh_specified = false;
 	unsigned int xres = 0, yres = 0, bpp = 32, refresh = 0;
-	boolean_t yres_specified = FALSE, cvt = FALSE, rb = FALSE;
-	boolean_t interlace = FALSE, margins = FALSE, was_digit = FALSE;
+	bool yres_specified = false, cvt = false, rb = false;
+	bool interlace = false, margins = false, was_digit = false;
 	int i;
 	enum drm_connector_force force = DRM_FORCE_UNSPECIFIED;
 
@@ -1022,8 +1022,8 @@ boolean_t drm_mode_parse_command_line_for_connector(const char *mode_option,
 #endif
 
 	if (!mode_option) {
-		mode->specified = FALSE;
-		return FALSE;
+		mode->specified = false;
+		return false;
 	}
 
 	name = mode_option;
@@ -1034,8 +1034,8 @@ boolean_t drm_mode_parse_command_line_for_connector(const char *mode_option,
 			if (!refresh_specified && !bpp_specified &&
 			    !yres_specified && !cvt && !rb && was_digit) {
 				refresh = simple_strtol(&name[i+1], NULL, 10);
-				refresh_specified = TRUE;
-				was_digit = FALSE;
+				refresh_specified = true;
+				was_digit = false;
 			} else
 				goto done;
 			break;
@@ -1043,40 +1043,40 @@ boolean_t drm_mode_parse_command_line_for_connector(const char *mode_option,
 			if (!bpp_specified && !yres_specified && !cvt &&
 			    !rb && was_digit) {
 				bpp = simple_strtol(&name[i+1], NULL, 10);
-				bpp_specified = TRUE;
-				was_digit = FALSE;
+				bpp_specified = true;
+				was_digit = false;
 			} else
 				goto done;
 			break;
 		case 'x':
 			if (!yres_specified && was_digit) {
 				yres = simple_strtol(&name[i+1], NULL, 10);
-				yres_specified = TRUE;
-				was_digit = FALSE;
+				yres_specified = true;
+				was_digit = false;
 			} else
 				goto done;
 		case '0' ... '9':
-			was_digit = TRUE;
+			was_digit = true;
 			break;
 		case 'M':
 			if (yres_specified || cvt || was_digit)
 				goto done;
-			cvt = TRUE;
+			cvt = true;
 			break;
 		case 'R':
 			if (yres_specified || cvt || rb || was_digit)
 				goto done;
-			rb = TRUE;
+			rb = true;
 			break;
 		case 'm':
 			if (cvt || yres_specified || was_digit)
 				goto done;
-			margins = TRUE;
+			margins = true;
 			break;
 		case 'i':
 			if (cvt || yres_specified || was_digit)
 				goto done;
-			interlace = TRUE;
+			interlace = true;
 			break;
 		case 'e':
 			if (yres_specified || bpp_specified || refresh_specified ||
@@ -1112,7 +1112,7 @@ boolean_t drm_mode_parse_command_line_for_connector(const char *mode_option,
 		char *ch;
 		xres = simple_strtol(name, &ch, 10);
 		if ((ch != NULL) && (*ch == 'x'))
-			res_specified = TRUE;
+			res_specified = true;
 		else
 			i = ch - name;
 	} else if (!yres_specified && was_digit) {
@@ -1123,23 +1123,23 @@ done:
 	if (i >= 0) {
 		printf("parse error at position %i in video mode '%s'\n",
 			i, name);
-		mode->specified = FALSE;
-		return FALSE;
+		mode->specified = false;
+		return false;
 	}
 
 	if (res_specified) {
-		mode->specified = TRUE;
+		mode->specified = true;
 		mode->xres = xres;
 		mode->yres = yres;
 	}
 
 	if (refresh_specified) {
-		mode->refresh_specified = TRUE;
+		mode->refresh_specified = true;
 		mode->refresh = refresh;
 	}
 
 	if (bpp_specified) {
-		mode->bpp_specified = TRUE;
+		mode->bpp_specified = true;
 		mode->bpp = bpp;
 	}
 	mode->rb = rb;
@@ -1148,7 +1148,7 @@ done:
 	mode->margins = margins;
 	mode->force = force;
 
-	return TRUE;
+	return true;
 }
 
 struct drm_display_mode *
