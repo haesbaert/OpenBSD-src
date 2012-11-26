@@ -1,9 +1,40 @@
+/*
+ * Copyright © 2006-2007 Intel Corporation
+ * Copyright (c) 2006 Dave Airlie <airlied@linux.ie>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
+ * Authors:
+ *	Eric Anholt <eric@anholt.net>
+ *      Dave Airlie <airlied@linux.ie>
+ *      Jesse Barnes <jesse.barnes@intel.com>
+ */
+
 #include "drmP.h"
 #include "drm.h"
 #include "drm_crtc.h"
 #include "drm_crtc_helper.h"
 #include "i915_drv.h"
 #include "intel_drv.h"
+
+unsigned int i915_lvds_downclock = 0;
 
 /* Private structure for the integrated LVDS support */
 struct intel_lvds {
@@ -19,15 +50,15 @@ struct intel_lvds {
 	struct drm_display_mode	*fixed_mode;
 };
 
+static struct intel_lvds *to_intel_lvds(struct drm_encoder *encoder)
+{
+	return container_of(encoder, struct intel_lvds, base.base);
+}
+
 static struct intel_lvds *intel_attached_lvds(struct drm_connector *connector)
 {
 	return container_of(intel_attached_encoder(connector),
 			    struct intel_lvds, base);
-}
-
-static struct intel_lvds *to_intel_lvds(struct drm_encoder *encoder)
-{
-	return container_of(encoder, struct intel_lvds, base.base);
 }
 
 /**
@@ -132,44 +163,6 @@ static void intel_lvds_dpms(struct drm_encoder *encoder, int mode)
 	/* XXX: We never power down the LVDS pairs. */
 }
 
-static bool intel_lvds_mode_fixup(struct drm_encoder *encoder, 
-				  struct drm_display_mode *mode,
-				  struct drm_display_mode *adjusted_mode)
-{
-	printf("%s stub\n", __func__);
-	return false;
-}
-
-static void intel_lvds_prepare(struct drm_encoder *encoder)
-{
-	printf("%s stub\n", __func__);
-}
-
-static void intel_lvds_mode_set(struct drm_encoder *encoder,
-				struct drm_display_mode *mode,
-				struct drm_display_mode *adjusted_mode)
-{
-	printf("%s stub\n", __func__);
-}
-
-static void intel_lvds_commit(struct drm_encoder *encoder)
-{
-	printf("%s stub\n", __func__);
-}
-
-static int intel_lvds_set_property(struct drm_connector *connector,
-				   struct drm_property *property,
-				   uint64_t value)
-{
-	printf("%s stub\n", __func__);
-	return EINVAL;
-}
-
-static void intel_lvds_destroy(struct drm_connector *connector)
-{
-	printf("%s stub\n", __func__);
-}
-
 static int intel_lvds_mode_valid(struct drm_connector *connector,
 				 struct drm_display_mode *mode)
 {
@@ -182,6 +175,278 @@ static int intel_lvds_mode_valid(struct drm_connector *connector,
 		return MODE_PANEL;
 
 	return MODE_OK;
+}
+
+static void
+centre_horizontally(struct drm_display_mode *mode,
+		    int width)
+{
+	u32 border, sync_pos, blank_width, sync_width;
+
+	/* keep the hsync and hblank widths constant */
+	sync_width = mode->crtc_hsync_end - mode->crtc_hsync_start;
+	blank_width = mode->crtc_hblank_end - mode->crtc_hblank_start;
+	sync_pos = (blank_width - sync_width + 1) / 2;
+
+	border = (mode->hdisplay - width + 1) / 2;
+	border += border & 1; /* make the border even */
+
+	mode->crtc_hdisplay = width;
+	mode->crtc_hblank_start = width + border;
+	mode->crtc_hblank_end = mode->crtc_hblank_start + blank_width;
+
+	mode->crtc_hsync_start = mode->crtc_hblank_start + sync_pos;
+	mode->crtc_hsync_end = mode->crtc_hsync_start + sync_width;
+
+	mode->private_flags |= INTEL_MODE_CRTC_TIMINGS_SET;
+}
+
+static void
+centre_vertically(struct drm_display_mode *mode,
+		  int height)
+{
+	u32 border, sync_pos, blank_width, sync_width;
+
+	/* keep the vsync and vblank widths constant */
+	sync_width = mode->crtc_vsync_end - mode->crtc_vsync_start;
+	blank_width = mode->crtc_vblank_end - mode->crtc_vblank_start;
+	sync_pos = (blank_width - sync_width + 1) / 2;
+
+	border = (mode->vdisplay - height + 1) / 2;
+
+	mode->crtc_vdisplay = height;
+	mode->crtc_vblank_start = height + border;
+	mode->crtc_vblank_end = mode->crtc_vblank_start + blank_width;
+
+	mode->crtc_vsync_start = mode->crtc_vblank_start + sync_pos;
+	mode->crtc_vsync_end = mode->crtc_vsync_start + sync_width;
+
+	mode->private_flags |= INTEL_MODE_CRTC_TIMINGS_SET;
+}
+
+static inline u32 panel_fitter_scaling(u32 source, u32 target)
+{
+	/*
+	 * Floating point operation is not supported. So the FACTOR
+	 * is defined, which can avoid the floating point computation
+	 * when calculating the panel ratio.
+	 */
+#define ACCURACY 12
+#define FACTOR (1 << ACCURACY)
+	u32 ratio = source * FACTOR / target;
+	return (FACTOR * ratio + FACTOR/2) / FACTOR;
+}
+
+static bool intel_lvds_mode_fixup(struct drm_encoder *encoder,
+				  struct drm_display_mode *mode,
+				  struct drm_display_mode *adjusted_mode)
+{
+	struct drm_device *dev = encoder->dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
+	struct intel_lvds *intel_lvds = to_intel_lvds(encoder);
+	struct drm_encoder *tmp_encoder;
+	u32 pfit_control = 0, pfit_pgm_ratios = 0, border = 0;
+	int pipe;
+
+	/* Should never happen!! */
+	if (INTEL_INFO(dev_priv)->gen < 4 && intel_crtc->pipe == 0) {
+		DRM_ERROR("Can't support LVDS on pipe A\n");
+		return false;
+	}
+
+	/* Should never happen!! */
+	TAILQ_FOREACH(tmp_encoder, &dev->mode_config.encoder_list, head) {
+		if (tmp_encoder != encoder && tmp_encoder->crtc == encoder->crtc) {
+			DRM_ERROR("Can't enable LVDS and another "
+			       "encoder on the same pipe\n");
+			return false;
+		}
+	}
+
+	/*
+	 * We have timings from the BIOS for the panel, put them in
+	 * to the adjusted mode.  The CRTC will be set up for this mode,
+	 * with the panel scaling set up to source from the H/VDisplay
+	 * of the original mode.
+	 */
+	intel_fixed_panel_mode(intel_lvds->fixed_mode, adjusted_mode);
+
+	if (HAS_PCH_SPLIT(dev_priv)) {
+		intel_pch_panel_fitting(dev, intel_lvds->fitting_mode,
+					mode, adjusted_mode);
+		return true;
+	}
+
+	/* Native modes don't need fitting */
+	if (adjusted_mode->hdisplay == mode->hdisplay &&
+	    adjusted_mode->vdisplay == mode->vdisplay)
+		goto out;
+
+	/* 965+ wants fuzzy fitting */
+	if (INTEL_INFO(dev_priv)->gen >= 4)
+		pfit_control |= ((intel_crtc->pipe << PFIT_PIPE_SHIFT) |
+				 PFIT_FILTER_FUZZY);
+
+	/*
+	 * Enable automatic panel scaling for non-native modes so that they fill
+	 * the screen.  Should be enabled before the pipe is enabled, according
+	 * to register description and PRM.
+	 * Change the value here to see the borders for debugging
+	 */
+	for_each_pipe(pipe)
+		I915_WRITE(BCLRPAT(pipe), 0);
+
+	drm_mode_set_crtcinfo(adjusted_mode, 0);
+
+	switch (intel_lvds->fitting_mode) {
+	case DRM_MODE_SCALE_CENTER:
+		/*
+		 * For centered modes, we have to calculate border widths &
+		 * heights and modify the values programmed into the CRTC.
+		 */
+		centre_horizontally(adjusted_mode, mode->hdisplay);
+		centre_vertically(adjusted_mode, mode->vdisplay);
+		border = LVDS_BORDER_ENABLE;
+		break;
+
+	case DRM_MODE_SCALE_ASPECT:
+		/* Scale but preserve the aspect ratio */
+		if (INTEL_INFO(dev_priv)->gen >= 4) {
+			u32 scaled_width = adjusted_mode->hdisplay * mode->vdisplay;
+			u32 scaled_height = mode->hdisplay * adjusted_mode->vdisplay;
+
+			/* 965+ is easy, it does everything in hw */
+			if (scaled_width > scaled_height)
+				pfit_control |= PFIT_ENABLE | PFIT_SCALING_PILLAR;
+			else if (scaled_width < scaled_height)
+				pfit_control |= PFIT_ENABLE | PFIT_SCALING_LETTER;
+			else if (adjusted_mode->hdisplay != mode->hdisplay)
+				pfit_control |= PFIT_ENABLE | PFIT_SCALING_AUTO;
+		} else {
+			u32 scaled_width = adjusted_mode->hdisplay * mode->vdisplay;
+			u32 scaled_height = mode->hdisplay * adjusted_mode->vdisplay;
+			/*
+			 * For earlier chips we have to calculate the scaling
+			 * ratio by hand and program it into the
+			 * PFIT_PGM_RATIO register
+			 */
+			if (scaled_width > scaled_height) { /* pillar */
+				centre_horizontally(adjusted_mode, scaled_height / mode->vdisplay);
+
+				border = LVDS_BORDER_ENABLE;
+				if (mode->vdisplay != adjusted_mode->vdisplay) {
+					u32 bits = panel_fitter_scaling(mode->vdisplay, adjusted_mode->vdisplay);
+					pfit_pgm_ratios |= (bits << PFIT_HORIZ_SCALE_SHIFT |
+							    bits << PFIT_VERT_SCALE_SHIFT);
+					pfit_control |= (PFIT_ENABLE |
+							 VERT_INTERP_BILINEAR |
+							 HORIZ_INTERP_BILINEAR);
+				}
+			} else if (scaled_width < scaled_height) { /* letter */
+				centre_vertically(adjusted_mode, scaled_width / mode->hdisplay);
+
+				border = LVDS_BORDER_ENABLE;
+				if (mode->hdisplay != adjusted_mode->hdisplay) {
+					u32 bits = panel_fitter_scaling(mode->hdisplay, adjusted_mode->hdisplay);
+					pfit_pgm_ratios |= (bits << PFIT_HORIZ_SCALE_SHIFT |
+							    bits << PFIT_VERT_SCALE_SHIFT);
+					pfit_control |= (PFIT_ENABLE |
+							 VERT_INTERP_BILINEAR |
+							 HORIZ_INTERP_BILINEAR);
+				}
+			} else
+				/* Aspects match, Let hw scale both directions */
+				pfit_control |= (PFIT_ENABLE |
+						 VERT_AUTO_SCALE | HORIZ_AUTO_SCALE |
+						 VERT_INTERP_BILINEAR |
+						 HORIZ_INTERP_BILINEAR);
+		}
+		break;
+
+	case DRM_MODE_SCALE_FULLSCREEN:
+		/*
+		 * Full scaling, even if it changes the aspect ratio.
+		 * Fortunately this is all done for us in hw.
+		 */
+		if (mode->vdisplay != adjusted_mode->vdisplay ||
+		    mode->hdisplay != adjusted_mode->hdisplay) {
+			pfit_control |= PFIT_ENABLE;
+			if (INTEL_INFO(dev_priv)->gen >= 4)
+				pfit_control |= PFIT_SCALING_AUTO;
+			else
+				pfit_control |= (VERT_AUTO_SCALE |
+						 VERT_INTERP_BILINEAR |
+						 HORIZ_AUTO_SCALE |
+						 HORIZ_INTERP_BILINEAR);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+out:
+	/* If not enabling scaling, be consistent and always use 0. */
+	if ((pfit_control & PFIT_ENABLE) == 0) {
+		pfit_control = 0;
+		pfit_pgm_ratios = 0;
+	}
+
+	/* Make sure pre-965 set dither correctly */
+	if (INTEL_INFO(dev_priv)->gen < 4 && dev_priv->lvds_dither)
+		pfit_control |= PANEL_8TO6_DITHER_ENABLE;
+
+	if (pfit_control != intel_lvds->pfit_control ||
+	    pfit_pgm_ratios != intel_lvds->pfit_pgm_ratios) {
+		intel_lvds->pfit_control = pfit_control;
+		intel_lvds->pfit_pgm_ratios = pfit_pgm_ratios;
+		intel_lvds->pfit_dirty = true;
+	}
+	dev_priv->lvds_border_bits = border;
+
+	/*
+	 * XXX: It would be nice to support lower refresh rates on the
+	 * panels to reduce power consumption, and perhaps match the
+	 * user's requested refresh rate.
+	 */
+
+	return true;
+}
+
+static void intel_lvds_prepare(struct drm_encoder *encoder)
+{
+	struct intel_lvds *intel_lvds = to_intel_lvds(encoder);
+	struct inteldrm_softc *dev_priv = encoder->dev->dev_private;
+
+	/*
+	 * Prior to Ironlake, we must disable the pipe if we want to adjust
+	 * the panel fitter. However at all other times we can just reset
+	 * the registers regardless.
+	 */
+	if (!HAS_PCH_SPLIT(dev_priv) && intel_lvds->pfit_dirty)
+		intel_lvds_disable(intel_lvds);
+}
+
+static void intel_lvds_commit(struct drm_encoder *encoder)
+{
+	struct intel_lvds *intel_lvds = to_intel_lvds(encoder);
+
+	/* Always do a full power on as we do not know what state
+	 * we were left in.
+	 */
+	intel_lvds_enable(intel_lvds);
+}
+
+static void intel_lvds_mode_set(struct drm_encoder *encoder,
+				struct drm_display_mode *mode,
+				struct drm_display_mode *adjusted_mode)
+{
+	/*
+	 * The LVDS pin pair will already have been turned on in the
+	 * intel_crtc_mode_set since it has a large impact on the DPLL
+	 * settings.
+	 */
 }
 
 /**
@@ -224,6 +489,136 @@ static int intel_lvds_get_modes(struct drm_connector *connector)
 	return 1;
 }
 
+static int intel_no_modeset_on_lid_dmi_callback(const struct dmi_system_id *id)
+{
+	DRM_DEBUG_KMS("Skipping forced modeset for %s\n", id->ident);
+	return 1;
+}
+
+/* The GPU hangs up on these systems if modeset is performed on LID open */
+static const struct dmi_system_id intel_no_modeset_on_lid[] = {
+	{
+		.callback = intel_no_modeset_on_lid_dmi_callback,
+		.ident = "Toshiba Tecra A11",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "TOSHIBA"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TECRA A11"),
+		},
+	},
+
+	{ }	/* terminating entry */
+};
+
+#ifdef NOTYET
+/*
+ * Lid events. Note the use of 'modeset_on_lid':
+ *  - we set it on lid close, and reset it on open
+ *  - we use it as a "only once" bit (ie we ignore
+ *    duplicate events where it was already properly
+ *    set/reset)
+ *  - the suspend/resume paths will also set it to
+ *    zero, since they restore the mode ("lid open").
+ */
+static int intel_lid_notify(struct notifier_block *nb, unsigned long val,
+			    void *unused)
+{
+	struct inteldrm_softc *dev_priv =
+		container_of(nb, struct drm_i915_private, lid_notifier);
+	struct drm_device *dev = dev_priv->dev;
+	struct drm_connector *connector = dev_priv->int_lvds_connector;
+
+	if (dev->switch_power_state != DRM_SWITCH_POWER_ON)
+		return NOTIFY_OK;
+
+	/*
+	 * check and update the status of LVDS connector after receiving
+	 * the LID nofication event.
+	 */
+	if (connector)
+		connector->status = connector->funcs->detect(connector,
+							     false);
+
+	/* Don't force modeset on machines where it causes a GPU lockup */
+	if (dmi_check_system(intel_no_modeset_on_lid))
+		return NOTIFY_OK;
+	if (!acpi_lid_open()) {
+		dev_priv->modeset_on_lid = 1;
+		return NOTIFY_OK;
+	}
+
+	if (!dev_priv->modeset_on_lid)
+		return NOTIFY_OK;
+
+	dev_priv->modeset_on_lid = 0;
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_helper_resume_force_mode(dev);
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return NOTIFY_OK;
+}
+#endif
+
+/**
+ * intel_lvds_destroy - unregister and free LVDS structures
+ * @connector: connector to free
+ *
+ * Unregister the DDC bus for this connector then free the driver private
+ * structure.
+ */
+static void intel_lvds_destroy(struct drm_connector *connector)
+{
+	struct drm_device *dev = connector->dev;
+#if 0
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+#endif
+
+	intel_panel_destroy_backlight(dev);
+
+#if 0
+	if (dev_priv->lid_notifier.notifier_call)
+		acpi_lid_notifier_unregister(&dev_priv->lid_notifier);
+#endif
+#if 0
+	drm_sysfs_connector_remove(connector);
+#endif
+	drm_connector_cleanup(connector);
+	free(connector, M_DRM);
+}
+
+static int intel_lvds_set_property(struct drm_connector *connector,
+				   struct drm_property *property,
+				   uint64_t value)
+{
+	struct intel_lvds *intel_lvds = intel_attached_lvds(connector);
+	struct drm_device *dev = connector->dev;
+
+	if (property == dev->mode_config.scaling_mode_property) {
+		struct drm_crtc *crtc = intel_lvds->base.base.crtc;
+
+		if (value == DRM_MODE_SCALE_NONE) {
+			DRM_DEBUG_KMS("no scaling not supported\n");
+			return -EINVAL;
+		}
+
+		if (intel_lvds->fitting_mode == value) {
+			/* the LVDS scaling property is not changed */
+			return 0;
+		}
+		intel_lvds->fitting_mode = value;
+		if (crtc && crtc->enabled) {
+			/*
+			 * If the CRTC is enabled, the display will be changed
+			 * according to the new panel fitting mode.
+			 */
+			drm_crtc_helper_set_mode(crtc, &crtc->mode,
+				crtc->x, crtc->y, crtc->fb);
+		}
+	}
+
+	return 0;
+}
+
 static const struct drm_encoder_helper_funcs intel_lvds_helper_funcs = {
 	.dpms = intel_lvds_dpms,
 	.mode_fixup = intel_lvds_mode_fixup,
@@ -249,28 +644,6 @@ static const struct drm_connector_funcs intel_lvds_connector_funcs = {
 static const struct drm_encoder_funcs intel_lvds_enc_funcs = {
 	.destroy = intel_encoder_destroy,
 };
-
-static void intel_find_lvds_downclock(struct drm_device *dev,
-				      struct drm_display_mode *fixed_mode,
-				      struct drm_connector *connector)
-{
-	printf("%s stub\n", __func__);
-}
-
-
-static bool intel_lvds_supported(struct drm_device *dev)
-{
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-
-	/* With the introduction of the PCH we gained a dedicated
-	 * LVDS presence pin, use it. */
-	if (HAS_PCH_SPLIT(dev_priv))
-		return true;
-
-	/* Otherwise LVDS was only attached to mobile products,
-	 * except for the inglorious 830gm */
-	return IS_MOBILE(dev_priv) && !IS_I830(dev_priv);
-}
 
 static int intel_no_lvds_dmi_callback(const struct dmi_system_id *id)
 {
@@ -419,6 +792,57 @@ static const struct dmi_system_id intel_no_lvds[] = {
 	{ }	/* terminating entry */
 };
 
+/**
+ * intel_find_lvds_downclock - find the reduced downclock for LVDS in EDID
+ * @dev: drm device
+ * @connector: LVDS connector
+ *
+ * Find the reduced downclock for LVDS in EDID.
+ */
+static void intel_find_lvds_downclock(struct drm_device *dev,
+				      struct drm_display_mode *fixed_mode,
+				      struct drm_connector *connector)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct drm_display_mode *scan;
+	int temp_downclock;
+
+	temp_downclock = fixed_mode->clock;
+	TAILQ_FOREACH(scan, &connector->probed_modes, head) {
+		/*
+		 * If one mode has the same resolution with the fixed_panel
+		 * mode while they have the different refresh rate, it means
+		 * that the reduced downclock is found for the LVDS. In such
+		 * case we can set the different FPx0/1 to dynamically select
+		 * between low and high frequency.
+		 */
+		if (scan->hdisplay == fixed_mode->hdisplay &&
+		    scan->hsync_start == fixed_mode->hsync_start &&
+		    scan->hsync_end == fixed_mode->hsync_end &&
+		    scan->htotal == fixed_mode->htotal &&
+		    scan->vdisplay == fixed_mode->vdisplay &&
+		    scan->vsync_start == fixed_mode->vsync_start &&
+		    scan->vsync_end == fixed_mode->vsync_end &&
+		    scan->vtotal == fixed_mode->vtotal) {
+			if (scan->clock < temp_downclock) {
+				/*
+				 * The downclock is already found. But we
+				 * expect to find the lower downclock.
+				 */
+				temp_downclock = scan->clock;
+			}
+		}
+	}
+	if (temp_downclock < fixed_mode->clock && i915_lvds_downclock) {
+		/* We found the downclock for LVDS. */
+		dev_priv->lvds_downclock_avail = 1;
+		dev_priv->lvds_downclock = temp_downclock;
+		DRM_DEBUG_KMS("LVDS downclock is found in EDID. "
+			      "Normal clock %dKhz, downclock %dKhz\n",
+			      fixed_mode->clock, temp_downclock);
+	}
+}
+
 /*
  * Enumerate the child dev array parsed from VBT to check whether
  * the LVDS is present.
@@ -467,6 +891,20 @@ static bool lvds_is_present_in_vbt(struct drm_device *dev,
 	}
 
 	return false;
+}
+
+static bool intel_lvds_supported(struct drm_device *dev)
+{
+	struct inteldrm_softc	*dev_priv = dev->dev_private;
+
+	/* With the introduction of the PCH we gained a dedicated
+	 * LVDS presence pin, use it. */
+	if (HAS_PCH_SPLIT(dev_priv))
+		return true;
+
+	/* Otherwise LVDS was only attached to mobile products,
+	 * except for the inglorious 830gm */
+	return IS_MOBILE(dev_priv) && !IS_I830(dev_priv);
 }
 
 /**

@@ -570,6 +570,8 @@ struct inteldrm_softc {
 	} mm;
 
 	struct sdvo_device_mapping sdvo_mappings[2];
+	/* indicate whether the LVDS_BORDER should be enabled or not */
+	unsigned int lvds_border_bits;
 	/* Panel fitter placement and size for Ironlake+ */
 	u32 pch_pf_pos, pch_pf_size;
 

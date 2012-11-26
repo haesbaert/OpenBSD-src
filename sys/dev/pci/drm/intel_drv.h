@@ -192,6 +192,20 @@ extern void sandybridge_update_wm(struct drm_device *dev);
 #define INTEL_DVO_LVDS_CLONE_BIT 16
 #define INTEL_EDP_CLONE_BIT 17
 
+#define INTEL_DVO_CHIP_NONE 0
+#define INTEL_DVO_CHIP_LVDS 1
+#define INTEL_DVO_CHIP_TMDS 2
+#define INTEL_DVO_CHIP_TVOUT 4
+
+/* drm_display_mode->private_flags */
+#define INTEL_MODE_PIXEL_MULTIPLIER_SHIFT (0x0)
+#define INTEL_MODE_PIXEL_MULTIPLIER_MASK (0xf << INTEL_MODE_PIXEL_MULTIPLIER_SHIFT)
+#define INTEL_MODE_DP_FORCE_6BPC (0x10)
+/* This flag must be set by the encoder's mode_fixup if it changes the crtc
+ * timings in the mode to prevent the crtc fixup from overwriting them.
+ * Currently only lvds needs that. */
+#define INTEL_MODE_CRTC_TIMINGS_SET (0x20)
+
 static inline struct drm_crtc *
 intel_get_crtc_for_pipe(struct drm_device *dev, int pipe)
 {
