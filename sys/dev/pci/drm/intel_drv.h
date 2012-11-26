@@ -1,10 +1,18 @@
 #include "i915_drm.h"
+#include "drm_linux_list.h"
 
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 #ifdef notyet
 	struct drm_i915_gem_object *obj;
 #endif
+};
+
+struct intel_fbdev {
+//	struct drm_fb_helper helper;
+	struct intel_framebuffer ifb;
+	struct list_head fbdev_list;
+	struct drm_display_mode *our_mode;
 };
 
 struct intel_encoder {
@@ -65,6 +73,15 @@ struct intel_plane {
 #define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
 #define to_intel_plane(x) container_of(x, struct intel_plane, base)
 
+int intel_connector_update_modes(struct drm_connector *connector,
+				struct edid *edid);
+int intel_ddc_get_modes(struct drm_connector *c, struct i2c_controller *adapter);
+
+extern bool intel_ddc_probe(struct intel_encoder *intel_encoder, int ddc_bus);
+
+extern void intel_attach_force_audio_property(struct drm_connector *connector);
+extern void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
+
 extern void intel_crt_init(struct drm_device *dev);
 extern void intel_hdmi_init(struct drm_device *dev, int sdvox_reg);
 extern bool intel_sdvo_init(struct drm_device *dev, int output_device);
@@ -77,6 +94,21 @@ extern bool intel_encoder_is_pch_edp(struct drm_encoder *encoder);
 extern struct drm_encoder *intel_best_encoder(struct drm_connector *connector);
 extern struct drm_display_mode *intel_crtc_mode_get(struct drm_device *dev,
 						    struct drm_crtc *crtc);
+extern void intel_wait_for_vblank(struct drm_device *dev, int pipe);
+
+struct intel_load_detect_pipe {
+	struct drm_framebuffer *release_fb;
+	bool load_detect_temp;
+	int dpms_mode;
+};
+extern bool intel_get_load_detect_pipe(struct intel_encoder *intel_encoder,
+				       struct drm_connector *connector,
+				       struct drm_display_mode *mode,
+				       struct intel_load_detect_pipe *old);
+extern void intel_release_load_detect_pipe(struct intel_encoder *intel_encoder,
+					   struct drm_connector *connector,
+					   struct intel_load_detect_pipe *old);
+
 extern void intel_encoder_destroy(struct drm_encoder *encoder);
 
 extern void intel_connector_attach_encoder(struct intel_connector *connector,
@@ -98,6 +130,10 @@ extern void intel_panel_disable_backlight(struct drm_device *dev);
 extern void intel_panel_destroy_backlight(struct drm_device *dev);
 extern enum drm_connector_status intel_panel_detect(struct drm_device *dev);
 
+extern void intel_encoder_prepare(struct drm_encoder *encoder);
+extern void intel_encoder_commit(struct drm_encoder *encoder);
+extern void intel_encoder_destroy(struct drm_encoder *encoder);
+
 static inline struct intel_encoder *intel_attached_encoder(struct drm_connector *connector)
 {
 	return to_intel_connector(connector)->encoder;
@@ -116,6 +152,8 @@ extern void intel_init_emon(struct drm_device *dev);
 extern int intel_fbdev_init(struct drm_device *dev);
 
 extern void intel_crtc_load_lut(struct drm_crtc *crtc);
+
+extern void intel_cpt_verify_modeset(struct drm_device *dev, int pipe);
 
 /* For use by IVB LP watermark workaround in intel_sprite.c */
 extern void sandybridge_update_wm(struct drm_device *dev);

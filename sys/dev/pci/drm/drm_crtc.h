@@ -471,6 +471,8 @@ enum drm_connector_force {
 /* DACs should rarely do this without a lot of testing */
 #define DRM_CONNECTOR_POLL_DISCONNECT (1 << 2)
 
+#define MAX_ELD_BYTES	128
+
 /**
  * drm_connector - central DRM connector control structure
  * @crtc: CRTC this connector is currently connected to, NULL if none
@@ -528,6 +530,14 @@ struct drm_connector {
 	uint32_t encoder_ids[DRM_CONNECTOR_MAX_ENCODER];
 	uint32_t force_encoder_id;
 	struct drm_encoder *encoder; /* currently active encoder */
+
+	/* EDID bits */
+	uint8_t eld[MAX_ELD_BYTES];
+	bool dvi_dual;
+	int max_tmds_clock;     /* in MHz */
+	bool latency_present[2];
+	int video_latency[2];   /* [0]: progressive, [1]: interlaced */
+	int audio_latency[2];
 
 	int null_edid_counter; /* needed to workaround some HW bugs where we get all 0s */
 };
@@ -703,6 +713,11 @@ struct drm_mode_config {
 #define obj_to_blob(x) container_of(x, struct drm_property_blob, base)
 #define obj_to_plane(x) container_of(x, struct drm_plane, base)
 
+struct drm_prop_enum_list {
+	int type;
+	char *name;
+};
+
 extern void drm_crtc_init(struct drm_device *dev,
 			  struct drm_crtc *crtc,
 			  const struct drm_crtc_funcs *funcs);
@@ -798,6 +813,10 @@ extern int drm_connector_attach_property(struct drm_connector *connector,
 				      struct drm_property *property, uint64_t init_val);
 extern struct drm_property *drm_property_create(struct drm_device *dev, int flags,
 						const char *name, int num_values);
+extern struct drm_property *drm_property_create_enum(struct drm_device *dev,
+    int flags, const char *name, const struct drm_prop_enum_list *props,
+    int num_values);
+
 extern void drm_property_destroy(struct drm_device *dev, struct drm_property *property);
 extern int drm_property_add_enum(struct drm_property *property, int index,
 				 uint64_t value, const char *name);

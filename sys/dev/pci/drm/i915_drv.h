@@ -172,6 +172,8 @@ enum intel_pch {
 #define QUIRK_PIPEA_FORCE	(1<<0)
 #define QUIRK_LVDS_SSC_DISABLE	(1<<1)
 
+struct intel_fbdev;
+
 /*
  * lock ordering:
  * exec lock,
@@ -247,6 +249,8 @@ struct inteldrm_softc {
 	/* these two  ironlake only, we should union this with pipestat XXX */
 	u_int32_t		 gt_irq_mask_reg;
 	u_int32_t		 pch_irq_mask_reg;
+
+	u_int32_t		 hotplug_supported_mask;
 
 	int			 num_pipe;
 	int			 num_pch_pll;
@@ -578,6 +582,11 @@ struct inteldrm_softc {
 	struct drm_connector *int_edp_connector;
 
 	unsigned int fsb_freq, mem_freq, is_ddr3;
+
+	struct intel_fbdev *fbdev;
+
+	struct drm_property *broadcast_rgb_property;
+	struct drm_property *force_audio_property;
 };
 
 enum hdmi_force_audio {
@@ -992,6 +1001,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define SUPPORTS_INTEGRATED_DP(dev)	(IS_G4X(dev) || IS_GEN5(dev))
 #define SUPPORTS_EDP(dev)		(IS_IRONLAKE_M(dev))
 #define SUPPORTS_TV(dev)		(INTEL_INFO(dev)->supports_tv)
+#define I915_HAS_HOTPLUG(dev)	(dev->gen >= 4) /* XXX */
 #define I915_HAS_FBC(dev)	(IS_I965GM(dev) || IS_GM45(dev))
 
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \

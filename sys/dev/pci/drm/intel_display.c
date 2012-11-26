@@ -6,15 +6,49 @@
 
 int i915_panel_use_ssc = -1;
 
+/**
+ * intel_wait_for_vblank - wait for vblank on a given pipe
+ * @dev: drm device
+ * @pipe: pipe to wait for
+ *
+ * Wait for vblank to occur on a given pipe.  Needed for various bits of
+ * mode setting code.
+ */
+void intel_wait_for_vblank(struct drm_device *dev, int pipe)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	int pipestat_reg = PIPESTAT(pipe);
+	int retries;
+
+	/* Clear existing vblank status. Note this will clear any other
+	 * sticky status fields as well.
+	 *
+	 * This races with i915_driver_irq_handler() with the result
+	 * that either function could miss a vblank event.  Here it is not
+	 * fatal, as we will either wait upon the next vblank interrupt or
+	 * timeout.  Generally speaking intel_wait_for_vblank() is only
+	 * called during modeset at which time the GPU should be idle and
+	 * should *not* be performing page flips and thus not waiting on
+	 * vblanks...
+	 * Currently, the result of us stealing a vblank from the irq
+	 * handler is that a single frame will be skipped during swapbuffers.
+	 */
+	I915_WRITE(pipestat_reg,
+		   I915_READ(pipestat_reg) | PIPE_VBLANK_INTERRUPT_STATUS);
+
+	/* Wait for vblank interrupt bit to set */
+	for (retries = 50; retries > 0; retries--) {
+		if (I915_READ(pipestat_reg) & PIPE_VBLANK_INTERRUPT_STATUS)
+			break;
+	}
+	if (retries == 0)
+		DRM_DEBUG_KMS("vblank wait timed out\n");
+}
+
 struct drm_encoder *intel_best_encoder(struct drm_connector *connector)
 {
 	printf("%s stub\n", __func__);
 	return (NULL);
-}
-
-void intel_encoder_destroy(struct drm_encoder *encoder)
-{
-	printf("%s stub\n", __func__);
 }
 
 void intel_connector_attach_encoder(struct intel_connector *connector,
@@ -713,9 +747,254 @@ static void intel_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
 	printf("%s stub\n", __func__);
 }
 
+/**
+ * Get a pipe with a simple mode set on it for doing load-based monitor
+ * detection.
+ *
+ * It will be up to the load-detect code to adjust the pipe as appropriate for
+ * its requirements.  The pipe will be connected to no other encoders.
+ * 
+ * Currently this code will only succeed if there is a pipe with no encoders
+ * configured for it.  In the future, it could choose to temporarily disable
+ * some outputs to free up a pipe for its use.
+ * 
+ * \return crtc, or NULL if no pipes are available.
+ */
+
+/* VESA 640x480x72Hz mode to set on the pipe */
+static struct drm_display_mode load_detect_mode = {
+	DRM_MODE("640x480", DRM_MODE_TYPE_DEFAULT, 31500, 640, 664,
+		704, 832, 0, 480, 489, 491, 520, 0, DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC),
+};
+
+static int
+intel_framebuffer_create_for_mode(struct drm_device *dev,
+    struct drm_display_mode *mode, int depth, int bpp,
+    struct drm_framebuffer **res)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+static int
+mode_fits_in_fbdev(struct drm_device *dev,
+    struct drm_display_mode *mode, struct drm_framebuffer **res)
+{
+	printf("%s stub\n", __func__);
+	*res = NULL;
+	return (0);
+#if 0
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct drm_i915_gem_object *obj;
+	struct drm_framebuffer *fb;
+
+	if (dev_priv->fbdev == NULL) {
+		*res = NULL;
+		return (0);
+	}
+
+	obj = dev_priv->fbdev->ifb.obj;
+	if (obj == NULL) {
+		*res = NULL;
+		return (0);
+	}
+
+	fb = &dev_priv->fbdev->ifb.base;
+	if (fb->pitches[0] < intel_framebuffer_pitch_for_width(mode->hdisplay,
+	    fb->bits_per_pixel)) {
+		*res = NULL;
+		return (0);
+	}
+
+	if (obj->base.size < mode->vdisplay * fb->pitches[0]) {
+		*res = NULL;
+		return (0);
+	}
+
+	*res = fb;
+	return (0);
+#endif
+}
+
+bool intel_get_load_detect_pipe(struct intel_encoder *intel_encoder,
+				struct drm_connector *connector,
+				struct drm_display_mode *mode,
+				struct intel_load_detect_pipe *old)
+{
+	struct intel_crtc *intel_crtc;
+	struct drm_crtc *possible_crtc;
+	struct drm_encoder *encoder = &intel_encoder->base;
+	struct drm_crtc *crtc = NULL;
+	struct drm_device *dev = encoder->dev;
+	struct drm_framebuffer *old_fb;
+	int i = -1, r;
+
+	DRM_DEBUG_KMS("[CONNECTOR:%d:%s], [ENCODER:%d:%s]\n",
+		      connector->base.id, drm_get_connector_name(connector),
+		      encoder->base.id, drm_get_encoder_name(encoder));
+
+	/*
+	 * Algorithm gets a little messy:
+	 *
+	 *   - if the connector already has an assigned crtc, use it (but make
+	 *     sure it's on first)
+	 *
+	 *   - try to find the first unused crtc that can drive this connector,
+	 *     and use that if we find one
+	 */
+
+	/* See if we already have a CRTC for this connector */
+	if (encoder->crtc) {
+		crtc = encoder->crtc;
+
+		intel_crtc = to_intel_crtc(crtc);
+		old->dpms_mode = intel_crtc->dpms_mode;
+		old->load_detect_temp = false;
+
+		/* Make sure the crtc and connector are running */
+		if (intel_crtc->dpms_mode != DRM_MODE_DPMS_ON) {
+			struct drm_encoder_helper_funcs *encoder_funcs;
+			struct drm_crtc_helper_funcs *crtc_funcs;
+
+			crtc_funcs = crtc->helper_private;
+			crtc_funcs->dpms(crtc, DRM_MODE_DPMS_ON);
+
+			encoder_funcs = encoder->helper_private;
+			encoder_funcs->dpms(encoder, DRM_MODE_DPMS_ON);
+		}
+
+		return true;
+	}
+
+	/* Find an unused one (if possible) */
+	TAILQ_FOREACH(possible_crtc, &dev->mode_config.crtc_list, head) {
+		i++;
+		if (!(encoder->possible_crtcs & (1 << i)))
+			continue;
+		if (!possible_crtc->enabled) {
+			crtc = possible_crtc;
+			break;
+		}
+	}
+
+	/*
+	 * If we didn't find an unused CRTC, don't use any.
+	 */
+	if (!crtc) {
+		DRM_DEBUG_KMS("no pipe available for load-detect\n");
+		return false;
+	}
+
+	encoder->crtc = crtc;
+	connector->encoder = encoder;
+
+	intel_crtc = to_intel_crtc(crtc);
+	old->dpms_mode = intel_crtc->dpms_mode;
+	old->load_detect_temp = true;
+	old->release_fb = NULL;
+
+	if (!mode)
+		mode = &load_detect_mode;
+
+	old_fb = crtc->fb;
+
+	/* We need a framebuffer large enough to accommodate all accesses
+	 * that the plane may generate whilst we perform load detection.
+	 * We can not rely on the fbcon either being present (we get called
+	 * during its initialisation to detect all boot displays, or it may
+	 * not even exist) or that it is large enough to satisfy the
+	 * requested mode.
+	 */
+	r = mode_fits_in_fbdev(dev, mode, &crtc->fb);
+	if (crtc->fb == NULL) {
+		DRM_DEBUG_KMS("creating tmp fb for load-detection\n");
+		r = intel_framebuffer_create_for_mode(dev, mode, 24, 32,
+		    &crtc->fb);
+		old->release_fb = crtc->fb;
+	} else
+		DRM_DEBUG_KMS("reusing fbdev for load-detection framebuffer\n");
+	if (r != 0) {
+		DRM_DEBUG_KMS("failed to allocate framebuffer for load-detection\n");
+		crtc->fb = old_fb;
+		return false;
+	}
+
+	if (!drm_crtc_helper_set_mode(crtc, mode, 0, 0, old_fb)) {
+		DRM_DEBUG_KMS("failed to set mode on load-detect pipe\n");
+		if (old->release_fb)
+			old->release_fb->funcs->destroy(old->release_fb);
+		crtc->fb = old_fb;
+		return false;
+	}
+
+	/* let the connector get through one full cycle before testing */
+	intel_wait_for_vblank(dev, intel_crtc->pipe);
+
+	return true;
+}
+
+void intel_release_load_detect_pipe(struct intel_encoder *intel_encoder,
+				    struct drm_connector *connector,
+				    struct intel_load_detect_pipe *old)
+{
+	struct drm_encoder *encoder = &intel_encoder->base;
+	struct drm_device *dev = encoder->dev;
+	struct drm_crtc *crtc = encoder->crtc;
+	struct drm_encoder_helper_funcs *encoder_funcs = encoder->helper_private;
+	struct drm_crtc_helper_funcs *crtc_funcs = crtc->helper_private;
+
+	DRM_DEBUG_KMS("[CONNECTOR:%d:%s], [ENCODER:%d:%s]\n",
+		      connector->base.id, drm_get_connector_name(connector),
+		      encoder->base.id, drm_get_encoder_name(encoder));
+
+	if (old->load_detect_temp) {
+		connector->encoder = NULL;
+		drm_helper_disable_unused_functions(dev);
+
+		if (old->release_fb)
+			old->release_fb->funcs->destroy(old->release_fb);
+
+		return;
+	}
+
+	/* Switch crtc and encoder back off if necessary */
+	if (old->dpms_mode != DRM_MODE_DPMS_ON) {
+		encoder_funcs->dpms(encoder, old->dpms_mode);
+		crtc_funcs->dpms(crtc, old->dpms_mode);
+	}
+}
+
+
 static void intel_crtc_destroy(struct drm_crtc *crtc)
 {
 	printf("%s stub\n", __func__);
+}
+
+void intel_cpt_verify_modeset(struct drm_device *dev, int pipe)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	int dslreg = PIPEDSL(pipe), tc2reg = TRANS_CHICKEN2(pipe);
+	u32 temp;
+	int retries;
+
+	temp = I915_READ(dslreg);
+	DELAY(500);
+	for (retries = 5; retries > 0; retries--) {
+		if (I915_READ(dslreg) != temp)
+			break;
+	}
+	if (retries == 0) {
+		/* Without this, mode sets may fail silently on FDI */
+		I915_WRITE(tc2reg, TRANS_AUTOTRAIN_GEN_STALL_DIS);
+		DELAY(250);
+		I915_WRITE(tc2reg, 0);
+		for (retries = 5; retries > 0; retries--) {
+			if (I915_READ(dslreg) != temp)
+				break;
+		}
+		if (retries == 0)
+			DRM_ERROR("mode set failed: pipe %d stuck\n", pipe);
+	}
 }
 
 static void ironlake_crtc_enable(struct drm_crtc *crtc)
@@ -765,6 +1044,37 @@ static void ironlake_crtc_commit(struct drm_crtc *crtc)
 {
 	ironlake_crtc_enable(crtc);
 }
+
+void intel_encoder_prepare(struct drm_encoder *encoder)
+{
+	struct drm_encoder_helper_funcs *encoder_funcs = encoder->helper_private;
+	/* lvds has its own version of prepare see intel_lvds_prepare */
+	encoder_funcs->dpms(encoder, DRM_MODE_DPMS_OFF);
+}
+
+void intel_encoder_commit(struct drm_encoder *encoder)
+{
+	struct drm_encoder_helper_funcs *encoder_funcs = encoder->helper_private;
+	struct drm_device *dev = encoder->dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
+	struct intel_crtc *intel_crtc = to_intel_crtc(intel_encoder->base.crtc);
+
+	/* lvds has its own version of commit see intel_lvds_commit */
+	encoder_funcs->dpms(encoder, DRM_MODE_DPMS_ON);
+
+	if (HAS_PCH_CPT(dev_priv))
+		intel_cpt_verify_modeset(dev, intel_crtc->pipe);
+}
+
+void intel_encoder_destroy(struct drm_encoder *encoder)
+{
+	struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
+
+	drm_encoder_cleanup(encoder);
+	free(intel_encoder, M_DRM);
+}
+
 
 static int intel_crtc_page_flip(struct drm_crtc *crtc,
 				struct drm_framebuffer *fb,

@@ -35,11 +35,6 @@
 #include "drm_crtc.h"
 #include "drm_edid.h"
 
-struct drm_prop_enum_list {
-	int type;
-	char *name;
-};
-
 /* Avoid boilerplate.  I'm tired of typing. */
 #define DRM_ENUM_NAME_FN(fnname, list)				\
 	char *fnname(int);					\
@@ -2462,6 +2457,33 @@ struct drm_property *drm_property_create(struct drm_device *dev, int flags,
 fail:
 	free(property, M_DRM);
 	return NULL;
+}
+
+struct drm_property *drm_property_create_enum(struct drm_device *dev, int flags,
+					 const char *name,
+					 const struct drm_prop_enum_list *props,
+					 int num_values)
+{
+	struct drm_property *property;
+	int i, ret;
+
+	flags |= DRM_MODE_PROP_ENUM;
+
+	property = drm_property_create(dev, flags, name, num_values);
+	if (!property)
+		return NULL;
+
+	for (i = 0; i < num_values; i++) {
+		ret = drm_property_add_enum(property, i,
+				      props[i].type,
+				      props[i].name);
+		if (ret) {
+			drm_property_destroy(dev, property);
+			return NULL;
+		}
+	}
+
+	return property;
 }
 
 int drm_property_add_enum(struct drm_property *property, int index,

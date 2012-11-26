@@ -229,4 +229,6 @@ struct edid {
 
 #define EDID_PRODUCT_ID(e) ((e)->prod_code[0] | ((e)->prod_code[1] << 8))
 
+void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid);
+
 #endif /* __DRM_EDID_H__ */
