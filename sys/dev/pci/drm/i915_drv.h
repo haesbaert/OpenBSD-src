@@ -710,6 +710,8 @@ extern void i915_disable_vblank(struct drm_device *dev, int crtc);
 extern u32 i915_get_vblank_counter(struct drm_device *dev, int crtc);
 extern void i915_user_irq_get(struct inteldrm_softc *);
 extern void i915_user_irq_put(struct inteldrm_softc *);
+void	i915_enable_pipestat(struct inteldrm_softc *, int, u_int32_t);
+void	i915_disable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 
 /* gem */
 /* Ioctls */

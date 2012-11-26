@@ -46,6 +46,54 @@ void intel_wait_for_vblank(struct drm_device *dev, int pipe)
 		DRM_DEBUG_KMS("vblank wait timed out\n");
 }
 
+/*
+ * intel_wait_for_pipe_off - wait for pipe to turn off
+ * @dev: drm device
+ * @pipe: pipe to wait for
+ *
+ * After disabling a pipe, we can't wait for vblank in the usual way,
+ * spinning on the vblank interrupt status bit, since we won't actually
+ * see an interrupt when the pipe is disabled.
+ *
+ * On Gen4 and above:
+ *   wait for the pipe register state bit to turn off
+ *
+ * Otherwise:
+ *   wait for the display line value to settle (it usually
+ *   ends up stopping at the start of the next frame).
+ *
+ */
+void intel_wait_for_pipe_off(struct drm_device *dev, int pipe)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	int retries;
+
+	if (INTEL_INFO(dev_priv)->gen >= 4) {
+		int reg = PIPECONF(pipe);
+
+		/* Wait for the Pipe State to go off */
+		for (retries = 100; retries > 0; retries--) {
+			if ((I915_READ(reg) & I965_PIPECONF_ACTIVE) == 0)
+				break;
+		}
+		if (retries == 0)
+			DRM_DEBUG_KMS("pipe_off wait timed out\n");
+	} else {
+		u32 last_line;
+		int reg = PIPEDSL(pipe);
+
+		/* Wait for the display line to settle */
+		last_line = I915_READ(reg) & DSL_LINEMASK;
+		for (retries = 100; retries > 0; retries--) {
+			DELAY(5000);
+			if ((I915_READ(reg) & DSL_LINEMASK) != last_line)
+				break;
+		}
+		if (retries == 0)
+			DRM_DEBUG_KMS("pipe_off wait timed out\n");
+	}
+}
+
 struct drm_encoder *intel_best_encoder(struct drm_connector *connector)
 {
 	printf("%s stub\n", __func__);

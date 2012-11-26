@@ -542,6 +542,9 @@ struct drm_device {
 
 	const struct drm_driver_info *driver;
 
+	u_int16_t	 pci_device;
+	u_int16_t	 pci_vendor;
+
 	bus_dma_tag_t			dmat;
 	bus_space_tag_t			bst;
 
@@ -614,6 +617,8 @@ struct drm_attach_args {
 	size_t				 busid_len;
 	int				 is_agp;
 	u_int8_t			 irq;
+	u_int16_t			 pci_vendor;
+	u_int16_t			 pci_device;
 };
 
 extern int	drm_debug_flag;

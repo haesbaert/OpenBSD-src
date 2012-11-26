@@ -151,6 +151,7 @@ extern struct drm_encoder *intel_best_encoder(struct drm_connector *connector);
 extern struct drm_display_mode *intel_crtc_mode_get(struct drm_device *dev,
 						    struct drm_crtc *crtc);
 extern void intel_wait_for_vblank(struct drm_device *dev, int pipe);
+extern void intel_wait_for_pipe_off(struct drm_device *dev, int pipe);
 
 struct intel_load_detect_pipe {
 	struct drm_framebuffer *release_fb;

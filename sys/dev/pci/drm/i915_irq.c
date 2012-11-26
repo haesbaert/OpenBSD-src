@@ -38,8 +38,6 @@ void	ironlake_enable_graphics_irq(struct inteldrm_softc *, u_int32_t);
 void	ironlake_disable_graphics_irq(struct inteldrm_softc *, u_int32_t);
 void	ironlake_enable_display_irq(struct inteldrm_softc *, u_int32_t);
 void	ironlake_disable_display_irq(struct inteldrm_softc *, u_int32_t);
-void	i915_enable_pipestat(struct inteldrm_softc *, int, u_int32_t);
-void	i915_disable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 int	ironlake_irq_install(struct inteldrm_softc *);
 
 void
