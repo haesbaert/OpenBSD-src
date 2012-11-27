@@ -113,6 +113,7 @@
 #define DRM_MTRR_WC		MDF_WRITECOMBINE
 
 #define PAGE_ALIGN(addr)	(((addr) + PAGE_MASK) & ~PAGE_MASK)
+#define drm_msleep(x, msg)	delay(x * 1000)
 
 extern struct cfdriver drm_cd;
 

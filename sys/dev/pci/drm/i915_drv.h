@@ -284,6 +284,7 @@ struct inteldrm_softc {
 		int bpp;
 		struct edp_power_seq pps;
 	} edp;
+	bool no_aux_handshake;
 
 	bool			 render_reclock_avail;
 	bool			 lvds_downclock_avail;
@@ -856,6 +857,7 @@ extern void intel_modeset_gem_init(struct drm_device *dev);
 int i915_load_modeset_init(struct drm_device *dev);
 extern void ironlake_init_pch_refclk(struct drm_device *dev);
 extern void intel_detect_pch(struct inteldrm_softc *dev_priv);
+extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 
 extern void __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv);
