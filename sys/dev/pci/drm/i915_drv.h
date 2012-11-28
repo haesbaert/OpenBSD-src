@@ -34,6 +34,7 @@
 #include "i915_reg.h"
 #include "i915_drm.h"
 #include "intel_bios.h"
+#include "intel_ringbuffer.h"
 
 /* General customization:
  */
@@ -123,6 +124,16 @@ struct drm_i915_display_funcs {
 	/* pll clock increase/decrease */
 };
 
+enum no_fbc_reason {
+	FBC_NO_OUTPUT, /* no outputs enabled to compress */
+	FBC_STOLEN_TOO_SMALL, /* not enough space to hold compressed buffers */
+	FBC_UNSUPPORTED_MODE, /* interlace or doublescanned mode */
+	FBC_MODE_TOO_LARGE, /* mode too large for compression */
+	FBC_BAD_PLANE, /* fbc not supported on plane */
+	FBC_NOT_TILED, /* buffer not tiled */
+	FBC_MULTIPLE_PIPES, /* more than one pipe active */
+	FBC_MODULE_PARAM,
+};
 
 struct opregion_header;
 struct opregion_acpi;
@@ -197,6 +208,7 @@ struct inteldrm_softc {
 	u_long			 flags;
 	u_int16_t		 pci_device;
 	int			 gen;
+	int			 has_pipe_cxsr;
 	uint8_t			 supports_tv;
 
 	pci_chipset_tag_t	 pc;
@@ -216,6 +228,8 @@ struct inteldrm_softc {
 	/** gt_lock is also taken in irq contexts. */
 	struct mutex gt_lock;
 
+	drm_i915_sarea_t *sarea_priv;
+	struct intel_ring_buffer rings[I915_NUM_RINGS];
 
 	union flush {
 		struct {
@@ -259,6 +273,9 @@ struct inteldrm_softc {
 
 	int crt_ddc_pin;
 
+	/* overlay */
+	bool sprite_scaling_enabled;
+
 	/* LVDS info */
 	int backlight_level;  /* restore backlight to this value */
 	bool backlight_enabled;
@@ -289,6 +306,7 @@ struct inteldrm_softc {
 	bool			 render_reclock_avail;
 	bool			 lvds_downclock_avail;
 	int			 lvds_downclock;
+	bool			 busy;
 	int			 child_dev_num;
 	struct child_device_config *child_dev;
 
@@ -584,6 +602,33 @@ struct inteldrm_softc {
 	struct drm_connector *int_lvds_connector;
 	struct drm_connector *int_edp_connector;
 
+	struct mutex rps_lock;
+	u32 pm_iir;
+
+	u8 cur_delay;
+	u8 min_delay;
+	u8 max_delay;
+	u8 fmax;
+	u8 fstart;
+
+	u64 last_count1;
+	unsigned long last_time1;
+	unsigned long chipset_power;
+	u64 last_count2;
+//	struct timespec last_time2;
+	unsigned long gfx_power;
+	int c_m;
+	int r_t;
+	u8 corr;
+
+	enum no_fbc_reason no_fbc_reason;
+
+	unsigned long cfb_size;
+	unsigned int cfb_fb;
+	int cfb_plane;
+	int cfb_y;
+	struct intel_fbc_work *fbc_work;
+
 	unsigned int fsb_freq, mem_freq, is_ddr3;
 
 	struct intel_fbdev *fbdev;
@@ -701,6 +746,8 @@ void		inteldrm_advance_ring(struct inteldrm_softc *);
 void		inteldrm_update_ring(struct inteldrm_softc *);
 int		inteldrm_pipe_enabled(struct inteldrm_softc *, int);
 int		i915_init_phys_hws(struct inteldrm_softc *, bus_dma_tag_t);
+
+void		i915_update_gfx_val(struct inteldrm_softc *);
 
 /* i915_irq.c */
 
@@ -854,15 +901,35 @@ void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
 /* modesetting */
 extern void intel_modeset_init(struct drm_device *dev);
 extern void intel_modeset_gem_init(struct drm_device *dev);
-int i915_load_modeset_init(struct drm_device *dev);
+extern void intel_modeset_cleanup(struct drm_device *dev);
+extern int intel_modeset_vga_set_state(struct drm_device *dev, bool state);
+extern bool intel_fbc_enabled(struct drm_device *dev);
+extern void intel_disable_fbc(struct drm_device *dev);
+extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
 extern void ironlake_init_pch_refclk(struct drm_device *dev);
+extern void ironlake_enable_rc6(struct drm_device *dev);
+extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void intel_detect_pch(struct inteldrm_softc *dev_priv);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
+int i915_load_modeset_init(struct drm_device *dev);
 
 extern void __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_mt_put(struct inteldrm_softc *dev_priv);
+
+extern struct intel_overlay_error_state *intel_overlay_capture_error_state(
+    struct drm_device *dev);
+#ifdef notyet
+extern void intel_overlay_print_error_state(struct sbuf *m,
+    struct intel_overlay_error_state *error);
+#endif
+extern struct intel_display_error_state *intel_display_capture_error_state(
+    struct drm_device *dev);
+#ifdef notyet
+extern void intel_display_print_error_state(struct sbuf *m,
+    struct drm_device *dev, struct intel_display_error_state *error);
+#endif
 
 /* On SNB platform, before reading ring registers forcewake bit
  * must be set to prevent GT core from power down and stale values being
@@ -923,6 +990,8 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #else
 #define	INTELDRM_VPRINTF(fmt, args...)
 #endif
+
+#define LP_RING(d) (&((struct inteldrm_softc *)(d))->rings[RCS])
 
 #define BEGIN_LP_RING(n) inteldrm_begin_ring(dev_priv, n)
 #define OUT_RING(n) inteldrm_out_ring(dev_priv, n)
@@ -1008,12 +1077,16 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define SUPPORTS_EDP(dev)		(IS_IRONLAKE_M(dev))
 #define SUPPORTS_TV(dev)		(INTEL_INFO(dev)->supports_tv)
 #define I915_HAS_HOTPLUG(dev)	(dev->gen >= 4) /* XXX */
+
+#define INTEL_INFO(dev)		(dev)
+
+#define HAS_FW_BLC(dev)		(INTEL_INFO(dev)->gen > 2)
+#define HAS_PIPE_CXSR(dev)	(INTEL_INFO(dev)->has_pipe_cxsr)
 #define I915_HAS_FBC(dev)	(IS_I965GM(dev) || IS_GM45(dev))
 
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \
     IS_GEN7(dev))
 
-#define INTEL_INFO(dev)		(dev)
 
 #define INTEL_PCH_TYPE(dev)	(dev->pch_type)
 #define HAS_PCH_CPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_CPT)

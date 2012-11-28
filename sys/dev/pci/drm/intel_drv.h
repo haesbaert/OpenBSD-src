@@ -34,6 +34,9 @@
 #include "drm_crtc_helper.h"
 //#include "drm_fb_helper.h"
 
+#define KHz(x) (1000*x)
+#define MHz(x) KHz(1000*x)
+
 /* store information about an Ixxx DVO */
 /* The i830->i865 use multiple DVOs with multiple i2cs */
 /* the i915, i945 have a single sDVO i2c bus - which is different */

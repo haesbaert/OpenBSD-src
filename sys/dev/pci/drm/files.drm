@@ -41,6 +41,7 @@ file	dev/pci/drm/intel_i2c.c		inteldrm
 file	dev/pci/drm/intel_lvds.c	inteldrm
 file	dev/pci/drm/intel_modes.c	inteldrm
 file	dev/pci/drm/intel_opregion.c	inteldrm
+file	dev/pci/drm/intel_overlay.c	inteldrm
 file	dev/pci/drm/intel_panel.c	inteldrm
 file	dev/pci/drm/intel_sdvo.c	inteldrm
 file	dev/pci/drm/intel_sprite.c	inteldrm

@@ -238,7 +238,8 @@ struct drm_framebuffer {
 	TAILQ_ENTRY(drm_framebuffer) head;
 	struct drm_mode_object base;
 	const struct drm_framebuffer_funcs *funcs;
-	unsigned int pitch;
+	unsigned int pitches[4];
+	unsigned int offsets[4];
 	unsigned int width;
 	unsigned int height;
 	/* depth can be 15 or 16 */
@@ -625,7 +626,9 @@ struct drm_mode_set {
  * struct drm_mode_config_funcs - configure CRTCs for a given screen layout
  */
 struct drm_mode_config_funcs {
-	struct drm_framebuffer *(*fb_create)(struct drm_device *dev, struct drm_file *file_priv, struct drm_mode_fb_cmd *mode_cmd);
+	int (*fb_create)(struct drm_device *dev,
+	    struct drm_file *file_priv, struct drm_mode_fb_cmd2 *mode_cmd,
+	    struct drm_framebuffer **res);
 	void (*output_poll_changed)(struct drm_device *dev);
 };
 
@@ -855,6 +858,9 @@ extern int drm_mode_cursor_ioctl(struct drm_device *dev,
 				void *data, struct drm_file *file_priv);
 extern int drm_mode_addfb(struct drm_device *dev,
 			  void *data, struct drm_file *file_priv);
+extern int drm_mode_addfb2(struct drm_device *dev,
+			   void *data, struct drm_file *file_priv);
+extern uint32_t drm_mode_legacy_fb_format(uint32_t bpp, uint32_t depth);
 extern int drm_mode_rmfb(struct drm_device *dev,
 			 void *data, struct drm_file *file_priv);
 extern int drm_mode_getfb(struct drm_device *dev,
@@ -915,4 +921,7 @@ extern int drm_mode_mmap_dumb_ioctl(struct drm_device *dev,
 				    void *data, struct drm_file *file_priv);
 extern int drm_mode_destroy_dumb_ioctl(struct drm_device *dev,
 				      void *data, struct drm_file *file_priv);
+
+extern void drm_fb_get_bpp_depth(uint32_t format, unsigned int *depth,
+				 int *bpp);
 #endif /* __DRM_CRTC_H__ */

@@ -217,6 +217,17 @@ do {									\
 #define DRM_DEBUG_KMS(fmt, arg...) do { } while(/* CONSTCOND */ 0)
 #endif
 
+#ifdef DRMDEBUG
+#undef DRM_DEBUG_DRIVER
+#define DRM_DEBUG_DRIVER(fmt, arg...) do {					\
+	if (drm_debug_flag)						\
+		printf("[" DRM_NAME ":pid%d:%s] " fmt, curproc->p_pid,	\
+			__func__ , ## arg);				\
+} while (0)
+#else
+#define DRM_DEBUG_DRIVER(fmt, arg...) do { } while(/* CONSTCOND */ 0)
+#endif
+
 struct drm_pcidev {
 	int vendor;
 	int device;
@@ -545,6 +556,8 @@ struct drm_device {
 
 	u_int16_t	 pci_device;
 	u_int16_t	 pci_vendor;
+	u_int16_t	 pci_subdevice;
+	u_int16_t	 pci_subvendor;
 
 	bus_dma_tag_t			dmat;
 	bus_space_tag_t			bst;
@@ -580,7 +593,10 @@ struct drm_device {
 	/* VBLANK support */
 	int			 vblank_disable_allowed;
 	struct drm_vblank_info	*vblank;		/* One per ctrc */
+	int			*vblank_inmodeset;
 	struct mutex		 event_lock;
+
+	int			 num_crtcs;
 
 	pid_t			 buf_pgid;
 
@@ -620,6 +636,8 @@ struct drm_attach_args {
 	u_int8_t			 irq;
 	u_int16_t			 pci_vendor;
 	u_int16_t			 pci_device;
+	u_int16_t			 pci_subvendor;
+	u_int16_t			 pci_subdevice;
 };
 
 extern int	drm_debug_flag;
@@ -741,6 +759,9 @@ int	drm_vblank_init(struct drm_device *, int);
 u_int32_t drm_vblank_count(struct drm_device *, int);
 int	drm_vblank_get(struct drm_device *, int);
 void	drm_vblank_put(struct drm_device *, int);
+void	drm_vblank_off(struct drm_device *, int);
+void	drm_vblank_pre_modeset(struct drm_device *, int);
+void	drm_vblank_post_modeset(struct drm_device *, int);
 int	drm_modeset_ctl(struct drm_device *, void *, struct drm_file *);
 void	drm_handle_vblank(struct drm_device *, int);
 

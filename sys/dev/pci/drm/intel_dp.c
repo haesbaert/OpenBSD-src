@@ -665,7 +665,7 @@ static int
 intel_dp_i2c_init(struct intel_dp *intel_dp,
 		  struct intel_connector *intel_connector, const char *name)
 {
-	printf("%s stub\n");
+	printf("%s stub\n", __func__);
 	return EINVAL;
 #if 0
 	int ret;

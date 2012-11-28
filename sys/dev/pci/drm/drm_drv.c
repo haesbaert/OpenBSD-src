@@ -161,6 +161,8 @@ drm_attach(struct device *parent, struct device *self, void *aux)
 	dev->unique_len = da->busid_len;
 	dev->pci_vendor = da->pci_vendor;
 	dev->pci_device = da->pci_device;
+	dev->pci_subvendor = da->pci_subvendor;
+	dev->pci_subdevice = da->pci_subdevice;
 
 	rw_init(&dev->dev_lock, "drmdevlk");
 	mtx_init(&dev->lock.spinlock, IPL_NONE);

@@ -275,6 +275,86 @@ drm_vblank_put(struct drm_device *dev, int crtc)
 	mtx_leave(&dev->vblank->vb_lock);
 }
 
+void drm_vblank_off(struct drm_device *dev, int crtc)
+{
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct drm_pending_vblank_event *e, *t;
+	struct timeval now;
+	unsigned int seq;
+
+	mtx_enter(&dev->vblank->vb_lock);
+	vblank_disable_and_save(dev, crtc);
+	mtx_enter(&dev->event_lock);
+	wakeup(&dev->_vblank_count[crtc]);
+
+	/* Send any queued vblank events, lest the natives grow disquiet */
+	seq = drm_vblank_count_and_time(dev, crtc, &now);
+	list_for_each_entry_safe(e, t, &dev->vblank_event_list, base.link) {
+		if (e->pipe != crtc)
+			continue;
+		DRM_DEBUG("Sending premature vblank event on disable: \
+			  wanted %d, current %d\n",
+			  e->event.sequence, seq);
+
+		e->event.sequence = seq;
+		e->event.tv_sec = now.tv_sec;
+		e->event.tv_usec = now.tv_usec;
+		drm_vblank_put(dev, e->pipe);
+		list_move_tail(&e->base.link, &e->base.file_priv->event_list);
+		drm_event_wakeup(&e->base);
+		CTR3(KTR_DRM, "vblank_event_delivered %d %d %d",
+		    e->base.pid, e->pipe, e->event.sequence);
+	}
+
+	mtx_leave(&dev->event_lock);
+	mtx_leave(&dev->vblank->vb_lock);
+#endif
+}
+
+/**
+ * drm_vblank_pre_modeset - account for vblanks across mode sets
+ * @dev: DRM device
+ * @crtc: CRTC in question
+ * @post: post or pre mode set?
+ *
+ * Account for vblank events across mode setting events, which will likely
+ * reset the hardware frame counter.
+ */
+void drm_vblank_pre_modeset(struct drm_device *dev, int crtc)
+{
+	/* vblank is not initialized (IRQ not installed ?) */
+	if (!dev->num_crtcs)
+		return;
+	/*
+	 * To avoid all the problems that might happen if interrupts
+	 * were enabled/disabled around or between these calls, we just
+	 * have the kernel take a reference on the CRTC (just once though
+	 * to avoid corrupting the count if multiple, mismatch calls occur),
+	 * so that interrupts remain enabled in the interim.
+	 */
+	if (!dev->vblank_inmodeset[crtc]) {
+		dev->vblank_inmodeset[crtc] = 0x1;
+		if (drm_vblank_get(dev, crtc) == 0)
+			dev->vblank_inmodeset[crtc] |= 0x2;
+	}
+}
+
+void drm_vblank_post_modeset(struct drm_device *dev, int crtc)
+{
+
+	if (dev->vblank_inmodeset[crtc]) {
+		mtx_enter(&dev->vblank->vb_lock);
+		dev->vblank_disable_allowed = 1;
+		mtx_leave(&dev->vblank->vb_lock);
+
+		if (dev->vblank_inmodeset[crtc] & 0x2)
+			drm_vblank_put(dev, crtc);
+
+		dev->vblank_inmodeset[crtc] = 0;
+	}
+}
+
 int
 drm_modeset_ctl(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {

@@ -34,6 +34,7 @@
 #include "drmP.h"
 #include "drm_crtc.h"
 #include "drm_edid.h"
+#include "drm_fourcc.h"
 
 /* Avoid boilerplate.  I'm tired of typing. */
 #define DRM_ENUM_NAME_FN(fnname, list)				\
@@ -1996,6 +1997,41 @@ out:
 	return ret;
 }
 
+/* Original addfb only supported RGB formats, so figure out which one */
+uint32_t drm_mode_legacy_fb_format(uint32_t bpp, uint32_t depth)
+{
+	uint32_t fmt;
+
+	switch (bpp) {
+	case 8:
+		fmt = DRM_FORMAT_RGB332;
+		break;
+	case 16:
+		if (depth == 15)
+			fmt = DRM_FORMAT_XRGB1555;
+		else
+			fmt = DRM_FORMAT_RGB565;
+		break;
+	case 24:
+		fmt = DRM_FORMAT_RGB888;
+		break;
+	case 32:
+		if (depth == 24)
+			fmt = DRM_FORMAT_XRGB8888;
+		else if (depth == 30)
+			fmt = DRM_FORMAT_XRGB2101010;
+		else
+			fmt = DRM_FORMAT_ARGB8888;
+		break;
+	default:
+		DRM_ERROR("bad bpp, assuming RGB24 pixel format\n");
+		fmt = DRM_FORMAT_XRGB8888;
+		break;
+	}
+
+	return fmt;
+}
+
 /**
  * drm_mode_addfb - add an FB to the graphics configuration
  * @inode: inode from the ioctl
@@ -2016,19 +2052,28 @@ out:
 int drm_mode_addfb(struct drm_device *dev,
 		   void *data, struct drm_file *file_priv)
 {
-	struct drm_mode_fb_cmd *r = data;
+	struct drm_mode_fb_cmd *or = data;
+	struct drm_mode_fb_cmd2 r = {};
 	struct drm_mode_config *config = &dev->mode_config;
 	struct drm_framebuffer *fb;
 	int ret = 0;
 
+	/* Use new struct with format internally */
+	r.fb_id = or->fb_id;
+	r.width = or->width;
+	r.height = or->height;
+	r.pitches[0] = or->pitch;
+	r.pixel_format = drm_mode_legacy_fb_format(or->bpp, or->depth);
+	r.handles[0] = or->handle;
+
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	if ((config->min_width > r->width) || (r->width > config->max_width)) {
+	if ((config->min_width > r.width) || (r.width > config->max_width)) {
 		DRM_ERROR("mode new framebuffer width not within limits\n");
 		return EINVAL;
 	}
-	if ((config->min_height > r->height) || (r->height > config->max_height)) {
+	if ((config->min_height > r.height) || (r.height > config->max_height)) {
 		DRM_ERROR("mode new framebuffer height not within limits\n");
 		return EINVAL;
 	}
@@ -2038,14 +2083,13 @@ int drm_mode_addfb(struct drm_device *dev,
 	/* TODO check buffer is sufficiently large */
 	/* TODO setup destructor callback */
 
-	fb = dev->mode_config.funcs->fb_create(dev, file_priv, r);
-	if (fb == NULL) {
+	ret = dev->mode_config.funcs->fb_create(dev, file_priv, &r, &fb);
+	if (ret != 0) {
 		DRM_ERROR("could not create framebuffer\n");
-		ret = EIO;
 		goto out;
 	}
 
-	r->fb_id = fb->base.id;
+	or->fb_id = fb->base.id;
 	TAILQ_INSERT_HEAD(&file_priv->fbs, fb, filp_head);
 	DRM_DEBUG_KMS("[FB:%d]\n", fb->base.id);
 
@@ -2156,7 +2200,7 @@ int drm_mode_getfb(struct drm_device *dev,
 	r->width = fb->width;
 	r->depth = fb->depth;
 	r->bpp = fb->bits_per_pixel;
-	r->pitch = fb->pitch;
+	r->pitch = fb->pitches[0];
 	fb->funcs->create_handle(fb, file_priv, &r->handle);
 
 out:
@@ -3147,6 +3191,73 @@ int drm_mode_destroy_dumb_ioctl(struct drm_device *dev,
 		return ENOSYS;
 
 	return dev->driver->dumb_destroy(file_priv, dev, args->handle);
+}
+
+/*
+ * Just need to support RGB formats here for compat with code that doesn't
+ * use pixel formats directly yet.
+ */
+void drm_fb_get_bpp_depth(uint32_t format, unsigned int *depth,
+			  int *bpp)
+{
+	switch (format) {
+	case DRM_FORMAT_RGB332:
+	case DRM_FORMAT_BGR233:
+		*depth = 8;
+		*bpp = 8;
+		break;
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_XBGR1555:
+	case DRM_FORMAT_RGBX5551:
+	case DRM_FORMAT_BGRX5551:
+	case DRM_FORMAT_ARGB1555:
+	case DRM_FORMAT_ABGR1555:
+	case DRM_FORMAT_RGBA5551:
+	case DRM_FORMAT_BGRA5551:
+		*depth = 15;
+		*bpp = 16;
+		break;
+	case DRM_FORMAT_RGB565:
+	case DRM_FORMAT_BGR565:
+		*depth = 16;
+		*bpp = 16;
+		break;
+	case DRM_FORMAT_RGB888:
+	case DRM_FORMAT_BGR888:
+		*depth = 24;
+		*bpp = 24;
+		break;
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBX8888:
+	case DRM_FORMAT_BGRX8888:
+		*depth = 24;
+		*bpp = 32;
+		break;
+	case DRM_FORMAT_XRGB2101010:
+	case DRM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_RGBX1010102:
+	case DRM_FORMAT_BGRX1010102:
+	case DRM_FORMAT_ARGB2101010:
+	case DRM_FORMAT_ABGR2101010:
+	case DRM_FORMAT_RGBA1010102:
+	case DRM_FORMAT_BGRA1010102:
+		*depth = 30;
+		*bpp = 32;
+		break;
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_BGRA8888:
+		*depth = 32;
+		*bpp = 32;
+		break;
+	default:
+		DRM_DEBUG_KMS("unsupported pixel format\n");
+		*depth = 0;
+		*bpp = 0;
+		break;
+	}
 }
 
 int drm_mode_handle_cmp(struct drm_mode_handle *a, struct drm_mode_handle *b)
