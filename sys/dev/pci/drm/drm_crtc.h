@@ -819,6 +819,8 @@ extern struct drm_property *drm_property_create(struct drm_device *dev, int flag
 extern struct drm_property *drm_property_create_enum(struct drm_device *dev,
     int flags, const char *name, const struct drm_prop_enum_list *props,
     int num_values);
+struct drm_property *drm_property_create_range(struct drm_device *dev, int flags, 
+    const char *name, uint64_t min, uint64_t max);
 
 extern void drm_property_destroy(struct drm_device *dev, struct drm_property *property);
 extern int drm_property_add_enum(struct drm_property *property, int index,
