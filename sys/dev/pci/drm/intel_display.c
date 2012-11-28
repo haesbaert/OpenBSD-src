@@ -7,6 +7,41 @@
 
 int i915_panel_use_ssc = -1;
 
+typedef struct {
+	/* given values */
+	int n;
+	int m1, m2;
+	int p1, p2;
+	/* derived values */
+	int	dot;
+	int	vco;
+	int	m;
+	int	p;
+} intel_clock_t;
+
+/* m1 is reserved as 0 in Pineview, n is a ring counter */
+static void pineview_clock(int refclk, intel_clock_t *clock)
+{
+	clock->m = clock->m2 + 2;
+	clock->p = clock->p1 * clock->p2;
+	clock->vco = refclk * clock->m / clock->n;
+	clock->dot = clock->vco / clock->p;
+}
+
+static void intel_clock(struct drm_device *dev, int refclk, intel_clock_t *clock)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+
+	if (IS_PINEVIEW(dev_priv)) {
+		pineview_clock(refclk, clock);
+		return;
+	}
+	clock->m = 5 * (clock->m1 + 2) + (clock->m2 + 2);
+	clock->p = clock->p1 * clock->p2;
+	clock->vco = refclk * clock->m / (clock->n + 2);
+	clock->dot = clock->vco / clock->p;
+}
+
 /**
  * intel_wait_for_vblank - wait for vblank on a given pipe
  * @dev: drm device
@@ -1037,6 +1072,123 @@ void intel_release_load_detect_pipe(struct intel_encoder *intel_encoder,
 	}
 }
 
+/* Returns the clock of the currently programmed mode of the given pipe. */
+static int intel_crtc_clock_get(struct drm_device *dev, struct drm_crtc *crtc)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	u32 dpll = I915_READ(DPLL(pipe));
+	u32 fp;
+	intel_clock_t clock;
+
+	if ((dpll & DISPLAY_RATE_SELECT_FPA1) == 0)
+		fp = I915_READ(FP0(pipe));
+	else
+		fp = I915_READ(FP1(pipe));
+
+	clock.m1 = (fp & FP_M1_DIV_MASK) >> FP_M1_DIV_SHIFT;
+	if (IS_PINEVIEW(dev_priv)) {
+		clock.n = ffs((fp & FP_N_PINEVIEW_DIV_MASK) >> FP_N_DIV_SHIFT) - 1;
+		clock.m2 = (fp & FP_M2_PINEVIEW_DIV_MASK) >> FP_M2_DIV_SHIFT;
+	} else {
+		clock.n = (fp & FP_N_DIV_MASK) >> FP_N_DIV_SHIFT;
+		clock.m2 = (fp & FP_M2_DIV_MASK) >> FP_M2_DIV_SHIFT;
+	}
+
+	if (!IS_GEN2(dev_priv)) {
+		if (IS_PINEVIEW(dev_priv))
+			clock.p1 = ffs((dpll & DPLL_FPA01_P1_POST_DIV_MASK_PINEVIEW) >>
+				DPLL_FPA01_P1_POST_DIV_SHIFT_PINEVIEW);
+		else
+			clock.p1 = ffs((dpll & DPLL_FPA01_P1_POST_DIV_MASK) >>
+			       DPLL_FPA01_P1_POST_DIV_SHIFT);
+
+		switch (dpll & DPLL_MODE_MASK) {
+		case DPLLB_MODE_DAC_SERIAL:
+			clock.p2 = dpll & DPLL_DAC_SERIAL_P2_CLOCK_DIV_5 ?
+				5 : 10;
+			break;
+		case DPLLB_MODE_LVDS:
+			clock.p2 = dpll & DPLLB_LVDS_P2_CLOCK_DIV_7 ?
+				7 : 14;
+			break;
+		default:
+			DRM_DEBUG_KMS("Unknown DPLL mode %08x in programmed "
+				  "mode\n", (int)(dpll & DPLL_MODE_MASK));
+			return 0;
+		}
+
+		/* XXX: Handle the 100Mhz refclk */
+		intel_clock(dev, 96000, &clock);
+	} else {
+		bool is_lvds = (pipe == 1) && (I915_READ(LVDS) & LVDS_PORT_EN);
+
+		if (is_lvds) {
+			clock.p1 = ffs((dpll & DPLL_FPA01_P1_POST_DIV_MASK_I830_LVDS) >>
+				       DPLL_FPA01_P1_POST_DIV_SHIFT);
+			clock.p2 = 14;
+
+			if ((dpll & PLL_REF_INPUT_MASK) ==
+			    PLLB_REF_INPUT_SPREADSPECTRUMIN) {
+				/* XXX: might not be 66MHz */
+				intel_clock(dev, 66000, &clock);
+			} else
+				intel_clock(dev, 48000, &clock);
+		} else {
+			if (dpll & PLL_P1_DIVIDE_BY_TWO)
+				clock.p1 = 2;
+			else {
+				clock.p1 = ((dpll & DPLL_FPA01_P1_POST_DIV_MASK_I830) >>
+					    DPLL_FPA01_P1_POST_DIV_SHIFT) + 2;
+			}
+			if (dpll & PLL_P2_DIVIDE_BY_4)
+				clock.p2 = 4;
+			else
+				clock.p2 = 2;
+
+			intel_clock(dev, 48000, &clock);
+		}
+	}
+
+	/* XXX: It would be nice to validate the clocks, but we can't reuse
+	 * i830PllIsValid() because it relies on the xf86_config connector
+	 * configuration being accurate, which it isn't necessarily.
+	 */
+
+	return clock.dot;
+}
+
+/** Returns the currently programmed mode of the given pipe. */
+struct drm_display_mode *intel_crtc_mode_get(struct drm_device *dev,
+					     struct drm_crtc *crtc)
+{
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	struct drm_display_mode *mode;
+	int htot = I915_READ(HTOTAL(pipe));
+	int hsync = I915_READ(HSYNC(pipe));
+	int vtot = I915_READ(VTOTAL(pipe));
+	int vsync = I915_READ(VSYNC(pipe));
+
+	mode = malloc(sizeof(*mode), M_DRM, M_WAITOK | M_ZERO);
+
+	mode->clock = intel_crtc_clock_get(dev, crtc);
+	mode->hdisplay = (htot & 0xffff) + 1;
+	mode->htotal = ((htot & 0xffff0000) >> 16) + 1;
+	mode->hsync_start = (hsync & 0xffff) + 1;
+	mode->hsync_end = ((hsync & 0xffff0000) >> 16) + 1;
+	mode->vdisplay = (vtot & 0xffff) + 1;
+	mode->vtotal = ((vtot & 0xffff0000) >> 16) + 1;
+	mode->vsync_start = (vsync & 0xffff) + 1;
+	mode->vsync_end = ((vsync & 0xffff0000) >> 16) + 1;
+
+	drm_mode_set_name(mode);
+	drm_mode_set_crtcinfo(mode, 0);
+
+	return mode;
+}
 
 static void intel_crtc_destroy(struct drm_crtc *crtc)
 {
