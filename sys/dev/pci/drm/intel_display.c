@@ -3358,9 +3358,11 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 
 static void ironlake_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
+#ifdef DRMDEBUG
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int pipe = intel_crtc->pipe;
 	int plane = intel_crtc->plane;
+#endif
 
 	/* XXX: When our outputs are all unaware of DPMS modes other than off
 	 * and on, we should map those modes to DRM_MODE_DPMS_OFF in the CRTC.

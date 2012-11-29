@@ -345,8 +345,10 @@ static bool ironlake_edp_have_panel_vdd(struct intel_dp *intel_dp)
 static void
 intel_dp_check_edp(struct intel_dp *intel_dp)
 {
+#ifdef DRMDEBUG
 	struct drm_device *dev = intel_dp->base.base.dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+#endif
 
 	if (!is_edp(intel_dp))
 		return;

@@ -413,8 +413,10 @@ intel_sdvo_debug_write(struct intel_sdvo *intel_sdvo, u8 cmd,
 {
 	int i;
 
+#ifdef DRMDDEBUG
 	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) == 0)
 		return;
+#endif
 	DRM_DEBUG_KMS("%s: W: %02X ", SDVO_NAME(intel_sdvo), cmd);
 	for (i = 0; i < args_len; i++)
 		printf("%02X ", ((const u8 *)args)[i]);
@@ -432,6 +434,7 @@ intel_sdvo_debug_write(struct intel_sdvo *intel_sdvo, u8 cmd,
 }
 #endif
 
+#ifdef DRMDEBUG
 static const char *cmd_status_names[] = {
 	"Power on",
 	"Success",
@@ -441,6 +444,7 @@ static const char *cmd_status_names[] = {
 	"Target not specified",
 	"Scaling not supported"
 };
+#endif
 
 static bool
 intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd, const void *args,
@@ -527,12 +531,14 @@ intel_sdvo_read_response(struct intel_sdvo *intel_sdvo, void *response,
 			goto log_fail;
 	}
 
+#ifdef DRMDEBUG
 	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0) {
 		if (status <= SDVO_CMD_STATUS_SCALING_NOT_SUPP)
 			printf("(%s)", cmd_status_names[status]);
 		else
 			printf("(??? %d)", status);
 	}
+#endif
 
 	if (status != SDVO_CMD_STATUS_SUCCESS)
 		goto log_fail;
@@ -543,16 +549,22 @@ intel_sdvo_read_response(struct intel_sdvo *intel_sdvo, void *response,
 					  SDVO_I2C_RETURN_0 + i,
 					  &((u8 *)response)[i]))
 			goto log_fail;
+#ifdef DRMDEBUG
 		if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0)
 			printf(" %02X", ((u8 *)response)[i]);
+#endif
 	}
+#ifdef DRMDEBUG
 	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0)
 		printf("\n");
+#endif
 	return (true);
 
 log_fail:
+#ifdef DRMDEBUG
 	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0)
 		printf("... failed\n");
+#endif
 	return (false);
 }
 
