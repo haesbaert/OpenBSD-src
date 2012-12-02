@@ -181,6 +181,41 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 // i915_gem_init_hw
 
 int
+i915_gem_init(struct drm_device *dev)
+{
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	uint64_t			 gtt_start, gtt_end;
+	struct agp_softc		*asc;
+
+	DRM_LOCK();
+
+	asc = (struct agp_softc *)dev->agp->agpdev;
+	gtt_start = asc->sc_stolen_entries * 4096;
+
+	/*
+	 * putting stuff in the last page of the aperture can cause nasty
+	 * problems with prefetch going into unassigned memory. Since we put
+	 * a scratch page on all unused aperture pages, just leave the last
+	 * page as a spill to prevent gpu hangs.
+	 */
+	gtt_end = dev->agp->info.ai_aperture_size - 4096;
+
+	if (agp_bus_dma_init(asc,
+	    dev->agp->base + gtt_start, dev->agp->base + gtt_end,
+	    &dev_priv->agpdmat) != 0) {
+		DRM_UNLOCK();
+		return (ENOMEM);
+	}
+
+	dev->gtt_total = (uint32_t)(gtt_end - gtt_start);
+	inteldrm_set_max_obj_size(dev_priv);
+
+	DRM_UNLOCK();
+
+	return 0;
+}
+
+int
 i915_gem_get_aperture_ioctl(struct drm_device *dev, void *data,
     struct drm_file *file_priv)
 {

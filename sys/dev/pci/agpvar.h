@@ -131,6 +131,7 @@ struct agp_softc {
 	pcitag_t			 sc_pcitag;
 	bus_addr_t			 sc_apaddr;
 	bus_size_t			 sc_apsize;
+	uint32_t			 sc_stolen_entries;
 	pcireg_t			 sc_id;
 
 	int				 sc_opened;

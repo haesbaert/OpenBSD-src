@@ -831,6 +831,8 @@ int	i915_gem_object_put_fence_reg(struct drm_obj *, int);
 bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
 bus_size_t	i915_get_fence_size(struct inteldrm_softc *, bus_size_t);
+int	i915_gem_init(struct drm_device *);
+
 int	i915_tiling_ok(struct drm_device *, int, int, int);
 int	i915_gem_object_fence_offset_ok(struct drm_obj *, int);
 void	sandybridge_write_fence_reg(struct inteldrm_fence *);

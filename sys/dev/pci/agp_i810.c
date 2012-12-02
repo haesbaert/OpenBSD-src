@@ -594,6 +594,7 @@ agp_i810_attach(struct device *parent, struct device *self, void *aux)
 
 	isc->agpdev = (struct agp_softc *)agp_attach_bus(pa, &agp_i810_methods,
 	    isc->isc_apaddr, isc->isc_apsize, &isc->dev);
+	isc->agpdev->sc_stolen_entries = isc->stolen;
 	return;
 out:
 

@@ -5,13 +5,6 @@
 #include "intel_drv.h"
 #include "drm_crtc_helper.h"
 
-static int
-i915_load_gem_init(struct drm_device *dev)
-{
-	printf("%s stub\n", __func__);
-	return EINVAL;
-}
-
 int
 i915_load_modeset_init(struct drm_device *dev)
 {
@@ -32,7 +25,7 @@ i915_load_modeset_init(struct drm_device *dev)
 
 	intel_modeset_init(dev);
 
-	ret = i915_load_gem_init(dev);
+	ret = i915_gem_init(dev);
 	if (ret != 0)
 		goto cleanup_gem;
 
