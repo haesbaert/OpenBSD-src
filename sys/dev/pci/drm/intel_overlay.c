@@ -15,3 +15,17 @@ void intel_setup_overlay(struct drm_device *dev)
 {
 	printf("%s stub\n", __func__);
 }
+
+int intel_overlay_attrs(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+int intel_overlay_put_image(struct drm_device *dev, void *data,
+			    struct drm_file *file_priv)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}

@@ -49,6 +49,7 @@
 #include "drm.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
+#include "intel_drv.h"
 
 #include <machine/pmap.h>
 
@@ -563,6 +564,8 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 			return (i915_gem_ring_throttle(dev, file_priv));
 		case DRM_IOCTL_I915_GEM_MMAP:
 			return (i915_gem_gtt_map_ioctl(dev, data, file_priv));
+		case DRM_IOCTL_I915_GEM_MMAP_GTT:
+			return (i915_gem_mmap_gtt_ioctl(dev, data, file_priv));
 		case DRM_IOCTL_I915_GEM_CREATE:
 			return (i915_gem_create_ioctl(dev, data, file_priv));
 		case DRM_IOCTL_I915_GEM_PREAD:
@@ -579,6 +582,8 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 		case DRM_IOCTL_I915_GEM_GET_APERTURE:
 			return (i915_gem_get_aperture_ioctl(dev, data,
 			    file_priv));
+		case DRM_IOCTL_I915_GET_PIPE_FROM_CRTC_ID:
+			return (intel_get_pipe_from_crtc_id(dev, data, file_priv));
 		case DRM_IOCTL_I915_GEM_MADVISE:
 			return (i915_gem_madvise_ioctl(dev, data, file_priv));
 		default:
@@ -600,6 +605,14 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 			return (i915_gem_pin_ioctl(dev, data, file_priv));
 		case DRM_IOCTL_I915_GEM_UNPIN:
 			return (i915_gem_unpin_ioctl(dev, data, file_priv));
+		case DRM_IOCTL_I915_OVERLAY_PUT_IMAGE:
+			return (intel_overlay_put_image(dev, data, file_priv));
+		case DRM_IOCTL_I915_OVERLAY_ATTRS:
+			return (intel_overlay_attrs(dev, data, file_priv));
+		case DRM_IOCTL_I915_GET_SPRITE_COLORKEY:
+			return (intel_sprite_get_colorkey(dev, data, file_priv));
+		case DRM_IOCTL_I915_SET_SPRITE_COLORKEY:
+			return (intel_sprite_set_colorkey(dev, data, file_priv));
 		}
 	}
 	return (EINVAL);

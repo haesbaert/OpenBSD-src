@@ -814,8 +814,28 @@ i915_gem_set_domain_ioctl(struct drm_device *dev, void *data,
 // i915_gem_pager_fault
 // i915_gem_pager_dtor
 // struct cdev_pager_ops i915_gem_pager_ops = {
-// i915_gem_mmap_gtt
-// i915_gem_mmap_gtt_ioctl
+
+int
+i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
+    uint32_t handle, uint64_t *offset)
+{
+	printf("%s stub\n", __func__);
+	return EINVAL;
+}
+
+int
+i915_gem_mmap_gtt_ioctl(struct drm_device *dev, void *data,
+    struct drm_file *file)
+{
+	struct inteldrm_softc *dev_priv;
+	struct drm_i915_gem_mmap_gtt *args;
+
+	dev_priv = dev->dev_private;
+	args = data;
+
+	return (i915_gem_mmap_gtt(file, dev, args->handle, &args->offset));
+}
+
 // i915_gem_alloc_object
 // i915_gem_clflush_object
 // i915_gem_object_flush_cpu_write_domain

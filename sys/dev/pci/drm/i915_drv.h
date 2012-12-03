@@ -782,6 +782,7 @@ int	i915_gem_get_aperture_ioctl(struct drm_device *, void *,
 int	i915_gem_set_tiling(struct drm_device *, void *, struct drm_file *);
 int	i915_gem_get_tiling(struct drm_device *, void *, struct drm_file *);
 int	i915_gem_gtt_map_ioctl(struct drm_device *, void *, struct drm_file *);
+int	i915_gem_mmap_gtt_ioctl(struct drm_device *, void *, struct drm_file *);
 int	i915_gem_madvise_ioctl(struct drm_device *, void *, struct drm_file *);
 
 /* GEM memory manager functions */
@@ -832,6 +833,8 @@ bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
 bus_size_t	i915_get_fence_size(struct inteldrm_softc *, bus_size_t);
 int	i915_gem_init(struct drm_device *);
+int	i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
+	    uint32_t, uint64_t *);
 
 int	i915_tiling_ok(struct drm_device *, int, int, int);
 int	i915_gem_object_fence_offset_ok(struct drm_obj *, int);
