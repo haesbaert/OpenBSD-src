@@ -7995,9 +7995,6 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
 				struct drm_file *file)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_i915_get_pipe_from_crtc_id *pipe_from_crtc_id = data;
 	struct drm_mode_object *drmmode_obj;
@@ -8020,7 +8017,6 @@ int intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
 	pipe_from_crtc_id->pipe = crtc->pipe;
 
 	return 0;
-#endif
 }
 
 static int intel_encoder_clones(struct drm_device *dev, int type_mask)
