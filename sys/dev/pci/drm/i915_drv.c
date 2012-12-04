@@ -1205,6 +1205,15 @@ inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 	case I915_PARAM_HAS_EXECBUF2:
 		value = 1;
 		break;
+	case I915_PARAM_HAS_BSD:
+		value = HAS_BSD(dev_priv);
+		break;
+	case I915_PARAM_HAS_BLT:
+		value = HAS_BLT(dev_priv);
+		break;
+	case I915_PARAM_HAS_RELAXED_FENCING:
+		value = 1;
+		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
 		return (EINVAL);
