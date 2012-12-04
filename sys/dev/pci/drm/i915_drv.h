@@ -124,6 +124,31 @@ struct drm_i915_display_funcs {
 	/* pll clock increase/decrease */
 };
 
+struct intel_device_info {
+	u8 gen;
+	u8 is_mobile:1;
+	u8 is_i85x:1;
+	u8 is_i915g:1;
+	u8 is_i945gm:1;
+	u8 is_g33:1;
+	u8 need_gfx_hws:1;
+	u8 is_g4x:1;
+	u8 is_pineview:1;
+	u8 is_broadwater:1;
+	u8 is_crestline:1;
+	u8 is_ivybridge:1;
+	u8 has_fbc:1;
+	u8 has_pipe_cxsr:1;
+	u8 has_hotplug:1;
+	u8 cursor_needs_physical:1;
+	u8 has_overlay:1;
+	u8 overlay_needs_physical:1;
+	u8 supports_tv:1;
+	u8 has_bsd_ring:1;
+	u8 has_blt_ring:1;
+	u8 has_llc:1;
+};
+
 enum no_fbc_reason {
 	FBC_NO_OUTPUT, /* no outputs enabled to compress */
 	FBC_STOLEN_TOO_SMALL, /* not enough space to hold compressed buffers */
@@ -207,9 +232,6 @@ struct inteldrm_softc {
 
 	u_long			 flags;
 	u_int16_t		 pci_device;
-	int			 gen;
-	int			 has_pipe_cxsr;
-	uint8_t			 supports_tv;
 
 	pci_chipset_tag_t	 pc;
 	pcitag_t		 tag;
@@ -587,6 +609,8 @@ struct inteldrm_softc {
 		/** Bit 6 swizzling required for Y tiling */
 		uint32_t bit_6_swizzle_y;
 	} mm;
+
+	const struct intel_device_info *info;
 
 	struct sdvo_device_mapping sdvo_mappings[2];
 	/* indicate whether the LVDS_BORDER should be enabled or not */
@@ -1024,66 +1048,73 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define READ_HWSP(dev_priv, reg)  inteldrm_read_hws(dev_priv, reg)
 #define I915_GEM_HWS_INDEX		0x20
 
+#define INTEL_INFO(dev)		((dev)->info)
+
 /* Chipset type macros */
 
-#define IS_I830(dev_priv) ((dev_priv)->flags & CHIP_I830)
-#define IS_845G(dev_priv) ((dev_priv)->flags & CHIP_I845G)
-#define IS_I85X(dev_priv) ((dev_priv)->flags & CHIP_I85X)
-#define IS_I865G(dev_priv) ((dev_priv)->flags & CHIP_I865G)
+#define IS_I830(dev_priv)	((dev_priv)->pci_device == 0x3577)
+#define IS_845G(dev_priv)	((dev_priv)->pci_device == 0x2562)
+#define IS_I85X(dev_priv)	(INTEL_INFO(dev_priv)->is_i85x)
+#define IS_I865G(dev_priv)	((dev_priv)->pci_device == 0x2572)
 
-#define IS_I915G(dev_priv) ((dev_priv)->flags & CHIP_I915G)
-#define IS_I915GM(dev_priv) ((dev_priv)->flags & CHIP_I915GM)
-#define IS_I945G(dev_priv) ((dev_priv)->flags & CHIP_I945G)
-#define IS_I945GM(dev_priv) ((dev_priv)->flags & CHIP_I945GM)
-#define IS_I965G(dev_priv) ((dev_priv)->flags & CHIP_I965)
-#define IS_I965GM(dev_priv) ((dev_priv)->flags & CHIP_I965GM)
+#define IS_I915G(dev_priv)	(INTEL_INFO(dev_priv)->is_i915g)
+#define IS_I915GM(dev_priv)	((dev_priv)->pci_device == 0x2592)
+#define IS_I945G(dev_priv)	((dev_priv)->pci_device == 0x2772)
+#define IS_I945GM(dev_priv)	(INTEL_INFO(dev_priv)->is_i945gm)
+/* XXX #define IS_I965G(dev_priv)	(INTEL_INFO(dev_priv)->is_broadwater) */
+#define IS_I965G(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 4)
+#define IS_I965GM(dev_priv)	(INTEL_INFO(dev_priv)->is_crestline)
 
-#define IS_GM45(dev_priv) ((dev_priv)->flags & CHIP_GM45)
-#define IS_G4X(dev_priv) ((dev_priv)->flags & CHIP_G4X)
+#define IS_GM45(dev_priv)	((dev_priv)->pci_device == 0x2A42)
+#define IS_G4X(dev_priv)	(INTEL_INFO(dev_priv)->is_g4x)
 
-#define IS_G33(dev_priv)    ((dev_priv)->flags & CHIP_G33)
+#define IS_G33(dev_priv)	(INTEL_INFO(dev_priv)->is_g33)
 
-#define IS_I9XX(dev_priv) ((dev_priv)->flags & CHIP_I9XX)
+#define IS_I9XX(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 3)
 
-/* XXX */
-#define IS_BROADWATER(dev_priv) (0)
-#define IS_CRESTLINE(dev_priv) (0)
-#define IS_PINEVIEW_G(dev_priv) (0)
-#define IS_PINEVIEW_M(dev_priv) (0)
-#define IS_PINEVIEW(dev_priv) ((dev_priv)->flags & CHIP_PINEVIEW)
+#define IS_BROADWATER(dev_priv)	(INTEL_INFO(dev_priv)->is_broadwater)
+#define IS_CRESTLINE(dev_priv)	(INTEL_INFO(dev_priv)->is_crestline)
 
-#define IS_IRONLAKE(dev_priv) ((dev_priv)->flags & CHIP_IRONLAKE)
-#define IS_IRONLAKE_D(dev_priv) ((dev_priv)->flags & CHIP_IRONLAKE_D)
-#define IS_IRONLAKE_M(dev_priv) ((dev_priv)->flags & CHIP_IRONLAKE_M)
+#define IS_PINEVIEW_G(dev_priv)	((dev_priv)->pci_device == 0xa001)
+#define IS_PINEVIEW_M(dev_priv)	((dev_priv)->pci_device == 0xa011)
+#define IS_PINEVIEW(dev_priv)	(INTEL_INFO(dev_priv)->is_pineview)
 
-#define IS_SANDYBRIDGE(dev_priv) ((dev_priv)->flags & CHIP_SANDYBRIDGE)
-#define IS_SANDYBRIDGE_D(dev_priv) ((dev_priv)->flags & CHIP_SANDYBRIDGE_D)
-#define IS_SANDYBRIDGE_M(dev_priv) ((dev_priv)->flags & CHIP_SANDYBRIDGE_M)
+#define IS_IRONLAKE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
+#define IS_IRONLAKE_D(dev_priv)	((dev_priv)->pci_device == 0x0042)
+#define IS_IRONLAKE_M(dev_priv)	((dev_priv)->pci_device == 0x0046)
 
-#define IS_IVYBRIDGE(dev_priv) ((dev_priv)->flags & CHIP_IVYBRIDGE)
 
-#define IS_MOBILE(dev_priv) (dev_priv->flags & CHIP_M)
+#define IS_SANDYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 6)
+#define IS_SANDYBRIDGE_D(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
+ (INTEL_INFO(dev_priv)->is_mobile == 0))
+#define IS_SANDYBRIDGE_M(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
+ (INTEL_INFO(dev_priv)->is_mobile == 1))
 
-#define I915_NEED_GFX_HWS(dev_priv) (dev_priv->flags & CHIP_HWS)
+#define IS_IVYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 7)
+
+#define IS_MOBILE(dev_priv)	(INTEL_INFO(dev_priv)->is_mobile)
+
+#define HAS_BSD(dev_priv)	(INTEL_INFO(dev_priv)->has_bsd_ring)
+#define HAS_BLT(dev_priv)	(INTEL_INFO(dev_priv)->has_blt_ring)
+#define HAS_LLC(dev_priv)	(INTEL_INFO(dev_priv)->has_llc)
+#define I915_NEED_GFX_HWS(dev_priv)	(INTEL_INFO(dev_priv)->need_gfx_hws)
 
 #define HAS_RESET(dev_priv)	IS_I965G(dev_priv) && (!IS_GEN6(dev_priv)) \
     && (!IS_GEN7(dev_priv))
 
-#define IS_GEN2(dev_priv)	(dev_priv->flags & CHIP_GEN2)
-#define IS_GEN3(dev_priv)	(dev_priv->flags & CHIP_GEN3)
-#define IS_GEN4(dev_priv)	(dev_priv->flags & CHIP_GEN4)
-#define IS_GEN5(dev_priv)	(dev_priv->flags & CHIP_IRONLAKE)
-#define IS_GEN6(dev_priv)	(dev_priv->flags & CHIP_GEN6)
-#define IS_GEN7(dev_priv)	(dev_priv->flags & CHIP_GEN7)
+#define IS_GEN2(dev_priv)	(INTEL_INFO(dev_priv)->gen == 2)
+#define IS_GEN3(dev_priv)	(INTEL_INFO(dev_priv)->gen == 3)
+#define IS_GEN4(dev_priv)	(INTEL_INFO(dev_priv)->gen == 4)
+#define IS_GEN5(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
+#define IS_GEN6(dev_priv)	(INTEL_INFO(dev_priv)->gen == 6)
+#define IS_GEN7(dev_priv)	(INTEL_INFO(dev_priv)->gen == 7)
 
 #define SUPPORTS_DIGITAL_OUTPUTS(dev)	(!IS_GEN2(dev) && !IS_PINEVIEW(dev))
 #define SUPPORTS_INTEGRATED_HDMI(dev)	(IS_G4X(dev) || IS_GEN5(dev))
 #define SUPPORTS_INTEGRATED_DP(dev)	(IS_G4X(dev) || IS_GEN5(dev))
 #define SUPPORTS_EDP(dev)		(IS_IRONLAKE_M(dev))
-#define SUPPORTS_TV(dev)		(INTEL_INFO(dev)->supports_tv)
-#define I915_HAS_HOTPLUG(dev)	(dev->gen >= 4) /* XXX */
-
-#define INTEL_INFO(dev)		(dev)
+#define SUPPORTS_TV(dev_priv)		(INTEL_INFO(dev_priv)->supports_tv)
+#define I915_HAS_HOTPLUG(dev_priv)	(INTEL_INFO(dev_priv)->has_hotplug)
 
 #define HAS_FW_BLC(dev)		(INTEL_INFO(dev)->gen > 2)
 #define HAS_PIPE_CXSR(dev)	(INTEL_INFO(dev)->has_pipe_cxsr)
