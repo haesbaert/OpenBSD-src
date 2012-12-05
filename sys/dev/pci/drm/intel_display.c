@@ -1938,7 +1938,7 @@ static void intel_update_fbc(struct drm_device *dev)
 	struct intel_crtc *intel_crtc;
 	struct drm_framebuffer *fb;
 	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj;
+	struct inteldrm_obj *obj;
 	int enable_fbc;
 
 	DRM_DEBUG_KMS("\n");
@@ -6817,19 +6817,18 @@ static struct drm_display_mode load_detect_mode = {
 		 704, 832, 0, 480, 489, 491, 520, 0, DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC),
 };
 
-#ifdef notyet
 static int
 intel_framebuffer_create(struct drm_device *dev,
-    struct drm_mode_fb_cmd2 *mode_cmd, struct drm_i915_gem_object *obj,
+    struct drm_mode_fb_cmd2 *mode_cmd, struct inteldrm_obj *obj_priv,
      struct drm_framebuffer **res)
 {
 	struct intel_framebuffer *intel_fb;
 	int ret;
 
 	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_WAITOK | M_ZERO);
-	ret = intel_framebuffer_init(dev, intel_fb, mode_cmd, obj);
+	ret = intel_framebuffer_init(dev, intel_fb, mode_cmd, obj_priv);
 	if (ret) {
-		drm_gem_object_unreference_unlocked(&obj->base);
+		drm_unref(&obj_priv->obj.uobj);
 		free(intel_fb, M_DRM);
 		return (ret);
 	}
@@ -6837,11 +6836,6 @@ intel_framebuffer_create(struct drm_device *dev,
 	*res = &intel_fb->base;
 	return (0);
 }
-#endif
-
-#ifndef roundup2
-#define roundup2(x, y)  (((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
-#endif
 
 #ifdef notyet
 static u32
@@ -7367,7 +7361,7 @@ static void intel_idle_update(void *arg, int pending)
  * buffer), we'll also mark the display as busy, so we know to increase its
  * clock frequency.
  */
-void intel_mark_busy(struct drm_device *dev, struct drm_i915_gem_object *obj)
+void intel_mark_busy(struct drm_device *dev, struct inteldrm_obj *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc = NULL;
@@ -8198,14 +8192,10 @@ static int intel_user_framebuffer_create_handle(struct drm_framebuffer *fb,
 						struct drm_file *file,
 						unsigned int *handle)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#ifdef notyet
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
+	struct inteldrm_obj *obj = intel_fb->obj;
 
-	return drm_gem_handle_create(file, &obj->base, handle);
-#endif
+	return drm_handle_create(file, &obj->obj, handle);
 }
 
 static const struct drm_framebuffer_funcs intel_fb_funcs = {
@@ -8213,11 +8203,10 @@ static const struct drm_framebuffer_funcs intel_fb_funcs = {
 	.create_handle = intel_user_framebuffer_create_handle,
 };
 
-#ifdef notyet
 int intel_framebuffer_init(struct drm_device *dev,
 			   struct intel_framebuffer *intel_fb,
 			   struct drm_mode_fb_cmd2 *mode_cmd,
-			   struct drm_i915_gem_object *obj)
+			   struct inteldrm_obj *obj)
 {
 	int ret;
 
@@ -8258,25 +8247,21 @@ int intel_framebuffer_init(struct drm_device *dev,
 	intel_fb->obj = obj;
 	return 0;
 }
-#endif
 
 static int
 intel_user_framebuffer_create(struct drm_device *dev,
     struct drm_file *filp, struct drm_mode_fb_cmd2 *mode_cmd,
     struct drm_framebuffer **res)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
-	struct drm_i915_gem_object *obj;
+	struct drm_obj		*obj;
+	struct inteldrm_obj	*obj_priv;
 
-	obj = to_intel_bo(drm_gem_object_lookup(dev, filp,
-						mode_cmd->handles[0]));
-	if (&obj->base == NULL)
+	obj = drm_gem_object_lookup(dev, filp, mode_cmd->handles[0]);
+	if (obj == NULL)	
 		return (-ENOENT);
+	obj_priv = (struct inteldrm_obj *)obj;
 
-	return (intel_framebuffer_create(dev, mode_cmd, obj, res));
-#endif
+	return (intel_framebuffer_create(dev, mode_cmd, obj_priv, res));
 }
 
 static const struct drm_mode_config_funcs intel_mode_funcs = {

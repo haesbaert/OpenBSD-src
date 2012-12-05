@@ -108,7 +108,7 @@ intel_mode_get_pixel_multiplier(const struct drm_display_mode *mode)
 
 struct intel_framebuffer {
 	struct drm_framebuffer base;
-	struct drm_i915_gem_object *obj;
+	struct inteldrm_obj *obj;
 };
 
 struct intel_fbdev {
@@ -285,7 +285,7 @@ extern bool intel_sdvo_init(struct drm_device *dev, int output_device);
 extern void intel_dvo_init(struct drm_device *dev);
 extern void intel_tv_init(struct drm_device *dev);
 extern void intel_mark_busy(struct drm_device *dev,
-			    struct drm_i915_gem_object *obj);
+			    struct inteldrm_obj *obj);
 extern bool intel_lvds_init(struct drm_device *dev);
 extern void intel_dp_init(struct drm_device *dev, int dp_reg);
 void
@@ -369,7 +369,7 @@ extern void intel_unpin_fb_obj(struct drm_i915_gem_object *obj);
 extern int intel_framebuffer_init(struct drm_device *dev,
 				  struct intel_framebuffer *ifb,
 				  struct drm_mode_fb_cmd2 *mode_cmd,
-				  struct drm_i915_gem_object *obj);
+				  struct inteldrm_obj *obj);
 extern int intel_fbdev_init(struct drm_device *dev);
 extern void intel_fbdev_fini(struct drm_device *dev);
 
