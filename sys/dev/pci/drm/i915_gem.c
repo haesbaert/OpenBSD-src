@@ -1029,6 +1029,16 @@ i915_gem_object_set_to_gtt_domain(struct drm_obj *obj, int write,
 
 // i915_gem_object_set_cache_level
 // i915_gem_object_pin_to_display_plane
+
+int
+i915_gem_object_pin_to_display_plane(struct drm_obj *obj,
+    u32 alignment, struct intel_ring_buffer *pipelined)
+{
+	printf("%s stub\n", __func__);
+	return -1;
+}
+
+
 // i915_gem_object_finish_gpu
 
 /*
@@ -1750,6 +1760,15 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 
 // i915_find_fence_reg
 // i915_gem_object_get_fence
+
+int
+i915_gem_object_get_fence(struct drm_obj *obj,
+    struct intel_ring_buffer *pipelined)
+{
+	printf("%s stub\n", __func__);
+	return -1;
+}
+
 // i915_gem_clear_fence_reg
 
 int

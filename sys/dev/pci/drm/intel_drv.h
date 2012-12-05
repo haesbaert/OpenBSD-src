@@ -359,12 +359,10 @@ extern void gen6_update_ring_freq(struct inteldrm_softc *dev_priv);
 extern void gen6_disable_rps(struct drm_device *dev);
 extern void intel_init_emon(struct drm_device *dev);
 
-#ifdef notyet
 extern int intel_pin_and_fence_fb_obj(struct drm_device *dev,
-				      struct drm_i915_gem_object *obj,
+				      struct drm_obj *obj,
 				      struct intel_ring_buffer *pipelined);
-#endif
-extern void intel_unpin_fb_obj(struct drm_i915_gem_object *obj);
+extern void intel_unpin_fb_obj(struct drm_obj *obj);
 
 extern int intel_framebuffer_init(struct drm_device *dev,
 				  struct intel_framebuffer *ifb,

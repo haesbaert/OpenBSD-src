@@ -2080,18 +2080,18 @@ out_disable:
 	}
 }
 
-#ifdef notyet
 int
 intel_pin_and_fence_fb_obj(struct drm_device *dev,
-			   struct drm_i915_gem_object *obj,
+			   struct drm_obj *obj,
 			   struct intel_ring_buffer *pipelined)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct inteldrm_obj *obj_priv = (struct inteldrm_obj *)obj;
 	u32 alignment;
 	int ret;
 
 	alignment = 0; /* shut gcc */
-	switch (obj->tiling_mode) {
+	switch (obj_priv->tiling_mode) {
 	case I915_TILING_NONE:
 		if (IS_BROADWATER(dev_priv) || IS_CRESTLINE(dev_priv))
 			alignment = 128 * 1024;
@@ -2109,10 +2109,10 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		DRM_ERROR("Y tiled not allowed for scan out buffers\n");
 		return -EINVAL;
 	default:
-		KASSERT(0, ("Wrong tiling for fb obj"));
+		panic("Wrong tiling for fb obj");
 	}
 
-	dev_priv->mm.interruptible = false;
+//	dev_priv->mm.interruptible = false;
 	ret = i915_gem_object_pin_to_display_plane(obj, alignment, pipelined);
 	if (ret)
 		goto err_interruptible;
@@ -2122,7 +2122,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 	 * framebuffer compression.  For simplicity, we always install
 	 * a fence as the cost is not that onerous.
 	 */
-	if (obj->tiling_mode != I915_TILING_NONE) {
+	if (obj_priv->tiling_mode != I915_TILING_NONE) {
 		ret = i915_gem_object_get_fence(obj, pipelined);
 		if (ret)
 			goto err_unpin;
@@ -2130,22 +2130,21 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		i915_gem_object_pin_fence(obj);
 	}
 
-	dev_priv->mm.interruptible = true;
+//	dev_priv->mm.interruptible = true;
 	return 0;
 
 err_unpin:
 	i915_gem_object_unpin(obj);
 err_interruptible:
-	dev_priv->mm.interruptible = true;
+//	dev_priv->mm.interruptible = true;
 	return ret;
 }
 
-void intel_unpin_fb_obj(struct drm_i915_gem_object *obj)
+void intel_unpin_fb_obj(struct drm_obj *obj)
 {
 	i915_gem_object_unpin_fence(obj);
 	i915_gem_object_unpin(obj);
 }
-#endif
 
 static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			     int x, int y)
@@ -2376,6 +2375,8 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 #endif
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct inteldrm_obj *obj_priv;
+	struct drm_obj *obj;
 	int ret;
 
 	/* no fb bound */
@@ -2398,13 +2399,9 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	}
 
 	DRM_LOCK();
-#ifdef notyet
-	ret = intel_pin_and_fence_fb_obj(dev,
-					 to_intel_framebuffer(crtc->fb)->obj,
-					 NULL);
-#else
-	printf("%s todo pin and fence fb\n", __func__);
-#endif
+	obj_priv = to_intel_framebuffer(crtc->fb)->obj;
+	obj = (struct drm_obj *)obj_priv;
+	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
 	if (ret != 0) {
 		DRM_UNLOCK();
 		DRM_ERROR("pin & fence failed\n");
@@ -2417,11 +2414,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	ret = intel_pipe_set_base_atomic(crtc, crtc->fb, x, y,
 					 LEAVE_ATOMIC_MODE_SET);
 	if (ret) {
-#ifdef notyet
-		intel_unpin_fb_obj(to_intel_framebuffer(crtc->fb)->obj);
-#else
-		printf("%s todo unpin fb\n", __func__);
-#endif
+		intel_unpin_fb_obj(obj);
 		DRM_UNLOCK();
 		DRM_ERROR("failed to update base address\n");
 		return ret;
@@ -2429,11 +2422,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 
 	if (old_fb) {
 		intel_wait_for_vblank(dev, intel_crtc->pipe);
-#ifdef notyet
-		intel_unpin_fb_obj(to_intel_framebuffer(old_fb)->obj);
-#else
-		printf("%s todo unpin fb after vblank\n", __func__);
-#endif
+		intel_unpin_fb_obj(obj);
 	}
 
 	DRM_UNLOCK();

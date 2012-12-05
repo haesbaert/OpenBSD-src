@@ -847,8 +847,12 @@ u_int32_t	i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 		     size_t);
+int	i915_gem_object_get_fence(struct drm_obj *,
+	    struct intel_ring_buffer *);
 
 int	i915_gem_object_set_to_gtt_domain(struct drm_obj *, int, int);
+int	i915_gem_object_pin_to_display_plane(struct drm_obj *,
+	    u32, struct intel_ring_buffer *);
 int	i915_gem_object_set_to_cpu_domain(struct drm_obj *, int, int);
 int	i915_gem_object_flush_gpu_write_domain(struct drm_obj *, int, int, int);
 int	i915_gem_get_fence_reg(struct drm_obj *, int);
@@ -1240,6 +1244,18 @@ static __inline int
 inteldrm_needs_fence(struct inteldrm_obj *obj_priv)
 {
 	return (obj_priv->obj.do_flags & I915_FENCED_EXEC);
+}
+
+static inline void
+i915_gem_object_pin_fence(struct drm_obj *obj)
+{
+	i915_gem_object_pin(obj, 0, 1);
+}
+
+static inline void
+i915_gem_object_unpin_fence(struct drm_obj *obj)
+{
+	i915_gem_object_unpin(obj);
 }
 
 #endif
