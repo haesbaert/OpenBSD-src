@@ -86,6 +86,8 @@ boolean_t	 drm_flush(struct uvm_object *, voff_t, voff_t, int);
 SPLAY_PROTOTYPE(drm_obj_tree, drm_handle, entry, drm_handle_cmp);
 SPLAY_PROTOTYPE(drm_name_tree, drm_obj, entry, drm_name_cmp);
 
+int	 drm_getcap(struct drm_device *, void *, struct drm_file *);
+
 /*
  * attach drm to a pci-based driver.
  *
@@ -651,6 +653,8 @@ drmioctl(dev_t kdev, u_long cmd, caddr_t data, int flags,
 			return (drm_gem_flink_ioctl(dev, data, file_priv));
 		case DRM_IOCTL_GEM_OPEN:
 			return (drm_gem_open_ioctl(dev, data, file_priv));
+		case DRM_IOCTL_GET_CAP:
+			return (drm_getcap(dev, data, file_priv));
 
 		}
 	}
@@ -1004,6 +1008,32 @@ drm_getunique(struct drm_device *dev, void *data, struct drm_file *file_priv)
 	}
 	u->unique_len = dev->unique_len;
 
+	return 0;
+}
+
+int
+drm_getcap(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_get_cap *req = data;
+
+	req->value = 0;
+	switch (req->capability) {
+	case DRM_CAP_DUMB_BUFFER:
+		if (dev->driver->dumb_create)
+			req->value = 1;
+		break;
+	case DRM_CAP_VBLANK_HIGH_CRTC:
+		req->value = 1;
+		break;
+	case DRM_CAP_DUMB_PREFERRED_DEPTH:
+		req->value = dev->mode_config.preferred_depth;
+		break;
+	case DRM_CAP_DUMB_PREFER_SHADOW:
+		req->value = dev->mode_config.prefer_shadow;
+		break;
+	default:
+		return EINVAL;
+	}
 	return 0;
 }
 
