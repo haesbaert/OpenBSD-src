@@ -60,6 +60,8 @@
 #include "i915_drv.h"
 #include "intel_drv.h"
 
+void	 i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj);
+
 // i915_gem_info_add_obj
 // i915_gem_info_remove_obj
 // i915_gem_wait_for_error
@@ -924,7 +926,12 @@ i915_gem_mmap_gtt_ioctl(struct drm_device *dev, void *data,
 
 // i915_gem_alloc_object
 // i915_gem_clflush_object
-// i915_gem_object_flush_cpu_write_domain
+
+void
+i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj)
+{
+	printf("%s stub\n", __func__);
+}
 
 /*
  * Flush the GPU write domain for the object if dirty, then wait for the
@@ -1028,16 +1035,60 @@ i915_gem_object_set_to_gtt_domain(struct drm_obj *obj, int write,
 }
 
 // i915_gem_object_set_cache_level
-// i915_gem_object_pin_to_display_plane
 
 int
-i915_gem_object_pin_to_display_plane(struct drm_obj *obj,
-    u32 alignment, struct intel_ring_buffer *pipelined)
+i915_gem_object_set_cache_level(struct drm_obj *obj,
+    enum i915_cache_level cache_level)
 {
 	printf("%s stub\n", __func__);
 	return -1;
 }
 
+int
+i915_gem_object_pin_to_display_plane(struct drm_obj *obj,
+    u32 alignment, struct intel_ring_buffer *pipelined)
+{
+	u32 old_read_domains, old_write_domain;
+	int ret;
+	int interruptable = 1;
+
+	ret = i915_gem_object_flush_gpu_write_domain(obj, pipelined != NULL,
+	    interruptable, 0);
+	if (ret != 0)
+		return (ret);
+
+#ifdef notyet
+	if (pipelined != obj_priv->ring) {
+#else
+	if (1) {
+#endif
+		ret = i915_gem_object_wait_rendering(obj);
+		if (ret == -ERESTART || ret == -EINTR)
+			return (ret);
+	}
+
+	ret = i915_gem_object_set_cache_level(obj, I915_CACHE_NONE);
+	if (ret != 0)
+		return (ret);
+
+	ret = i915_gem_object_pin(obj, alignment, true);
+	if (ret != 0)
+		return (ret);
+
+	i915_gem_object_flush_cpu_write_domain(obj);
+
+	old_write_domain = obj->write_domain;
+	old_read_domains = obj->read_domains;
+
+	KASSERT((obj->write_domain & ~I915_GEM_DOMAIN_GTT) == 0);
+	obj->read_domains |= I915_GEM_DOMAIN_GTT;
+
+#ifdef notyet
+	CTR3(KTR_DRM, "object_change_domain pin_to_display_plan %p %x %x",
+	    obj, old_read_domains, obj->write_domain);
+#endif
+	return (0);
+}
 
 // i915_gem_object_finish_gpu
 
@@ -1305,7 +1356,13 @@ i915_gem_object_unbind(struct drm_obj *obj, int interruptible)
 // i915_gem_assert_pages_not_mapped
 // i915_gem_object_put_pages_gtt
 // i915_gem_release_mmap
-// i915_gem_object_wait_rendering
+
+int
+i915_gem_object_wait_rendering(struct drm_obj *obj)
+{
+	printf("%s stub\n", __func__);
+	return -1;
+}
 
 /* called locked */
 void
@@ -1766,6 +1823,7 @@ i915_gem_object_get_fence(struct drm_obj *obj,
     struct intel_ring_buffer *pipelined)
 {
 	printf("%s stub\n", __func__);
+	pipelined = NULL;
 	return -1;
 }
 

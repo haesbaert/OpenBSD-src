@@ -668,6 +668,12 @@ enum hdmi_force_audio {
 	HDMI_AUDIO_ON,			/* force turn on HDMI audio */
 };
 
+enum i915_cache_level {
+	I915_CACHE_NONE,
+	I915_CACHE_LLC,
+	I915_CACHE_LLC_MLC, /* gen6+ */
+};
+
 struct inteldrm_file {
 	struct drm_file	file_priv;
 	struct {
@@ -856,6 +862,7 @@ int	i915_gem_object_pin_to_display_plane(struct drm_obj *,
 int	i915_gem_object_set_to_cpu_domain(struct drm_obj *, int, int);
 int	i915_gem_object_flush_gpu_write_domain(struct drm_obj *, int, int, int);
 int	i915_gem_get_fence_reg(struct drm_obj *, int);
+int	i915_gem_object_wait_rendering(struct drm_obj *obj);
 int	i915_gem_object_put_fence_reg(struct drm_obj *, int);
 bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
@@ -863,6 +870,8 @@ bus_size_t	i915_get_fence_size(struct inteldrm_softc *, bus_size_t);
 int	i915_gem_init(struct drm_device *);
 int	i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
 	    uint32_t, uint64_t *);
+int	i915_gem_object_set_cache_level(struct drm_obj *obj,
+	    enum i915_cache_level cache_level);
 
 int	i915_tiling_ok(struct drm_device *, int, int, int);
 int	i915_gem_object_fence_offset_ok(struct drm_obj *, int);
