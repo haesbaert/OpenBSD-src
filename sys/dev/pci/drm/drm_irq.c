@@ -189,6 +189,8 @@ drm_vblank_cleanup(struct drm_device *dev)
 
 	drm_free(dev->vblank);
 	dev->vblank = NULL;
+	drm_free(dev->vblank_inmodeset);
+	dev->vblank_inmodeset = NULL;
 }
 
 int
@@ -200,7 +202,8 @@ drm_vblank_init(struct drm_device *dev, int num_crtcs)
 	    sizeof(struct drm_vblank)), M_DRM,  M_WAITOK | M_CANFAIL | M_ZERO);
 	if (dev->vblank == NULL)
 		return (ENOMEM);
-
+	dev->vblank_inmodeset = malloc(num_crtcs * sizeof(int),
+	    M_DRM, M_WAITOK | M_ZERO);
 	dev->vblank->vb_num = num_crtcs;
 	mtx_init(&dev->vblank->vb_lock, IPL_TTY);
 	timeout_set(&dev->vblank->vb_disable_timer, vblank_disable, dev);
