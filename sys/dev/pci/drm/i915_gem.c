@@ -861,10 +861,52 @@ i915_gem_set_domain_ioctl(struct drm_device *dev, void *data,
 
 int
 i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
-    uint32_t handle, uint64_t *offset)
+    uint32_t handle, uint64_t *mmap_offset)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
+	struct drm_obj			*obj;
+	struct inteldrm_obj		*obj_priv;
+	vaddr_t				 addr;
+	voff_t				 offset; 
+	vsize_t				 end, nsize;
+	int				 ret;
+
+	offset = (voff_t)mmap_offset;
+
+	obj = drm_gem_object_lookup(dev, file, handle);
+	if (obj == NULL)
+		return (EBADF);
+
+	/* Since we are doing purely uvm-related operations here we do
+	 * not need to hold the object, a reference alone is sufficient
+	 */
+	obj_priv = (struct inteldrm_obj *)obj;
+
+	/* Check size. Also ensure that the object is not purgeable */
+	if (offset > obj->size || i915_obj_purgeable(obj_priv)) {
+		ret = EINVAL;
+		goto done;
+	}
+
+	end = round_page(offset + obj->size);
+	offset = trunc_page(offset);
+	nsize = end - offset;
+
+	/*
+	 * We give our reference from object_lookup to the mmap, so only
+	 * must free it in the case that the map fails.
+	 */
+	addr = 0;
+	ret = uvm_map(&curproc->p_vmspace->vm_map, &addr, nsize, &obj->uobj,
+	    offset, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
+	    UVM_INH_SHARE, UVM_ADV_RANDOM, 0));
+
+done:
+	if (ret == 0)
+		*mmap_offset = (uint64_t)addr + (offset & PAGE_MASK);
+	else
+		drm_unref(&obj->uobj);
+
+	return (ret);
 }
 
 int
