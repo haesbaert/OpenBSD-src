@@ -117,6 +117,7 @@
 #define DRM_MTRR_WC		MDF_WRITECOMBINE
 
 #define PAGE_ALIGN(addr)	(((addr) + PAGE_MASK) & ~PAGE_MASK)
+#define roundup2(x, y)	(((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
 #define drm_msleep(x, msg)	delay(x * 1000)
 
 extern struct cfdriver drm_cd;

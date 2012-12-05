@@ -583,9 +583,53 @@ i915_gem_leavevt_ioctl(struct drm_device *dev, void *data,
 	return (ret);
 }
 
-// i915_gem_create
-// i915_gem_dumb_create
-// i915_gem_dumb_destroy
+int
+i915_gem_create(struct drm_file *file, struct drm_device *dev, uint64_t size,
+    uint32_t *handle_p)
+{
+	struct drm_obj *obj;
+	uint32_t handle;
+	int ret;
+
+	size = round_page(size);
+	if (size == 0)
+		return (-EINVAL);
+
+	obj = drm_gem_object_alloc(dev, size);
+	if (obj == NULL)
+		return (-ENOMEM);
+
+	handle = 0;
+	ret = drm_handle_create(file, obj, &handle);
+	if (ret != 0) {
+		drm_unref(&obj->uobj);
+		return (-ret);
+	}
+
+	*handle_p = handle;
+	return (0);
+}
+
+int
+i915_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
+    struct drm_mode_create_dumb *args)
+{
+
+	/* have to work out size/pitch and return them */
+	args->pitch = roundup2(args->width * ((args->bpp + 7) / 8), 64);
+	args->size = args->pitch * args->height;
+	return (i915_gem_create(file, dev, args->size, &args->handle));
+}
+
+int
+i915_gem_dumb_destroy(struct drm_file *file, struct drm_device *dev,
+    uint32_t handle)
+{
+
+	printf("%s stub\n", __func__);
+	return ENOSYS;
+//	return (drm_gem_handle_delete(file, handle));
+}
 
 /**
  * Creates a new mm object and returns a handle to it.

@@ -373,6 +373,10 @@ static const struct drm_driver_info inteldrm_driver = {
 	.gem_fault		= inteldrm_fault,
 	.gem_size		= sizeof(struct inteldrm_obj),
 
+	.dumb_create		= i915_gem_dumb_create,
+	.dumb_map_offset	= i915_gem_mmap_gtt,
+	.dumb_destroy		= i915_gem_dumb_destroy,
+
 	.name			= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
 	.date			= DRIVER_DATE,

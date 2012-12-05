@@ -892,6 +892,13 @@ int i915_wait_request(struct inteldrm_softc *, uint32_t, int);
 u_int32_t i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
 #define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
 
+int i915_gem_dumb_create(struct drm_file *, struct drm_device *,
+    struct drm_mode_create_dumb *);
+int i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
+    uint32_t, uint64_t *);
+int i915_gem_dumb_destroy(struct drm_file *, struct drm_device *,
+    uint32_t);
+
 /* i915_drv.c */
 void	inteldrm_wipe_mappings(struct drm_obj *);
 void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
@@ -915,6 +922,8 @@ extern int intel_setup_gmbus(struct inteldrm_softc *);
 extern void intel_gmbus_set_port(struct inteldrm_softc *, int);
 
 /* i915_gem.c */
+int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,
+    uint32_t *);
 void i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev);
 
 /* intel_opregion.c */
