@@ -2149,14 +2149,11 @@ void intel_unpin_fb_obj(struct drm_obj *obj)
 static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			     int x, int y)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj;
+	struct inteldrm_obj *obj;
 	int plane = intel_crtc->plane;
 	unsigned long Start, Offset;
 	u32 dspcntr;
@@ -2220,20 +2217,16 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	POSTING_READ(reg);
 
 	return (0);
-#endif
 }
 
 static int ironlake_update_plane(struct drm_crtc *crtc,
 				 struct drm_framebuffer *fb, int x, int y)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj;
+	struct inteldrm_obj *obj;
 	int plane = intel_crtc->plane;
 	unsigned long Start, Offset;
 	u32 dspcntr;
@@ -2307,7 +2300,6 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 	POSTING_READ(reg);
 
 	return 0;
-#endif
 }
 
 /* Assume fb object is pinned & idle & fenced and just update base pointers */
