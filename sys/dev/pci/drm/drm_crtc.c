@@ -1942,7 +1942,8 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 	ret = crtc->funcs->set_config(&set);
 
 out:
-	free(connector_set, M_DRM);
+	if (connector_set != NULL)
+		free(connector_set, M_DRM);
 	// mutex_unlock(&dev->mode_config.mutex);
 	return ret;
 }
