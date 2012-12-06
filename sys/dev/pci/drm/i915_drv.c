@@ -1216,7 +1216,7 @@ inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 		value = HAS_BLT(dev_priv);
 		break;
 	case I915_PARAM_HAS_RELAXED_FENCING:
-		value = 1;
+		value = 0;
 		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
