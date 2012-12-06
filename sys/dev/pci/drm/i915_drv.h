@@ -76,6 +76,11 @@ enum plane {
 #define DRIVER_MINOR		6
 #define DRIVER_PATCHLEVEL	0
 
+#define I915_GEM_PHYS_CURSOR_0 1
+#define I915_GEM_PHYS_CURSOR_1 2
+#define I915_GEM_PHYS_OVERLAY_REGS 3
+#define I915_MAX_PHYS_OBJECT (I915_GEM_PHYS_OVERLAY_REGS)
+
 struct inteldrm_ring {
 	struct drm_obj		*ring_obj;
 	bus_space_handle_t	 bsh;
@@ -296,6 +301,7 @@ struct inteldrm_softc {
 	int crt_ddc_pin;
 
 	/* overlay */
+        struct intel_overlay *overlay;
 	bool sprite_scaling_enabled;
 
 	/* LVDS info */
@@ -1120,6 +1126,12 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define HAS_BLT(dev_priv)	(INTEL_INFO(dev_priv)->has_blt_ring)
 #define HAS_LLC(dev_priv)	(INTEL_INFO(dev_priv)->has_llc)
 #define I915_NEED_GFX_HWS(dev_priv)	(INTEL_INFO(dev_priv)->need_gfx_hws)
+
+#define HAS_ALIASING_PPGTT(dev_priv)	(INTEL_INFO(dev_priv)->gen >=6)
+
+#define HAS_OVERLAY(dev_priv)		(INTEL_INFO(dev_priv)->has_overlay)
+#define OVERLAY_NEEDS_PHYSICAL(dev_priv) \
+    (INTEL_INFO(dev_priv)->overlay_needs_physical)
 
 #define HAS_RESET(dev_priv)	IS_I965G(dev_priv) && (!IS_GEN6(dev_priv)) \
     && (!IS_GEN7(dev_priv))
