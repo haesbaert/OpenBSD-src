@@ -32,7 +32,7 @@
 #include "i915_drv.h"
 #include "drm_crtc.h"
 #include "drm_crtc_helper.h"
-//#include "drm_fb_helper.h"
+#include "drm_fb_helper.h"
 
 #define KHz(x) (1000*x)
 #define MHz(x) KHz(1000*x)
@@ -112,7 +112,7 @@ struct intel_framebuffer {
 };
 
 struct intel_fbdev {
-//	struct drm_fb_helper helper;
+	struct drm_fb_helper helper;
 	struct intel_framebuffer ifb;
 //	struct list_head fbdev_list;
 	struct drm_display_mode *our_mode;
