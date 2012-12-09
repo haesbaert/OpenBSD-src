@@ -1170,6 +1170,9 @@ inteldrm_lastclose(struct drm_device *dev)
 	struct vm_page		*p;
 	int			 ret;
 
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return;
+
 	ret = i915_gem_idle(dev_priv);
 	if (ret)
 		DRM_ERROR("failed to idle hardware: %d\n", ret);
