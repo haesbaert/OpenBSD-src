@@ -1816,15 +1816,12 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 }
 
 // i915_find_fence_reg
-// i915_gem_object_get_fence
 
 int
 i915_gem_object_get_fence(struct drm_obj *obj,
     struct intel_ring_buffer *pipelined)
 {
-	printf("%s stub\n", __func__);
-	pipelined = NULL;
-	return -1;
+	return (i915_gem_get_fence_reg(obj, 1));
 }
 
 // i915_gem_clear_fence_reg
