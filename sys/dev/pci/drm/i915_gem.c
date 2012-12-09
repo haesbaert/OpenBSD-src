@@ -98,6 +98,9 @@ i915_gem_init_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_init	*args = data;
 
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return (ENODEV);
+
 	DRM_LOCK();
 
 	if (args->gtt_start >= args->gtt_end ||
