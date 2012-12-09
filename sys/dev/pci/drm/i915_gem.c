@@ -542,6 +542,9 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	int ret;
 
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return (0);
+
 	/* XXX until we have support for the rings on sandybridge */
 	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
 		return (0);
@@ -578,6 +581,9 @@ i915_gem_leavevt_ioctl(struct drm_device *dev, void *data,
 {
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	int			 ret;
+
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return 0;
 
 	/* don't unistall if we fail, repeat calls on failure will screw us */
 	if ((ret = i915_gem_idle(dev_priv)) == 0)
