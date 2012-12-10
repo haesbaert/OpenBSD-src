@@ -37,56 +37,59 @@
 
 typedef void detailed_cb(struct detailed_timing *timing, void *closure);
 
-u8 * drm_do_get_edid(struct drm_connector *, struct i2c_controller *);
-bool drm_edid_block_valid(u8 *);
-int drm_do_probe_ddc_edid(struct i2c_controller *, unsigned char *, int, int);
-bool drm_edid_is_zero(u8 *, int);
-bool edid_vendor(struct edid *, char *);
-u32 edid_get_quirks(struct edid *);
-void edid_fixup_preferred(struct drm_connector *, u32);
-void cea_for_each_detailed_block(u8 *, detailed_cb *, void *);
-void vtb_for_each_detailed_block(u8 *, detailed_cb *, void *);
-void drm_for_each_detailed_block(u8 *, detailed_cb *, void *);
-void is_rb(struct detailed_timing *, void *);
-bool drm_monitor_supports_rb(struct edid *);
-void find_gtf2(struct detailed_timing *, void *);
-int drm_gtf2_hbreak(struct edid *);
-int drm_gtf2_2c(struct edid *);
-int drm_gtf2_m(struct edid *);
-int drm_gtf2_k(struct edid *);
-int drm_gtf2_2j(struct edid *);
-int standard_timing_level(struct edid *);
-int bad_std_timing(u8, u8);
+u8	*drm_do_get_edid(struct drm_connector *, struct i2c_controller *);
+bool	 drm_edid_block_valid(u8 *);
+int	 drm_do_probe_ddc_edid(struct i2c_controller *, unsigned char *, int,
+	     int);
+bool	 drm_edid_is_zero(u8 *, int);
+bool	 edid_vendor(struct edid *, char *);
+u32	 edid_get_quirks(struct edid *);
+void	 edid_fixup_preferred(struct drm_connector *, u32);
+void	 cea_for_each_detailed_block(u8 *, detailed_cb *, void *);
+void	 vtb_for_each_detailed_block(u8 *, detailed_cb *, void *);
+void	 drm_for_each_detailed_block(u8 *, detailed_cb *, void *);
+void	 is_rb(struct detailed_timing *, void *);
+bool	 drm_monitor_supports_rb(struct edid *);
+void	 find_gtf2(struct detailed_timing *, void *);
+int	 drm_gtf2_hbreak(struct edid *);
+int	 drm_gtf2_2c(struct edid *);
+int	 drm_gtf2_m(struct edid *);
+int	 drm_gtf2_k(struct edid *);
+int	 drm_gtf2_2j(struct edid *);
+int	 standard_timing_level(struct edid *);
+int	 bad_std_timing(u8, u8);
 struct drm_display_mode *drm_mode_std(struct drm_connector *, struct edid *,
     struct std_timing *, int);
-void drm_mode_do_interlace_quirk(struct drm_display_mode *,
-    struct detailed_pixel_timing *);
+void	 drm_mode_do_interlace_quirk(struct drm_display_mode *,
+	     struct detailed_pixel_timing *);
 struct drm_display_mode *
-drm_mode_detailed(struct drm_device *, struct edid *,
-    struct detailed_timing *, u32);
-bool mode_is_rb(const struct drm_display_mode *);
-bool mode_in_hsync_range(const struct drm_display_mode *, struct edid *, 
-    u8 *);
-bool mode_in_vsync_range(const struct drm_display_mode *,
-    struct edid *, u8 *);
-u32 range_pixel_clock(struct edid *, u8 *);
-bool mode_in_range(const struct drm_display_mode *, struct edid *,
-    struct detailed_timing *);
-int drm_gtf_modes_for_range(struct drm_connector *, struct edid *,
-    struct detailed_timing *);
-void do_inferred_modes(struct detailed_timing *, void *);
-int add_inferred_modes(struct drm_connector *, struct edid *);
-int drm_est3_modes(struct drm_connector *, struct detailed_timing *);
-void do_established_modes(struct detailed_timing *, void *);
-int add_established_modes(struct drm_connector *, struct edid *);
-void do_standard_modes(struct detailed_timing *, void *);
-int add_standard_modes(struct drm_connector *, struct edid *);
-int drm_cvt_modes(struct drm_connector *, struct detailed_timing *);
-void do_cvt_mode(struct detailed_timing *, void *);
-int add_cvt_modes(struct drm_connector *, struct edid *);
-void do_detailed_mode(struct detailed_timing *, void *);
-int add_detailed_modes(struct drm_connector *, struct edid *, u32);
-void drm_add_display_info(struct edid *, struct drm_display_info *);
+	 drm_mode_detailed(struct drm_device *, struct edid *,
+	     struct detailed_timing *, u32);
+bool	 mode_is_rb(const struct drm_display_mode *);
+bool	 mode_in_hsync_range(const struct drm_display_mode *, struct edid *, 
+	     u8 *);
+bool	 mode_in_vsync_range(const struct drm_display_mode *,
+	     struct edid *, u8 *);
+u32	 range_pixel_clock(struct edid *, u8 *);
+bool	 mode_in_range(const struct drm_display_mode *, struct edid *,
+	     struct detailed_timing *);
+int	 drm_gtf_modes_for_range(struct drm_connector *, struct edid *,
+	     struct detailed_timing *);
+void	 do_inferred_modes(struct detailed_timing *, void *);
+int	 add_inferred_modes(struct drm_connector *, struct edid *);
+int	 drm_est3_modes(struct drm_connector *, struct detailed_timing *);
+void	 do_established_modes(struct detailed_timing *, void *);
+int	 add_established_modes(struct drm_connector *, struct edid *);
+void	 do_standard_modes(struct detailed_timing *, void *);
+int	 add_standard_modes(struct drm_connector *, struct edid *);
+int	 drm_cvt_modes(struct drm_connector *, struct detailed_timing *);
+void	 do_cvt_mode(struct detailed_timing *, void *);
+int	 add_cvt_modes(struct drm_connector *, struct edid *);
+void	 do_detailed_mode(struct detailed_timing *, void *);
+int	 add_detailed_modes(struct drm_connector *, struct edid *, u32);
+void	 drm_add_display_info(struct edid *, struct drm_display_info *);
+void	 parse_hdmi_vsdb(struct drm_connector *, uint8_t *);
+void	 monitor_name(struct detailed_timing *, void *);
 
 #define version_greater(edid, maj, min) \
 	(((edid)->version > (maj)) || \
@@ -1381,7 +1384,7 @@ drm_find_cea_extension(struct edid *edid)
 	return edid_ext;
 }
 
-static void
+void
 parse_hdmi_vsdb(struct drm_connector *connector, uint8_t *db)
 {
 	connector->eld[5] |= (db[6] >> 7) << 1;  /* Supports_AI */
@@ -1411,7 +1414,7 @@ parse_hdmi_vsdb(struct drm_connector *connector, uint8_t *db)
 		    connector->audio_latency[1]);
 }
 
-static void
+void
 monitor_name(struct detailed_timing *t, void *data)
 {
 	if (t->data.other_data.type == EDID_DETAIL_MONITOR_NAME)
