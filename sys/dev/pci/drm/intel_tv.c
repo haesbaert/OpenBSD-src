@@ -777,19 +777,43 @@ static const struct tv_mode tv_modes[] = {
 	},
 };
 
-static struct intel_tv *enc_to_intel_tv(struct drm_encoder *encoder)
+struct intel_tv	*enc_to_intel_tv(struct drm_encoder *);
+struct intel_tv *intel_attached_tv(struct drm_connector *);
+void	 intel_tv_dpms(struct drm_encoder *, int);
+const struct tv_mode	*intel_tv_mode_lookup(const char *);
+const struct tv_mode	*intel_tv_mode_find(struct intel_tv *);
+enum drm_mode_status	 intel_tv_mode_valid(struct drm_connector *,
+			     struct drm_display_mode *);
+bool	 intel_tv_mode_fixup(struct drm_encoder *, struct drm_display_mode *,
+	     struct drm_display_mode *);
+void	 intel_tv_mode_set(struct drm_encoder *, struct drm_display_mode *,
+	     struct drm_display_mode *);
+int	 intel_tv_detect_type(struct intel_tv *, struct drm_connector *);
+void	 intel_tv_find_better_format(struct drm_connector *);
+enum drm_connector_status intel_tv_detect(struct drm_connector *, bool);
+void	 intel_tv_chose_preferred_modes(struct drm_connector *,
+	     struct drm_display_mode *);
+int	 intel_tv_get_modes(struct drm_connector *);
+void	 intel_tv_destroy(struct drm_connector *);
+int	 intel_tv_set_property(struct drm_connector *, struct drm_property *,
+	     uint64_t);
+int	 tv_is_present_in_vbt(struct drm_device *);
+
+struct intel_tv *
+enc_to_intel_tv(struct drm_encoder *encoder)
 {
 	return container_of(encoder, struct intel_tv, base.base);
 }
 
-static struct intel_tv *intel_attached_tv(struct drm_connector *connector)
+struct intel_tv *
+intel_attached_tv(struct drm_connector *connector)
 {
 	return container_of(intel_attached_encoder(connector),
 			    struct intel_tv,
 			    base);
 }
 
-static void
+void
 intel_tv_dpms(struct drm_encoder *encoder, int mode)
 {
 	struct drm_device *dev = encoder->dev;
@@ -807,7 +831,7 @@ intel_tv_dpms(struct drm_encoder *encoder, int mode)
 	}
 }
 
-static const struct tv_mode *
+const struct tv_mode *
 intel_tv_mode_lookup(const char *tv_format)
 {
 	int i;
@@ -821,15 +845,15 @@ intel_tv_mode_lookup(const char *tv_format)
 	return NULL;
 }
 
-static const struct tv_mode *
+const struct tv_mode *
 intel_tv_mode_find(struct intel_tv *intel_tv)
 {
 	return intel_tv_mode_lookup(intel_tv->tv_format);
 }
 
-static enum drm_mode_status
+enum drm_mode_status
 intel_tv_mode_valid(struct drm_connector *connector,
-		    struct drm_display_mode *mode)
+    struct drm_display_mode *mode)
 {
 	struct intel_tv *intel_tv = intel_attached_tv(connector);
 	const struct tv_mode *tv_mode = intel_tv_mode_find(intel_tv);
@@ -842,10 +866,9 @@ intel_tv_mode_valid(struct drm_connector *connector,
 	return MODE_CLOCK_RANGE;
 }
 
-
-static bool
+bool
 intel_tv_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
-		    struct drm_display_mode *adjusted_mode)
+    struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct drm_mode_config *drm_config = &dev->mode_config;
@@ -867,9 +890,9 @@ intel_tv_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	return true;
 }
 
-static void
+void
 intel_tv_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
-		  struct drm_display_mode *adjusted_mode)
+    struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -1110,9 +1133,8 @@ static const struct drm_display_mode reported_modes[] = {
  * \return true if TV is connected.
  * \return false if TV is disconnected.
  */
-static int
-intel_tv_detect_type(struct intel_tv *intel_tv,
-		      struct drm_connector *connector)
+int
+intel_tv_detect_type(struct intel_tv *intel_tv, struct drm_connector *connector)
 {
 	struct drm_encoder *encoder = &intel_tv->base.base;
 	struct drm_crtc *crtc = encoder->crtc;
@@ -1202,7 +1224,8 @@ intel_tv_detect_type(struct intel_tv *intel_tv,
  * Here we set accurate tv format according to connector type
  * i.e Component TV should not be assigned by NTSC or PAL
  */
-static void intel_tv_find_better_format(struct drm_connector *connector)
+void
+intel_tv_find_better_format(struct drm_connector *connector)
 {
 	struct intel_tv *intel_tv = intel_attached_tv(connector);
 	const struct tv_mode *tv_mode = intel_tv_mode_find(intel_tv);
@@ -1232,7 +1255,7 @@ static void intel_tv_find_better_format(struct drm_connector *connector)
  * Currently this always returns CONNECTOR_STATUS_UNKNOWN, as we need to be sure
  * we have a pipe programmed in order to probe the TV.
  */
-static enum drm_connector_status
+enum drm_connector_status
 intel_tv_detect(struct drm_connector *connector, bool force)
 {
 	struct drm_display_mode mode;
@@ -1283,9 +1306,9 @@ static const struct input_res {
 /*
  * Chose preferred mode  according to line number of TV format
  */
-static void
+void
 intel_tv_chose_preferred_modes(struct drm_connector *connector,
-			       struct drm_display_mode *mode_ptr)
+    struct drm_display_mode *mode_ptr)
 {
 	struct intel_tv *intel_tv = intel_attached_tv(connector);
 	const struct tv_mode *tv_mode = intel_tv_mode_find(intel_tv);
@@ -1308,7 +1331,7 @@ intel_tv_chose_preferred_modes(struct drm_connector *connector,
  * how to probe modes off of TV connections.
  */
 
-static int
+int
 intel_tv_get_modes(struct drm_connector *connector)
 {
 	struct drm_display_mode *mode_ptr;
@@ -1363,7 +1386,7 @@ intel_tv_get_modes(struct drm_connector *connector)
 	return count;
 }
 
-static void
+void
 intel_tv_destroy(struct drm_connector *connector)
 {
 #if 0
@@ -1374,9 +1397,9 @@ intel_tv_destroy(struct drm_connector *connector)
 }
 
 
-static int
-intel_tv_set_property(struct drm_connector *connector, struct drm_property *property,
-		      uint64_t val)
+int
+intel_tv_set_property(struct drm_connector *connector,
+    struct drm_property *property, uint64_t val)
 {
 	struct drm_device *dev = connector->dev;
 	struct intel_tv *intel_tv = intel_attached_tv(connector);
@@ -1459,7 +1482,8 @@ static const struct drm_encoder_funcs intel_tv_enc_funcs = {
  * If it is not present, return false.
  * If no child dev is parsed from VBT, it assumes that the TV is present.
  */
-static int tv_is_present_in_vbt(struct drm_device *dev)
+int
+tv_is_present_in_vbt(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct child_device_config *p_child;

@@ -47,18 +47,46 @@ struct intel_hdmi {
 				struct dip_infoframe *frame);
 };
 
-static struct intel_hdmi *enc_to_intel_hdmi(struct drm_encoder *encoder)
+struct intel_hdmi	*enc_to_intel_hdmi(struct drm_encoder *);
+struct intel_hdmi	*intel_attached_hdmi(struct drm_connector *);
+u32	 intel_infoframe_index(struct dip_infoframe *);
+u32	 intel_infoframe_flags(struct dip_infoframe *);
+void	 i9xx_write_infoframe(struct drm_encoder *, struct dip_infoframe *);
+void	 ironlake_write_infoframe(struct drm_encoder *, struct dip_infoframe *);
+void	 intel_set_infoframe(struct drm_encoder *, struct dip_infoframe *);
+void	 intel_hdmi_set_avi_infoframe(struct drm_encoder *);
+void	 intel_hdmi_set_spd_infoframe(struct drm_encoder *);
+void	 intel_hdmi_mode_set(struct drm_encoder *, struct drm_display_mode *,
+	     struct drm_display_mode *);
+void	 intel_hdmi_dpms(struct drm_encoder *, int);
+int	 intel_hdmi_mode_valid(struct drm_connector *,
+	     struct drm_display_mode *);
+bool	 intel_hdmi_mode_fixup(struct drm_encoder *, struct drm_display_mode *,
+	     struct drm_display_mode *);
+enum drm_connector_status	 intel_hdmi_detect(struct drm_connector *,
+				     bool);
+int	 intel_hdmi_get_modes(struct drm_connector *);
+bool	 intel_hdmi_detect_audio(struct drm_connector *);
+int	 intel_hdmi_set_property(struct drm_connector *, struct drm_property *,
+	     uint64_t);
+void	 intel_hdmi_destroy(struct drm_connector *);
+void	 intel_hdmi_add_properties(struct intel_hdmi *, struct drm_connector *);
+
+struct intel_hdmi *
+enc_to_intel_hdmi(struct drm_encoder *encoder)
 {
 	return container_of(encoder, struct intel_hdmi, base.base);
 }
 
-static struct intel_hdmi *intel_attached_hdmi(struct drm_connector *connector)
+struct intel_hdmi *
+intel_attached_hdmi(struct drm_connector *connector)
 {
 	return container_of(intel_attached_encoder(connector),
 			    struct intel_hdmi, base);
 }
 
-void intel_dip_infoframe_csum(struct dip_infoframe *frame)
+void
+intel_dip_infoframe_csum(struct dip_infoframe *frame)
 {
 	uint8_t *data = (uint8_t *)frame;
 	uint8_t sum = 0;
@@ -73,7 +101,8 @@ void intel_dip_infoframe_csum(struct dip_infoframe *frame)
 	frame->checksum = 0x100 - sum;
 }
 
-static u32 intel_infoframe_index(struct dip_infoframe *frame)
+u32
+intel_infoframe_index(struct dip_infoframe *frame)
 {
 	u32 flags = 0;
 
@@ -92,7 +121,8 @@ static u32 intel_infoframe_index(struct dip_infoframe *frame)
 	return flags;
 }
 
-static u32 intel_infoframe_flags(struct dip_infoframe *frame)
+u32
+intel_infoframe_flags(struct dip_infoframe *frame)
 {
 	u32 flags = 0;
 
@@ -111,8 +141,8 @@ static u32 intel_infoframe_flags(struct dip_infoframe *frame)
 	return flags;
 }
 
-static void i9xx_write_infoframe(struct drm_encoder *encoder,
-				 struct dip_infoframe *frame)
+void
+i9xx_write_infoframe(struct drm_encoder *encoder, struct dip_infoframe *frame)
 {
 	uint32_t *data = (uint32_t *)frame;
 	struct drm_device *dev = encoder->dev;
@@ -146,8 +176,9 @@ static void i9xx_write_infoframe(struct drm_encoder *encoder,
 	I915_WRITE(VIDEO_DIP_CTL, VIDEO_DIP_ENABLE | val | port | flags);
 }
 
-static void ironlake_write_infoframe(struct drm_encoder *encoder,
-				     struct dip_infoframe *frame)
+void
+ironlake_write_infoframe(struct drm_encoder *encoder,
+    struct dip_infoframe *frame)
 {
 	uint32_t *data = (uint32_t *)frame;
 	struct drm_device *dev = encoder->dev;
@@ -176,8 +207,8 @@ static void ironlake_write_infoframe(struct drm_encoder *encoder,
 	I915_WRITE(reg, VIDEO_DIP_ENABLE | val | flags);
 }
 
-static void intel_set_infoframe(struct drm_encoder *encoder,
-				struct dip_infoframe *frame)
+void
+intel_set_infoframe(struct drm_encoder *encoder, struct dip_infoframe *frame)
 {
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 
@@ -188,7 +219,8 @@ static void intel_set_infoframe(struct drm_encoder *encoder,
 	intel_hdmi->write_infoframe(encoder, frame);
 }
 
-static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder)
+void
+intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder)
 {
 	struct dip_infoframe avi_if = {
 		.type = DIP_TYPE_AVI,
@@ -199,7 +231,8 @@ static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder)
 	intel_set_infoframe(encoder, &avi_if);
 }
 
-static void intel_hdmi_set_spd_infoframe(struct drm_encoder *encoder)
+void
+intel_hdmi_set_spd_infoframe(struct drm_encoder *encoder)
 {
 	struct dip_infoframe spd_if;
 
@@ -214,9 +247,9 @@ static void intel_hdmi_set_spd_infoframe(struct drm_encoder *encoder)
 	intel_set_infoframe(encoder, &spd_if);
 }
 
-static void intel_hdmi_mode_set(struct drm_encoder *encoder,
-				struct drm_display_mode *mode,
-				struct drm_display_mode *adjusted_mode)
+void
+intel_hdmi_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
+    struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -262,7 +295,8 @@ static void intel_hdmi_mode_set(struct drm_encoder *encoder,
 	intel_hdmi_set_spd_infoframe(encoder);
 }
 
-static void intel_hdmi_dpms(struct drm_encoder *encoder, int mode)
+void
+intel_hdmi_dpms(struct drm_encoder *encoder, int mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -301,8 +335,9 @@ static void intel_hdmi_dpms(struct drm_encoder *encoder, int mode)
 	}
 }
 
-static int intel_hdmi_mode_valid(struct drm_connector *connector,
-				 struct drm_display_mode *mode)
+int
+intel_hdmi_mode_valid(struct drm_connector *connector,
+    struct drm_display_mode *mode)
 {
 	if (mode->clock > 165000)
 		return MODE_CLOCK_HIGH;
@@ -315,14 +350,14 @@ static int intel_hdmi_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
-static bool intel_hdmi_mode_fixup(struct drm_encoder *encoder,
-				  struct drm_display_mode *mode,
-				  struct drm_display_mode *adjusted_mode)
+bool
+intel_hdmi_mode_fixup(struct drm_encoder *encoder,
+    struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
 {
 	return true;
 }
 
-static enum drm_connector_status
+enum drm_connector_status
 intel_hdmi_detect(struct drm_connector *connector, bool force)
 {
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
@@ -360,7 +395,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	return status;
 }
 
-static int intel_hdmi_get_modes(struct drm_connector *connector)
+int
+intel_hdmi_get_modes(struct drm_connector *connector)
 {
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
 	struct inteldrm_softc *dev_priv = connector->dev->dev_private;
@@ -373,7 +409,7 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 	return intel_ddc_get_modes(connector, &dev_priv->ddc);
 }
 
-static bool
+bool
 intel_hdmi_detect_audio(struct drm_connector *connector)
 {
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
@@ -394,10 +430,9 @@ intel_hdmi_detect_audio(struct drm_connector *connector)
 	return has_audio;
 }
 
-static int
+int
 intel_hdmi_set_property(struct drm_connector *connector,
-		      struct drm_property *property,
-		      uint64_t val)
+    struct drm_property *property, uint64_t val)
 {
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
 	struct inteldrm_softc *dev_priv = connector->dev->dev_private;
@@ -449,7 +484,8 @@ done:
 	return 0;
 }
 
-static void intel_hdmi_destroy(struct drm_connector *connector)
+void
+intel_hdmi_destroy(struct drm_connector *connector)
 {
 #if 0
 	drm_sysfs_connector_remove(connector);
@@ -484,14 +520,15 @@ static const struct drm_encoder_funcs intel_hdmi_enc_funcs = {
 	.destroy = intel_encoder_destroy,
 };
 
-static void
+void
 intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *connector)
 {
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
 }
 
-void intel_hdmi_init(struct drm_device *dev, int sdvox_reg)
+void
+intel_hdmi_init(struct drm_device *dev, int sdvox_reg)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_connector *connector;

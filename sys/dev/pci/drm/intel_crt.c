@@ -46,13 +46,35 @@ struct intel_crt {
 	bool force_hotplug_required;
 };
 
-static struct intel_crt *intel_attached_crt(struct drm_connector *connector)
+struct intel_crt	*intel_attached_crt(struct drm_connector *);
+void	 intel_crt_dpms(struct drm_encoder *, int);
+int	 intel_crt_mode_valid(struct drm_connector *,
+	     struct drm_display_mode *);
+bool	 intel_crt_mode_fixup(struct drm_encoder *, struct drm_display_mode *,
+	     struct drm_display_mode *);
+void	 intel_crt_mode_set(struct drm_encoder *, struct drm_display_mode *,
+	     struct drm_display_mode *);
+bool	 intel_ironlake_crt_detect_hotplug(struct drm_connector *);
+bool	 intel_crt_detect_hotplug(struct drm_connector *);
+bool	 intel_crt_detect_ddc(struct drm_connector *);
+enum drm_connector_status	 intel_crt_load_detect(struct intel_crt *);
+enum drm_connector_status	 intel_crt_detect(struct drm_connector *, bool);
+void	 intel_crt_destroy(struct drm_connector *);
+int	 intel_crt_get_modes(struct drm_connector *);
+int	 intel_crt_set_property(struct drm_connector *, struct drm_property *,
+	     uint64_t);
+void	 intel_crt_reset(struct drm_connector *);
+int	 intel_no_crt_dmi_callback(const struct dmi_system_id *);
+
+struct intel_crt *
+intel_attached_crt(struct drm_connector *connector)
 {
 	return container_of(intel_attached_encoder(connector),
 			    struct intel_crt, base);
 }
 
-static void intel_crt_dpms(struct drm_encoder *encoder, int mode)
+void
+intel_crt_dpms(struct drm_encoder *encoder, int mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -85,8 +107,9 @@ static void intel_crt_dpms(struct drm_encoder *encoder, int mode)
 	I915_WRITE(reg, temp);
 }
 
-static int intel_crt_mode_valid(struct drm_connector *connector,
-				struct drm_display_mode *mode)
+int
+intel_crt_mode_valid(struct drm_connector *connector,
+    struct drm_display_mode *mode)
 {
 	struct drm_device *dev = connector->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -108,16 +131,16 @@ static int intel_crt_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
-static bool intel_crt_mode_fixup(struct drm_encoder *encoder,
-				 struct drm_display_mode *mode,
-				 struct drm_display_mode *adjusted_mode)
+bool
+intel_crt_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
+    struct drm_display_mode *adjusted_mode)
 {
 	return true;
 }
 
-static void intel_crt_mode_set(struct drm_encoder *encoder,
-			       struct drm_display_mode *mode,
-			       struct drm_display_mode *adjusted_mode)
+void
+intel_crt_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
+    struct drm_display_mode *adjusted_mode)
 {
 
 	struct drm_device *dev = encoder->dev;
@@ -165,7 +188,8 @@ static void intel_crt_mode_set(struct drm_encoder *encoder,
 	I915_WRITE(adpa_reg, adpa);
 }
 
-static bool intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
+bool
+intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
 	struct intel_crt *crt = intel_attached_crt(connector);
@@ -223,7 +247,8 @@ static bool intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
  * \return true if CRT is connected.
  * \return false if CRT is disconnected.
  */
-static bool intel_crt_detect_hotplug(struct drm_connector *connector)
+bool
+intel_crt_detect_hotplug(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -272,7 +297,8 @@ static bool intel_crt_detect_hotplug(struct drm_connector *connector)
 	return ret;
 }
 
-static bool intel_crt_detect_ddc(struct drm_connector *connector)
+bool
+intel_crt_detect_ddc(struct drm_connector *connector)
 {
 	struct intel_crt *crt = intel_attached_crt(connector);
 	struct inteldrm_softc *dev_priv = crt->base.base.dev->dev_private;
@@ -313,7 +339,7 @@ static bool intel_crt_detect_ddc(struct drm_connector *connector)
 	return false;
 }
 
-static enum drm_connector_status
+enum drm_connector_status
 intel_crt_load_detect(struct intel_crt *crt)
 {
 	struct drm_device *dev = crt->base.base.dev;
@@ -433,7 +459,7 @@ intel_crt_load_detect(struct intel_crt *crt)
 	return status;
 }
 
-static enum drm_connector_status
+enum drm_connector_status
 intel_crt_detect(struct drm_connector *connector, bool force)
 {
 	struct drm_device *dev = connector->dev;
@@ -473,7 +499,8 @@ intel_crt_detect(struct drm_connector *connector, bool force)
 	return status;
 }
 
-static void intel_crt_destroy(struct drm_connector *connector)
+void
+intel_crt_destroy(struct drm_connector *connector)
 {
 
 #if 0
@@ -483,7 +510,8 @@ static void intel_crt_destroy(struct drm_connector *connector)
 	free(connector, M_DRM);
 }
 
-static int intel_crt_get_modes(struct drm_connector *connector)
+int
+intel_crt_get_modes(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -499,14 +527,15 @@ static int intel_crt_get_modes(struct drm_connector *connector)
 	return (intel_ddc_get_modes(connector, &dev_priv->ddc));
 }
 
-static int intel_crt_set_property(struct drm_connector *connector,
-				  struct drm_property *property,
-				  uint64_t value)
+int
+intel_crt_set_property(struct drm_connector *connector,
+    struct drm_property *property, uint64_t value)
 {
 	return 0;
 }
 
-static void intel_crt_reset(struct drm_connector *connector)
+void
+intel_crt_reset(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -547,7 +576,8 @@ static const struct drm_encoder_funcs intel_crt_enc_funcs = {
 	.destroy = intel_encoder_destroy,
 };
 
-static int intel_no_crt_dmi_callback(const struct dmi_system_id *id)
+int
+intel_no_crt_dmi_callback(const struct dmi_system_id *id)
 {
 	DRM_DEBUG_KMS("Skipping CRT initialization for %s\n", id->ident);
 	return 1;
@@ -565,7 +595,8 @@ static const struct dmi_system_id intel_no_crt[] = {
 	{ }
 };
 
-void intel_crt_init(struct drm_device *dev)
+void
+intel_crt_init(struct drm_device *dev)
 {
 	struct drm_connector *connector;
 	struct intel_crt *crt;

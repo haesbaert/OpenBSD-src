@@ -36,8 +36,8 @@
  * @connector: DRM connector device to use
  * @edid: previously read EDID information
  */
-int intel_connector_update_modes(struct drm_connector *connector,
-				struct edid *edid)
+int
+intel_connector_update_modes(struct drm_connector *connector, struct edid *edid)
 {
 	int ret;
 

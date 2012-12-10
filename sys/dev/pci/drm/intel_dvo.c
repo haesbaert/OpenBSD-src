@@ -5,7 +5,8 @@
 #include "i915_drv.h"
 #include "intel_drv.h"
 
-void intel_dvo_init(struct drm_device *dev)
+void
+intel_dvo_init(struct drm_device *dev)
 {
 	printf("%s stub\n", __func__);
 }

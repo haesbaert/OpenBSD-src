@@ -146,7 +146,8 @@ struct opregion_asle {
 #define ACPI_LVDS_OUTPUT (4<<8)
 
 #ifdef CONFIG_ACPI
-static u32 asle_set_backlight(struct drm_device *dev, u32 bclp)
+u32
+asle_set_backlight(struct drm_device *dev, u32 bclp)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct opregion_asle *asle = dev_priv->opregion.asle;
@@ -166,14 +167,16 @@ static u32 asle_set_backlight(struct drm_device *dev, u32 bclp)
 	return 0;
 }
 
-static u32 asle_set_als_illum(struct drm_device *dev, u32 alsi)
+u32
+asle_set_als_illum(struct drm_device *dev, u32 alsi)
 {
 	/* alsi is the current ALS reading in lux. 0 indicates below sensor
 	   range, 0xffff indicates above sensor range. 1-0xfffe are valid */
 	return 0;
 }
 
-static u32 asle_set_pwm_freq(struct drm_device *dev, u32 pfmb)
+u32
+asle_set_pwm_freq(struct drm_device *dev, u32 pfmb)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	if (pfmb & ASLE_PFMB_PWM_VALID) {
@@ -186,7 +189,8 @@ static u32 asle_set_pwm_freq(struct drm_device *dev, u32 pfmb)
 	return 0;
 }
 
-static u32 asle_set_pfit(struct drm_device *dev, u32 pfit)
+u32
+asle_set_pfit(struct drm_device *dev, u32 pfit)
 {
 	/* Panel fitting is currently controlled by the X code, so this is a
 	   noop until modesetting support works fully */
@@ -195,7 +199,8 @@ static u32 asle_set_pfit(struct drm_device *dev, u32 pfit)
 	return 0;
 }
 
-void intel_opregion_asle_intr(struct drm_device *dev)
+void
+intel_opregion_asle_intr(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct opregion_asle *asle = dev_priv->opregion.asle;
@@ -227,7 +232,8 @@ void intel_opregion_asle_intr(struct drm_device *dev)
 	asle->aslc = asle_stat;
 }
 
-void intel_opregion_gse_intr(struct drm_device *dev)
+void
+intel_opregion_gse_intr(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct opregion_asle *asle = dev_priv->opregion.asle;
@@ -264,12 +270,14 @@ void intel_opregion_gse_intr(struct drm_device *dev)
 
 	asle->aslc = asle_stat;
 }
+
 #define ASLE_ALS_EN    (1<<0)
 #define ASLE_BLC_EN    (1<<1)
 #define ASLE_PFIT_EN   (1<<2)
 #define ASLE_PFMB_EN   (1<<3)
 
-void intel_opregion_enable_asle(struct drm_device *dev)
+void
+intel_opregion_enable_asle(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct opregion_asle *asle = dev_priv->opregion.asle;
@@ -290,8 +298,9 @@ void intel_opregion_enable_asle(struct drm_device *dev)
 
 static struct intel_opregion *system_opregion;
 
-static int intel_opregion_video_event(struct notifier_block *nb,
-				      unsigned long val, void *data)
+int
+intel_opregion_video_event(struct notifier_block *nb, unsigned long val,
+    void *data)
 {
 	/* The only video events relevant to opregion are 0x80. These indicate
 	   either a docking event, lid switch or display switch request. In
@@ -327,7 +336,8 @@ static struct notifier_block intel_opregion_notifier = {
  * (version 3)
  */
 
-static void intel_didl_outputs(struct drm_device *dev)
+void
+intel_didl_outputs(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_opregion *opregion = &dev_priv->opregion;
@@ -418,7 +428,8 @@ blind_set:
 	goto end;
 }
 
-void intel_opregion_init(struct drm_device *dev)
+void
+intel_opregion_init(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_opregion *opregion = &dev_priv->opregion;
@@ -444,7 +455,8 @@ void intel_opregion_init(struct drm_device *dev)
 		intel_opregion_enable_asle(dev);
 }
 
-void intel_opregion_fini(struct drm_device *dev)
+void
+intel_opregion_fini(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_opregion *opregion = &dev_priv->opregion;
@@ -496,7 +508,8 @@ intel_opregion_fini(struct drm_device *dev)
 }
 #endif
 
-int intel_opregion_setup(struct drm_device *dev)
+int
+intel_opregion_setup(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_opregion *opregion = &dev_priv->opregion;

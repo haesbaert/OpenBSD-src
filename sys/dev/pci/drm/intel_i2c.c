@@ -9,6 +9,7 @@ int	gmbus_i2c_acquire_bus(void *, int);
 void	gmbus_i2c_release_bus(void *, int);
 int	gmbus_i2c_exec(void *, i2c_op_t, i2c_addr_t, const void *, size_t,
 	    void *buf, size_t, int);
+void	i915_i2c_probe(struct inteldrm_softc *);
 
 int
 gmbus_i2c_acquire_bus(void *cookie, int flags)
@@ -94,8 +95,6 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 
 	return (0);
 }
-
-void i915_i2c_probe(struct inteldrm_softc *);
 
 void
 i915_i2c_probe(struct inteldrm_softc *dev_priv)

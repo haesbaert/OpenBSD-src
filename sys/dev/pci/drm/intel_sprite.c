@@ -37,13 +37,29 @@
 #include "intel_drv.h"
 #include "drm_fourcc.h"
 
+void	 ivb_disable_plane(struct drm_plane *);
+int	 ivb_update_colorkey(struct drm_plane *,
+	     struct drm_intel_sprite_colorkey *);
+void	 ivb_get_colorkey(struct drm_plane *,
+	     struct drm_intel_sprite_colorkey *);
+void	 snb_disable_plane(struct drm_plane *);
+void	 intel_enable_primary(struct drm_crtc *);
+int	 snb_update_colorkey(struct drm_plane *,
+	     struct drm_intel_sprite_colorkey *);
+void	 snb_get_colorkey(struct drm_plane *,
+	     struct drm_intel_sprite_colorkey *);
+int	 intel_update_plane(struct drm_plane *, struct drm_crtc *,
+	     struct drm_framebuffer *, int, int, unsigned int, unsigned int,
+	     uint32_t, uint32_t, uint32_t, uint32_t);
+int	 intel_sprite_disable_plane(struct drm_plane *);
+void	 intel_destroy_plane(struct drm_plane *);
+
 #ifdef notyet
-static void
+void
 ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
-		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
-		 unsigned int crtc_w, unsigned int crtc_h,
-		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+    struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
+    unsigned int crtc_w, unsigned int crtc_h, uint32_t x, uint32_t y,
+    uint32_t src_w, uint32_t src_h)
 {
 	struct drm_device *dev = plane->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -140,7 +156,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 }
 #endif
 
-static void
+void
 ivb_disable_plane(struct drm_plane *plane)
 {
 	struct drm_device *dev = plane->dev;
@@ -156,9 +172,9 @@ ivb_disable_plane(struct drm_plane *plane)
 	POSTING_READ(SPRSURF(pipe));
 }
 
-static int
+int
 ivb_update_colorkey(struct drm_plane *plane,
-		    struct drm_intel_sprite_colorkey *key)
+    struct drm_intel_sprite_colorkey *key)
 {
 	struct drm_device *dev = plane->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -185,7 +201,7 @@ ivb_update_colorkey(struct drm_plane *plane,
 	return ret;
 }
 
-static void
+void
 ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 {
 	struct drm_device *dev = plane->dev;
@@ -211,12 +227,11 @@ ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 }
 
 #ifdef notyet
-static void
+void
 snb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
-		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
-		 unsigned int crtc_w, unsigned int crtc_h,
-		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+    struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
+    unsigned int crtc_w, unsigned int crtc_h, uint32_t x, uint32_t y,
+    uint32_t src_w, uint32_t src_h)
 {
 	struct drm_device *dev = plane->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -299,7 +314,7 @@ snb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 }
 #endif
 
-static void
+void
 snb_disable_plane(struct drm_plane *plane)
 {
 	struct drm_device *dev = plane->dev;
@@ -315,7 +330,7 @@ snb_disable_plane(struct drm_plane *plane)
 	POSTING_READ(DVSSURF(pipe));
 }
 
-static void
+void
 intel_enable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -327,7 +342,7 @@ intel_enable_primary(struct drm_crtc *crtc)
 }
 
 #ifdef notyet
-static void
+void
 intel_disable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -339,9 +354,9 @@ intel_disable_primary(struct drm_crtc *crtc)
 }
 #endif
 
-static int
+int
 snb_update_colorkey(struct drm_plane *plane,
-		    struct drm_intel_sprite_colorkey *key)
+    struct drm_intel_sprite_colorkey *key)
 {
 	struct drm_device *dev = plane->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -368,7 +383,7 @@ snb_update_colorkey(struct drm_plane *plane,
 	return ret;
 }
 
-static void
+void
 snb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 {
 	struct drm_device *dev = plane->dev;
@@ -393,12 +408,11 @@ snb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 		key->flags = I915_SET_COLORKEY_NONE;
 }
 
-static int
+int
 intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
-		   struct drm_framebuffer *fb, int crtc_x, int crtc_y,
-		   unsigned int crtc_w, unsigned int crtc_h,
-		   uint32_t src_x, uint32_t src_y,
-		   uint32_t src_w, uint32_t src_h)
+    struct drm_framebuffer *fb, int crtc_x, int crtc_y, unsigned int crtc_w,
+    unsigned int crtc_h, uint32_t src_x, uint32_t src_y, uint32_t src_w,
+    uint32_t src_h)
 {
 	printf("%s stub\n", __func__);
 	return EINVAL;
@@ -523,8 +537,8 @@ out:
 #endif
 }
 
-static int
-intel_disable_plane(struct drm_plane *plane)
+int
+intel_sprite_disable_plane(struct drm_plane *plane)
 {
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int ret = 0;
@@ -550,16 +564,18 @@ out:
 	return ret;
 }
 
-static void intel_destroy_plane(struct drm_plane *plane)
+void
+intel_destroy_plane(struct drm_plane *plane)
 {
 	struct intel_plane *intel_plane = to_intel_plane(plane);
-	intel_disable_plane(plane);
+	intel_sprite_disable_plane(plane);
 	drm_plane_cleanup(plane);
 	free(intel_plane, M_DRM);
 }
 
-int intel_sprite_set_colorkey(struct drm_device *dev, void *data,
-			      struct drm_file *file_priv)
+int
+intel_sprite_set_colorkey(struct drm_device *dev, void *data,
+    struct drm_file *file_priv)
 {
 	printf("%s stub\n", __func__);
 	return EINVAL;
@@ -596,8 +612,9 @@ out_unlock:
 #endif
 }
 
-int intel_sprite_get_colorkey(struct drm_device *dev, void *data,
-			      struct drm_file *file_priv)
+int
+intel_sprite_get_colorkey(struct drm_device *dev, void *data,
+    struct drm_file *file_priv)
 {
 	printf("%s stub\n", __func__);
 	return EINVAL;
@@ -632,7 +649,7 @@ out_unlock:
 
 static const struct drm_plane_funcs intel_plane_funcs = {
 	.update_plane = intel_update_plane,
-	.disable_plane = intel_disable_plane,
+	.disable_plane = intel_sprite_disable_plane,
 	.destroy = intel_destroy_plane,
 };
 
