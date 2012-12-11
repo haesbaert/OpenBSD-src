@@ -876,6 +876,7 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 {
 	struct drm_obj			*obj;
 	struct inteldrm_obj		*obj_priv;
+	struct drm_local_map		*map;
 	vaddr_t				 addr;
 	voff_t				 offset; 
 	vsize_t				 end, nsize;
@@ -910,10 +911,15 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 	ret = uvm_map(&curproc->p_vmspace->vm_map, &addr, nsize, &obj->uobj,
 	    offset, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
 	    UVM_INH_SHARE, UVM_ADV_RANDOM, 0));
+	if (ret != 0)
+		goto done;
 
+	ret = drm_addmap(dev, offset, nsize, _DRM_AGP,
+	    _DRM_WRITE_COMBINING, &map);
+	
 done:
 	if (ret == 0)
-		*mmap_offset = (uint64_t)addr + (offset & PAGE_MASK);
+		*mmap_offset = map->ext;
 	else
 		drm_unref(&obj->uobj);
 
