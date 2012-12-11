@@ -143,11 +143,15 @@ drm_control(struct drm_device *dev, void *data, struct drm_file *file_priv)
 
 	switch (ctl->func) {
 	case DRM_INST_HANDLER:
+		if (drm_core_check_feature(dev, DRIVER_MODESET))
+			return 0;
 		if (dev->if_version < DRM_IF_VERSION(1, 2) &&
 		    ctl->irq != dev->irq)
 			return (EINVAL);
 		return (drm_irq_install(dev));
 	case DRM_UNINST_HANDLER:
+		if (drm_core_check_feature(dev, DRIVER_MODESET))
+			return 0;
 		return (drm_irq_uninstall(dev));
 	default:
 		return (EINVAL);

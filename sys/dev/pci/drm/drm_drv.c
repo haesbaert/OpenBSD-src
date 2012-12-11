@@ -331,7 +331,8 @@ drm_firstopen(struct drm_device *dev)
 
 	dev->magicid = 1;
 
-	dev->irq_enabled = 0;
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		dev->irq_enabled = 0;
 	dev->if_version = 0;
 
 	dev->buf_pgid = 0;
@@ -351,7 +352,7 @@ drm_lastclose(struct drm_device *dev)
 	if (dev->driver->lastclose != NULL)
 		dev->driver->lastclose(dev);
 
-	if (dev->irq_enabled)
+	if (!drm_core_check_feature(dev, DRIVER_MODESET) && dev->irq_enabled)
 		drm_irq_uninstall(dev);
 
 #if __OS_HAS_AGP
