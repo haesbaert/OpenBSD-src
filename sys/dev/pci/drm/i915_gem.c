@@ -881,7 +881,7 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 	vsize_t				 end, nsize;
 	int				 ret;
 
-	offset = (voff_t)mmap_offset;
+	offset = (voff_t)*mmap_offset;
 
 	obj = drm_gem_object_lookup(dev, file, handle);
 	if (obj == NULL)
