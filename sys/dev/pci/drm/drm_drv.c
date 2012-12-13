@@ -753,6 +753,8 @@ drmioctl(dev_t kdev, u_long cmd, caddr_t data, int flags,
 			return drm_mode_getfb(dev, data, file_priv);
 		case DRM_IOCTL_MODE_ADDFB:
 			return drm_mode_addfb(dev, data, file_priv);
+		case DRM_IOCTL_MODE_ADDFB2:
+			return drm_mode_addfb2(dev, data, file_priv);
 		case DRM_IOCTL_MODE_RMFB:
 			return drm_mode_rmfb(dev, data, file_priv);
 #if 0

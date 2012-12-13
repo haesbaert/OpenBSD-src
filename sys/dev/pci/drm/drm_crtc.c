@@ -70,6 +70,7 @@ struct drm_property_blob	*drm_property_create_blob(struct drm_device *,
 				     int, void *);
 void	 drm_property_destroy_blob(struct drm_device *,
 	     struct drm_property_blob *);
+int	 format_check(struct drm_mode_fb_cmd2 *);
 
 SPLAY_PROTOTYPE(drm_mode_tree, drm_mode_handle, entry, drm_mode_handle_cmp);
 
@@ -2141,6 +2142,141 @@ drm_mode_addfb(struct drm_device *dev, void *data,
 out:
 	// mutex_unlock(&dev->mode_config.mutex);
 	return ret;
+}
+
+int
+format_check(struct drm_mode_fb_cmd2 *r)
+{
+	uint32_t format = r->pixel_format & ~DRM_FORMAT_BIG_ENDIAN;
+
+	switch (format) {
+	case DRM_FORMAT_C8:
+	case DRM_FORMAT_RGB332:
+	case DRM_FORMAT_BGR233:
+	case DRM_FORMAT_XRGB4444:
+	case DRM_FORMAT_XBGR4444:
+	case DRM_FORMAT_RGBX4444:
+	case DRM_FORMAT_BGRX4444:
+	case DRM_FORMAT_ARGB4444:
+	case DRM_FORMAT_ABGR4444:
+	case DRM_FORMAT_RGBA4444:
+	case DRM_FORMAT_BGRA4444:
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_XBGR1555:
+	case DRM_FORMAT_RGBX5551:
+	case DRM_FORMAT_BGRX5551:
+	case DRM_FORMAT_ARGB1555:
+	case DRM_FORMAT_ABGR1555:
+	case DRM_FORMAT_RGBA5551:
+	case DRM_FORMAT_BGRA5551:
+	case DRM_FORMAT_RGB565:
+	case DRM_FORMAT_BGR565:
+	case DRM_FORMAT_RGB888:
+	case DRM_FORMAT_BGR888:
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBX8888:
+	case DRM_FORMAT_BGRX8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_BGRA8888:
+	case DRM_FORMAT_XRGB2101010:
+	case DRM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_RGBX1010102:
+	case DRM_FORMAT_BGRX1010102:
+	case DRM_FORMAT_ARGB2101010:
+	case DRM_FORMAT_ABGR2101010:
+	case DRM_FORMAT_RGBA1010102:
+	case DRM_FORMAT_BGRA1010102:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_YVYU:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
+	case DRM_FORMAT_AYUV:
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV61:
+	case DRM_FORMAT_YUV410:
+	case DRM_FORMAT_YVU410:
+	case DRM_FORMAT_YUV411:
+	case DRM_FORMAT_YVU411:
+	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YVU420:
+	case DRM_FORMAT_YUV422:
+	case DRM_FORMAT_YVU422:
+	case DRM_FORMAT_YUV444:
+	case DRM_FORMAT_YVU444:
+		return 0;
+	default:
+		return (EINVAL);
+	}
+}
+
+/**
+ * drm_mode_addfb2 - add an FB to the graphics configuration
+ * @inode: inode from the ioctl
+ * @filp: file * from the ioctl
+ * @cmd: cmd from ioctl
+ * @arg: arg from ioctl
+ *
+ * LOCKING:
+ * Takes mode config lock.
+ *
+ * Add a new FB to the specified CRTC, given a user request with format.
+ *
+ * Called by the user via ioctl.
+ *
+ * RETURNS:
+ * Zero on success, errno on failure.
+ */
+int
+drm_mode_addfb2(struct drm_device *dev, void *data, struct drm_file *file_priv)
+{
+	struct drm_mode_fb_cmd2 *r = data;
+	struct drm_mode_config *config = &dev->mode_config;
+	struct drm_framebuffer *fb;
+	int ret = 0;
+
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return (EINVAL);
+
+	if ((config->min_width > r->width) || (r->width > config->max_width)) {
+		DRM_ERROR("bad framebuffer width %d, should be >= %d && <= %d\n",
+			  r->width, config->min_width, config->max_width);
+		return (EINVAL);
+	}
+	if ((config->min_height > r->height) || (r->height > config->max_height)) {
+		DRM_ERROR("bad framebuffer height %d, should be >= %d && <= %d\n",
+			  r->height, config->min_height, config->max_height);
+		return (EINVAL);
+	}
+
+	ret = format_check(r);
+	if (ret) {
+		DRM_ERROR("bad framebuffer format 0x%08x\n", r->pixel_format);
+		return ret;
+	}
+
+	// mutex_lock(&dev->mode_config.mutex);
+
+	/* TODO check buffer is sufficiently large */
+	/* TODO setup destructor callback */
+
+	ret = -dev->mode_config.funcs->fb_create(dev, file_priv, r, &fb);
+	if (ret != 0) {
+		DRM_ERROR("could not create framebuffer, error %d\n", ret);
+		goto out;
+	}
+
+	r->fb_id = fb->base.id;
+	TAILQ_INSERT_HEAD(&file_priv->fbs, fb, filp_head);
+	DRM_DEBUG_KMS("[FB:%d]\n", fb->base.id);
+
+out:
+	// mutex_unlock(&dev->mode_config.mutex);
+	return (ret);
 }
 
 /**
