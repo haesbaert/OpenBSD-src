@@ -3282,11 +3282,13 @@ out:
 	return ret;
 }
 
-#ifdef notyet
 int
 drm_mode_page_flip_ioctl(struct drm_device *dev, void *data,
     struct drm_file *file_priv)
 {
+	printf("%s stub\n", __func__);
+	return (ENOSYS);
+#ifdef notyet
 	struct drm_mode_crtc_page_flip *page_flip = data;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
@@ -3360,8 +3362,8 @@ drm_mode_page_flip_ioctl(struct drm_device *dev, void *data,
 out:
 	// mutex_unlock(&dev->mode_config.mutex);
 	return ret;
-}
 #endif
+}
 
 void
 drm_mode_config_reset(struct drm_device *dev)

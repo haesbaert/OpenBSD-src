@@ -757,12 +757,10 @@ drmioctl(dev_t kdev, u_long cmd, caddr_t data, int flags,
 			return drm_mode_addfb2(dev, data, file_priv);
 		case DRM_IOCTL_MODE_RMFB:
 			return drm_mode_rmfb(dev, data, file_priv);
-#if 0
 		case DRM_IOCTL_MODE_PAGE_FLIP:
 			return drm_mode_page_flip_ioctl(dev, data, file_priv);
 		case DRM_IOCTL_MODE_DIRTYFB:
 			return drm_mode_dirtyfb_ioctl(dev, data, file_priv);
-#endif
 		case DRM_IOCTL_MODE_CREATE_DUMB:
 			return drm_mode_create_dumb_ioctl(dev, data, 
 			    file_priv);
