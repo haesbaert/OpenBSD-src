@@ -1056,7 +1056,7 @@ i915_gem_object_set_cache_level(struct drm_obj *obj,
     enum i915_cache_level cache_level)
 {
 	printf("%s stub\n", __func__);
-	return -1;
+	return (0);
 }
 
 int
