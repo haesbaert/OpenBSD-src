@@ -1063,7 +1063,7 @@ int
 i915_gem_object_pin_to_display_plane(struct drm_obj *obj,
     u32 alignment, struct intel_ring_buffer *pipelined)
 {
-	u32 old_read_domains, old_write_domain;
+//	u32 old_read_domains, old_write_domain;
 	int ret;
 	int interruptable = 1;
 
@@ -1090,6 +1090,7 @@ i915_gem_object_pin_to_display_plane(struct drm_obj *obj,
 	if (ret != 0)
 		return (ret);
 
+#ifdef notyet
 	i915_gem_object_flush_cpu_write_domain(obj);
 
 	old_write_domain = obj->write_domain;
@@ -1097,6 +1098,9 @@ i915_gem_object_pin_to_display_plane(struct drm_obj *obj,
 
 	KASSERT((obj->write_domain & ~I915_GEM_DOMAIN_GTT) == 0);
 	obj->read_domains |= I915_GEM_DOMAIN_GTT;
+#else
+	printf("%s skipping write domain flush\n", __func__);
+#endif
 
 #ifdef notyet
 	CTR3(KTR_DRM, "object_change_domain pin_to_display_plan %p %x %x",
