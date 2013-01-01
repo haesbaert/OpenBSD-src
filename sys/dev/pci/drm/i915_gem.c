@@ -191,6 +191,7 @@ i915_gem_init(struct drm_device *dev)
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	uint64_t			 gtt_start, gtt_end;
 	struct agp_softc		*asc;
+	int				 ret;
 
 	DRM_LOCK();
 
@@ -214,6 +215,12 @@ i915_gem_init(struct drm_device *dev)
 
 	dev->gtt_total = (uint32_t)(gtt_end - gtt_start);
 	inteldrm_set_max_obj_size(dev_priv);
+
+	ret = i915_gem_init_ringbuffer(dev_priv);
+	if (ret != 0) {
+		DRM_UNLOCK();
+		return (ret);
+	}
 
 	DRM_UNLOCK();
 
