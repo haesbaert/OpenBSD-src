@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile.inc,v 1.1.1.1 2013/01/03 17:36:38 bluhm Exp $
+#	$OpenBSD: Makefile.inc,v 1.1 2013/01/03 17:36:38 bluhm Exp $
 
 # The following ports must be installed for the regression tests:
 # p5-BSD-Socket-Splice	perl interface to OpenBSD socket splicing
