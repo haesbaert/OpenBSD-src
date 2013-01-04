@@ -31,6 +31,8 @@
 #include "i915_drm.h"
 #include "i915_drv.h"
 #include "intel_bios.h"
+#include <dev/isa/isareg.h>
+#include <dev/isa/isavar.h>
 
 #define	SLAVE_ADDR1	0x70
 #define	SLAVE_ADDR2	0x72
@@ -660,6 +662,9 @@ dmi_check_system(const struct dmi_system_id *sysid)
 	return (false);
 }
 
+#define VGA_BIOS_ADDR   0xc0000
+#define VGA_BIOS_LEN    0x10000
+
 /**
  * intel_parse_bios - find VBT and initialize settings from the BIOS
  * @dev: DRM device
@@ -690,20 +695,14 @@ intel_parse_bios(struct drm_device *dev)
 	}
 	bios = NULL;
 
-#if 1
-	if (bdb == NULL) {
-		DRM_DEBUG("getting VBT from PCI ROM not yet supported\n");
-		return (-1);
-	}
-#else
+#if defined(__amd64__) || defined(__i386)
 	if (bdb == NULL) {
 		struct vbt_header *vbt = NULL;
 		size_t size;
 		int i;
 
-		bios = pci_map_rom(pdev, &size);
-		if (!bios)
-			return -1;
+		bios = (u8 *)ISA_HOLE_VADDR(VGA_BIOS_ADDR);
+		size = VGA_BIOS_LEN;
 
 		/* Scour memory looking for the VBT signature */
 		for (i = 0; i + 4 < size; i++) {
@@ -715,13 +714,12 @@ intel_parse_bios(struct drm_device *dev)
 
 		if (!vbt) {
 			DRM_DEBUG("VBT signature missing\n");
-			pci_unmap_rom(pdev, bios);
 			return -1;
 		}
 
 		bdb = (struct bdb_header *)(bios + i + vbt->bdb_offset);
 	}
-#endif
+#endif /* defined(__amd64__) || defined(__i386__) */
 
 	/* Grab useful general definitions */
 	parse_general_features(dev_priv, bdb);
@@ -732,11 +730,6 @@ intel_parse_bios(struct drm_device *dev)
 	parse_device_mapping(dev_priv, bdb);
 	parse_driver_features(dev_priv, bdb);
 	parse_edp(dev_priv, bdb);
-
-#if 0
-	if (bios)
-		pci_unmap_rom(pdev, bios);
-#endif
 
 	return 0;
 }
