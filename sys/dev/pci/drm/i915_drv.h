@@ -360,6 +360,8 @@ struct inteldrm_softc {
 
 	struct drm_i915_display_funcs display;
 
+	struct timeout idle_timeout;
+
 	unsigned long quirks;
 
 	/* Register state */

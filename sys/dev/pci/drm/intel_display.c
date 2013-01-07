@@ -327,6 +327,10 @@ void	 quirk_pipea_force(struct drm_device *);
 void	 quirk_ssc_force_disable(struct drm_device *);
 void	 intel_init_quirks(struct drm_device *);
 void	 i915_disable_vga(struct drm_device *);
+void	 intel_crtc_idle_timer(void *);
+void	 intel_gpu_idle_timer(void *);
+void	 intel_idle_update(void *, int);
+void	 intel_decrease_pllclock(struct drm_crtc *);
 
 static inline u32 /* units of 100MHz */
 intel_fdi_link_freq(struct drm_device *dev)
@@ -7471,9 +7475,8 @@ intel_crtc_mode_get(struct drm_device *dev, struct drm_crtc *crtc)
 	return mode;
 }
 
-#define GPU_IDLE_TIMEOUT (500 /* ms */ * 1000 / hz)
+#define GPU_IDLE_TIMEOUT 500 /* ms */
 
-#ifdef notyet
 /* When this timer fires, we've been idle for awhile */
 void
 intel_gpu_idle_timer(void *arg)
@@ -7483,11 +7486,7 @@ intel_gpu_idle_timer(void *arg)
 
 	if (!TAILQ_EMPTY(&dev_priv->mm.active_list)) {
 		/* Still processing requests, so just re-arm the timer. */
-#ifdef notyet
-		callout_schedule(&dev_priv->idle_callout, GPU_IDLE_TIMEOUT);
-#else
-		printf("%s todo re-arm timeout\n", __func__);
-#endif
+		timeout_add_msec(&dev_priv->idle_timeout, GPU_IDLE_TIMEOUT);
 		return;
 	}
 
@@ -7498,33 +7497,31 @@ intel_gpu_idle_timer(void *arg)
 	printf("%s todo enqueue task\n", __func__);
 #endif
 }
-#endif
 
-#define CRTC_IDLE_TIMEOUT (1000 /* ms */ * 1000 / hz)
+#define CRTC_IDLE_TIMEOUT 1000 /* ms */
 
-#ifdef notyet
 void
 intel_crtc_idle_timer(void *arg)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct intel_crtc *intel_crtc = arg;
 	struct drm_crtc *crtc = &intel_crtc->base;
-	struct inteldrm_softc *dev_priv = crtc->dev->dev_private;
+//	struct inteldrm_softc *dev_priv = crtc->dev->dev_private;
 	struct intel_framebuffer *intel_fb;
 
 	intel_fb = to_intel_framebuffer(crtc->fb);
-	if (intel_fb && intel_fb->obj->active) {
+	if (intel_fb && inteldrm_is_active(intel_fb->obj)) {
 		/* The framebuffer is still being accessed by the GPU. */
-		callout_schedule(&intel_crtc->idle_callout, CRTC_IDLE_TIMEOUT);
+		timeout_add_msec(&intel_crtc->idle_timeout, CRTC_IDLE_TIMEOUT);
 		return;
 	}
 
 	intel_crtc->busy = false;
+#if 0
 	taskqueue_enqueue(dev_priv->tq, &dev_priv->idle_task);
+#else
+	printf("%s todo add task\n", __func__);
 #endif
 }
-#endif
 
 void
 intel_increase_pllclock(struct drm_crtc *crtc)
@@ -7558,15 +7555,9 @@ intel_increase_pllclock(struct drm_crtc *crtc)
 	}
 
 	/* Schedule downclock */
-#ifdef notyet
-	callout_reset(&intel_crtc->idle_callout, CRTC_IDLE_TIMEOUT,
-	    intel_crtc_idle_timer, intel_crtc);
-#else
-	printf("%s todo schedule downclock\n", __func__);
-#endif
+	timeout_add_msec(&intel_crtc->idle_timeout, CRTC_IDLE_TIMEOUT);
 }
 
-#ifdef notyet
 void
 intel_decrease_pllclock(struct drm_crtc *crtc)
 {
@@ -7602,9 +7593,7 @@ intel_decrease_pllclock(struct drm_crtc *crtc)
 			DRM_DEBUG_DRIVER("failed to downclock LVDS!\n");
 	}
 }
-#endif
 
-#ifdef notyet
 /**
  * intel_idle_update - adjust clocks for idleness
  * @work: work struct
@@ -7625,7 +7614,9 @@ intel_idle_update(void *arg, int pending)
 
 	DRM_LOCK();
 
+#if 0 /* XXX */
 	i915_update_gfx_val(dev_priv);
+#endif
 
 	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
 		/* Skip inactive CRTCs */
@@ -7639,7 +7630,6 @@ intel_idle_update(void *arg, int pending)
 
 	DRM_UNLOCK();
 }
-#endif
 
 /**
  * intel_mark_busy - mark the GPU and possibly the display busy
@@ -7665,12 +7655,7 @@ intel_mark_busy(struct drm_device *dev, struct inteldrm_obj *obj)
 	if (!dev_priv->busy)
 		dev_priv->busy = true;
 	else
-#ifdef notyet
-		callout_reset(&dev_priv->idle_callout, GPU_IDLE_TIMEOUT,
-		    intel_gpu_idle_timer, dev);
-#else
-		printf("%s todo reset timeout\n", __func__);
-#endif
+		timeout_add_msec(&dev_priv->idle_timeout, GPU_IDLE_TIMEOUT);
 
 	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
 		if (!crtc->fb)
@@ -7685,13 +7670,7 @@ intel_mark_busy(struct drm_device *dev, struct inteldrm_obj *obj)
 				intel_crtc->busy = true;
 			} else {
 				/* Busy -> busy, put off timer */
-#ifdef notyet
-				callout_reset(&intel_crtc->idle_callout, 
-				    CRTC_IDLE_TIMEOUT, intel_crtc_idle_timer,
-				    intel_crtc);
-#else
-				printf("%s todo reset timeout (2)\n", __func__);
-#endif
+				timeout_add_msec(&intel_crtc->idle_timeout, CRTC_IDLE_TIMEOUT);
 			}
 		}
 	}
@@ -8271,11 +8250,8 @@ intel_crtc_init(struct drm_device *dev, int pipe)
 
 	intel_crtc->busy = false;
 
-#ifdef notyet
-	callout_init(&intel_crtc->idle_callout, CALLOUT_MPSAFE);
-#else
-	printf("%s todo init timeout\n", __func__);
-#endif
+	timeout_set(&intel_crtc->idle_timeout, intel_crtc_idle_timer,
+	    intel_crtc);
 }
 
 int
@@ -9905,10 +9881,10 @@ intel_modeset_init(struct drm_device *dev)
 
 #ifdef notyet
 	TASK_INIT(&dev_priv->idle_task, 0, intel_idle_update, dev_priv);
-	callout_init(&dev_priv->idle_callout, CALLOUT_MPSAFE);
 #else
-	printf("%s todo init idle timeout\n", __func__);
+	printf("%s todo init idle task\n", __func__);
 #endif
+	timeout_set(&dev_priv->idle_timeout, intel_gpu_idle_timer, dev);
 }
 
 void
@@ -9972,14 +9948,10 @@ intel_modeset_cleanup(struct drm_device *dev)
 	/* Shut off idle work before the crtcs get freed. */
 	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
 		intel_crtc = to_intel_crtc(crtc);
-#ifdef notyet
-		callout_drain(&intel_crtc->idle_callout);
-#else
-		printf("%s todo drain timeout\n", __func__);
-#endif
+		timeout_del(&intel_crtc->idle_timeout);
 	}
+	timeout_del(&dev_priv->idle_timeout);
 #ifdef notyet
-	callout_drain(&dev_priv->idle_callout);
 	if (taskqueue_cancel(dev_priv->tq, &dev_priv->idle_task, NULL))
 		taskqueue_drain(dev_priv->tq, &dev_priv->idle_task);
 #else
