@@ -1386,8 +1386,17 @@ i915_gem_object_unbind(struct drm_obj *obj, int interruptible)
 int
 i915_gem_object_wait_rendering(struct drm_obj *obj)
 {
-	printf("%s stub\n", __func__);
-	return -1;
+	struct drm_device	*dev = obj->dev;
+	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	int			 ret;
+
+	/* wait for queued rendering so we know it's flushed and bo is idle */
+	if (inteldrm_is_active(obj_priv)) {
+		ret =  i915_wait_request(dev_priv,
+		    obj_priv->last_rendering_seqno, true);
+	}
+	return (ret);
 }
 
 /* called locked */
