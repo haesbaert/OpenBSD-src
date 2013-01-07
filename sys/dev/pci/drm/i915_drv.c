@@ -96,6 +96,9 @@ int	inteldrm_setup_mchbar(struct inteldrm_softc *,
 void	inteldrm_teardown_mchbar(struct inteldrm_softc *,
 	    struct pci_attach_args *, int);
 
+int	i915_drm_thaw(struct inteldrm_softc *);
+int	i915_drm_freeze(struct inteldrm_softc *);
+
 static const struct intel_device_info intel_i830_info = {
 	.gen = 2, .is_mobile = 1, .cursor_needs_physical = 1,
 	.has_overlay = 1, .overlay_needs_physical = 1,
@@ -407,6 +410,87 @@ inteldrm_probe(struct device *parent, void *match, void *aux)
 {
 	return (drm_pciprobe((struct pci_attach_args *)aux,
 	    inteldrm_pciidlist));
+}
+
+int
+i915_drm_freeze(struct inteldrm_softc *dev_priv)
+{
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	int			 error = 0;
+
+	dev_priv = dev->dev_private;
+	drm_kms_helper_poll_disable(dev);
+
+#if 0
+	pci_save_state(dev->pdev);
+#endif
+
+	/* If KMS is active, we do the leavevt stuff here */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		error = -i915_gem_idle(dev_priv);
+		if (error) {
+			printf("GEM idle failed, resume might fail\n");
+			return (error);
+		}
+		drm_irq_uninstall(dev);
+	}
+
+	i915_save_state(dev_priv);
+
+	intel_opregion_fini(dev);
+
+	/* Modeset on resume, not lid events */
+#ifdef notyet
+	dev_priv->modeset_on_lid = 0;
+#endif
+	return 0;
+}
+
+int
+i915_drm_thaw(struct inteldrm_softc *dev_priv)
+{
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	int			 error = 0;
+
+#ifdef notyet
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		i915_gem_restore_gtt_mappings(dev);
+	}
+#endif
+
+	i915_restore_state(dev_priv);
+	intel_opregion_setup(dev);
+
+	/* KMS EnterVT equivalent */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		dev_priv->mm.suspended = 0;
+
+		error = i915_gem_init_ringbuffer(dev_priv);
+
+		if (HAS_PCH_SPLIT(dev_priv))
+			ironlake_init_pch_refclk(dev);
+
+		mtx_enter(&dev->mode_config.mutex);
+		drm_mode_config_reset(dev);
+		mtx_leave(&dev->mode_config.mutex);
+		drm_irq_install(dev);
+
+		mtx_enter(&dev->mode_config.mutex);
+		/* Resume the modeset for every activated CRTC */
+		drm_helper_resume_force_mode(dev);
+		mtx_leave(&dev->mode_config.mutex);
+
+		if (IS_IRONLAKE_M(dev))
+			ironlake_enable_rc6(dev);
+	}
+
+	intel_opregion_init(dev);
+
+#ifdef notyet
+	dev_priv->modeset_on_lid = 0;
+#endif
+
+	return error;
 }
 
 /*
