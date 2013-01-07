@@ -9820,9 +9820,6 @@ i915_disable_vga(struct drm_device *dev)
 	u8 sr1;
 	u32 vga_reg;
 
-printf("%s skipping vga disable for now...\n", __func__);
-return;
-
 	if (HAS_PCH_SPLIT(dev_priv))
 		vga_reg = CPU_VGACNTRL;
 	else
