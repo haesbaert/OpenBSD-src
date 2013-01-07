@@ -151,9 +151,6 @@ intel_lvds_disable(struct intel_lvds *intel_lvds)
 	u32 ctl_reg, lvds_reg, stat_reg;
 	int retries;
 
-printf("skipping %s\n", __func__);
-return;
-
 	if (HAS_PCH_SPLIT(dev_priv)) {
 		ctl_reg = PCH_PP_CONTROL;
 		lvds_reg = PCH_LVDS;
