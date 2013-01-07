@@ -231,6 +231,7 @@ void	 update_reg_attrs(struct intel_overlay *, struct overlay_registers *);
 bool	 check_gamma_bounds(u32, u32);
 bool	 check_gamma5_errata(u32);
 int	 check_gamma(struct drm_intel_overlay_attrs *);
+void	 update_polyphase_filter(struct overlay_registers *);
 
 struct overlay_registers *
 intel_overlay_map_regs(struct intel_overlay *overlay)
@@ -691,7 +692,6 @@ static const u16 uv_static_hcoeffs[N_HORIZ_UV_TAPS * N_PHASES] = {
 	0x3000, 0x0800, 0x3000
 };
 
-#ifdef notyet
 void
 update_polyphase_filter(struct overlay_registers *regs)
 {
@@ -699,6 +699,7 @@ update_polyphase_filter(struct overlay_registers *regs)
 	memcpy(regs->UV_HCOEFS, uv_static_hcoeffs, sizeof(uv_static_hcoeffs));
 }
 
+#ifdef notyet
 bool
 update_scaling_factors(struct intel_overlay *overlay,
     struct overlay_registers *regs, struct put_image_params *params)
@@ -1496,8 +1497,6 @@ out_unlock:
 void
 intel_setup_overlay(struct drm_device *dev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_overlay *overlay;
 	struct inteldrm_obj *reg_bo_priv;
@@ -1530,7 +1529,7 @@ intel_setup_overlay(struct drm_device *dev)
 			DRM_ERROR("failed to attach phys overlay regs\n");
 			goto out_free_bo;
 		}
-		overlay->flip_addr = reg_bo_priv->phys_obj->handle->busaddr;
+//		overlay->flip_addr = reg_bo_priv->phys_obj->handle->busaddr;
 	} else {
 		ret = i915_gem_object_pin(reg_bo, PAGE_SIZE, true);
 		if (ret) {
@@ -1576,7 +1575,6 @@ out_free:
 	DRM_UNLOCK();
 	free(overlay, M_DRM);
 	return;
-#endif
 }
 
 void

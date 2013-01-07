@@ -913,6 +913,11 @@ int i915_wait_request(struct inteldrm_softc *, uint32_t, int);
 u_int32_t i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
 #define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
 
+void i915_gem_detach_phys_object(struct drm_device *,
+    struct inteldrm_obj *);
+int i915_gem_attach_phys_object(struct drm_device *dev,
+    struct inteldrm_obj *, int, int);
+
 int i915_gem_dumb_create(struct drm_file *, struct drm_device *,
     struct drm_mode_create_dumb *);
 int i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,

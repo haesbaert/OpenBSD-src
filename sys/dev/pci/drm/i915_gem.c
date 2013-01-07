@@ -1889,7 +1889,15 @@ i915_gem_init_object(struct drm_obj *obj)
 // i915_gem_free_phys_object
 // i915_gem_free_all_phys_object
 // i915_gem_detach_phys_object
-// i915_gem_attach_phys_object
+
+int
+i915_gem_attach_phys_object(struct drm_device *dev,
+    struct inteldrm_obj *obj, int id, int align)
+{
+	printf("%s stub\n", __func__);
+	return (0);
+}
+
 // i915_gem_phys_pwrite
 // i915_gpu_is_active
 // i915_gem_lowmem
