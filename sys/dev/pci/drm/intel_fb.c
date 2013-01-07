@@ -219,8 +219,6 @@ intel_fbdev_destroy(struct drm_device *dev, struct intel_fbdev *ifbdev)
 int
 intel_fbdev_init(struct drm_device *dev)
 {
-printf("skipping %s\n", __func__);
-return -1;
 	struct intel_fbdev *ifbdev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	int ret;
