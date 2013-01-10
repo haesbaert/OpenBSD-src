@@ -3269,6 +3269,9 @@ ironlake_fdi_disable(struct drm_crtc *crtc)
 void
 intel_clear_scanline_wait(struct drm_device *dev)
 {
+	printf("%s stub\n", __func__);
+	/* XXX this needs ring code to change to new style */
+#if 0
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_ring_buffer *ring;
 	u32 tmp;
@@ -3281,6 +3284,7 @@ intel_clear_scanline_wait(struct drm_device *dev)
 	tmp = I915_READ_CTL(ring);
 	if (tmp & RING_WAIT)
 		I915_WRITE_CTL(ring, tmp);
+#endif
 }
 
 void
@@ -8854,7 +8858,9 @@ gen6_enable_rps(struct inteldrm_softc *dev_priv)
 	u32 gtfifodbg;
 	int cur_freq, min_freq, max_freq;
 	int rc6_mode;
+#ifdef notyet
 	int i;
+#endif
 	int retries;
 
 	/* Here begins a magic sequence of register writes to enable
@@ -8883,8 +8889,11 @@ gen6_enable_rps(struct inteldrm_softc *dev_priv)
 	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
 	I915_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25);
 
+#ifdef notyet
+	/* XXX needs new style ring code */
 	for (i = 0; i < I915_NUM_RINGS; i++)
 		I915_WRITE(RING_MAX_IDLE(dev_priv->rings[i].mmio_base), 10);
+#endif
 
 	I915_WRITE(GEN6_RC_SLEEP, 0);
 	I915_WRITE(GEN6_RC1e_THRESHOLD, 1000);

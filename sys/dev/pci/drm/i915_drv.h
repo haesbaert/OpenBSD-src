@@ -256,7 +256,9 @@ struct inteldrm_softc {
 	struct mutex gt_lock;
 
 	drm_i915_sarea_t *sarea_priv;
+#ifdef notyet
 	struct intel_ring_buffer rings[I915_NUM_RINGS];
+#endif
 
 	union flush {
 		struct {
