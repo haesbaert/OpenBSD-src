@@ -218,6 +218,7 @@ intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
 			if ((I915_READ(PCH_ADPA) &
 			    ADPA_CRT_HOTPLUG_FORCE_TRIGGER) == 0)
 				break;
+			DELAY(1000);
 		}
 		if (retries == 0)
 			DRM_ERROR("timed out waiting for FORCE_TRIGGER\n");
@@ -279,6 +280,7 @@ intel_crt_detect_hotplug(struct drm_connector *connector)
 			if ((I915_READ(PORT_HOTPLUG_EN) &
 			    CRT_HOTPLUG_FORCE_DETECT) == 0)
 				break;
+			DELAY(1000);
 		}
 		if (retries == 0)
 			DRM_ERROR("timed out waiting for FORCE_DETECT to go off");

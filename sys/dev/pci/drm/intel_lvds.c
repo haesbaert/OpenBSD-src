@@ -167,6 +167,7 @@ intel_lvds_disable(struct intel_lvds *intel_lvds)
 	for (retries = 1000; retries > 0; retries--) {
 		if ((I915_READ(stat_reg) & PP_ON) == 0)
 			break;
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("timed out waiting for panel to power off\n");

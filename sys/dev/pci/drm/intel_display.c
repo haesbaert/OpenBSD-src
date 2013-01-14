@@ -1572,7 +1572,7 @@ intel_enable_transcoder(struct inteldrm_softc *dev_priv, enum pipe pipe)
 	for (retries = 100; retries > 0; retries--) {
 		if (I915_READ(reg) & TRANS_STATE_ENABLE)
 			break;
-		DELAY(1);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("failed to enable transcoder %d\n", pipe);
@@ -1600,7 +1600,7 @@ intel_disable_transcoder(struct inteldrm_softc *dev_priv, enum pipe pipe)
 	for (retries = 50; retries > 0; retries--) {
 		if ((I915_READ(reg) & TRANS_STATE_ENABLE) == 0)
 			break;
-		DELAY(1);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("failed to disable transcoder %d\n", pipe);
