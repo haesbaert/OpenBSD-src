@@ -53,8 +53,14 @@ int	 intel_update_plane(struct drm_plane *, struct drm_crtc *,
 	     uint32_t, uint32_t, uint32_t, uint32_t);
 int	 intel_sprite_disable_plane(struct drm_plane *);
 void	 intel_destroy_plane(struct drm_plane *);
+void	 ivb_update_plane(struct drm_plane *, struct drm_framebuffer *,
+	     struct inteldrm_obj *, int, int, unsigned int, unsigned int,
+	     uint32_t, uint32_t, uint32_t, uint32_t);
+void	 snb_update_plane(struct drm_plane *, struct drm_framebuffer *,
+	     struct inteldrm_obj *, int, int, unsigned int, unsigned int,
+	     uint32_t, uint32_t, uint32_t, uint32_t);
+void	 intel_disable_primary(struct drm_crtc *);
 
-#ifdef notyet
 void
 ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
     struct inteldrm_obj *obj, int crtc_x, int crtc_y,
@@ -154,7 +160,6 @@ ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 	I915_WRITE(SPRSURF(pipe), obj->gtt_offset);
 	POSTING_READ(SPRSURF(pipe));
 }
-#endif
 
 void
 ivb_disable_plane(struct drm_plane *plane)
@@ -226,7 +231,6 @@ ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 		key->flags = I915_SET_COLORKEY_NONE;
 }
 
-#ifdef notyet
 void
 snb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
     struct inteldrm_obj *obj, int crtc_x, int crtc_y,
@@ -312,7 +316,6 @@ snb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 	I915_WRITE(DVSSURF(pipe), obj->gtt_offset);
 	POSTING_READ(DVSSURF(pipe));
 }
-#endif
 
 void
 snb_disable_plane(struct drm_plane *plane)
@@ -341,7 +344,6 @@ intel_enable_primary(struct drm_crtc *crtc)
 	I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
 }
 
-#ifdef notyet
 void
 intel_disable_primary(struct drm_crtc *crtc)
 {
@@ -352,7 +354,6 @@ intel_disable_primary(struct drm_crtc *crtc)
 
 	I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
 }
-#endif
 
 int
 snb_update_colorkey(struct drm_plane *plane,
@@ -414,15 +415,13 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
     unsigned int crtc_h, uint32_t src_x, uint32_t src_y, uint32_t src_w,
     uint32_t src_h)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#if 0
 	struct drm_device *dev = plane->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj, *old_obj;
+	struct inteldrm_obj *obj_priv, *old_obj_priv;
+	struct drm_obj *obj, *old_obj;
 	int pipe = intel_plane->pipe;
 	int ret = 0;
 	int x = src_x >> 16, y = src_y >> 16;
@@ -430,9 +429,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	bool disable_primary = false;
 
 	intel_fb = to_intel_framebuffer(fb);
-	obj = intel_fb->obj;
+	obj_priv = intel_fb->obj;
+	obj = (struct drm_obj *)obj_priv;
 
-	old_obj = intel_plane->obj;
+	old_obj_priv = intel_plane->obj;
+	old_obj = (struct drm_obj *)old_obj_priv;
 
 	src_w = src_w >> 16;
 	src_h = src_h >> 16;
@@ -491,11 +492,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	DRM_LOCK();
 
-	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
+	ret = intel_pin_and_fence_fb_obj(dev, obj, false);
 	if (ret)
 		goto out_unlock;
 
-	intel_plane->obj = obj;
+	intel_plane->obj = obj_priv;
 
 	/*
 	 * Be sure to re-enable the primary before the sprite is no longer
@@ -506,7 +507,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		intel_plane->primary_disabled = false;
 	}
 
-	intel_plane->update_plane(plane, fb, obj, crtc_x, crtc_y,
+	intel_plane->update_plane(plane, fb, obj_priv, crtc_x, crtc_y,
 				  crtc_w, crtc_h, x, y, src_w, src_h);
 
 	if (disable_primary) {
@@ -515,14 +516,14 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	}
 
 	/* Unpin old obj after new one is active to avoid ugliness */
-	if (old_obj) {
+	if (old_obj_priv) {
 		/*
 		 * It's fairly common to simply update the position of
 		 * an existing object.  In that case, we don't need to
 		 * wait for vblank to avoid ugliness, we only need to
 		 * do the pin & ref bookkeeping.
 		 */
-		if (old_obj != obj) {
+		if (old_obj_priv != obj_priv) {
 			DRM_UNLOCK();
 			intel_wait_for_vblank(dev, to_intel_crtc(crtc)->pipe);
 			DRM_LOCK();
@@ -534,7 +535,6 @@ out_unlock:
 	DRM_UNLOCK();
 out:
 	return ret;
-#endif
 }
 
 int
@@ -678,17 +678,13 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe)
 
 	if (IS_GEN6(dev_priv)) {
 		intel_plane->max_downscale = 16;
-#ifdef notyet
 		intel_plane->update_plane = snb_update_plane;
-#endif
 		intel_plane->disable_plane = snb_disable_plane;
 		intel_plane->update_colorkey = snb_update_colorkey;
 		intel_plane->get_colorkey = snb_get_colorkey;
 	} else if (IS_GEN7(dev_priv)) {
 		intel_plane->max_downscale = 2;
-#ifdef notyet
 		intel_plane->update_plane = ivb_update_plane;
-#endif
 		intel_plane->disable_plane = ivb_disable_plane;
 		intel_plane->update_colorkey = ivb_update_colorkey;
 		intel_plane->get_colorkey = ivb_get_colorkey;
