@@ -823,13 +823,13 @@ i915_save_state(struct inteldrm_softc *dev)
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
 		dev_priv->saveRAMCLK_GATE_D = I915_READ(RAMCLK_GATE_D);
 		dev_priv->saveDSPCLK_GATE_D = I915_READ(DSPCLK_GATE_D);
-	} else if (IS_I965GM(dev_priv)) {
+	} else if (IS_CRESTLINE(dev_priv)) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
 		dev_priv->saveDSPCLK_GATE_D = I915_READ(DSPCLK_GATE_D);
 		dev_priv->saveRAMCLK_GATE_D = I915_READ(RAMCLK_GATE_D);
 		dev_priv->saveDEUC = I915_READ16(DEUC);
-	} else if (IS_I965G(dev_priv)) {
+	} else if (INTEL_INFO(dev_priv)->gen >= 4) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
 	} else if (IS_I9XX(dev_priv)) {
@@ -893,13 +893,13 @@ i915_restore_state(struct inteldrm_softc *dev)
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
 		I915_WRITE(RAMCLK_GATE_D, dev_priv->saveRAMCLK_GATE_D);
 		I915_WRITE(DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
-	} else if (IS_I965GM(dev_priv)) {
+	} else if (IS_CRESTLINE(dev_priv)) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
 		I915_WRITE(DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
 		I915_WRITE(RAMCLK_GATE_D, dev_priv->saveRAMCLK_GATE_D);
 		I915_WRITE16(DEUC, dev_priv->saveDEUC);
-	} else if (IS_I965G(dev_priv)) {
+	} else if (INTEL_INFO(dev_priv)->gen >= 4) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
 	} else if (IS_I9XX(dev_priv)) {

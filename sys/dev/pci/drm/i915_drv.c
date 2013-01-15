@@ -613,8 +613,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	/* For the X server, in kms mode this will not be needed */
 	dev_priv->fence_reg_start = 3;
 
-	if (IS_I965G(dev_priv) || IS_I945G(dev_priv) || IS_I945GM(dev_priv) ||
-	    IS_G33(dev_priv))
+	if (INTEL_INFO(dev_priv)->gen >= 4 || IS_I945G(dev_priv) ||
+	    IS_I945GM(dev_priv) || IS_G33(dev_priv))
 		dev_priv->num_fence_regs = 16;
 	else
 		dev_priv->num_fence_regs = 8;
@@ -623,7 +623,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
 		for (i = 0; i < 16; i++)
 			I915_WRITE64(FENCE_REG_SANDYBRIDGE_0 + (i * 8), 0);
-	} else if (IS_I965G(dev_priv)) {
+	} else if (INTEL_INFO(dev_priv)->gen >= 4) {
 		for (i = 0; i < 16; i++)
 			I915_WRITE64(FENCE_REG_965_0 + (i * 8), 0);
 	} else {
@@ -644,7 +644,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	if (IS_I915G(dev_priv) || IS_I915GM(dev_priv) || IS_I945G(dev_priv) ||
 	    IS_I945GM(dev_priv)) {
 		i915_alloc_ifp(dev_priv, &bpa);
-	} else if (IS_I965G(dev_priv) || IS_G33(dev_priv)) {
+	} else if (INTEL_INFO(dev_priv)->gen >= 4 || IS_G33(dev_priv)) {
 		i965_alloc_ifp(dev_priv, &bpa);
 	} else {
 		int nsegs;
@@ -1030,7 +1030,7 @@ inteldrm_wait_ring(struct inteldrm_softc *dev_priv, int n)
 	u_int32_t		 acthd_reg, acthd, last_acthd, last_head;
 	int			 i;
 
-	acthd_reg = IS_I965G(dev_priv) ? ACTHD_I965 : ACTHD;
+	acthd_reg = INTEL_INFO(dev_priv)->gen >= 4 ? ACTHD_I965 : ACTHD;
 	last_head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
 	last_acthd = I915_READ(acthd_reg);
 
@@ -1568,7 +1568,7 @@ i915_gem_flush(struct inteldrm_softc *dev_priv, uint32_t invalidate_domains,
 	 * On the 965, the sampler cache always gets flushed
 	 * and this bit is reserved.
 	 */
-	if (!IS_I965G(dev_priv) &&
+	if (INTEL_INFO(dev_priv)->gen < 4 &&
 	    invalidate_domains & I915_GEM_DOMAIN_SAMPLER)
 		cmd |= MI_READ_FLUSH;
 	if (invalidate_domains & I915_GEM_DOMAIN_INSTRUCTION)
@@ -1759,14 +1759,22 @@ again:
 	reg->obj = obj;
 	TAILQ_INSERT_TAIL(&dev_priv->mm.fence_list, reg, list);
 
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+	switch (INTEL_INFO(dev_priv)->gen) {
+	case 7:
+	case 6:
 		sandybridge_write_fence_reg(reg);
-	else if (IS_I965G(dev_priv))
+		break;
+	case 5:
+	case 4:
 		i965_write_fence_reg(reg);
-	else if (IS_I9XX(dev_priv))
+		break;
+	case 3:
 		i915_write_fence_reg(reg);
-	else
+		break;
+	case 2:
 		i830_write_fence_reg(reg);
+		break;
+	}
 	mtx_leave(&dev_priv->fence_lock);
 
 	return 0;
@@ -2118,7 +2126,7 @@ i915_dispatch_gem_execbuffer(struct drm_device *dev,
 		OUT_RING(MI_NOOP);
 	} else {
 		BEGIN_LP_RING(4);
-		if (IS_I965G(dev_priv)) {
+		if (INTEL_INFO(dev_priv)->gen >= 4) {
 			if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
 				OUT_RING(MI_BATCH_BUFFER_START |
 				    MI_BATCH_NON_SECURE_I965);
@@ -2497,7 +2505,7 @@ inteldrm_error(struct inteldrm_softc *dev_priv)
 		if (eir & I915_ERROR_INSTRUCTION) {
 			printf("  INSTPM: 0x%08x\n",
 			       I915_READ(INSTPM));
-			if (!IS_I965G(dev_priv)) {
+			if (INTEL_INFO(dev_priv)->gen < 4) {
 				ipeir = I915_READ(IPEIR);
 
 				printf("  IPEIR: 0x%08x\n",
@@ -2624,7 +2632,7 @@ inteldrm_hangcheck(void *arg)
 		return;
 	}
 
-	if (IS_I965G(dev_priv)) {
+	if (INTEL_INFO(dev_priv)->gen >= 4) {
 		acthd = I915_READ(ACTHD_I965);
 		instdone = I915_READ(INSTDONE_I965);
 		instdone1 = I915_READ(INSTDONE1);
@@ -2760,8 +2768,9 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 	u_int64_t	mchbar_addr;
 	pcireg_t	tmp, low, high = 0;
 	u_long		addr;
-	int		reg = IS_I965G(dev_priv) ? MCHBAR_I965 : MCHBAR_I915;
-	int		ret = 1, enabled = 0;
+	int		reg, ret = 1, enabled = 0;
+
+	reg = INTEL_INFO(dev_priv)->gen >= 4 ?  MCHBAR_I965 : MCHBAR_I915;
 
 	if (IS_I915G(dev_priv) || IS_I915GM(dev_priv)) {
 		tmp = pci_conf_read(bpa->pa_pc, bpa->pa_tag, DEVEN_REG);
@@ -2775,7 +2784,7 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 		return (0);
 	}
 
-	if (IS_I965G(dev_priv))
+	if (INTEL_INFO(dev_priv)->gen >= 4)
 		high = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg + 4);
 	low = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg);
 	mchbar_addr = ((u_int64_t)high << 32) | low;
@@ -2798,7 +2807,7 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 			mchbar_addr = addr;
 			ret = 2;
 			/* We've allocated it, now fill in the BAR again */
-			if (IS_I965G(dev_priv))
+			if (INTEL_INFO(dev_priv)->gen >= 4)
 				pci_conf_write(bpa->pa_pc, bpa->pa_tag,
 				    reg + 4, upper_32_bits(mchbar_addr));
 			pci_conf_write(bpa->pa_pc, bpa->pa_tag,
@@ -2827,11 +2836,13 @@ inteldrm_teardown_mchbar(struct inteldrm_softc *dev_priv,
 {
 	u_int64_t	mchbar_addr;
 	pcireg_t	tmp, low, high = 0;
-	int		reg = IS_I965G(dev_priv) ? MCHBAR_I965 : MCHBAR_I915;
+	int		reg;
+
+	reg = INTEL_INFO(dev_priv)->gen >= 4 ? MCHBAR_I965 : MCHBAR_I915;
 
 	switch(disable) {
 	case 2:
-		if (IS_I965G(dev_priv))
+		if (INTEL_INFO(dev_priv)->gen >= 4)
 			high = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg + 4);
 		low = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg);
 		mchbar_addr = ((u_int64_t)high << 32) | low;
@@ -3082,7 +3093,7 @@ i915_get_fence_size(struct inteldrm_softc *dev_priv, bus_size_t size)
 {
 	bus_size_t	i, start;
 
-	if (IS_I965G(dev_priv)) {
+	if (INTEL_INFO(dev_priv)->gen >= 4) {
 		/* 965 can have fences anywhere, so align to gpu-page size */
 		return ((size + (4096 - 1)) & ~(4096 - 1));
 	} else {
@@ -3112,7 +3123,7 @@ i915_gem_object_fence_offset_ok(struct drm_obj *obj, int tiling_mode)
 	if (obj_priv->dmamap == NULL || tiling_mode == I915_TILING_NONE)
 		return (1);
 
-	if (!IS_I965G(dev_priv)) {
+	if (INTEL_INFO(dev_priv)->gen < 4) {
 		if (obj_priv->gtt_offset & (obj->size -1))
 			return (0);
 		if (IS_I9XX(dev_priv)) {
@@ -3418,7 +3429,7 @@ i915_ringbuffer_info(int kdev)
 	printf("RingTail :  %08x\n", tail);
 	printf("RingMask :  %08x\n", dev_priv->ring.size - 1);
 	printf("RingSize :  %08lx\n", dev_priv->ring.size);
-	printf("Acthd :  %08x\n", I915_READ(IS_I965G(dev_priv) ?
+	printf("Acthd :  %08x\n", I915_READ(INTEL_INFO(dev_priv)->gen >= 4 ?
 	    ACTHD_I965 : ACTHD));
 }
 
