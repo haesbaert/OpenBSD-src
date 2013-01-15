@@ -1843,8 +1843,6 @@ i8xx_disable_fbc(struct drm_device *dev)
 void
 i8xx_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 {
-	printf("%s stub\n", __func__);
-#if 0
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->fb;
@@ -1884,7 +1882,6 @@ i8xx_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 
 	DRM_DEBUG_KMS("enabled FBC, pitch %d, yoff %d, plane %d, ",
 		      cfb_pitch, crtc->y, intel_crtc->plane);
-#endif
 }
 
 bool
@@ -1898,8 +1895,6 @@ i8xx_fbc_enabled(struct drm_device *dev)
 void
 g4x_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 {
-	printf("%s stub\n", __func__);
-#if 0
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->fb;
@@ -1923,7 +1918,6 @@ g4x_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	I915_WRITE(DPFC_CONTROL, I915_READ(DPFC_CONTROL) | DPFC_CTL_EN);
 
 	DRM_DEBUG_KMS("enabled fbc on plane %d\n", intel_crtc->plane);
-#endif
 }
 
 void
@@ -1950,7 +1944,6 @@ g4x_fbc_enabled(struct drm_device *dev)
 	return I915_READ(DPFC_CONTROL) & DPFC_CTL_EN;
 }
 
-#ifdef notyet
 void
 sandybridge_blit_fbc_update(struct drm_device *dev)
 {
@@ -1971,13 +1964,10 @@ sandybridge_blit_fbc_update(struct drm_device *dev)
 	POSTING_READ(GEN6_BLITTER_ECOSKPD);
 	gen6_gt_force_wake_put(dev_priv);
 }
-#endif
 
 void
 ironlake_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 {
-	printf("%s stub\n", __func__);
-#if 0
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->fb;
@@ -2012,7 +2002,6 @@ ironlake_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	}
 
 	DRM_DEBUG_KMS("enabled fbc on plane %d\n", intel_crtc->plane);
-#endif
 }
 
 void
@@ -2280,16 +2269,12 @@ intel_update_fbc(struct drm_device *dev)
 		dev_priv->no_fbc_reason = FBC_BAD_PLANE;
 		goto out_disable;
 	}
-#ifdef notyet
 	if (obj->tiling_mode != I915_TILING_X ||
 	    obj->fence_reg == I915_FENCE_REG_NONE) {
 		DRM_DEBUG_KMS("framebuffer not tiled or fenced, disabling compression\n");
 		dev_priv->no_fbc_reason = FBC_NOT_TILED;
 		goto out_disable;
 	}
-#else
-	printf("%s todo fb tile/fence check\n", __func__);
-#endif
 
 	/* If the scanout has not changed, don't modify the FBC settings.
 	 * Note that we make the fundamental assumption that the fb->obj
@@ -3290,8 +3275,6 @@ intel_clear_scanline_wait(struct drm_device *dev)
 void
 intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct inteldrm_obj *obj;
 	struct inteldrm_softc *dev_priv;
 	struct drm_device *dev;
@@ -3306,7 +3289,6 @@ intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 	while (atomic_read(&obj->pending_flip) != 0)
 		msleep(&obj->pending_flip, &dev->event_lock, 0, "915wfl", 0);
 	mtx_leave(&dev->event_lock);
-#endif
 }
 
 bool
@@ -7129,23 +7111,19 @@ intel_framebuffer_create(struct drm_device *dev,
 	return (0);
 }
 
-#ifdef notyet
 u32
 intel_framebuffer_pitch_for_width(int width, int bpp)
 {
 	u32 pitch = howmany(width * bpp, 8);
 	return roundup2(pitch, 64);
 }
-#endif
 
-#ifdef notyet
 u32
 intel_framebuffer_size_for_mode(struct drm_display_mode *mode, int bpp)
 {
 	u32 pitch = intel_framebuffer_pitch_for_width(mode->hdisplay, bpp);
 	return roundup2(pitch * mode->vdisplay, PAGE_SIZE);
 }
-#endif
 
 int
 intel_framebuffer_create_for_mode(struct drm_device *dev,
@@ -8036,13 +8014,11 @@ int
 intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
     struct drm_pending_vblank_event *event)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj;
+	struct inteldrm_obj *obj_priv;
+	struct drm_obj *obj, *work_obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
 	int ret;
@@ -8064,9 +8040,9 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		goto free_work;
 
 	/* We borrow the event spin lock for protecting unpin_work */
-	mtx_lock(&dev->event_lock);
+	mtx_enter(&dev->event_lock);
 	if (intel_crtc->unpin_work) {
-		mtx_unlock(&dev->event_lock);
+		mtx_enter(&dev->event_lock);
 		free(work, M_DRM);
 		drm_vblank_put(dev, intel_crtc->pipe);
 
@@ -8074,20 +8050,22 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		return -EBUSY;
 	}
 	intel_crtc->unpin_work = work;
-	mtx_unlock(&dev->event_lock);
+	mtx_leave(&dev->event_lock);
 
 	intel_fb = to_intel_framebuffer(fb);
-	obj = intel_fb->obj;
+	obj_priv = intel_fb->obj;
+	obj = (struct drm_obj *)obj_priv;
 
 	DRM_LOCK();
 
 	/* Reference the objects for the scheduled work. */
-	drm_gem_object_reference(&work->old_fb_obj->base);
-	drm_gem_object_reference(&obj->base);
+	work_obj = (struct drm_obj *)work->old_fb_obj;
+	drm_gem_object_reference(work_obj);
+	drm_gem_object_reference(obj);
 
 	crtc->fb = fb;
 
-	work->pending_flip_obj = obj;
+	work->pending_flip_obj = obj_priv;
 
 	work->enable_stall_check = true;
 
@@ -8096,32 +8074,33 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	 */
 	atomic_set_int(&work->old_fb_obj->pending_flip, 1 << intel_crtc->plane);
 
-	ret = dev_priv->display.queue_flip(dev, crtc, fb, obj);
+	ret = dev_priv->display.queue_flip(dev, crtc, fb, obj_priv);
 	if (ret)
 		goto cleanup_pending;
 	intel_disable_fbc(dev);
 	DRM_UNLOCK();
 
+#ifdef notyet
 	CTR2(KTR_DRM, "i915_flip_request %d %p", intel_crtc->plane, obj);
+#endif
 
 	return 0;
 
 cleanup_pending:
 	atomic_sub(1 << intel_crtc->plane, &work->old_fb_obj->pending_flip);
-	drm_gem_object_unreference(&work->old_fb_obj->base);
-	drm_gem_object_unreference(&obj->base);
+	drm_gem_object_unreference(work_obj);
+	drm_gem_object_unreference(obj);
 	DRM_UNLOCK();
 
-	mtx_lock(&dev->event_lock);
+	mtx_enter(&dev->event_lock);
 	intel_crtc->unpin_work = NULL;
-	mtx_unlock(&dev->event_lock);
+	mtx_leave(&dev->event_lock);
 
 	drm_vblank_put(dev, intel_crtc->pipe);
 free_work:
 	free(work, M_DRM);
 
 	return ret;
-#endif
 }
 
 void

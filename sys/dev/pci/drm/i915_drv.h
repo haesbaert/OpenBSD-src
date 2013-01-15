@@ -113,11 +113,9 @@ struct drm_i915_display_funcs {
 	void (*fdi_link_train)(struct drm_crtc *crtc);
 	void (*init_clock_gating)(struct drm_device *dev);
 	void (*init_pch_clock_gating)(struct drm_device *dev);
-#ifdef notyet
 	int (*queue_flip)(struct drm_device *dev, struct drm_crtc *crtc,
 			  struct drm_framebuffer *fb,
 			  struct inteldrm_obj *obj);
-#endif
 	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
 	void (*force_wake_put)(struct inteldrm_softc *dev_priv);
 	int (*update_plane)(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -760,6 +758,13 @@ struct inteldrm_obj {
 	/** Current tiling mode for the object. */
 	u_int32_t				 tiling_mode;
 	u_int32_t				 stride;
+
+	/**
+	 * Number of crtcs where this object is currently the fb, but   
+	 * will be page flipped away on the next vblank.  When it
+	 * reaches 0, dev_priv->pending_flip_queue will be woken up.
+	 */
+	int					 pending_flip;
 };
 
 /**
