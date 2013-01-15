@@ -10,7 +10,7 @@
 struct  intel_hw_status_page {
 	uint32_t	*page_addr;
 	unsigned int	gfx_addr;
-	struct		drm_i915_gem_object *obj;
+	struct		inteldrm_obj *obj;
 };
 
 #define I915_READ_TAIL(ring) I915_READ(RING_TAIL((ring)->mmio_base))
@@ -43,7 +43,7 @@ struct  intel_ring_buffer {
 	uint32_t	mmio_base;
 	void		*virtual_start;
 	struct		drm_device *dev;
-//	struct		drm_i915_gem_object *obj;
+	struct		inteldrm_obj *obj;
 
 	uint32_t	head;
 	uint32_t	tail;
