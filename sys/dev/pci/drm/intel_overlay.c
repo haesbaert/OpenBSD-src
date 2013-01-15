@@ -232,6 +232,19 @@ bool	 check_gamma_bounds(u32, u32);
 bool	 check_gamma5_errata(u32);
 int	 check_gamma(struct drm_intel_overlay_attrs *);
 void	 update_polyphase_filter(struct overlay_registers *);
+bool	 update_scaling_factors(struct intel_overlay *,
+	     struct overlay_registers *, struct put_image_params *);
+void	 update_colorkey(struct intel_overlay *, struct overlay_registers *);
+u32	 overlay_cmd_reg(struct put_image_params *);
+u32	 max_u32(u32, u32);
+int	 intel_overlay_on(struct intel_overlay *);
+u32	 calc_swidthsw(struct drm_device *, u32, u32);
+int	 intel_overlay_continue(struct intel_overlay *, bool);
+int	 intel_overlay_do_wait_request(struct intel_overlay *,
+	     struct inteldrm_request *, void (*tail)(struct intel_overlay *));
+int	 i830_activate_pipe_a(struct drm_device *);
+void	 i830_deactivate_pipe_a(struct drm_device *);
+void	 intel_overlay_release_old_vid_tail(struct intel_overlay *);
 
 struct overlay_registers *
 intel_overlay_map_regs(struct intel_overlay *overlay)
@@ -266,7 +279,6 @@ intel_overlay_unmap_regs(struct intel_overlay *overlay,
 #endif
 }
 
-#ifdef notyet
 int
 intel_overlay_do_wait_request(struct intel_overlay *overlay,
     struct inteldrm_request *request, void (*tail)(struct intel_overlay *))
@@ -447,7 +459,6 @@ intel_overlay_release_old_vid_tail(struct intel_overlay *overlay)
 
 	overlay->old_vid_bo = NULL;
 }
-#endif // notyet
 
 void
 intel_overlay_off_tail(struct intel_overlay *overlay)
@@ -639,7 +650,6 @@ uv_vsubsampling(u32 format)
 	}
 }
 
-#ifdef notyet
 u32
 calc_swidthsw(struct drm_device *dev, u32 offset, u32 width)
 {
@@ -658,7 +668,6 @@ calc_swidthsw(struct drm_device *dev, u32 offset, u32 width)
 	ret -= 1;
 	return ret << 2;
 }
-#endif
 
 static const u16 y_static_hcoeffs[N_HORIZ_Y_TAPS * N_PHASES] = {
 	0x3000, 0xb4a0, 0x1930, 0x1920, 0xb4a0,
@@ -699,7 +708,6 @@ update_polyphase_filter(struct overlay_registers *regs)
 	memcpy(regs->UV_HCOEFS, uv_static_hcoeffs, sizeof(uv_static_hcoeffs));
 }
 
-#ifdef notyet
 bool
 update_scaling_factors(struct intel_overlay *overlay,
     struct overlay_registers *regs, struct put_image_params *params)
@@ -838,15 +846,11 @@ max_u32(u32 a, u32 b)
 
 	return (a > b ? a : b);
 }
-#endif // notyet
 
 int
 intel_overlay_do_put_image(struct intel_overlay *overlay,
     struct inteldrm_obj *new_bo_priv, struct put_image_params *params)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#if 0
 	struct inteldrm_softc *dev_priv;
 	struct drm_obj *new_bo = (struct drm_obj *)new_bo_priv;
 	int ret, tmp_width;
@@ -868,7 +872,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 	if (ret != 0)
 		goto out_unpin;
 
-	ret = i915_gem_object_put_fence(new_bo);
+	ret = i915_gem_object_put_fence_reg(new_bo, 1);
 	if (ret)
 		goto out_unpin;
 
@@ -940,14 +944,13 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 		goto out_unpin;
 
 	overlay->old_vid_bo = overlay->vid_bo;
-	overlay->vid_bo = new_bo;
+	overlay->vid_bo = (struct inteldrm_obj *)new_bo;
 
 	return 0;
 
 out_unpin:
 	i915_gem_object_unpin(new_bo);
 	return ret;
-#endif
 }
 
 int
