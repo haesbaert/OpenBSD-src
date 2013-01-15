@@ -116,7 +116,7 @@ struct drm_i915_display_funcs {
 #ifdef notyet
 	int (*queue_flip)(struct drm_device *dev, struct drm_crtc *crtc,
 			  struct drm_framebuffer *fb,
-			  struct drm_i915_gem_object *obj);
+			  struct inteldrm_obj *obj);
 #endif
 	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
 	void (*force_wake_put)(struct inteldrm_softc *dev_priv);

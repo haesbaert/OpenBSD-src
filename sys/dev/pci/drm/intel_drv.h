@@ -160,13 +160,13 @@ struct intel_crtc {
 struct intel_plane {
 	struct drm_plane base;
 	enum pipe pipe;
-	struct drm_i915_gem_object *obj;
+	struct inteldrm_obj *obj;
 	bool primary_disabled;
 	int max_downscale;
 	u32 lut_r[1024], lut_g[1024], lut_b[1024];
 	void (*update_plane)(struct drm_plane *plane,
 			     struct drm_framebuffer *fb,
-			     struct drm_i915_gem_object *obj,
+			     struct inteldrm_obj *obj,
 			     int crtc_x, int crtc_y,
 			     unsigned int crtc_w, unsigned int crtc_h,
 			     uint32_t x, uint32_t y,
@@ -256,8 +256,8 @@ intel_get_crtc_for_plane(struct drm_device *dev, int plane)
 struct intel_unpin_work {
 //	struct task task;
 	struct drm_device *dev;
-	struct drm_i915_gem_object *old_fb_obj;
-	struct drm_i915_gem_object *pending_flip_obj;
+	struct inteldrm_obj *old_fb_obj;
+	struct inteldrm_obj *pending_flip_obj;
 	struct drm_pending_vblank_event *event;
 	int pending;
 	bool enable_stall_check;

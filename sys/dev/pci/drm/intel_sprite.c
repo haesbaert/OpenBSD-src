@@ -57,7 +57,7 @@ void	 intel_destroy_plane(struct drm_plane *);
 #ifdef notyet
 void
 ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
-    struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
+    struct inteldrm_obj *obj, int crtc_x, int crtc_y,
     unsigned int crtc_w, unsigned int crtc_h, uint32_t x, uint32_t y,
     uint32_t src_w, uint32_t src_h)
 {
@@ -229,7 +229,7 @@ ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 #ifdef notyet
 void
 snb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
-    struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
+    struct inteldrm_obj *obj, int crtc_x, int crtc_y,
     unsigned int crtc_w, unsigned int crtc_h, uint32_t x, uint32_t y,
     uint32_t src_w, uint32_t src_h)
 {
@@ -422,7 +422,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj, *old_obj;
+	struct inteldrm_obj *obj, *old_obj;
 	int pipe = intel_plane->pipe;
 	int ret = 0;
 	int x = src_x >> 16, y = src_y >> 16;
