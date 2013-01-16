@@ -891,9 +891,10 @@ inteldrm_ironlake_intr(void *arg)
 {
 	struct inteldrm_softc	*dev_priv = arg;
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	u_int32_t		 de_iir, gt_iir, de_ier, pch_iir;
+	u_int32_t		 de_iir, gt_iir, de_ier, pch_iir, pm_iir;
 	int			 ret = 0, i;
 
+	/* disable master interrupt before clearing iir  */
 	de_ier = I915_READ(DEIER);
 	I915_WRITE(DEIER, de_ier & ~DE_MASTER_IRQ_CONTROL);
 	(void)I915_READ(DEIER);
@@ -901,8 +902,10 @@ inteldrm_ironlake_intr(void *arg)
 	de_iir = I915_READ(DEIIR);
 	gt_iir = I915_READ(GTIIR);
 	pch_iir = I915_READ(SDEIIR);
+	pm_iir = I915_READ(GEN6_PMIIR);
 
-	if (de_iir == 0 && gt_iir == 0 && pch_iir == 0)
+	if (de_iir == 0 && gt_iir == 0 && pch_iir == 0 &&
+	    (!IS_GEN6(dev_priv) || pm_iir == 0))
 		goto done;
 	ret = 1;
 
@@ -930,6 +933,7 @@ inteldrm_ironlake_intr(void *arg)
 	I915_WRITE(SDEIIR, pch_iir);
 	I915_WRITE(GTIIR, gt_iir);
 	I915_WRITE(DEIIR, de_iir);
+	I915_WRITE(GEN6_PMIIR, pm_iir);
 
 done:
 	I915_WRITE(DEIER, de_ier);
