@@ -8435,11 +8435,7 @@ intel_user_framebuffer_destroy(struct drm_framebuffer *fb)
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
 
 	drm_framebuffer_cleanup(fb);
-#ifdef notyet
-	drm_gem_object_unreference_unlocked(&intel_fb->obj->base);
-#else
-	printf("%s todo gem fb cleanup\n", __func__);
-#endif
+	drm_gem_object_unreference_unlocked(&intel_fb->obj->obj);
 
 	free(intel_fb, M_DRM);
 }

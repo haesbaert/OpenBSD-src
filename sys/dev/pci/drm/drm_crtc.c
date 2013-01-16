@@ -376,7 +376,7 @@ drm_framebuffer_cleanup(struct drm_framebuffer *fb)
 	}
 
 	drm_mode_object_put(dev, &fb->base);
-	// TAILQ_REMOVE(&fb->head);
+	TAILQ_REMOVE(&dev->mode_config.fb_list, fb, head);
 	dev->mode_config.num_fb--;
 }
 
@@ -2333,7 +2333,7 @@ drm_mode_rmfb(struct drm_device *dev, void *data,
 	/* TODO release all crtc connected to the framebuffer */
 	/* TODO unhock the destructor from the buffer object */
 
-	// TAILQ_REMOVE(&fb->filp_head);
+	TAILQ_REMOVE(&file_priv->fbs, fb, filp_head);
 	fb->funcs->destroy(fb);
 
 out:
