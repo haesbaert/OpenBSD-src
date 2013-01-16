@@ -884,7 +884,6 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 	struct drm_obj			*obj;
 	struct inteldrm_obj		*obj_priv;
 	struct drm_local_map		*map;
-	vaddr_t				 addr;
 	voff_t				 offset; 
 	vsize_t				 end, nsize;
 	int				 ret;
@@ -906,22 +905,18 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 		goto done;
 	}
 
+	ret = i915_gem_object_bind_to_gtt(obj, 0, 0);
+	if (ret) {
+		printf("%s: failed to bind\n", __func__);
+		goto done;
+	}
+	i915_gem_object_move_to_inactive(obj);
+
 	end = round_page(offset + obj->size);
 	offset = trunc_page(offset);
 	nsize = end - offset;
 
-	/*
-	 * We give our reference from object_lookup to the mmap, so only
-	 * must free it in the case that the map fails.
-	 */
-	addr = 0;
-	ret = uvm_map(&curproc->p_vmspace->vm_map, &addr, nsize, &obj->uobj,
-	    offset, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
-	    UVM_INH_SHARE, UVM_ADV_RANDOM, 0));
-	if (ret != 0)
-		goto done;
-
-	ret = drm_addmap(dev, offset, nsize, _DRM_AGP,
+	ret = drm_addmap(dev, offset + obj_priv->gtt_offset, nsize, _DRM_AGP,
 	    _DRM_WRITE_COMBINING, &map);
 	
 done:
