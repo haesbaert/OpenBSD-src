@@ -1297,10 +1297,20 @@ inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 		value = 1;
 		break;
 	case I915_PARAM_HAS_BSD:
+#ifdef notyet
+		// XXX support BSD ring
 		value = HAS_BSD(dev_priv);
+#else
+		return EINVAL;
+#endif
 		break;
 	case I915_PARAM_HAS_BLT:
+#ifdef notyet
+		// XXX support BLT ring
 		value = HAS_BLT(dev_priv);
+#else
+		return EINVAL;
+#endif
 		break;
 	case I915_PARAM_HAS_RELAXED_FENCING:
 		value = 0;
