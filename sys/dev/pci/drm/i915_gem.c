@@ -1200,7 +1200,8 @@ i915_gem_get_gtt_alignment(struct drm_obj *obj)
 	 * Minimum alignment is 4k (GTT page size), but fence registers may
 	 * modify this
 	 */
-	if (IS_I965G(dev_priv) || obj_priv->tiling_mode == I915_TILING_NONE)
+	if (INTEL_INFO(dev_priv)->gen >= 4 ||
+	    obj_priv->tiling_mode == I915_TILING_NONE)
 		return (4096);
 
 	/*
@@ -1828,7 +1829,7 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 	}
 
 	mtx_enter(&dev_priv->fence_lock);
-	if (IS_I965G(dev_priv)) {
+	if (INTEL_INFO(dev_priv)->gen >= 4) {
 		I915_WRITE64(FENCE_REG_965_0 + (obj_priv->fence_reg * 8), 0);
 	} else {
 		u_int32_t fence_reg;

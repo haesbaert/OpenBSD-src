@@ -938,6 +938,7 @@ output_poll_execute(struct work_struct *work)
 void 
 drm_kms_helper_poll_disable(struct drm_device *dev)
 {
+	printf("%s stub\n", __func__);
 #ifdef notyet
 	if (!dev->mode_config.poll_enabled)
 		return;
@@ -948,6 +949,7 @@ drm_kms_helper_poll_disable(struct drm_device *dev)
 void 
 drm_kms_helper_poll_enable(struct drm_device *dev)
 {
+	printf("%s stub\n", __func__);
 #ifdef notyet
 	bool poll = false;
 	struct drm_connector *connector;
@@ -968,6 +970,7 @@ drm_kms_helper_poll_enable(struct drm_device *dev)
 void 
 drm_kms_helper_poll_init(struct drm_device *dev)
 {
+	printf("%s stub\n", __func__);
 #ifdef notyet
 	INIT_DELAYED_WORK(&dev->mode_config.output_poll_work, output_poll_execute);
 	dev->mode_config.poll_enabled = true;
@@ -985,6 +988,7 @@ drm_kms_helper_poll_fini(struct drm_device *dev)
 void 
 drm_helper_hpd_irq_event(struct drm_device *dev)
 {
+	printf("%s stub\n", __func__);
 #ifdef notyet
 	if (!dev->mode_config.poll_enabled)
 		return;

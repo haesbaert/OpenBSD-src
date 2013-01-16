@@ -288,6 +288,27 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		DRM_ERROR("execbuf with %d buffers\n", args->buffer_count);
 		return (EINVAL);
 	}
+#if 1
+	/* XXX support BSD/BLT rings */
+	switch (args->flags & I915_EXEC_RING_MASK) {
+	case I915_EXEC_DEFAULT:
+	case I915_EXEC_RENDER:
+		break;
+	case I915_EXEC_BSD:
+		printf("BSD ring not supported\n");
+		return (EINVAL);
+		break;
+	case I915_EXEC_BLT:
+		printf("BLT ring not supported\n");
+		return (EINVAL);
+		break;
+	default:
+		printf("unknown ring %d\n",
+		    (int)(args->flags & I915_EXEC_RING_MASK));
+		return (EINVAL);
+	}
+#endif
+
 	/* Copy in the exec list from userland, check for overflow */
 	oflow = SIZE_MAX / args->buffer_count;
 	if (oflow < sizeof(*exec_list) || oflow < sizeof(*object_list))

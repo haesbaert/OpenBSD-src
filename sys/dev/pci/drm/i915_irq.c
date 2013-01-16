@@ -231,7 +231,8 @@ i915_enable_vblank(struct drm_device *dev, int pipe)
 		ironlake_enable_display_irq(dev_priv, (pipe == 0) ?
 		    DE_PIPEA_VBLANK : DE_PIPEB_VBLANK);
 	else
-		i915_enable_pipestat(dev_priv, pipe, (IS_I965G(dev_priv) ?
+		i915_enable_pipestat(dev_priv, pipe,
+		    (INTEL_INFO(dev_priv)->gen >= 4 ?
 		    PIPE_START_VBLANK_INTERRUPT_ENABLE :
 		    PIPE_VBLANK_INTERRUPT_ENABLE));
 	mtx_leave(&dev_priv->user_irq_lock);

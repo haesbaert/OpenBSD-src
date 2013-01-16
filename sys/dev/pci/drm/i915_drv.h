@@ -113,11 +113,9 @@ struct drm_i915_display_funcs {
 	void (*fdi_link_train)(struct drm_crtc *crtc);
 	void (*init_clock_gating)(struct drm_device *dev);
 	void (*init_pch_clock_gating)(struct drm_device *dev);
-#ifdef notyet
 	int (*queue_flip)(struct drm_device *dev, struct drm_crtc *crtc,
 			  struct drm_framebuffer *fb,
-			  struct drm_i915_gem_object *obj);
-#endif
+			  struct inteldrm_obj *obj);
 	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
 	void (*force_wake_put)(struct inteldrm_softc *dev_priv);
 	int (*update_plane)(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -760,6 +758,13 @@ struct inteldrm_obj {
 	/** Current tiling mode for the object. */
 	u_int32_t				 tiling_mode;
 	u_int32_t				 stride;
+
+	/**
+	 * Number of crtcs where this object is currently the fb, but   
+	 * will be page flipped away on the next vblank.  When it
+	 * reaches 0, dev_priv->pending_flip_queue will be woken up.
+	 */
+	int					 pending_flip;
 };
 
 /**
@@ -1093,33 +1098,25 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_845G(dev_priv)	((dev_priv)->pci_device == 0x2562)
 #define IS_I85X(dev_priv)	(INTEL_INFO(dev_priv)->is_i85x)
 #define IS_I865G(dev_priv)	((dev_priv)->pci_device == 0x2572)
-
 #define IS_I915G(dev_priv)	(INTEL_INFO(dev_priv)->is_i915g)
 #define IS_I915GM(dev_priv)	((dev_priv)->pci_device == 0x2592)
 #define IS_I945G(dev_priv)	((dev_priv)->pci_device == 0x2772)
 #define IS_I945GM(dev_priv)	(INTEL_INFO(dev_priv)->is_i945gm)
-/* XXX #define IS_I965G(dev_priv)	(INTEL_INFO(dev_priv)->is_broadwater) */
-#define IS_I965G(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 4)
-#define IS_I965GM(dev_priv)	(INTEL_INFO(dev_priv)->is_crestline)
-
-#define IS_GM45(dev_priv)	((dev_priv)->pci_device == 0x2A42)
-#define IS_G4X(dev_priv)	(INTEL_INFO(dev_priv)->is_g4x)
-
-#define IS_G33(dev_priv)	(INTEL_INFO(dev_priv)->is_g33)
-
-#define IS_I9XX(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 3)
-
 #define IS_BROADWATER(dev_priv)	(INTEL_INFO(dev_priv)->is_broadwater)
 #define IS_CRESTLINE(dev_priv)	(INTEL_INFO(dev_priv)->is_crestline)
-
+#define IS_GM45(dev_priv)	((dev_priv)->pci_device == 0x2A42)
+#define IS_G4X(dev_priv)	(INTEL_INFO(dev_priv)->is_g4x)
 #define IS_PINEVIEW_G(dev_priv)	((dev_priv)->pci_device == 0xa001)
 #define IS_PINEVIEW_M(dev_priv)	((dev_priv)->pci_device == 0xa011)
 #define IS_PINEVIEW(dev_priv)	(INTEL_INFO(dev_priv)->is_pineview)
-
-#define IS_IRONLAKE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
+#define IS_G33(dev_priv)	(INTEL_INFO(dev_priv)->is_g33)
 #define IS_IRONLAKE_D(dev_priv)	((dev_priv)->pci_device == 0x0042)
 #define IS_IRONLAKE_M(dev_priv)	((dev_priv)->pci_device == 0x0046)
+#define IS_IVYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->is_ivybridge)
+#define IS_MOBILE(dev_priv)	(INTEL_INFO(dev_priv)->is_mobile)
 
+#define IS_I9XX(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 3)
+#define IS_IRONLAKE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
 
 #define IS_SANDYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 6)
 #define IS_SANDYBRIDGE_D(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
@@ -1127,30 +1124,43 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_SANDYBRIDGE_M(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
  (INTEL_INFO(dev_priv)->is_mobile == 1))
 
-#define IS_IVYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 7)
-
-#define IS_MOBILE(dev_priv)	(INTEL_INFO(dev_priv)->is_mobile)
-
-#define HAS_BSD(dev_priv)	(INTEL_INFO(dev_priv)->has_bsd_ring)
-#define HAS_BLT(dev_priv)	(INTEL_INFO(dev_priv)->has_blt_ring)
-#define HAS_LLC(dev_priv)	(INTEL_INFO(dev_priv)->has_llc)
-#define I915_NEED_GFX_HWS(dev_priv)	(INTEL_INFO(dev_priv)->need_gfx_hws)
-
-#define HAS_ALIASING_PPGTT(dev_priv)	(INTEL_INFO(dev_priv)->gen >=6)
-
-#define HAS_OVERLAY(dev_priv)		(INTEL_INFO(dev_priv)->has_overlay)
-#define OVERLAY_NEEDS_PHYSICAL(dev_priv) \
-    (INTEL_INFO(dev_priv)->overlay_needs_physical)
-
-#define HAS_RESET(dev_priv)	IS_I965G(dev_priv) && (!IS_GEN6(dev_priv)) \
-    && (!IS_GEN7(dev_priv))
-
+/*
+ * The genX designation typically refers to the render engine, so render
+ * capability related checks should use IS_GEN, while display and other checks
+ * have their own (e.g. HAS_PCH_SPLIT for ILK+ display, IS_foo for particular
+ * chips, etc.).
+ */
 #define IS_GEN2(dev_priv)	(INTEL_INFO(dev_priv)->gen == 2)
 #define IS_GEN3(dev_priv)	(INTEL_INFO(dev_priv)->gen == 3)
 #define IS_GEN4(dev_priv)	(INTEL_INFO(dev_priv)->gen == 4)
 #define IS_GEN5(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
 #define IS_GEN6(dev_priv)	(INTEL_INFO(dev_priv)->gen == 6)
 #define IS_GEN7(dev_priv)	(INTEL_INFO(dev_priv)->gen == 7)
+
+#define HAS_BSD(dev_priv)	(INTEL_INFO(dev_priv)->has_bsd_ring)
+#define HAS_BLT(dev_priv)	(INTEL_INFO(dev_priv)->has_blt_ring)
+#define HAS_LLC(dev_priv)	(INTEL_INFO(dev_priv)->has_llc)
+#define I915_NEED_GFX_HWS(dev_priv)	(INTEL_INFO(dev_priv)->need_gfx_hws)
+
+#define HAS_HW_CONTEXTS(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 6)
+#define HAS_ALIASING_PPGTT(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 6)
+
+#define HAS_OVERLAY(dev_priv)		(INTEL_INFO(dev_priv)->has_overlay)
+#define OVERLAY_NEEDS_PHYSICAL(dev_priv) \
+    (INTEL_INFO(dev_priv)->overlay_needs_physical)
+
+/* Early gen2 have a totally busted CS tlb and require pinned batches. */
+#define HAS_BROKEN_CS_TLB(dev_priv)	(IS_I830(dev_priv) || IS_845G(dev_priv))
+
+/*
+ * With the 945 and later, Y tiling got adjusted so that it was 32 128-byte
+ * rows, which changes the alignment requirements and fence programming.
+ */
+#define HAS_128_BYTE_Y_TILING(dev_priv) (IS_I9XX(dev_priv) &&	\
+	!(IS_I915G(dev_priv) || IS_I915GM(dev_priv)))
+
+#define HAS_RESET(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 4 && \
+    (!IS_GEN6(dev_priv)) && (!IS_GEN7(dev_priv)))
 
 #define SUPPORTS_DIGITAL_OUTPUTS(dev)	(!IS_GEN2(dev) && !IS_PINEVIEW(dev))
 #define SUPPORTS_INTEGRATED_HDMI(dev)	(IS_G4X(dev) || IS_GEN5(dev))
@@ -1161,11 +1171,12 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define HAS_FW_BLC(dev)		(INTEL_INFO(dev)->gen > 2)
 #define HAS_PIPE_CXSR(dev)	(INTEL_INFO(dev)->has_pipe_cxsr)
-#define I915_HAS_FBC(dev)	(IS_I965GM(dev) || IS_GM45(dev))
+#define I915_HAS_FBC(dev)	(INTEL_INFO(dev)->has_fbc)
+
+#define HAS_PIPE_CONTROL(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 5)
 
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \
     IS_GEN7(dev))
-
 
 #define INTEL_PCH_TYPE(dev)	(dev->pch_type)
 #define HAS_PCH_CPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_CPT)
@@ -1210,13 +1221,6 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define	printeir(val)	printf("%s: error reg: %b\n", __func__, val,	\
 	"\20\x10PTEERR\x2REFRESHERR\x1INSTERR")
-
-/*
- * With the i45 and later, Y tiling got adjusted so that it was 32 128-byte
- * rows, which changes the alignment requirements and fence programming.
- */
-#define HAS_128_BYTE_Y_TILING(dev_priv) (IS_I9XX(dev_priv) &&	\
-	!(IS_I915G(dev_priv) || IS_I915GM(dev_priv)))
 
 #define PRIMARY_RINGBUFFER_SIZE         (128*1024)
 
