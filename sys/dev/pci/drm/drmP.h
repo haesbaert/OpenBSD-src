@@ -857,6 +857,16 @@ drm_gem_object_unreference(struct drm_obj *obj)
 	drm_unref(&obj->uobj);
 }
 
+static __inline void
+drm_gem_object_unreference_unlocked(struct drm_obj *obj)
+{
+	struct drm_device *dev = obj->dev;
+
+	DRM_LOCK();
+	drm_unref(&obj->uobj);
+	DRM_UNLOCK();
+}
+
 static __inline void 
 drm_lock_obj(struct drm_obj *obj)
 {
