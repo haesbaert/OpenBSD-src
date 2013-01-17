@@ -1532,7 +1532,7 @@ intel_setup_overlay(struct drm_device *dev)
 			DRM_ERROR("failed to attach phys overlay regs\n");
 			goto out_free_bo;
 		}
-//		overlay->flip_addr = reg_bo_priv->phys_obj->handle->busaddr;
+		overlay->flip_addr = reg_bo_priv->phys_obj->handle->segs[0].ds_addr;
 	} else {
 		ret = i915_gem_object_pin(reg_bo, PAGE_SIZE, true);
 		if (ret) {

@@ -6967,20 +6967,15 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 
 		addr = obj_priv->gtt_offset;
 	} else {
-#ifdef notyet
 		int align = IS_I830(dev) ? 16 * 1024 : 256;
-		ret = i915_gem_attach_phys_object(dev, obj,
+		ret = i915_gem_attach_phys_object(dev, obj_priv,
 						  (intel_crtc->pipe == 0) ? I915_GEM_PHYS_CURSOR_0 : I915_GEM_PHYS_CURSOR_1,
 						  align);
 		if (ret) {
 			DRM_ERROR("failed to attach phys object\n");
 			goto fail_locked;
 		}
-		addr = obj_priv->phys_obj->handle->busaddr;
-#else
-		printf("%s skipping attach to phys object\n", __func__);
-		goto fail_locked;
-#endif
+		addr = obj_priv->phys_obj->handle->segs[0].ds_addr;
 	}
 
 	if (IS_GEN2(dev_priv))
@@ -6993,11 +6988,9 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 			if (intel_crtc->cursor_bo != obj_priv)
 				i915_gem_detach_phys_object(dev, intel_crtc->cursor_bo);
 		} else
-			i915_gem_object_unpin(intel_crtc->cursor_bo);
-		drm_gem_object_unreference(&intel_crtc->cursor_bo->base);
+			i915_gem_object_unpin(&intel_crtc->cursor_bo->obj);
+		drm_gem_object_unreference(&intel_crtc->cursor_bo->obj);
 	}
-#else
-	printf("%s: skipping detach phys object\n", __func__);
 #endif
 
 	DRM_UNLOCK();

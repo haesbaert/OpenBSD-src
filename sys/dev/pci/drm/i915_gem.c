@@ -62,6 +62,10 @@
 
 void	 i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj);
 
+int i915_gem_init_phys_object(struct drm_device *, int, int, int);
+int i915_gem_phys_pwrite(struct drm_device *, struct inteldrm_obj *,
+			 struct drm_i915_gem_pwrite *, struct drm_file *);
+
 // i915_gem_info_add_obj
 // i915_gem_info_remove_obj
 // i915_gem_wait_for_error
@@ -793,6 +797,13 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
+	obj_priv = (struct inteldrm_obj *)obj;
+
+	if (obj_priv->phys_obj) {
+		ret = i915_gem_phys_pwrite(dev, obj_priv, args, file_priv);
+		goto out;
+	}
+
 	ret = i915_gem_object_pin(obj, 0, 1);
 	if (ret) {
 		goto out;
@@ -816,7 +827,6 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 
 	ret = copyin((char *)(uintptr_t)args->data_ptr,
 	    vaddr + (offset & PAGE_MASK), args->size);
-
 
 unmap:
 	agp_unmap_subregion(dev_priv->agph, bsh, bsize);
@@ -1881,20 +1891,151 @@ i915_gem_init_object(struct drm_obj *obj)
 // i915_gem_object_is_inactive
 // i915_gem_retire_task_handler
 // i915_gem_lastclose
-// i915_gem_init_phys_object
+
+int
+i915_gem_init_phys_object(struct drm_device *dev,
+			  int id, int size, int align)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_i915_gem_phys_object *phys_obj;
+	int ret;
+
+	if (dev_priv->mm.phys_objs[id - 1] || !size)
+		return 0;
+
+	phys_obj = drm_alloc(sizeof(struct drm_i915_gem_phys_object));
+	if (!phys_obj)
+		return -ENOMEM;
+
+	phys_obj->id = id;
+
+	phys_obj->handle = drm_dmamem_alloc(dev->dmat, size, align, 1, size, BUS_DMA_NOCACHE, 0);
+	if (!phys_obj->handle) {
+		ret = -ENOMEM;
+		goto kfree_obj;
+	}
+
+	dev_priv->mm.phys_objs[id - 1] = phys_obj;
+
+	return 0;
+kfree_obj:
+	drm_free(phys_obj);
+	return ret;
+}
+
 // i915_gem_free_phys_object
 // i915_gem_free_all_phys_object
-// i915_gem_detach_phys_object
+
+#define base obj
+
+void i915_gem_detach_phys_object(struct drm_device *dev,
+				 struct inteldrm_obj *obj)
+{
+	char *vaddr;
+	int i;
+	int page_count;
+
+	if (!obj->phys_obj)
+		return;
+	vaddr = obj->phys_obj->handle->kva;
+
+	page_count = obj->base.size / PAGE_SIZE;
+	for (i = 0; i < page_count; i++) {
+#ifdef notyet
+		struct page *page = shmem_read_mapping_page(mapping, i);
+		if (!IS_ERR(page)) {
+			char *dst = kmap_atomic(page);
+			memcpy(dst, vaddr + i*PAGE_SIZE, PAGE_SIZE);
+			kunmap_atomic(dst);
+
+			drm_clflush_pages(&page, 1);
+
+			set_page_dirty(page);
+			mark_page_accessed(page);
+			page_cache_release(page);
+		}
+#endif
+	}
+//	intel_gtt_chipset_flush();
+
+	obj->phys_obj->cur_obj = NULL;
+	obj->phys_obj = NULL;
+}
 
 int
 i915_gem_attach_phys_object(struct drm_device *dev,
     struct inteldrm_obj *obj, int id, int align)
 {
-	printf("%s stub\n", __func__);
-	return (0);
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	int ret = 0;
+	int page_count;
+	int i;
+
+	if (id > I915_MAX_PHYS_OBJECT)
+		return -EINVAL;
+
+	if (obj->phys_obj) {
+		if (obj->phys_obj->id == id)
+			return 0;
+		i915_gem_detach_phys_object(dev, obj);
+	}
+
+	/* create a new object */
+	if (dev_priv->mm.phys_objs[id - 1]) {
+		ret = i915_gem_init_phys_object(dev, id,
+						obj->base.size, align);
+		if (ret) {
+			DRM_ERROR("failed to init phys object %d size: %zu\n",
+				  id, obj->base.size);
+			return (ret);
+		}
+	}
+
+	/* bind to the object */
+	obj->phys_obj = dev_priv->mm.phys_objs[id - 1];
+	obj->phys_obj->cur_obj = obj;
+
+	page_count = obj->base.size / PAGE_SIZE;
+
+	for (i = 0; i < page_count; i++) {
+#ifdef notyet
+		struct page *page;
+		char *dst, *src;
+
+		page = shmem_read_mapping_page(mapping, i);
+		if (IS_ERR(page))
+			return PTR_ERR(page);
+
+		src = kmap_atomic(page);
+		dst = obj->phys_obj->handle->kva + (i * PAGE_SIZE);
+		memcpy(dst, src, PAGE_SIZE);
+		kunmap_atomic(src);
+
+		mark_page_accessed(page);
+		page_cache_release(page);
+#endif
+	}
+
+	return 0;
 }
 
-// i915_gem_phys_pwrite
+int
+i915_gem_phys_pwrite(struct drm_device *dev,
+		     struct inteldrm_obj *obj,
+		     struct drm_i915_gem_pwrite *args,
+		     struct drm_file *file_priv)
+{
+	void *vaddr = obj->phys_obj->handle->kva + args->offset;
+	int ret;
+
+	ret = copyin((char *)(uintptr_t)args->data_ptr,
+	    vaddr, args->size);
+
+	// intel_gtt_chipset_flush();
+
+	return ret;
+}
+
 // i915_gpu_is_active
 // i915_gem_lowmem
 // i915_gem_unload

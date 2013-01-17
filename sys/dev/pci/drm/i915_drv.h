@@ -81,6 +81,12 @@ enum plane {
 #define I915_GEM_PHYS_OVERLAY_REGS 3
 #define I915_MAX_PHYS_OBJECT (I915_GEM_PHYS_OVERLAY_REGS)
 
+struct drm_i915_gem_phys_object {
+	int id;
+	struct drm_dmamem *handle;
+	struct inteldrm_obj *cur_obj;
+};
+
 struct inteldrm_ring {
 	struct drm_obj		*ring_obj;
 	bus_space_handle_t	 bsh;
@@ -616,6 +622,9 @@ struct inteldrm_softc {
 		uint32_t bit_6_swizzle_x;
 		/** Bit 6 swizzling required for Y tiling */
 		uint32_t bit_6_swizzle_y;
+
+		/* storage for physical objects */
+		struct drm_i915_gem_phys_object *phys_objs[I915_MAX_PHYS_OBJECT];
 	} mm;
 
 	const struct intel_device_info *info;
@@ -668,6 +677,7 @@ struct inteldrm_softc {
 	struct drm_property *broadcast_rgb_property;
 	struct drm_property *force_audio_property;
 };
+typedef struct inteldrm_softc drm_i915_private_t;
 
 enum hdmi_force_audio {
 	HDMI_AUDIO_OFF_DVI = -2,	/* no aux data for HDMI-DVI converter */
@@ -758,6 +768,9 @@ struct inteldrm_obj {
 	/** Current tiling mode for the object. */
 	u_int32_t				 tiling_mode;
 	u_int32_t				 stride;
+
+	/** for phy allocated objects */
+	struct drm_i915_gem_phys_object *phys_obj;
 
 	/**
 	 * Number of crtcs where this object is currently the fb, but   
