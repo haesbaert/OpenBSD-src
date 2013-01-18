@@ -7080,16 +7080,16 @@ static struct drm_display_mode load_detect_mode = {
 
 int
 intel_framebuffer_create(struct drm_device *dev,
-    struct drm_mode_fb_cmd2 *mode_cmd, struct drm_i915_gem_object *obj_priv,
+    struct drm_mode_fb_cmd2 *mode_cmd, struct drm_i915_gem_object *obj,
     struct drm_framebuffer **res)
 {
 	struct intel_framebuffer *intel_fb;
 	int ret;
 
 	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_WAITOK | M_ZERO);
-	ret = intel_framebuffer_init(dev, intel_fb, mode_cmd, obj_priv);
+	ret = intel_framebuffer_init(dev, intel_fb, mode_cmd, obj);
 	if (ret) {
-		drm_unref(&obj_priv->base.uobj);
+		drm_unref(&obj->base.uobj);
 		free(intel_fb, M_DRM);
 		return (ret);
 	}
@@ -8004,8 +8004,7 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj_priv;
-	struct drm_obj *obj, *work_obj;
+	struct drm_i915_gem_object *obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
 	int ret;
@@ -8040,19 +8039,17 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	mtx_leave(&dev->event_lock);
 
 	intel_fb = to_intel_framebuffer(fb);
-	obj_priv = intel_fb->obj;
-	obj = (struct drm_obj *)obj_priv;
+	obj = intel_fb->obj;
 
 	DRM_LOCK();
 
 	/* Reference the objects for the scheduled work. */
-	work_obj = (struct drm_obj *)work->old_fb_obj;
-	drm_gem_object_reference(work_obj);
-	drm_gem_object_reference(obj);
+	drm_gem_object_reference(&work->old_fb_obj->base);
+	drm_gem_object_reference(&obj->base);
 
 	crtc->fb = fb;
 
-	work->pending_flip_obj = obj_priv;
+	work->pending_flip_obj = obj;
 
 	work->enable_stall_check = true;
 
@@ -8061,7 +8058,7 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	 */
 	atomic_set_int(&work->old_fb_obj->pending_flip, 1 << intel_crtc->plane);
 
-	ret = dev_priv->display.queue_flip(dev, crtc, fb, obj_priv);
+	ret = dev_priv->display.queue_flip(dev, crtc, fb, obj);
 	if (ret)
 		goto cleanup_pending;
 	intel_disable_fbc(dev);
@@ -8075,8 +8072,8 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 
 cleanup_pending:
 	atomic_sub(1 << intel_crtc->plane, &work->old_fb_obj->pending_flip);
-	drm_gem_object_unreference(work_obj);
-	drm_gem_object_unreference(obj);
+	drm_gem_object_unreference(&work->old_fb_obj->base);
+	drm_gem_object_unreference(&obj->base);
 	DRM_UNLOCK();
 
 	mtx_enter(&dev->event_lock);

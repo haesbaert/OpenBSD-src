@@ -381,57 +381,54 @@ out:
 
 int
 i915_gem_unpin_ioctl(struct drm_device *dev, void *data,
-		     struct drm_file *file_priv)
+		     struct drm_file *file)
 {
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pin	*args = data;
-	struct drm_i915_gem_object *obj_priv;
-	struct drm_obj		*obj;
-	int			 ret = 0;
+	struct drm_i915_gem_object *obj;
+	int ret = 0;
 
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-	if (obj == NULL)
+	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
+	if (&obj->base == NULL)
 		return (EBADF);
 
 	DRM_LOCK();
-	drm_hold_object(obj);
+	drm_hold_object(&obj->base);
 
-	obj_priv = (struct drm_i915_gem_object *)obj;
-	if (obj_priv->user_pin_count == 0) {
+	if (obj->user_pin_count == 0) {
 		ret = EINVAL;
 		goto out;
 	}
 
-	if (--obj_priv->user_pin_count == 0) {
-		i915_gem_object_unpin(obj_priv);
+	obj->user_pin_count--;
+	if (obj->user_pin_count == 0) {
+		i915_gem_object_unpin(obj);
 		inteldrm_set_max_obj_size(dev_priv);
 	}
 
 out:
-	drm_unhold_and_unref(obj);
+	drm_unhold_and_unref(&obj->base);
 	DRM_UNLOCK();
 	return (ret);
 }
 
 int
 i915_gem_busy_ioctl(struct drm_device *dev, void *data,
-    struct drm_file *file_priv)
+    struct drm_file *file)
 {
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	struct drm_i915_gem_busy	*args = data;
-	struct drm_obj			*obj;
-	struct drm_i915_gem_object	*obj_priv;
-	int				 ret = 0;
+	struct drm_i915_gem_busy *args = data;
+	struct drm_i915_gem_object *obj;
+	int ret = 0;
 
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-	if (obj == NULL) {
+	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
+	if (&obj->base == NULL) {
 		DRM_ERROR("Bad handle in i915_gem_busy_ioctl(): %d\n",
 			  args->handle);
 		return (EBADF);
 	}
-	
-	obj_priv = (struct drm_i915_gem_object *)obj;
-	args->busy = inteldrm_is_active(obj_priv);
+
+	args->busy = inteldrm_is_active(obj);
 	if (args->busy) {
 		/*
 		 * Unconditionally flush objects write domain if they are
@@ -439,20 +436,20 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		 * it wants to use this buffer sooner rather than later, so
 		 * flushing now shoul reduce latency.
 		 */
-		if (obj->write_domain)
-			(void)i915_gem_flush(dev_priv, obj->write_domain,
-			    obj->write_domain);
+		if (obj->base.write_domain)
+			(void)i915_gem_flush(dev_priv, obj->base.write_domain,
+			    obj->base.write_domain);
 		/*
 		 * Update the active list after the flush otherwise this is
 		 * only updated on a delayed timer. Updating now reduces 
 		 * working set size.
 		 */
 		i915_gem_retire_requests(dev_priv);
-		args->busy = inteldrm_is_active(obj_priv);
+		args->busy = inteldrm_is_active(obj);
 	}
 
-	drm_unref(&obj->uobj);
-	return (ret);
+	drm_gem_object_unreference(&obj->base);
+	return ret;
 }
 
 /* Throttle our rendering by waiting until the ring has completed our requests
@@ -479,10 +476,9 @@ int
 i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
     struct drm_file *file_priv)
 {
-	struct drm_i915_gem_madvise	*args = data;
-	struct drm_obj			*obj;
-	struct drm_i915_gem_object	*obj_priv;
-	int				 need, ret = 0;
+	struct drm_i915_gem_madvise *args = data;
+	struct drm_i915_gem_object *obj;
+	int need, ret = 0;
 
 	switch (args->madv) {
 	case I915_MADV_DONTNEED:
@@ -495,37 +491,36 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 		return (EINVAL);
 	}
 
-	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
-	if (obj == NULL)
+	obj = to_intel_bo(drm_gem_object_lookup(dev, file_priv, args->handle));
+	if (&obj->base == NULL)
 		return (EBADF);
 
-	drm_hold_object(obj);
-	obj_priv = (struct drm_i915_gem_object *)obj;
+	drm_hold_object(&obj->base);
 
 	/* invalid to madvise on a pinned BO */
-	if (obj_priv->pin_count) {
+	if (obj->pin_count) {
 		ret = EINVAL;
 		goto out;
 	}
 
-	if (!i915_obj_purged(obj_priv)) {
+	if (!i915_obj_purged(obj)) {
 		if (need) {
-			atomic_clearbits_int(&obj->do_flags,
+			atomic_clearbits_int(&obj->base.do_flags,
 			    I915_DONTNEED);
 		} else {
-			atomic_setbits_int(&obj->do_flags, I915_DONTNEED);
+			atomic_setbits_int(&obj->base.do_flags, I915_DONTNEED);
 		}
 	}
 
 
 	/* if the object is no longer bound, discard its backing storage */
-	if (i915_obj_purgeable(obj_priv) && obj_priv->dmamap == NULL)
-		inteldrm_purge_obj(obj);
+	if (i915_obj_purgeable(obj) && obj->dmamap == NULL)
+		inteldrm_purge_obj(&obj->base);
 
-	args->retained = !i915_obj_purged(obj_priv);
+	args->retained = !i915_obj_purged(obj);
 
 out:
-	drm_unhold_and_unref(obj);
+	drm_unhold_and_unref(&obj->base);
 
 	return (ret);
 }
@@ -997,9 +992,8 @@ int
 i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write,
     int interruptible)
 {
-	struct drm_device	*dev = (struct drm_device *)obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	int			 ret;
+	drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
+	int ret;
 
 	DRM_ASSERT_HELD(&obj->base);
 	/* Not valid to be called on unbound objects. */
@@ -1071,7 +1065,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 		return (ret);
 
 #ifdef notyet
-	if (pipelined != obj_priv->ring) {
+	if (pipelined != obj->ring) {
 #else
 	if (1) {
 #endif
