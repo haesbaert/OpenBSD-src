@@ -2326,16 +2326,16 @@ out_disable:
 }
 
 int
-intel_pin_and_fence_fb_obj(struct drm_device *dev, struct drm_obj *obj,
-    struct intel_ring_buffer *pipelined)
+intel_pin_and_fence_fb_obj(struct drm_device *dev,
+			   struct drm_i915_gem_object *obj,
+			   struct intel_ring_buffer *pipelined)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	u32 alignment;
 	int ret;
 
 	alignment = 0; /* shut gcc */
-	switch (obj_priv->tiling_mode) {
+	switch (obj->tiling_mode) {
 	case I915_TILING_NONE:
 		if (IS_BROADWATER(dev_priv) || IS_CRESTLINE(dev_priv))
 			alignment = 128 * 1024;
@@ -2366,8 +2366,8 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev, struct drm_obj *obj,
 	 * framebuffer compression.  For simplicity, we always install
 	 * a fence as the cost is not that onerous.
 	 */
-	if (obj_priv->tiling_mode != I915_TILING_NONE) {
-		ret = i915_gem_object_get_fence(obj, pipelined);
+	if (obj->tiling_mode != I915_TILING_NONE) {
+		ret = i915_gem_object_get_fence(&obj->base, pipelined);
 		if (ret)
 			goto err_unpin;
 
@@ -2385,7 +2385,7 @@ err_interruptible:
 }
 
 void
-intel_unpin_fb_obj(struct drm_obj *obj)
+intel_unpin_fb_obj(struct drm_i915_gem_object *obj)
 {
 	i915_gem_object_unpin_fence(obj);
 	i915_gem_object_unpin(obj);
@@ -2614,8 +2614,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 #endif
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_i915_gem_object *obj_priv;
-	struct drm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	int ret;
 
 	/* no fb bound */
@@ -2638,8 +2637,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	}
 
 	DRM_LOCK();
-	obj_priv = to_intel_framebuffer(crtc->fb)->obj;
-	obj = (struct drm_obj *)obj_priv;
+	obj = to_intel_framebuffer(crtc->fb)->obj;
 	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
 	if (ret != 0) {
 		DRM_UNLOCK();
@@ -6911,8 +6909,7 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_obj *obj;
-	struct drm_i915_gem_object *obj_priv;
+	struct drm_i915_gem_object *obj;
 	uint32_t addr;
 	int ret;
 
@@ -6931,12 +6928,11 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 		return -EINVAL;
 	}
 
-	obj = drm_gem_object_lookup(dev, file, handle);
-	if (obj == NULL)
+	obj = to_intel_bo(drm_gem_object_lookup(dev, file, handle));
+	if (&obj->base == NULL)
 		return -ENOENT;
-	obj_priv = (struct drm_i915_gem_object *)obj;
 
-	if (obj->size < width * height * 4) {
+	if (obj->base.size < width * height * 4) {
 		DRM_ERROR("buffer is to small\n");
 		ret = -ENOMEM;
 		goto fail;
@@ -6945,7 +6941,7 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 	/* we only need to pin inside GTT if cursor is non-phy */
 	DRM_LOCK();
 	if (!dev_priv->info->cursor_needs_physical) {
-		if (obj_priv->tiling_mode) {
+		if (obj->tiling_mode) {
 			DRM_ERROR("cursor cannot be tiled\n");
 			ret = -EINVAL;
 			goto fail_locked;
@@ -6957,23 +6953,23 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 			goto fail_locked;
 		}
 
-		ret = i915_gem_object_put_fence_reg(obj, 1);
+		ret = i915_gem_object_put_fence_reg(&obj->base, 1);
 		if (ret) {
 			DRM_ERROR("failed to release fence for cursor\n");
 			goto fail_unpin;
 		}
 
-		addr = obj_priv->gtt_offset;
+		addr = obj->gtt_offset;
 	} else {
 		int align = IS_I830(dev) ? 16 * 1024 : 256;
-		ret = i915_gem_attach_phys_object(dev, obj_priv,
+		ret = i915_gem_attach_phys_object(dev, obj,
 						  (intel_crtc->pipe == 0) ? I915_GEM_PHYS_CURSOR_0 : I915_GEM_PHYS_CURSOR_1,
 						  align);
 		if (ret) {
 			DRM_ERROR("failed to attach phys object\n");
 			goto fail_locked;
 		}
-		addr = obj_priv->phys_obj->handle->segs[0].ds_addr;
+		addr = obj->phys_obj->handle->segs[0].ds_addr;
 	}
 
 	if (IS_GEN2(dev_priv))
@@ -6983,18 +6979,18 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 #ifdef notyet
 	if (intel_crtc->cursor_bo) {
 		if (dev_priv->info->cursor_needs_physical) {
-			if (intel_crtc->cursor_bo != obj_priv)
+			if (intel_crtc->cursor_bo != obj)
 				i915_gem_detach_phys_object(dev, intel_crtc->cursor_bo);
 		} else
-			i915_gem_object_unpin(&intel_crtc->cursor_bo->obj);
-		drm_gem_object_unreference(&intel_crtc->cursor_bo->obj);
+			i915_gem_object_unpin(&intel_crtc->cursor_bo);
+		drm_gem_object_unreference(&intel_crtc->cursor_bo->base);
 	}
 #endif
 
 	DRM_UNLOCK();
 
 	intel_crtc->cursor_addr = addr;
-	intel_crtc->cursor_bo = obj_priv;
+	intel_crtc->cursor_bo = obj;
 	intel_crtc->cursor_width = width;
 	intel_crtc->cursor_height = height;
 
@@ -7006,7 +7002,7 @@ fail_unpin:
 fail_locked:
 	DRM_UNLOCK();
 fail:
-	drm_gem_object_unreference(obj);
+	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
 

@@ -1452,7 +1452,7 @@ inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
 			    obj_priv, write_list);
 			atomic_clearbits_int(&obj->do_flags,
 			     I915_GPU_WRITE);
-			i915_gem_object_move_to_active(obj);
+			i915_gem_object_move_to_active(obj_priv);
 			obj->write_domain = 0;
 			/* if we still need the fence, update LRU */
 			if (inteldrm_needs_fence(obj_priv)) {
@@ -1506,11 +1506,11 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 			KASSERT(inteldrm_is_active(obj_priv));
 			i915_move_to_tail(obj_priv,
 			    &dev_priv->mm.flushing_list);
-			i915_gem_object_move_off_active(obj);
+			i915_gem_object_move_off_active(obj_priv);
 			drm_unlock_obj(obj);
 		} else {
 			/* unlocks object for us and drops ref */
-			i915_gem_object_move_to_inactive_locked(obj);
+			i915_gem_object_move_to_inactive_locked(obj_priv);
 			mtx_enter(&dev_priv->list_lock);
 		}
 	}
@@ -1858,17 +1858,17 @@ inteldrm_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 		 * not change.
 		 */
 		KASSERT(obj_priv->pin_count == 0);
-		if ((ret = i915_gem_object_unbind(obj, 0)))
+		if ((ret = i915_gem_object_unbind(obj_priv, 0)))
 			goto error;
 	}
 
 	if (obj_priv->dmamap == NULL) {
-		ret = i915_gem_object_bind_to_gtt(obj, 0, 0);
+		ret = i915_gem_object_bind_to_gtt(obj_priv, 0, 0);
 		if (ret) {
 			printf("%s: failed to bind\n", __func__);
 			goto error;
 		}
-		i915_gem_object_move_to_inactive(obj);
+		i915_gem_object_move_to_inactive(obj_priv);
 	}
 
 	/*
@@ -1877,7 +1877,7 @@ inteldrm_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 	 * is done by the GL application), however it gives coherency problems
 	 * normally.
 	 */
-	ret = i915_gem_object_set_to_gtt_domain(obj, write, 0);
+	ret = i915_gem_object_set_to_gtt_domain(obj_priv, write, 0);
 	if (ret) {
 		printf("%s: failed to set to gtt (%d)\n",
 		    __func__, ret);
@@ -1980,7 +1980,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 		atomic_setbits_int(&obj->do_flags, I915_EXEC_NEEDS_FENCE);
 
 	/* Choose the GTT offset for our buffer and put it there. */
-	ret = i915_gem_object_pin(obj, (u_int32_t)entry->alignment,
+	ret = i915_gem_object_pin(obj_priv, (u_int32_t)entry->alignment,
 	    needs_fence);
 	if (ret)
 		return ret;
@@ -1999,7 +1999,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 		    reloc->target_handle);
 		/* object must have come before us in the list */
 		if (target_obj == NULL) {
-			i915_gem_object_unpin(obj);
+			i915_gem_object_unpin(obj_priv);
 			return (EBADF);
 		}
 		if ((target_obj->do_flags & I915_IN_EXEC) == 0) {
@@ -2088,7 +2088,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 			 continue;
 		}
 
-		ret = i915_gem_object_set_to_gtt_domain(obj, 1, 1);
+		ret = i915_gem_object_set_to_gtt_domain(obj_priv, 1, 1);
 		if (ret != 0)
 			goto err;
 
@@ -2112,7 +2112,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 err:
 	/* we always jump to here mid-loop */
 	drm_gem_object_unreference(target_obj);
-	i915_gem_object_unpin(obj);
+	i915_gem_object_unpin(obj_priv);
 	return (ret);
 }
 
@@ -2286,7 +2286,7 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	 */
 	obj_priv->dma_flags = BUS_DMA_COHERENT | BUS_DMA_READ;
 
-	ret = i915_gem_object_pin(obj, 4096, 0);
+	ret = i915_gem_object_pin(obj_priv, 4096, 0);
 	if (ret != 0) {
 		drm_unhold_and_unref(obj);
 		return ret;
@@ -2300,7 +2300,7 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	if (ret != 0) {
 		DRM_ERROR("Failed to map status page.\n");
 		obj->uao->pgops->pgo_detach(obj->uao);
-		i915_gem_object_unpin(obj);
+		i915_gem_object_unpin(obj_priv);
 		drm_unhold_and_unref(obj);
 		return (EINVAL);
 	}
@@ -2318,6 +2318,7 @@ void
 i915_gem_cleanup_hws(struct inteldrm_softc *dev_priv)
 {
 	struct drm_obj		*obj;
+	struct drm_i915_gem_object *obj_priv;
 
 	if (!I915_NEED_GFX_HWS(dev_priv) || dev_priv->hws_obj == NULL)
 		return;
@@ -2328,7 +2329,8 @@ i915_gem_cleanup_hws(struct inteldrm_softc *dev_priv)
 	    (vaddr_t)dev_priv->hw_status_page + PAGE_SIZE);
 	dev_priv->hw_status_page = NULL;
 	drm_hold_object(obj);
-	i915_gem_object_unpin(obj);
+	obj_priv = (struct drm_i915_gem_object *)obj;
+	i915_gem_object_unpin(obj_priv);
 	drm_unhold_and_unref(obj);
 	dev_priv->hws_obj = NULL;
 
@@ -2357,7 +2359,7 @@ i915_gem_init_ringbuffer(struct inteldrm_softc *dev_priv)
 	drm_hold_object(obj);
 	obj_priv = (struct drm_i915_gem_object *)obj;
 
-	ret = i915_gem_object_pin(obj, 4096, 0);
+	ret = i915_gem_object_pin(obj_priv, 4096, 0);
 	if (ret != 0)
 		goto unref;
 
@@ -2381,7 +2383,7 @@ unmap:
 	agp_unmap_subregion(dev_priv->agph, dev_priv->ring.bsh, obj->size);
 unpin:
 	memset(&dev_priv->ring, 0, sizeof(dev_priv->ring));
-	i915_gem_object_unpin(obj);
+	i915_gem_object_unpin(obj_priv);
 unref:
 	drm_unhold_and_unref(obj);
 delhws:
@@ -2616,7 +2618,7 @@ inteldrm_hung(void *arg, void *reset_type)
 			obj_priv->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
 		}
 		/* unlocks object and list */
-		i915_gem_object_move_to_inactive_locked(&obj_priv->base);
+		i915_gem_object_move_to_inactive_locked(obj_priv);
 		mtx_enter(&dev_priv->list_lock);
 	}
 	mtx_leave(&dev_priv->list_lock);
@@ -3019,28 +3021,27 @@ inteldrm_swizzle_page(struct vm_page *pg)
 }
 
 void
-i915_gem_bit_17_swizzle(struct drm_obj *obj)
+i915_gem_bit_17_swizzle(struct drm_i915_gem_object *obj)
 {
-	struct drm_device	*dev = obj->dev;
+	struct drm_device	*dev = obj->base.dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	struct vm_page		*pg;
 	bus_dma_segment_t	*segp;
-	int			 page_count = obj->size >> PAGE_SHIFT;
+	int			 page_count = obj->base.size >> PAGE_SHIFT;
 	int                      i, n, ret;
 
 	if (dev_priv->mm.bit_6_swizzle_x != I915_BIT_6_SWIZZLE_9_10_17 ||
-	    obj_priv->bit_17 == NULL)
+	    obj->bit_17 == NULL)
 		return;
 
-	segp = &obj_priv->dma_segs[0];
+	segp = &obj->dma_segs[0];
 	n = 0;
 	for (i = 0; i < page_count; i++) {
 		/* compare bit 17 with previous one (in case we swapped).
 		 * if they don't match we'll have to swizzle the page
 		 */
 		if ((((segp->ds_addr + n) >> 17) & 0x1) !=
-		    test_bit(i, obj_priv->bit_17)) {
+		    test_bit(i, obj->bit_17)) {
 			/* XXX move this to somewhere where we already have pg */
 			pg = PHYS_TO_VM_PAGE(segp->ds_addr + n);
 			KASSERT(pg != NULL);
@@ -3060,37 +3061,37 @@ i915_gem_bit_17_swizzle(struct drm_obj *obj)
 }
 
 void
-i915_gem_save_bit_17_swizzle(struct drm_obj *obj)
+i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *obj)
 {
-	struct drm_device	*dev = obj->dev;
+	struct drm_device	*dev = obj->base.dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	bus_dma_segment_t	*segp;
-	int			 page_count = obj->size >> PAGE_SHIFT, i, n;
+	int			 page_count = obj->base.size >> PAGE_SHIFT;
+	int			 i, n;
 
 	if (dev_priv->mm.bit_6_swizzle_x != I915_BIT_6_SWIZZLE_9_10_17)
 		return;
 
-	if (obj_priv->bit_17 == NULL) {
+	if (obj->bit_17 == NULL) {
 		/* round up number of pages to a multiple of 32 so we know what
 		 * size to make the bitmask. XXX this is wasteful with malloc
 		 * and a better way should be done
 		 */
 		size_t nb17 = ((page_count + 31) & ~31)/32;
-		obj_priv->bit_17 = drm_alloc(nb17 * sizeof(u_int32_t));
-		if (obj_priv-> bit_17 == NULL) {
+		obj->bit_17 = drm_alloc(nb17 * sizeof(u_int32_t));
+		if (obj-> bit_17 == NULL) {
 			return;
 		}
 
 	}
 
-	segp = &obj_priv->dma_segs[0];
+	segp = &obj->dma_segs[0];
 	n = 0;
 	for (i = 0; i < page_count; i++) {
 		if ((segp->ds_addr + n) & (1 << 17))
-			set_bit(i, obj_priv->bit_17);
+			set_bit(i, obj->bit_17);
 		else
-			clear_bit(i, obj_priv->bit_17);
+			clear_bit(i, obj->bit_17);
 
 		n += PAGE_SIZE;
 		if (n >= segp->ds_len) {

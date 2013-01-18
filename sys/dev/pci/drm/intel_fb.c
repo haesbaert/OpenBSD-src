@@ -49,8 +49,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 #endif
 	struct drm_framebuffer *fb;
 	struct drm_mode_fb_cmd2 mode_cmd;
-	struct drm_obj *obj;
-	struct drm_i915_gem_object *obj_priv;
+	struct drm_i915_gem_object *obj;
 	int size, ret;
 
 	/* we don't do packed 24bpp */
@@ -67,7 +66,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 	size = roundup2(size, PAGE_SIZE);
-	obj = drm_gem_object_alloc(dev, size);
+	obj = to_intel_bo(drm_gem_object_alloc(dev, size));
 	if (!obj) {
 		DRM_ERROR("failed to allocate framebuffer\n");
 		ret = -ENOMEM;
@@ -93,8 +92,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 	info->par = ifbdev;
 #endif
 
-	obj_priv = (struct drm_i915_gem_object *)obj;
-	ret = intel_framebuffer_init(dev, &ifbdev->ifb, &mode_cmd, obj_priv);
+	ret = intel_framebuffer_init(dev, &ifbdev->ifb, &mode_cmd, obj);
 	if (ret)
 		goto out_unpin;
 
@@ -144,7 +142,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 
 	DRM_DEBUG_KMS("allocated %dx%d fb: 0x%08x, bo %p\n",
 		      fb->width, fb->height,
-		      obj_priv->gtt_offset, obj);
+		      obj->gtt_offset, obj);
 
 	DRM_UNLOCK();
 #if 1
@@ -157,7 +155,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 out_unpin:
 	i915_gem_object_unpin(obj);
 out_unref:
-	drm_gem_object_unreference(obj);
+	drm_gem_object_unreference(&obj->base);
 	DRM_UNLOCK();
 out:
 	return ret;

@@ -420,8 +420,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj_priv, *old_obj_priv;
-	struct drm_obj *obj, *old_obj;
+	struct drm_i915_gem_object *obj, *old_obj;
 	int pipe = intel_plane->pipe;
 	int ret = 0;
 	int x = src_x >> 16, y = src_y >> 16;
@@ -429,11 +428,9 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	bool disable_primary = false;
 
 	intel_fb = to_intel_framebuffer(fb);
-	obj_priv = intel_fb->obj;
-	obj = (struct drm_obj *)obj_priv;
+	obj = intel_fb->obj;
 
-	old_obj_priv = intel_plane->obj;
-	old_obj = (struct drm_obj *)old_obj_priv;
+	old_obj = intel_plane->obj;
 
 	src_w = src_w >> 16;
 	src_h = src_h >> 16;
@@ -496,7 +493,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (ret)
 		goto out_unlock;
 
-	intel_plane->obj = obj_priv;
+	intel_plane->obj = obj;
 
 	/*
 	 * Be sure to re-enable the primary before the sprite is no longer
@@ -507,7 +504,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		intel_plane->primary_disabled = false;
 	}
 
-	intel_plane->update_plane(plane, fb, obj_priv, crtc_x, crtc_y,
+	intel_plane->update_plane(plane, fb, obj, crtc_x, crtc_y,
 				  crtc_w, crtc_h, x, y, src_w, src_h);
 
 	if (disable_primary) {
@@ -516,14 +513,14 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	}
 
 	/* Unpin old obj after new one is active to avoid ugliness */
-	if (old_obj_priv) {
+	if (old_obj) {
 		/*
 		 * It's fairly common to simply update the position of
 		 * an existing object.  In that case, we don't need to
 		 * wait for vblank to avoid ugliness, we only need to
 		 * do the pin & ref bookkeeping.
 		 */
-		if (old_obj_priv != obj_priv) {
+		if (old_obj != obj) {
 			DRM_UNLOCK();
 			intel_wait_for_vblank(dev, to_intel_crtc(crtc)->pipe);
 			DRM_LOCK();

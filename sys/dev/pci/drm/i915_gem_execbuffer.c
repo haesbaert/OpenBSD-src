@@ -394,7 +394,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		 * unbound so we can try and refit everything in the aperture.
 		 */
 		for (i = 0; i < pinned; i++) {
-			i915_gem_object_unpin(object_list[i]);
+			i915_gem_object_unpin(to_intel_bo(object_list[i]));
 			drm_unhold_object(object_list[i]);
 		}
 		pinned = 0;
@@ -481,7 +481,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 			    I915_FENCED_EXEC);
 		}
 
-		i915_gem_object_move_to_active(object_list[i]);
+		i915_gem_object_move_to_active(to_intel_bo(object_list[i]));
 		drm_unlock_obj(obj);
 	}
 	mtx_leave(&dev_priv->list_lock);
@@ -508,7 +508,7 @@ err:
 		atomic_clearbits_int(&object_list[i]->do_flags, I915_IN_EXEC |
 		    I915_EXEC_NEEDS_FENCE);
 		if (i < pinned) {
-			i915_gem_object_unpin(object_list[i]);
+			i915_gem_object_unpin(to_intel_bo(object_list[i]));
 			drm_unhold_and_unref(object_list[i]);
 		} else {
 			drm_unref(&object_list[i]->uobj);

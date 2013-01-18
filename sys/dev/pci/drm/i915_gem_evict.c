@@ -82,7 +82,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 			DRM_ASSERT_HELD(obj);
 
 			/* Wait on the rendering and unbind the buffer. */
-			ret = i915_gem_object_unbind(obj, interruptible);
+			ret = i915_gem_object_unbind(obj_priv, interruptible);
 			drm_unhold_and_unref(obj);
 			return (ret);
 		}
@@ -193,7 +193,7 @@ i915_gem_evict_inactive(struct inteldrm_softc *dev_priv, int interruptible)
 		mtx_leave(&dev_priv->list_lock);
 
 		drm_hold_object(&obj_priv->base);
-		ret = i915_gem_object_unbind(&obj_priv->base, interruptible);
+		ret = i915_gem_object_unbind(obj_priv, interruptible);
 		drm_unhold_and_unref(&obj_priv->base);
 
 		mtx_enter(&dev_priv->list_lock);

@@ -452,11 +452,10 @@ intel_overlay_continue(struct intel_overlay *overlay,
 void
 intel_overlay_release_old_vid_tail(struct intel_overlay *overlay)
 {
-	struct drm_i915_gem_object *obj_priv = overlay->old_vid_bo;
-	struct drm_obj *obj = (struct drm_obj *)obj_priv;
+	struct drm_i915_gem_object *obj = overlay->old_vid_bo;
 
 	i915_gem_object_unpin(obj);
-	drm_gem_object_unreference(obj);
+	drm_gem_object_unreference(&obj->base);
 
 	overlay->old_vid_bo = NULL;
 }
@@ -464,14 +463,13 @@ intel_overlay_release_old_vid_tail(struct intel_overlay *overlay)
 void
 intel_overlay_off_tail(struct intel_overlay *overlay)
 {
-	struct drm_i915_gem_object *obj_priv = overlay->vid_bo;
-	struct drm_obj *obj = (struct drm_obj *)obj_priv;
+	struct drm_i915_gem_object *obj = overlay->vid_bo;
 
 	/* never have the overlay hw on without showing a frame */
 	KASSERT(overlay->vid_bo != NULL);
 
 	i915_gem_object_unpin(obj);
-	drm_gem_object_unreference(obj);
+	drm_gem_object_unreference(&obj->base);
 	overlay->vid_bo = NULL;
 
 	overlay->crtc->overlay = NULL;
@@ -850,10 +848,9 @@ max_u32(u32 a, u32 b)
 
 int
 intel_overlay_do_put_image(struct intel_overlay *overlay,
-    struct drm_i915_gem_object *new_bo_priv, struct put_image_params *params)
+    struct drm_i915_gem_object *new_bo, struct put_image_params *params)
 {
 	struct inteldrm_softc *dev_priv;
-	struct drm_obj *new_bo = (struct drm_obj *)new_bo_priv;
 	int ret, tmp_width;
 	struct overlay_registers *regs;
 	bool scale_changed = false;
@@ -873,7 +870,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 	if (ret != 0)
 		goto out_unpin;
 
-	ret = i915_gem_object_put_fence_reg(new_bo, 1);
+	ret = i915_gem_object_put_fence_reg(&new_bo->base, 1);
 	if (ret)
 		goto out_unpin;
 
@@ -913,7 +910,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 	regs->SWIDTHSW = calc_swidthsw(overlay->dev,
 				       params->offset_Y, tmp_width);
 	regs->SHEIGHT = params->src_h;
-	regs->OBUF_0Y = new_bo_priv->gtt_offset + params->offset_Y;
+	regs->OBUF_0Y = new_bo->gtt_offset + params->offset_Y;
 	regs->OSTRIDE = params->stride_Y;
 
 	if (params->format & I915_OVERLAY_YUV_PLANAR) {
@@ -927,8 +924,8 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 				      params->src_w/uv_hscale);
 		regs->SWIDTHSW |= max_u32(tmp_U, tmp_V) << 16;
 		regs->SHEIGHT |= (params->src_h/uv_vscale) << 16;
-		regs->OBUF_0U = new_bo_priv->gtt_offset + params->offset_U;
-		regs->OBUF_0V = new_bo_priv->gtt_offset + params->offset_V;
+		regs->OBUF_0U = new_bo->gtt_offset + params->offset_U;
+		regs->OBUF_0V = new_bo->gtt_offset + params->offset_V;
 		regs->OSTRIDE |= params->stride_UV << 16;
 	}
 
@@ -945,7 +942,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 		goto out_unpin;
 
 	overlay->old_vid_bo = overlay->vid_bo;
-	overlay->vid_bo = (struct drm_i915_gem_object *)new_bo;
+	overlay->vid_bo = new_bo;
 
 	return 0;
 
@@ -1504,8 +1501,7 @@ intel_setup_overlay(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_overlay *overlay;
-	struct drm_i915_gem_object *reg_bo_priv;
-	struct drm_obj *reg_bo;
+	struct drm_i915_gem_object *reg_bo;
 	struct overlay_registers *regs;
 	int ret;
 
@@ -1517,31 +1513,31 @@ intel_setup_overlay(struct drm_device *dev)
 	DRM_LOCK();
 	if (dev_priv->overlay != NULL)
 		goto out_free;
+
 	overlay->dev = dev;
 
-	reg_bo = drm_gem_object_alloc(dev, PAGE_SIZE);
-	reg_bo_priv = (struct drm_i915_gem_object *)reg_bo;
+	reg_bo = to_intel_bo(drm_gem_object_alloc(dev, PAGE_SIZE));
 	
-	if (!reg_bo_priv)
+	if (!reg_bo)
 		goto out_free;
-	overlay->reg_bo = reg_bo_priv;
+	overlay->reg_bo = reg_bo;
 
 	if (OVERLAY_NEEDS_PHYSICAL(dev_priv)) {
-		ret = i915_gem_attach_phys_object(dev, reg_bo_priv,
+		ret = i915_gem_attach_phys_object(dev, reg_bo,
 						  I915_GEM_PHYS_OVERLAY_REGS,
 						  PAGE_SIZE);
 		if (ret) {
 			DRM_ERROR("failed to attach phys overlay regs\n");
 			goto out_free_bo;
 		}
-		overlay->flip_addr = reg_bo_priv->phys_obj->handle->segs[0].ds_addr;
+		overlay->flip_addr = reg_bo->phys_obj->handle->segs[0].ds_addr;
 	} else {
 		ret = i915_gem_object_pin(reg_bo, PAGE_SIZE, true);
 		if (ret) {
 			DRM_ERROR("failed to pin overlay register bo\n");
 			goto out_free_bo;
 		}
-		overlay->flip_addr = reg_bo_priv->gtt_offset;
+		overlay->flip_addr = reg_bo->gtt_offset;
 
 		ret = i915_gem_object_set_to_gtt_domain(reg_bo, true, 1);
 		if (ret) {
@@ -1575,7 +1571,7 @@ out_unpin_bo:
 	if (!OVERLAY_NEEDS_PHYSICAL(dev_priv))
 		i915_gem_object_unpin(reg_bo);
 out_free_bo:
-	drm_gem_object_unreference(reg_bo);
+	drm_gem_object_unreference(&reg_bo->base);
 out_free:
 	DRM_UNLOCK();
 	free(overlay, M_DRM);
