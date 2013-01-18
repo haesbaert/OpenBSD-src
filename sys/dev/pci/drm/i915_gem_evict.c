@@ -61,7 +61,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 {
 	struct drm_obj		*obj;
 	struct inteldrm_request	*request;
-	struct inteldrm_obj	*obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	u_int32_t		 seqno;
 	int			 ret = 0, write_domain = 0;
 
@@ -73,7 +73,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 		 */
 		obj = i915_gem_find_inactive_object(dev_priv, min_size);
 		if (obj != NULL) {
-			obj_priv = (struct inteldrm_obj *)obj;
+			obj_priv = (struct drm_i915_gem_object *)obj;
 			/* find inactive object returns the object with a
 			 * reference for us, and held
 			 */
@@ -112,7 +112,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 		 */
 		mtx_enter(&dev_priv->list_lock);
 		TAILQ_FOREACH(obj_priv, &dev_priv->mm.flushing_list, list) {
-			obj = &obj_priv->obj;
+			obj = &obj_priv->base;
 			if (obj->size >= min_size) {
 				write_domain = obj->write_domain;
 				break;
@@ -178,7 +178,7 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv, int interruptible)
 int
 i915_gem_evict_inactive(struct inteldrm_softc *dev_priv, int interruptible)
 {
-	struct inteldrm_obj	*obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	int			 ret = 0;
 
 	mtx_enter(&dev_priv->list_lock);
@@ -189,12 +189,12 @@ i915_gem_evict_inactive(struct inteldrm_softc *dev_priv, int interruptible)
 			break;
 		}
 		/* reference it so that we can frob it outside the lock */
-		drm_ref(&obj_priv->obj.uobj);
+		drm_ref(&obj_priv->base.uobj);
 		mtx_leave(&dev_priv->list_lock);
 
-		drm_hold_object(&obj_priv->obj);
-		ret = i915_gem_object_unbind(&obj_priv->obj, interruptible);
-		drm_unhold_and_unref(&obj_priv->obj);
+		drm_hold_object(&obj_priv->base);
+		ret = i915_gem_object_unbind(&obj_priv->base, interruptible);
+		drm_unhold_and_unref(&obj_priv->base);
 
 		mtx_enter(&dev_priv->list_lock);
 		if (ret)

@@ -171,7 +171,7 @@ i915_gem_object_set_to_gpu_domain(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	u_int32_t		 invalidate_domains = 0;
 	u_int32_t		 flush_domains = 0;
 
@@ -265,7 +265,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	struct drm_i915_gem_execbuffer2		*args = data;
 	struct drm_i915_gem_exec_object2	*exec_list = NULL;
 	struct drm_i915_gem_relocation_entry	*relocs = NULL;
-	struct inteldrm_obj			*obj_priv, *batch_obj_priv;
+	struct drm_i915_gem_object		*obj_priv, *batch_obj_priv;
 	struct drm_obj				**object_list = NULL;
 	struct drm_obj				*batch_obj, *obj;
 	size_t					 oflow;
@@ -411,7 +411,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	 * command.
 	 */
 	batch_obj = object_list[args->buffer_count - 1];
-	batch_obj_priv = (struct inteldrm_obj *)batch_obj;
+	batch_obj_priv = (struct drm_i915_gem_object *)batch_obj;
 	if (args->batch_start_offset + args->batch_len > batch_obj->size ||
 	    batch_obj->pending_write_domain) {
 		ret = EINVAL;
@@ -450,7 +450,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	mtx_enter(&dev_priv->list_lock);
 	for (i = 0; i < args->buffer_count; i++) {
 		obj = object_list[i];
-		obj_priv = (struct inteldrm_obj *)obj;
+		obj_priv = (struct drm_i915_gem_object *)obj;
 		drm_lock_obj(obj);
 
 		obj->write_domain = obj->pending_write_domain;

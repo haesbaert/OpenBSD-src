@@ -54,16 +54,16 @@ int	 intel_update_plane(struct drm_plane *, struct drm_crtc *,
 int	 intel_sprite_disable_plane(struct drm_plane *);
 void	 intel_destroy_plane(struct drm_plane *);
 void	 ivb_update_plane(struct drm_plane *, struct drm_framebuffer *,
-	     struct inteldrm_obj *, int, int, unsigned int, unsigned int,
-	     uint32_t, uint32_t, uint32_t, uint32_t);
+	     struct drm_i915_gem_object *, int, int, unsigned int,
+	     unsigned int, uint32_t, uint32_t, uint32_t, uint32_t);
 void	 snb_update_plane(struct drm_plane *, struct drm_framebuffer *,
-	     struct inteldrm_obj *, int, int, unsigned int, unsigned int,
-	     uint32_t, uint32_t, uint32_t, uint32_t);
+	     struct drm_i915_gem_object *, int, int, unsigned int,
+	     unsigned int, uint32_t, uint32_t, uint32_t, uint32_t);
 void	 intel_disable_primary(struct drm_crtc *);
 
 void
 ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
-    struct inteldrm_obj *obj, int crtc_x, int crtc_y,
+    struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
     unsigned int crtc_w, unsigned int crtc_h, uint32_t x, uint32_t y,
     uint32_t src_w, uint32_t src_h)
 {
@@ -233,7 +233,7 @@ ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 
 void
 snb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
-    struct inteldrm_obj *obj, int crtc_x, int crtc_y,
+    struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
     unsigned int crtc_w, unsigned int crtc_h, uint32_t x, uint32_t y,
     uint32_t src_w, uint32_t src_h)
 {
@@ -420,7 +420,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj_priv, *old_obj_priv;
+	struct drm_i915_gem_object *obj_priv, *old_obj_priv;
 	struct drm_obj *obj, *old_obj;
 	int pipe = intel_plane->pipe;
 	int ret = 0;

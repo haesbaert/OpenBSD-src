@@ -63,7 +63,7 @@
 void	 i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj);
 
 int i915_gem_init_phys_object(struct drm_device *, int, int, int);
-int i915_gem_phys_pwrite(struct drm_device *, struct inteldrm_obj *,
+int i915_gem_phys_pwrite(struct drm_device *, struct drm_i915_gem_object *,
 			 struct drm_i915_gem_pwrite *, struct drm_file *);
 
 // i915_gem_info_add_obj
@@ -79,7 +79,7 @@ int i915_gem_phys_pwrite(struct drm_device *, struct inteldrm_obj *,
 void
 i915_gem_free_object(struct drm_obj *obj)
 {
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 
 	DRM_ASSERT_HELD(obj);
 	while (obj_priv->pin_count > 0)
@@ -251,7 +251,7 @@ int
 i915_gem_object_pin(struct drm_obj *obj, uint32_t alignment, int needs_fence)
 {
 	struct drm_device	*dev = obj->dev;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 ret;
 
 	DRM_ASSERT_HELD(obj);
@@ -319,7 +319,7 @@ void
 i915_gem_object_unpin(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	KASSERT(obj_priv->pin_count >= 1);
@@ -346,7 +346,7 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pin	*args = data;
 	struct drm_obj		*obj;
-	struct inteldrm_obj	*obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	int			 ret = 0;
 
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
@@ -355,7 +355,7 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 	DRM_LOCK();
 	drm_hold_object(obj);
 
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 	if (i915_obj_purgeable(obj_priv)) {
 		printf("%s: pinning purgeable object\n", __func__);
 		ret = EINVAL;
@@ -388,7 +388,7 @@ i915_gem_unpin_ioctl(struct drm_device *dev, void *data,
 {
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pin	*args = data;
-	struct inteldrm_obj	*obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	struct drm_obj		*obj;
 	int			 ret = 0;
 
@@ -399,7 +399,7 @@ i915_gem_unpin_ioctl(struct drm_device *dev, void *data,
 	DRM_LOCK();
 	drm_hold_object(obj);
 
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 	if (obj_priv->user_pin_count == 0) {
 		ret = EINVAL;
 		goto out;
@@ -423,7 +423,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_busy	*args = data;
 	struct drm_obj			*obj;
-	struct inteldrm_obj		*obj_priv;
+	struct drm_i915_gem_object	*obj_priv;
 	int				 ret = 0;
 
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
@@ -433,7 +433,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		return (EBADF);
 	}
 	
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 	args->busy = inteldrm_is_active(obj_priv);
 	if (args->busy) {
 		/*
@@ -484,7 +484,7 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 {
 	struct drm_i915_gem_madvise	*args = data;
 	struct drm_obj			*obj;
-	struct inteldrm_obj		*obj_priv;
+	struct drm_i915_gem_object	*obj_priv;
 	int				 need, ret = 0;
 
 	switch (args->madv) {
@@ -503,7 +503,7 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 		return (EBADF);
 
 	drm_hold_object(obj);
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 
 	/* invalid to madvise on a pinned BO */
 	if (obj_priv->pin_count) {
@@ -707,7 +707,7 @@ i915_gem_pread_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pread	*args = data;
 	struct drm_obj			*obj;
-	struct inteldrm_obj		*obj_priv;
+	struct drm_i915_gem_object	*obj_priv;
 	char				*vaddr;
 	bus_space_handle_t		 bsh;
 	bus_size_t			 bsize;
@@ -737,7 +737,7 @@ i915_gem_pread_ioctl(struct drm_device *dev, void *data,
 	if (ret)
 		goto unpin;
 
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 	offset = obj_priv->gtt_offset + args->offset;
 
 	bsize = round_page(offset + args->size) - trunc_page(offset);
@@ -777,7 +777,7 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pwrite	*args = data;
 	struct drm_obj			*obj;
-	struct inteldrm_obj		*obj_priv;
+	struct drm_i915_gem_object	*obj_priv;
 	char				*vaddr;
 	bus_space_handle_t		 bsh;
 	bus_size_t			 bsize;
@@ -797,7 +797,7 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 
 	if (obj_priv->phys_obj) {
 		ret = i915_gem_phys_pwrite(dev, obj_priv, args, file_priv);
@@ -812,7 +812,7 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 	if (ret)
 		goto unpin;
 
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 	offset = obj_priv->gtt_offset + args->offset;
 	bsize = round_page(offset + args->size) - trunc_page(offset);
 
@@ -892,7 +892,7 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
     uint32_t handle, uint64_t *mmap_offset)
 {
 	struct drm_obj			*obj;
-	struct inteldrm_obj		*obj_priv;
+	struct drm_i915_gem_object	*obj_priv;
 	struct drm_local_map		*map;
 	voff_t				 offset; 
 	vsize_t				 end, nsize;
@@ -907,7 +907,7 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 	/* Since we are doing purely uvm-related operations here we do
 	 * not need to hold the object, a reference alone is sufficient
 	 */
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 
 	/* Check size. Also ensure that the object is not purgeable */
 	if (offset > obj->size || i915_obj_purgeable(obj_priv)) {
@@ -971,7 +971,7 @@ i915_gem_object_flush_gpu_write_domain(struct drm_obj *obj, int pipelined,
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	u_int32_t		 seqno;
 	int			 ret = 0;
 
@@ -1012,7 +1012,7 @@ i915_gem_object_set_to_gtt_domain(struct drm_obj *obj, int write,
 {
 	struct drm_device	*dev = (struct drm_device *)obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 ret;
 
 	DRM_ASSERT_HELD(obj);
@@ -1135,7 +1135,7 @@ i915_gem_object_set_to_cpu_domain(struct drm_obj *obj, int write,
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 ret;
 
 	DRM_ASSERT_HELD(obj);
@@ -1198,7 +1198,7 @@ i915_gem_get_gtt_alignment(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	bus_size_t		 start, i;
 
 	/*
@@ -1235,7 +1235,7 @@ i915_gem_object_bind_to_gtt(struct drm_obj *obj, bus_size_t alignment,
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 ret;
 
 	DRM_ASSERT_HELD(obj);
@@ -1324,7 +1324,7 @@ i915_gem_object_unbind(struct drm_obj *obj, int interruptible)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 ret = 0;
 
 	DRM_ASSERT_HELD(obj);
@@ -1376,7 +1376,7 @@ i915_gem_object_unbind(struct drm_obj *obj, int interruptible)
 	atomic_sub(obj->size, &dev->gtt_memory);
 
 	/* Remove ourselves from any LRU list if present. */
-	i915_list_remove((struct inteldrm_obj *)obj);
+	i915_list_remove((struct drm_i915_gem_object *)obj);
 
 	if (i915_obj_purgeable(obj_priv))
 		inteldrm_purge_obj(obj);
@@ -1394,7 +1394,7 @@ i915_gem_object_wait_rendering(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 ret;
 
 	/* wait for queued rendering so we know it's flushed and bo is idle */
@@ -1411,7 +1411,7 @@ i915_gem_object_move_to_active(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	struct inteldrm_fence	*reg;
 	u_int32_t		 seqno = dev_priv->mm.next_gem_seqno;
 
@@ -1441,7 +1441,7 @@ i915_gem_object_move_off_active(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	struct inteldrm_fence	*reg;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
@@ -1480,7 +1480,7 @@ i915_gem_object_move_to_inactive_locked(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	DRM_OBJ_ASSERT_LOCKED(obj);
@@ -1672,7 +1672,7 @@ sandybridge_write_fence_reg(struct inteldrm_fence *reg)
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 regnum = obj_priv->fence_reg;
 	u_int64_t		 val;
 
@@ -1694,7 +1694,7 @@ i965_write_fence_reg(struct inteldrm_fence *reg)
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 regnum = obj_priv->fence_reg;
 	u_int64_t		 val;
 
@@ -1715,7 +1715,7 @@ i915_write_fence_reg(struct inteldrm_fence *reg)
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	bus_size_t		 fence_reg;
 	u_int32_t		 val;
 	u_int32_t		 pitch_val;
@@ -1766,7 +1766,7 @@ i830_write_fence_reg(struct inteldrm_fence *reg)
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	int			 regnum = obj_priv->fence_reg;
 	u_int32_t		 pitch_val, val;
 
@@ -1798,7 +1798,7 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 {
 	struct drm_device	*dev = obj->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	struct inteldrm_fence	*reg;
 	int			 ret;
 
@@ -1870,7 +1870,7 @@ i915_gem_object_get_fence(struct drm_obj *obj,
 int
 i915_gem_init_object(struct drm_obj *obj)
 {
-	struct inteldrm_obj	*obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 
 	/*
 	 * We've just allocated pages from the kernel,
@@ -1926,10 +1926,8 @@ kfree_obj:
 // i915_gem_free_phys_object
 // i915_gem_free_all_phys_object
 
-#define base obj
-
 void i915_gem_detach_phys_object(struct drm_device *dev,
-				 struct inteldrm_obj *obj)
+				 struct drm_i915_gem_object *obj)
 {
 	char *vaddr;
 	int i;
@@ -1964,7 +1962,7 @@ void i915_gem_detach_phys_object(struct drm_device *dev,
 
 int
 i915_gem_attach_phys_object(struct drm_device *dev,
-    struct inteldrm_obj *obj, int id, int align)
+    struct drm_i915_gem_object *obj, int id, int align)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	int ret = 0;
@@ -2021,7 +2019,7 @@ i915_gem_attach_phys_object(struct drm_device *dev,
 
 int
 i915_gem_phys_pwrite(struct drm_device *dev,
-		     struct inteldrm_obj *obj,
+		     struct drm_i915_gem_object *obj,
 		     struct drm_i915_gem_pwrite *args,
 		     struct drm_file *file_priv)
 {

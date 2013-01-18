@@ -50,7 +50,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 	struct drm_framebuffer *fb;
 	struct drm_mode_fb_cmd2 mode_cmd;
 	struct drm_obj *obj;
-	struct inteldrm_obj *obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	int size, ret;
 
 	/* we don't do packed 24bpp */
@@ -93,7 +93,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 	info->par = ifbdev;
 #endif
 
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 	ret = intel_framebuffer_init(dev, &ifbdev->ifb, &mode_cmd, obj_priv);
 	if (ret)
 		goto out_unpin;

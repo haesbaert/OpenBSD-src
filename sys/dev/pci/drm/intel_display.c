@@ -281,7 +281,7 @@ int	 intel_crtc_cursor_move(struct drm_crtc *, int, int);
 void	 intel_crtc_gamma_set(struct drm_crtc *, u16 *, u16 *, u16 *, uint32_t,
 	     uint32_t);
 int	 intel_framebuffer_create(struct drm_device *,
-	     struct drm_mode_fb_cmd2 *, struct inteldrm_obj *,
+	     struct drm_mode_fb_cmd2 *, struct drm_i915_gem_object *,
 	     struct drm_framebuffer **);
 u32	 intel_framebuffer_pitch_for_width(int, int);
 u32	 intel_framebuffer_size_for_mode(struct drm_display_mode *, int);
@@ -1847,7 +1847,7 @@ i8xx_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->fb;
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct inteldrm_obj *obj = intel_fb->obj;
+	struct drm_i915_gem_object *obj = intel_fb->obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int cfb_pitch;
 	int plane, i;
@@ -1899,7 +1899,7 @@ g4x_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->fb;
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct inteldrm_obj *obj = intel_fb->obj;
+	struct drm_i915_gem_object *obj = intel_fb->obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int plane = intel_crtc->plane == 0 ? DPFC_CTL_PLANEA : DPFC_CTL_PLANEB;
 	unsigned long stall_watermark = 200;
@@ -1972,7 +1972,7 @@ ironlake_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->fb;
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct inteldrm_obj *obj = intel_fb->obj;
+	struct drm_i915_gem_object *obj = intel_fb->obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int plane = intel_crtc->plane == 0 ? DPFC_CTL_PLANEA : DPFC_CTL_PLANEB;
 	unsigned long stall_watermark = 200;
@@ -2187,7 +2187,7 @@ intel_update_fbc(struct drm_device *dev)
 	struct intel_crtc *intel_crtc;
 	struct drm_framebuffer *fb;
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	int enable_fbc;
 
 	DRM_DEBUG_KMS("\n");
@@ -2330,7 +2330,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev, struct drm_obj *obj,
     struct intel_ring_buffer *pipelined)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct inteldrm_obj *obj_priv = (struct inteldrm_obj *)obj;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	u32 alignment;
 	int ret;
 
@@ -2399,7 +2399,7 @@ i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb, int x,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
 	unsigned long Start, Offset;
 	u32 dspcntr;
@@ -2473,7 +2473,7 @@ ironlake_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb, int x,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
 	unsigned long Start, Offset;
 	u32 dspcntr;
@@ -2574,7 +2574,7 @@ intel_finish_fb(struct drm_framebuffer *old_fb)
 	printf("%s stub\n", __func__);
 	return EINVAL;
 #ifdef notyet
-	struct inteldrm_obj *obj = to_intel_framebuffer(old_fb)->obj;
+	struct drm_i915_gem_object *obj = to_intel_framebuffer(old_fb)->obj;
 	struct drm_device *dev = obj->base.dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	bool was_interruptible = dev_priv->mm.interruptible;
@@ -2614,7 +2614,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 #endif
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct inteldrm_obj *obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	struct drm_obj *obj;
 	int ret;
 
@@ -3275,7 +3275,7 @@ intel_clear_scanline_wait(struct drm_device *dev)
 void
 intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 {
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	struct inteldrm_softc *dev_priv;
 	struct drm_device *dev;
 
@@ -6912,7 +6912,7 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_obj *obj;
-	struct inteldrm_obj *obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	uint32_t addr;
 	int ret;
 
@@ -6936,7 +6936,7 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 	obj = drm_gem_object_lookup(dev, file, handle);
 	if (obj == NULL)
 		return -ENOENT;
-	obj_priv = (struct inteldrm_obj *)obj;
+	obj_priv = (struct drm_i915_gem_object *)obj;
 
 	if (obj->size < width * height * 4) {
 		DRM_ERROR("buffer is to small\n");
@@ -7086,7 +7086,7 @@ static struct drm_display_mode load_detect_mode = {
 
 int
 intel_framebuffer_create(struct drm_device *dev,
-    struct drm_mode_fb_cmd2 *mode_cmd, struct inteldrm_obj *obj_priv,
+    struct drm_mode_fb_cmd2 *mode_cmd, struct drm_i915_gem_object *obj_priv,
     struct drm_framebuffer **res)
 {
 	struct intel_framebuffer *intel_fb;
@@ -7095,7 +7095,7 @@ intel_framebuffer_create(struct drm_device *dev,
 	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_WAITOK | M_ZERO);
 	ret = intel_framebuffer_init(dev, intel_fb, mode_cmd, obj_priv);
 	if (ret) {
-		drm_unref(&obj_priv->obj.uobj);
+		drm_unref(&obj_priv->base.uobj);
 		free(intel_fb, M_DRM);
 		return (ret);
 	}
@@ -7126,7 +7126,7 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
 	printf("%s stub\n", __func__);
 	return EINVAL;
 #ifdef notyet
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	struct drm_mode_fb_cmd2 mode_cmd;
 
 	obj = i915_gem_alloc_object(dev,
@@ -7152,7 +7152,7 @@ mode_fits_in_fbdev(struct drm_device *dev,
 	return 0;
 #ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	struct drm_framebuffer *fb;
 
 	if (dev_priv->fbdev == NULL) {
@@ -7617,7 +7617,7 @@ intel_idle_update(void *arg, int pending)
  * clock frequency.
  */
 void
-intel_mark_busy(struct drm_device *dev, struct inteldrm_obj *obj)
+intel_mark_busy(struct drm_device *dev, struct drm_i915_gem_object *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc = NULL;
@@ -7709,7 +7709,7 @@ do_intel_finish_page_flip(struct drm_device *dev, struct drm_crtc *crtc)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	struct drm_pending_vblank_event *e;
 	struct timeval tnow, tvbl;
 
@@ -7813,7 +7813,7 @@ intel_prepare_page_flip(struct drm_device *dev, int plane)
 #ifdef notyet
 int
 intel_gen2_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
-    struct drm_framebuffer *fb, struct inteldrm_obj *obj)
+    struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
@@ -7853,7 +7853,7 @@ out:
 
 int
 intel_gen3_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
-    struct drm_framebuffer *fb, struct inteldrm_obj *obj)
+    struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
@@ -7891,7 +7891,7 @@ out:
 
 int
 intel_gen4_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
-    struct drm_framebuffer *fb, struct inteldrm_obj *obj)
+    struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
@@ -7929,7 +7929,7 @@ out:
 
 int
 intel_gen6_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
-    struct drm_framebuffer *fb, struct inteldrm_obj *obj)
+    struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
@@ -7971,7 +7971,7 @@ out:
  */
 int
 intel_gen7_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
-    struct drm_framebuffer *fb, struct inteldrm_obj *obj)
+    struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
@@ -7997,7 +7997,7 @@ out:
 
 int
 intel_default_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
-    struct drm_framebuffer *fb, struct inteldrm_obj *obj)
+    struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
 {
 	return -ENODEV;
 }
@@ -8010,7 +8010,7 @@ intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_framebuffer *intel_fb;
-	struct inteldrm_obj *obj_priv;
+	struct drm_i915_gem_object *obj_priv;
 	struct drm_obj *obj, *work_obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
@@ -8428,7 +8428,7 @@ intel_user_framebuffer_destroy(struct drm_framebuffer *fb)
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
 
 	drm_framebuffer_cleanup(fb);
-	drm_gem_object_unreference_unlocked(&intel_fb->obj->obj);
+	drm_gem_object_unreference_unlocked(&intel_fb->obj->base);
 
 	free(intel_fb, M_DRM);
 }
@@ -8438,9 +8438,9 @@ intel_user_framebuffer_create_handle(struct drm_framebuffer *fb,
     struct drm_file *file, unsigned int *handle)
 {
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct inteldrm_obj *obj = intel_fb->obj;
+	struct drm_i915_gem_object *obj = intel_fb->obj;
 
-	return drm_handle_create(file, &obj->obj, handle);
+	return drm_handle_create(file, &obj->base, handle);
 }
 
 static const struct drm_framebuffer_funcs intel_fb_funcs = {
@@ -8451,7 +8451,7 @@ static const struct drm_framebuffer_funcs intel_fb_funcs = {
 int
 intel_framebuffer_init(struct drm_device *dev,
     struct intel_framebuffer *intel_fb, struct drm_mode_fb_cmd2 *mode_cmd,
-    struct inteldrm_obj *obj)
+    struct drm_i915_gem_object *obj)
 {
 	int ret;
 
@@ -8498,15 +8498,14 @@ intel_user_framebuffer_create(struct drm_device *dev,
     struct drm_file *filp, struct drm_mode_fb_cmd2 *mode_cmd,
     struct drm_framebuffer **res)
 {
-	struct drm_obj		*obj;
-	struct inteldrm_obj	*obj_priv;
+	struct drm_i915_gem_object *obj;
 
-	obj = drm_gem_object_lookup(dev, filp, mode_cmd->handles[0]);
-	if (obj == NULL)	
+	obj = to_intel_bo(drm_gem_object_lookup(dev, filp,
+						mode_cmd->handles[0]));
+	if (&obj->base == NULL)
 		return (-ENOENT);
-	obj_priv = (struct inteldrm_obj *)obj;
 
-	return (intel_framebuffer_create(dev, mode_cmd, obj_priv, res));
+	return (intel_framebuffer_create(dev, mode_cmd, obj, res));
 }
 
 static const struct drm_mode_config_funcs intel_mode_funcs = {
@@ -8515,10 +8514,10 @@ static const struct drm_mode_config_funcs intel_mode_funcs = {
 };
 
 #ifdef notyet
-struct inteldrm_obj *
+struct drm_i915_gem_object *
 intel_alloc_context_page(struct drm_device *dev)
 {
-	struct inteldrm_obj *ctx;
+	struct drm_i915_gem_object *ctx;
 	int ret;
 
 //	DRM_LOCK_ASSERT(dev);

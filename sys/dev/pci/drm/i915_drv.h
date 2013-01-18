@@ -84,7 +84,7 @@ enum plane {
 struct drm_i915_gem_phys_object {
 	int id;
 	struct drm_dmamem *handle;
-	struct inteldrm_obj *cur_obj;
+	struct drm_i915_gem_object *cur_obj;
 };
 
 struct inteldrm_ring {
@@ -121,7 +121,7 @@ struct drm_i915_display_funcs {
 	void (*init_pch_clock_gating)(struct drm_device *dev);
 	int (*queue_flip)(struct drm_device *dev, struct drm_crtc *crtc,
 			  struct drm_framebuffer *fb,
-			  struct inteldrm_obj *obj);
+			  struct drm_i915_gem_object *obj);
 	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
 	void (*force_wake_put)(struct inteldrm_softc *dev_priv);
 	int (*update_plane)(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -540,7 +540,7 @@ struct inteldrm_softc {
 		 *
 		 * A reference is held on the buffer while on this list.
 		 */
-		TAILQ_HEAD(i915_gem_list, inteldrm_obj) active_list;
+		TAILQ_HEAD(i915_gem_list, drm_i915_gem_object) active_list;
 
 		/**
 		 * List of objects which are not in the ringbuffer but which
@@ -740,12 +740,12 @@ struct inteldrm_file {
 #define I915_FENCE_INVALID	0x2000	/* fence has been lazily invalidated */
 
 /** driver private structure attached to each drm_gem_object */
-struct inteldrm_obj {
-	struct drm_obj				 obj;
+struct drm_i915_gem_object {
+	struct drm_obj				 base;
 
 	/** This object's place on the active/flushing/inactive lists */
-	TAILQ_ENTRY(inteldrm_obj)		 list;
-	TAILQ_ENTRY(inteldrm_obj)		 write_list;
+	TAILQ_ENTRY(drm_i915_gem_object)	 list;
+	TAILQ_ENTRY(drm_i915_gem_object)	 write_list;
 	struct i915_gem_list			*current_list;
 	/* GTT binding. */
 	bus_dmamap_t				 dmamap;
@@ -779,6 +779,8 @@ struct inteldrm_obj {
 	 */
 	int					 pending_flip;
 };
+
+#define to_intel_bo(x) container_of(x,struct drm_i915_gem_object, base)
 
 /**
  * Request queue structure.
@@ -858,8 +860,8 @@ void	i915_gem_object_move_to_inactive(struct drm_obj *);
 void	i915_gem_object_move_to_inactive_locked(struct drm_obj *);
 uint32_t	i915_add_request(struct inteldrm_softc *);
 void	inteldrm_process_flushing(struct inteldrm_softc *, u_int32_t);
-void	i915_move_to_tail(struct inteldrm_obj *, struct i915_gem_list *);
-void	i915_list_remove(struct inteldrm_obj *);
+void	i915_move_to_tail(struct drm_i915_gem_object *, struct i915_gem_list *);
+void	i915_list_remove(struct drm_i915_gem_object *);
 int	i915_gem_init_hws(struct inteldrm_softc *);
 void	i915_gem_cleanup_hws(struct inteldrm_softc *);
 int	i915_gem_init_ringbuffer(struct inteldrm_softc *);
@@ -934,9 +936,9 @@ u_int32_t i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
 #define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
 
 void i915_gem_detach_phys_object(struct drm_device *,
-    struct inteldrm_obj *);
+    struct drm_i915_gem_object *);
 int i915_gem_attach_phys_object(struct drm_device *dev,
-    struct inteldrm_obj *, int, int);
+    struct drm_i915_gem_object *, int, int);
 
 int i915_gem_dumb_create(struct drm_file *, struct drm_device *,
     struct drm_mode_create_dumb *);
@@ -1258,39 +1260,39 @@ i915_get_gem_seqno(struct inteldrm_softc *dev_priv)
 }
 
 static __inline int
-i915_obj_purgeable(struct inteldrm_obj *obj_priv)
+i915_obj_purgeable(struct drm_i915_gem_object *obj_priv)
 {
-	return (obj_priv->obj.do_flags & I915_DONTNEED);
+	return (obj_priv->base.do_flags & I915_DONTNEED);
 }
 
 static __inline int
-i915_obj_purged(struct inteldrm_obj *obj_priv)
+i915_obj_purged(struct drm_i915_gem_object *obj_priv)
 {
-	return (obj_priv->obj.do_flags & I915_PURGED);
+	return (obj_priv->base.do_flags & I915_PURGED);
 }
 
 static __inline int
-inteldrm_is_active(struct inteldrm_obj *obj_priv)
+inteldrm_is_active(struct drm_i915_gem_object *obj_priv)
 {
-	return (obj_priv->obj.do_flags & I915_ACTIVE);
+	return (obj_priv->base.do_flags & I915_ACTIVE);
 }
 
 static __inline int
-inteldrm_is_dirty(struct inteldrm_obj *obj_priv)
+inteldrm_is_dirty(struct drm_i915_gem_object *obj_priv)
 {
-	return (obj_priv->obj.do_flags & I915_DIRTY);
+	return (obj_priv->base.do_flags & I915_DIRTY);
 }
 
 static __inline int
-inteldrm_exec_needs_fence(struct inteldrm_obj *obj_priv)
+inteldrm_exec_needs_fence(struct drm_i915_gem_object *obj_priv)
 {
-	return (obj_priv->obj.do_flags & I915_EXEC_NEEDS_FENCE);
+	return (obj_priv->base.do_flags & I915_EXEC_NEEDS_FENCE);
 }
 
 static __inline int
-inteldrm_needs_fence(struct inteldrm_obj *obj_priv)
+inteldrm_needs_fence(struct drm_i915_gem_object *obj_priv)
 {
-	return (obj_priv->obj.do_flags & I915_FENCED_EXEC);
+	return (obj_priv->base.do_flags & I915_FENCED_EXEC);
 }
 
 static inline void

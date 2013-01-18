@@ -172,8 +172,8 @@ struct overlay_registers {
 struct intel_overlay {
 	struct drm_device *dev;
 	struct intel_crtc *crtc;
-	struct inteldrm_obj *vid_bo;
-	struct inteldrm_obj *old_vid_bo;
+	struct drm_i915_gem_object *vid_bo;
+	struct drm_i915_gem_object *old_vid_bo;
 	int active;
 	int pfit_active;
 	u32 pfit_vscale_ratio; /* shifted-point number, (1<<12) == 1.0 */
@@ -182,7 +182,7 @@ struct intel_overlay {
 	u32 old_xscale, old_yscale;
 	/* register access */
 	u32 flip_addr;
-	struct inteldrm_obj *reg_bo;
+	struct drm_i915_gem_object *reg_bo;
 	/* flip handling */
 	uint32_t last_flip_req;
 	void (*flip_tail)(struct intel_overlay *);
@@ -217,7 +217,7 @@ int	 packed_width_bytes(u32, short);
 int	 uv_hsubsampling(u32);
 int	 uv_vsubsampling(u32);
 int	 intel_overlay_do_put_image(struct intel_overlay *,
-	     struct inteldrm_obj *, struct put_image_params *);
+	     struct drm_i915_gem_object *, struct put_image_params *);
 int	 check_overlay_possible_on_crtc(struct intel_overlay *,
 	     struct intel_crtc *);
 void	 update_pfit_vscale_ratio(struct intel_overlay *);
@@ -225,7 +225,8 @@ int	 check_overlay_dst(struct intel_overlay *,
 	     struct drm_intel_overlay_put_image *);
 int	 check_overlay_scaling(struct put_image_params *);
 int	 check_overlay_src(struct drm_device *,
-	     struct drm_intel_overlay_put_image *, struct inteldrm_obj *);
+	     struct drm_intel_overlay_put_image *,
+	     struct drm_i915_gem_object *);
 int	 intel_panel_fitter_pipe(struct drm_device *);
 void	 update_reg_attrs(struct intel_overlay *, struct overlay_registers *);
 bool	 check_gamma_bounds(u32, u32);
@@ -451,7 +452,7 @@ intel_overlay_continue(struct intel_overlay *overlay,
 void
 intel_overlay_release_old_vid_tail(struct intel_overlay *overlay)
 {
-	struct inteldrm_obj *obj_priv = overlay->old_vid_bo;
+	struct drm_i915_gem_object *obj_priv = overlay->old_vid_bo;
 	struct drm_obj *obj = (struct drm_obj *)obj_priv;
 
 	i915_gem_object_unpin(obj);
@@ -463,7 +464,7 @@ intel_overlay_release_old_vid_tail(struct intel_overlay *overlay)
 void
 intel_overlay_off_tail(struct intel_overlay *overlay)
 {
-	struct inteldrm_obj *obj_priv = overlay->vid_bo;
+	struct drm_i915_gem_object *obj_priv = overlay->vid_bo;
 	struct drm_obj *obj = (struct drm_obj *)obj_priv;
 
 	/* never have the overlay hw on without showing a frame */
@@ -849,7 +850,7 @@ max_u32(u32 a, u32 b)
 
 int
 intel_overlay_do_put_image(struct intel_overlay *overlay,
-    struct inteldrm_obj *new_bo_priv, struct put_image_params *params)
+    struct drm_i915_gem_object *new_bo_priv, struct put_image_params *params)
 {
 	struct inteldrm_softc *dev_priv;
 	struct drm_obj *new_bo = (struct drm_obj *)new_bo_priv;
@@ -944,7 +945,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 		goto out_unpin;
 
 	overlay->old_vid_bo = overlay->vid_bo;
-	overlay->vid_bo = (struct inteldrm_obj *)new_bo;
+	overlay->vid_bo = (struct drm_i915_gem_object *)new_bo;
 
 	return 0;
 
@@ -1062,7 +1063,8 @@ check_overlay_scaling(struct put_image_params *rec)
 
 int
 check_overlay_src(struct drm_device *dev,
-    struct drm_intel_overlay_put_image *rec, struct inteldrm_obj *new_bo_priv)
+    struct drm_intel_overlay_put_image *rec,
+    struct drm_i915_gem_object *new_bo_priv)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_obj *new_bo = (struct drm_obj *)new_bo_priv;
@@ -1210,7 +1212,7 @@ intel_overlay_put_image(struct drm_device *dev, void *data,
 	struct intel_overlay *overlay;
 	struct drm_mode_object *drmmode_obj;
 	struct intel_crtc *crtc;
-	struct inteldrm_obj *new_bo_priv;
+	struct drm_i915_gem_object *new_bo_priv;
 	struct drm_obj *new_bo;
 	struct put_image_params *params;
 	int ret;
@@ -1251,7 +1253,7 @@ intel_overlay_put_image(struct drm_device *dev, void *data,
 
 
 	new_bo = drm_gem_object_lookup(dev, file_priv, put_image_rec->bo_handle);
-	new_bo_priv = (struct inteldrm_obj *)new_bo;
+	new_bo_priv = (struct drm_i915_gem_object *)new_bo;
 
 	mtx_enter(&dev->mode_config.mutex);
 	DRM_LOCK();
@@ -1502,7 +1504,7 @@ intel_setup_overlay(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_overlay *overlay;
-	struct inteldrm_obj *reg_bo_priv;
+	struct drm_i915_gem_object *reg_bo_priv;
 	struct drm_obj *reg_bo;
 	struct overlay_registers *regs;
 	int ret;
@@ -1518,7 +1520,7 @@ intel_setup_overlay(struct drm_device *dev)
 	overlay->dev = dev;
 
 	reg_bo = drm_gem_object_alloc(dev, PAGE_SIZE);
-	reg_bo_priv = (struct inteldrm_obj *)reg_bo;
+	reg_bo_priv = (struct drm_i915_gem_object *)reg_bo;
 	
 	if (!reg_bo_priv)
 		goto out_free;

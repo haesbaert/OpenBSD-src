@@ -108,7 +108,7 @@ intel_mode_get_pixel_multiplier(const struct drm_display_mode *mode)
 
 struct intel_framebuffer {
 	struct drm_framebuffer base;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 };
 
 struct intel_fbdev {
@@ -146,7 +146,7 @@ struct intel_crtc {
 	struct intel_unpin_work *unpin_work;
 	int fdi_lanes;
 
-	struct inteldrm_obj *cursor_bo;
+	struct drm_i915_gem_object *cursor_bo;
 	uint32_t cursor_addr;
 	int16_t cursor_x, cursor_y;
 	int16_t cursor_width, cursor_height;
@@ -160,13 +160,13 @@ struct intel_crtc {
 struct intel_plane {
 	struct drm_plane base;
 	enum pipe pipe;
-	struct inteldrm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	bool primary_disabled;
 	int max_downscale;
 	u32 lut_r[1024], lut_g[1024], lut_b[1024];
 	void (*update_plane)(struct drm_plane *plane,
 			     struct drm_framebuffer *fb,
-			     struct inteldrm_obj *obj,
+			     struct drm_i915_gem_object *obj,
 			     int crtc_x, int crtc_y,
 			     unsigned int crtc_w, unsigned int crtc_h,
 			     uint32_t x, uint32_t y,
@@ -256,8 +256,8 @@ intel_get_crtc_for_plane(struct drm_device *dev, int plane)
 struct intel_unpin_work {
 //	struct task task;
 	struct drm_device *dev;
-	struct inteldrm_obj *old_fb_obj;
-	struct inteldrm_obj *pending_flip_obj;
+	struct drm_i915_gem_object *old_fb_obj;
+	struct drm_i915_gem_object *pending_flip_obj;
 	struct drm_pending_vblank_event *event;
 	int pending;
 	bool enable_stall_check;
@@ -285,7 +285,7 @@ extern bool intel_sdvo_init(struct drm_device *dev, int output_device);
 extern void intel_dvo_init(struct drm_device *dev);
 extern void intel_tv_init(struct drm_device *dev);
 extern void intel_mark_busy(struct drm_device *dev,
-			    struct inteldrm_obj *obj);
+			    struct drm_i915_gem_object *obj);
 extern bool intel_lvds_init(struct drm_device *dev);
 extern void intel_dp_init(struct drm_device *dev, int dp_reg);
 void
@@ -367,7 +367,7 @@ extern void intel_unpin_fb_obj(struct drm_obj *obj);
 extern int intel_framebuffer_init(struct drm_device *dev,
 				  struct intel_framebuffer *ifb,
 				  struct drm_mode_fb_cmd2 *mode_cmd,
-				  struct inteldrm_obj *obj);
+				  struct drm_i915_gem_object *obj);
 extern int intel_fbdev_init(struct drm_device *dev);
 extern void intel_fbdev_fini(struct drm_device *dev);
 
