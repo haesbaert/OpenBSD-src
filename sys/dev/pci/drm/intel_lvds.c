@@ -544,7 +544,7 @@ static const struct dmi_system_id intel_no_modeset_on_lid[] = {
 	{ }	/* terminating entry */
 };
 
-#ifdef NOTYET
+#ifdef notyet
 /*
  * Lid events. Note the use of 'modeset_on_lid':
  *  - we set it on lid close, and reset it on open
@@ -1151,7 +1151,7 @@ out:
 		I915_WRITE(PP_CONTROL,
 			   I915_READ(PP_CONTROL) | PANEL_UNLOCK_REGS);
 	}
-#ifdef NOTYET
+#ifdef notyet
 	dev_priv->lid_notifier.notifier_call = intel_lid_notify;
 	if (acpi_lid_notifier_register(&dev_priv->lid_notifier)) {
 		DRM_DEBUG_KMS("lid notifier registration failed\n");
