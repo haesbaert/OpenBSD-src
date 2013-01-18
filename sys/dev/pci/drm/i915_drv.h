@@ -371,6 +371,7 @@ struct inteldrm_softc {
 	unsigned long quirks;
 
 	/* Register state */
+	bool modeset_on_lid;
 	u8 saveLBB;
 	u32 saveDSPACNTR;
 	u32 saveDSPBCNTR;

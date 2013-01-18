@@ -440,9 +440,8 @@ i915_drm_freeze(struct inteldrm_softc *dev_priv)
 	intel_opregion_fini(dev);
 
 	/* Modeset on resume, not lid events */
-#ifdef notyet
 	dev_priv->modeset_on_lid = 0;
-#endif
+
 	return 0;
 }
 
@@ -486,9 +485,7 @@ i915_drm_thaw(struct inteldrm_softc *dev_priv)
 
 	intel_opregion_init(dev);
 
-#ifdef notyet
 	dev_priv->modeset_on_lid = 0;
-#endif
 
 	return error;
 }
