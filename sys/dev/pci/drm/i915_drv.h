@@ -34,7 +34,6 @@
 #include "i915_reg.h"
 #include "i915_drm.h"
 #include "intel_bios.h"
-#include "intel_ringbuffer.h"
 
 /* General customization:
  */
@@ -87,7 +86,7 @@ struct drm_i915_gem_phys_object {
 	struct drm_i915_gem_object *cur_obj;
 };
 
-struct inteldrm_ring {
+struct intel_ring_buffer {
 	struct drm_obj		*ring_obj;
 	bus_space_handle_t	 bsh;
 	bus_size_t		 size;
@@ -260,6 +259,7 @@ struct inteldrm_softc {
 	struct mutex gt_lock;
 
 	drm_i915_sarea_t *sarea_priv;
+	struct intel_ring_buffer ring;
 #ifdef notyet
 	struct intel_ring_buffer rings[I915_NUM_RINGS];
 #endif
@@ -274,7 +274,6 @@ struct inteldrm_softc {
 			caddr_t			kva;
 		} i8xx;
 	}			 ifp;
-	struct inteldrm_ring	 ring;
 	struct workq		*workq;
 	struct vm_page		*pgs;
 	union hws {

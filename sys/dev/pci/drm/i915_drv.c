@@ -1027,9 +1027,9 @@ inteldrm_read_hws(struct inteldrm_softc *dev_priv, int reg)
 int
 inteldrm_wait_ring(struct inteldrm_softc *dev_priv, int n)
 {
-	struct inteldrm_ring	*ring = &dev_priv->ring;
-	u_int32_t		 acthd_reg, acthd, last_acthd, last_head;
-	int			 i;
+	struct intel_ring_buffer	*ring = &dev_priv->ring;
+	u_int32_t			 acthd_reg, acthd, last_acthd, last_head;
+	int				 i;
 
 	acthd_reg = INTEL_INFO(dev_priv)->gen >= 4 ? ACTHD_I965 : ACTHD;
 	last_head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
@@ -1119,7 +1119,7 @@ inteldrm_advance_ring(struct inteldrm_softc *dev_priv)
 void
 inteldrm_update_ring(struct inteldrm_softc *dev_priv)
 {
-	struct inteldrm_ring	*ring = &dev_priv->ring;
+	struct intel_ring_buffer	*ring = &dev_priv->ring;
 
 	ring->head = (I915_READ(PRB0_HEAD) & HEAD_ADDR);
 	ring->tail = (I915_READ(PRB0_TAIL) & TAIL_ADDR);
