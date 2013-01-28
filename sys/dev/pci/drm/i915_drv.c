@@ -1659,13 +1659,13 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 int
 i915_gem_get_fence_reg(struct drm_obj *obj, int interruptible)
 {
-	struct drm_device	*dev = obj->dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
-	struct drm_i915_gem_object *old_obj_priv = NULL;
-	struct drm_obj		*old_obj = NULL;
-	struct inteldrm_fence	*reg = NULL;
-	int			 i, ret, avail;
+	struct drm_device		*dev = obj->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	struct drm_i915_gem_object	*obj_priv = to_intel_bo(obj);
+	struct drm_i915_gem_object	*old_obj_priv = NULL;
+	struct drm_obj			*old_obj = NULL;
+	struct drm_i915_fence_reg	*reg = NULL;
+	int				 i, ret, avail;
 
 	/* If our fence is getting used, just update our place in the LRU */
 	if (obj_priv->fence_reg != I915_FENCE_REG_NONE) {

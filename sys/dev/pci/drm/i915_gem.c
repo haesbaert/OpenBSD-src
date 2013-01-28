@@ -1384,10 +1384,10 @@ i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj)
 void
 i915_gem_object_move_to_active(struct drm_i915_gem_object *obj)
 {
-	struct drm_device	*dev = obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_fence	*reg;
-	u_int32_t		 seqno = dev_priv->mm.next_gem_seqno;
+	struct drm_device		*dev = obj->base.dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	struct drm_i915_fence_reg	*reg;
+	u_int32_t			 seqno = dev_priv->mm.next_gem_seqno;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
@@ -1413,9 +1413,9 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj)
 void
 i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 {
-	struct drm_device	*dev = obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct inteldrm_fence	*reg;
+	struct drm_device		*dev = obj->base.dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	struct drm_i915_fence_reg	*reg;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
@@ -1638,7 +1638,7 @@ i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
 }
 
 void
-sandybridge_write_fence_reg(struct inteldrm_fence *reg)
+sandybridge_write_fence_reg(struct drm_i915_fence_reg *reg)
 {
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
@@ -1660,7 +1660,7 @@ sandybridge_write_fence_reg(struct inteldrm_fence *reg)
 }
 
 void
-i965_write_fence_reg(struct inteldrm_fence *reg)
+i965_write_fence_reg(struct drm_i915_fence_reg *reg)
 {
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
@@ -1681,7 +1681,7 @@ i965_write_fence_reg(struct inteldrm_fence *reg)
 }
 
 void
-i915_write_fence_reg(struct inteldrm_fence *reg)
+i915_write_fence_reg(struct drm_i915_fence_reg *reg)
 {
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
@@ -1732,7 +1732,7 @@ i915_write_fence_reg(struct inteldrm_fence *reg)
 }
 
 void
-i830_write_fence_reg(struct inteldrm_fence *reg)
+i830_write_fence_reg(struct drm_i915_fence_reg *reg)
 {
 	struct drm_obj		*obj = reg->obj;
 	struct drm_device	*dev = obj->dev;
@@ -1767,11 +1767,11 @@ i830_write_fence_reg(struct inteldrm_fence *reg)
 int
 i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 {
-	struct drm_device	*dev = obj->dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
-	struct inteldrm_fence	*reg;
-	int			 ret;
+	struct drm_device		*dev = obj->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	struct drm_i915_gem_object	*obj_priv = to_intel_bo(obj);
+	struct drm_i915_fence_reg	*reg;
+	int				 ret;
 
 	DRM_ASSERT_HELD(obj);
 	if (obj_priv->fence_reg == I915_FENCE_REG_NONE)

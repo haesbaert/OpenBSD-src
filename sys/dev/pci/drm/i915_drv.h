@@ -186,8 +186,8 @@ struct intel_opregion {
 
 #define I915_FENCE_REG_NONE -1
 
-struct inteldrm_fence {
-	TAILQ_ENTRY(inteldrm_fence)	 list;
+struct drm_i915_fence_reg {
+	TAILQ_ENTRY(drm_i915_fence_reg)	 list;
 	struct drm_obj			*obj;
 	u_int32_t			 last_rendering_seqno;
 };
@@ -344,7 +344,7 @@ struct inteldrm_softc {
 	struct child_device_config *child_dev;
 
 	struct mutex		 fence_lock;
-	struct inteldrm_fence	 fence_regs[16]; /* 965 */
+	struct drm_i915_fence_reg fence_regs[16]; /* 965 */
 	int			 fence_reg_start; /* 4 by default */
 	int			 num_fence_regs; /* 8 pre-965, 16 post */
 
@@ -574,7 +574,7 @@ struct inteldrm_softc {
 		struct i915_gem_list inactive_list;
 
 		/* Fence LRU */
-		TAILQ_HEAD(i915_fence, inteldrm_fence)	fence_list;
+		TAILQ_HEAD(i915_fence, drm_i915_fence_reg)	fence_list;
 
 		/**
 		 * List of breadcrumbs associated with GPU requests currently
@@ -909,10 +909,10 @@ int	i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 
 int	i915_tiling_ok(struct drm_device *, int, int, int);
 int	i915_gem_object_fence_offset_ok(struct drm_obj *, int);
-void	sandybridge_write_fence_reg(struct inteldrm_fence *);
-void	i965_write_fence_reg(struct inteldrm_fence *);
-void	i915_write_fence_reg(struct inteldrm_fence *);
-void	i830_write_fence_reg(struct inteldrm_fence *);
+void	sandybridge_write_fence_reg(struct drm_i915_fence_reg *);
+void	i965_write_fence_reg(struct drm_i915_fence_reg *);
+void	i915_write_fence_reg(struct drm_i915_fence_reg *);
+void	i830_write_fence_reg(struct drm_i915_fence_reg *);
 void	i915_gem_bit_17_swizzle(struct drm_i915_gem_object *);
 void	i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *);
 int	inteldrm_swizzle_page(struct vm_page *page);
