@@ -242,7 +242,7 @@ int	 intel_overlay_on(struct intel_overlay *);
 u32	 calc_swidthsw(struct drm_device *, u32, u32);
 int	 intel_overlay_continue(struct intel_overlay *, bool);
 int	 intel_overlay_do_wait_request(struct intel_overlay *,
-	     struct inteldrm_request *, void (*tail)(struct intel_overlay *));
+	     struct drm_i915_gem_request *, void (*tail)(struct intel_overlay *));
 int	 i830_activate_pipe_a(struct drm_device *);
 void	 i830_deactivate_pipe_a(struct drm_device *);
 void	 intel_overlay_release_old_vid_tail(struct intel_overlay *);
@@ -282,7 +282,7 @@ intel_overlay_unmap_regs(struct intel_overlay *overlay,
 
 int
 intel_overlay_do_wait_request(struct intel_overlay *overlay,
-    struct inteldrm_request *request, void (*tail)(struct intel_overlay *))
+    struct drm_i915_gem_request *request, void (*tail)(struct intel_overlay *))
 {
 	printf("%s stub\n", __func__);
 	return -1;
@@ -366,7 +366,7 @@ intel_overlay_on(struct intel_overlay *overlay)
 #if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct inteldrm_request *request;
+	struct drm_i915_gem_request *request;
 	int pipe_a_quirk = 0;
 	int ret;
 
@@ -412,7 +412,7 @@ intel_overlay_continue(struct intel_overlay *overlay,
 #if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct inteldrm_request *request;
+	struct drm_i915_gem_request *request;
 	u32 flip_addr = overlay->flip_addr;
 	u32 tmp;
 	int ret;
@@ -487,7 +487,7 @@ intel_overlay_off(struct intel_overlay *overlay)
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	u32 flip_addr = overlay->flip_addr;
-	struct inteldrm_request *request;
+	struct drm_i915_gem_request *request;
 	int ret;
 
 	KASSERT(overlay->active);
@@ -569,7 +569,7 @@ intel_overlay_release_old_vid(struct intel_overlay *overlay)
 		return 0;
 
 	if (I915_READ(ISR) & I915_OVERLAY_PLANE_FLIP_PENDING_INTERRUPT) {
-		struct inteldrm_request *request;
+		struct drm_i915_gem_request *request;
 
 		/* synchronous slowpath */
 		request = malloc(sizeof(*request), M_DRM, M_WAITOK | M_ZERO);

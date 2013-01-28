@@ -1553,9 +1553,9 @@ i915_wait_request(struct inteldrm_softc *dev_priv, uint32_t seqno,
 uint32_t
 i915_add_request(struct inteldrm_softc *dev_priv)
 {
-	struct inteldrm_request	*request;
-	uint32_t		 seqno;
-	int			 was_empty;
+	struct drm_i915_gem_request	*request;
+	uint32_t			 seqno;
+	int				 was_empty;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 
@@ -1613,8 +1613,8 @@ i915_add_request(struct inteldrm_softc *dev_priv)
 void
 i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
 {
-	struct inteldrm_request	*request;
-	uint32_t		 seqno;
+	struct drm_i915_gem_request	*request;
+	uint32_t			 seqno;
 
 	if (dev_priv->hw_status_page == NULL)
 		return;

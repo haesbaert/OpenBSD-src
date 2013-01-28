@@ -1478,7 +1478,7 @@ inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
  */
 void
 i915_gem_retire_request(struct inteldrm_softc *dev_priv,
-    struct inteldrm_request *request)
+    struct drm_i915_gem_request *request)
 {
 	struct drm_i915_gem_object	*obj_priv;
 

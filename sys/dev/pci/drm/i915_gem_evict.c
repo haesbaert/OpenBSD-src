@@ -60,7 +60,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
     int interruptible)
 {
 	struct drm_obj		*obj;
-	struct inteldrm_request	*request;
+	struct drm_i915_gem_request *request;
 	struct drm_i915_gem_object *obj_priv;
 	u_int32_t		 seqno;
 	int			 ret = 0, write_domain = 0;

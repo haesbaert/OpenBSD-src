@@ -581,7 +581,7 @@ struct inteldrm_softc {
 		 * List of breadcrumbs associated with GPU requests currently
 		 * outstanding.
 		 */
-		TAILQ_HEAD(i915_request , inteldrm_request) request_list;
+		TAILQ_HEAD(i915_request , drm_i915_gem_request) request_list;
 
 		/**
 		 * We leave the user IRQ off as much as possible,
@@ -793,8 +793,8 @@ struct drm_i915_gem_object {
  * sequence-number comparisons on buffer last_rendering_seqnos, and associate
  * an emission time with seqnos for tracking how far ahead of the GPU we are.
  */
-struct inteldrm_request {
-	TAILQ_ENTRY(inteldrm_request)	list;
+struct drm_i915_gem_request {
+	TAILQ_ENTRY(drm_i915_gem_request)	list;
 	/** GEM sequence number associated with this request. */
 	uint32_t			seqno;
 };
@@ -852,7 +852,7 @@ void	i915_gem_free_object(struct drm_obj *);
 int	i915_gem_object_pin(struct drm_i915_gem_object *, uint32_t, int);
 void	i915_gem_object_unpin(struct drm_i915_gem_object *);
 void	i915_gem_retire_request(struct inteldrm_softc *,
-	    struct inteldrm_request *);
+	    struct drm_i915_gem_request *);
 void	i915_gem_retire_work_handler(void *, void*);
 int	i915_gem_idle(struct inteldrm_softc *);
 void	i915_gem_object_move_to_active(struct drm_i915_gem_object *);
