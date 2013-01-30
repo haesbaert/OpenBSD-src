@@ -32,6 +32,7 @@ struct  intel_hw_status_page {
 #define I915_READ_SYNC_0(ring) I915_READ(RING_SYNC_0((ring)->mmio_base))
 #define I915_READ_SYNC_1(ring) I915_READ(RING_SYNC_1((ring)->mmio_base))
 
+#ifdef notyet
 struct  intel_ring_buffer {
 	const char	*name;
 	enum intel_ring_id {
@@ -128,6 +129,7 @@ struct  intel_ring_buffer {
 
 	void *private;
 };
+#endif
 
 static inline unsigned
 intel_ring_flag(struct intel_ring_buffer *ring)
@@ -176,6 +178,7 @@ static inline int intel_wait_ring_idle(struct intel_ring_buffer *ring)
 
 int intel_ring_begin(struct intel_ring_buffer *ring, int n);
 
+#ifdef notyet
 static inline void intel_ring_emit(struct intel_ring_buffer *ring,
 				   uint32_t data)
 {
@@ -183,6 +186,7 @@ static inline void intel_ring_emit(struct intel_ring_buffer *ring,
 	    ring->tail) = data;
 	ring->tail += 4;
 }
+#endif
 
 void intel_ring_advance(struct intel_ring_buffer *ring);
 

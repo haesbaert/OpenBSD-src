@@ -149,7 +149,7 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 		return (0);
 
 	DRM_LOCK();
-	if (dev_priv->mm.suspended || dev_priv->ring.ring_obj == NULL) {
+	if (dev_priv->mm.suspended || dev_priv->rings[RCS].ring_obj == NULL) {
 		KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
 		KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
 		(void)i915_gem_evict_inactive(dev_priv, 0);
@@ -175,8 +175,8 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 	/* if we hung then the timer alredy fired. */
 	timeout_del(&dev_priv->mm.hang_timer);
 
-	inteldrm_update_ring(dev_priv);
-	i915_gem_cleanup_ringbuffer(dev_priv);
+	inteldrm_update_ring(&dev_priv->rings[RCS]);
+	i915_gem_cleanup_ringbuffer(dev);
 	DRM_UNLOCK();
 
 	/* this should be idle now */
@@ -187,7 +187,64 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 
 // i915_gem_init_swizzling
 // i915_gem_init_ppgtt
-// i915_gem_init_hw
+
+int
+i915_gem_init_hw(struct drm_device *dev)
+{
+#ifdef notyet
+	drm_i915_private_t *dev_priv = dev->dev_private;
+#endif
+	int ret;
+
+#ifdef notyet
+	if (INTEL_INFO(dev)->gen < 6 && !intel_enable_gtt())
+		return -EIO;
+
+	if (IS_HASWELL(dev) && (I915_READ(0x120010) == 1))
+		I915_WRITE(0x9008, I915_READ(0x9008) | 0xf0000);
+
+	i915_gem_l3_remap(dev);
+
+	i915_gem_init_swizzling(dev);
+#endif
+
+	ret = intel_init_render_ring_buffer(dev);
+	if (ret)
+		return ret;
+
+#ifdef notyet
+	if (HAS_BSD(dev)) {
+		ret = intel_init_bsd_ring_buffer(dev);
+		if (ret)
+			goto cleanup_render_ring;
+	}
+
+	if (intel_enable_blt(dev)) {
+		ret = intel_init_blt_ring_buffer(dev);
+		if (ret)
+			goto cleanup_bsd_ring;
+	}
+
+	dev_priv->next_seqno = 1;
+
+	/*
+	 * XXX: There was some w/a described somewhere suggesting loading
+	 * contexts before PPGTT.
+	 */
+	i915_gem_context_init(dev);
+	i915_gem_init_ppgtt(dev);
+#endif
+
+	return 0;
+
+#ifdef notyet
+cleanup_bsd_ring:
+	intel_cleanup_ring_buffer(&dev_priv->ring[VCS]);
+cleanup_render_ring:
+	intel_cleanup_ring_buffer(&dev_priv->ring[RCS]);
+	return ret;
+#endif
+}
 
 int
 i915_gem_init(struct drm_device *dev)
@@ -220,7 +277,7 @@ i915_gem_init(struct drm_device *dev)
 	dev->gtt_total = (uint32_t)(gtt_end - gtt_start);
 	inteldrm_set_max_obj_size(dev_priv);
 
-	ret = i915_gem_init_ringbuffer(dev_priv);
+	ret = i915_gem_init_hw(dev);
 	if (ret != 0) {
 		DRM_UNLOCK();
 		return (ret);
@@ -526,19 +583,35 @@ out:
 }
 
 void
-i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev_priv)
+intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 {
-	if (dev_priv->ring.ring_obj == NULL)
-		return;
-	agp_unmap_subregion(dev_priv->agph, dev_priv->ring.bsh,
-	    dev_priv->ring.ring_obj->size);
-	drm_hold_object(dev_priv->ring.ring_obj);
-	i915_gem_object_unpin(to_intel_bo(dev_priv->ring.ring_obj));
-	drm_unhold_and_unref(dev_priv->ring.ring_obj);
-	dev_priv->ring.ring_obj = NULL;
-	memset(&dev_priv->ring, 0, sizeof(dev_priv->ring));
+	struct inteldrm_softc	*dev_priv;
 
-	i915_gem_cleanup_hws(dev_priv);
+	if (ring->ring_obj == NULL)
+		return;
+
+	dev_priv = ring->dev->dev_private;
+
+	agp_unmap_subregion(dev_priv->agph, ring->bsh,
+	    ring->ring_obj->size);
+	drm_hold_object(ring->ring_obj);
+	i915_gem_object_unpin(to_intel_bo(ring->ring_obj));
+	drm_unhold_and_unref(ring->ring_obj);
+	ring->ring_obj = NULL;
+	memset(ring, 0, sizeof(*ring));
+
+	cleanup_status_page(ring);
+}
+
+void
+i915_gem_cleanup_ringbuffer(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int i;
+
+	for_each_ring(ring, dev_priv, i)
+		intel_cleanup_ring_buffer(ring);
 }
 
 int
@@ -564,7 +637,7 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 	DRM_LOCK();
 	dev_priv->mm.suspended = 0;
 
-	ret = i915_gem_init_ringbuffer(dev_priv);
+	ret = i915_gem_init_hw(dev);
 	if (ret != 0) {
 		DRM_UNLOCK();
 		return (ret);

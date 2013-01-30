@@ -88,6 +88,14 @@ struct drm_i915_gem_phys_object {
 
 struct intel_ring_buffer {
 	struct drm_obj		*ring_obj;
+	struct drm_device	*dev;
+	const char		*name;
+	enum intel_ring_id {
+		RCS = 0x0,
+		VCS,
+		BCS,
+	} id;
+#define I915_NUM_RINGS 3
 	bus_space_handle_t	 bsh;
 	bus_size_t		 size;
 	u_int32_t		 head;
@@ -259,10 +267,7 @@ struct inteldrm_softc {
 	struct mutex gt_lock;
 
 	drm_i915_sarea_t *sarea_priv;
-	struct intel_ring_buffer ring;
-#ifdef notyet
 	struct intel_ring_buffer rings[I915_NUM_RINGS];
-#endif
 
 	union flush {
 		struct {
@@ -679,6 +684,11 @@ struct inteldrm_softc {
 };
 typedef struct inteldrm_softc drm_i915_private_t;
 
+/* Iterate over initialised rings */
+#define for_each_ring(ring__, dev_priv__, i__) \
+	for ((i__) = 0; (i__) < I915_NUM_RINGS; (i__)++) \
+		if (((ring__) = &(dev_priv__)->rings[(i__)]), intel_ring_initialized((ring__)))
+
 enum hdmi_force_audio {
 	HDMI_AUDIO_OFF_DVI = -2,	/* no aux data for HDMI-DVI converter */
 	HDMI_AUDIO_OFF,			/* force turn off HDMI audio */
@@ -799,15 +809,28 @@ struct drm_i915_gem_request {
 };
 
 u_int32_t	inteldrm_read_hws(struct inteldrm_softc *, int);
-int		inteldrm_wait_ring(struct inteldrm_softc *dev, int n);
-void		inteldrm_begin_ring(struct inteldrm_softc *, int);
-void		inteldrm_out_ring(struct inteldrm_softc *, u_int32_t);
-void		inteldrm_advance_ring(struct inteldrm_softc *);
-void		inteldrm_update_ring(struct inteldrm_softc *);
+int		ring_wait_for_space(struct intel_ring_buffer *, int n);
+int		intel_ring_begin(struct intel_ring_buffer *, int);
+void		intel_ring_emit(struct intel_ring_buffer *, u_int32_t);
+void		intel_ring_advance(struct intel_ring_buffer *);
+void		inteldrm_update_ring(struct intel_ring_buffer *);
 int		inteldrm_pipe_enabled(struct inteldrm_softc *, int);
 int		i915_init_phys_hws(struct inteldrm_softc *, bus_dma_tag_t);
 
 void		i915_update_gfx_val(struct inteldrm_softc *);
+
+int		intel_init_ring_buffer(struct drm_device *,
+		    struct intel_ring_buffer *);
+int		init_ring_common(struct intel_ring_buffer *);
+
+int		intel_init_render_ring_buffer(struct drm_device *);
+void		intel_cleanup_ring_buffer(struct intel_ring_buffer *);
+
+static inline bool
+intel_ring_initialized(struct intel_ring_buffer *ring)
+{
+	return ring->ring_obj != NULL;
+}
 
 /* i915_irq.c */
 
@@ -863,10 +886,8 @@ void	inteldrm_process_flushing(struct inteldrm_softc *, u_int32_t);
 void	i915_move_to_tail(struct drm_i915_gem_object *, struct i915_gem_list *);
 void	i915_list_remove(struct drm_i915_gem_object *);
 int	i915_gem_init_hws(struct inteldrm_softc *);
-void	i915_gem_cleanup_hws(struct inteldrm_softc *);
-int	i915_gem_init_ringbuffer(struct inteldrm_softc *);
-int	inteldrm_start_ring(struct inteldrm_softc *);
-void	i915_gem_cleanup_ringbuffer(struct inteldrm_softc *);
+void	cleanup_status_page(struct intel_ring_buffer *);
+void	i915_gem_cleanup_ringbuffer(struct drm_device *);
 int	i915_gem_ring_throttle(struct drm_device *, struct drm_file *);
 int	i915_gem_get_relocs_from_user(struct drm_i915_gem_exec_object2 *,
 	    u_int32_t, struct drm_i915_gem_relocation_entry **);
@@ -916,6 +937,8 @@ void	i830_write_fence_reg(struct drm_i915_fence_reg *);
 void	i915_gem_bit_17_swizzle(struct drm_i915_gem_object *);
 void	i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *);
 int	inteldrm_swizzle_page(struct vm_page *page);
+
+int	i915_gem_init_hw(struct drm_device *);
 
 /* Debug functions, mostly called from ddb */
 void	i915_gem_seqno_info(int);
@@ -976,7 +999,6 @@ extern void intel_gmbus_set_port(struct inteldrm_softc *, int);
 /* i915_gem.c */
 int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,
     uint32_t *);
-void i915_gem_cleanup_ringbuffer(struct inteldrm_softc *dev);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);
@@ -1083,9 +1105,14 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define LP_RING(d) (&((struct inteldrm_softc *)(d))->rings[RCS])
 
-#define BEGIN_LP_RING(n) inteldrm_begin_ring(dev_priv, n)
-#define OUT_RING(n) inteldrm_out_ring(dev_priv, n)
-#define ADVANCE_LP_RING() inteldrm_advance_ring(dev_priv)
+#define BEGIN_LP_RING(n) \
+	intel_ring_begin(LP_RING(dev_priv), (n))
+
+#define OUT_RING(x) \
+	intel_ring_emit(LP_RING(dev_priv), (x))
+
+#define ADVANCE_LP_RING() \
+	intel_ring_advance(LP_RING(dev_priv))
 
 /* MCH IFP BARs */
 #define	I915_IFPADDR	0x60

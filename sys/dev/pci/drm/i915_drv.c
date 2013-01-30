@@ -73,7 +73,7 @@ void	inteldrm_error(struct inteldrm_softc *);
 int	inteldrm_ironlake_intr(void *);
 void	inteldrm_lastclose(struct drm_device *);
 
-void	inteldrm_wrap_ring(struct inteldrm_softc *);
+void	intel_wrap_ring_buffer(struct intel_ring_buffer *);
 int	inteldrm_gmch_match(struct pci_attach_args *);
 void	inteldrm_timeout(void *);
 void	inteldrm_hangcheck(void *);
@@ -462,14 +462,14 @@ i915_drm_thaw(struct inteldrm_softc *dev_priv)
 
 	/* KMS EnterVT equivalent */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		dev_priv->mm.suspended = 0;
-
-		error = i915_gem_init_ringbuffer(dev_priv);
 
 		if (HAS_PCH_SPLIT(dev_priv))
 			ironlake_init_pch_refclk(dev);
 
 		mtx_enter(&dev->mode_config.mutex);
+		dev_priv->mm.suspended = 0;
+
+		error = i915_gem_init_hw(dev);
 		drm_mode_config_reset(dev);
 		mtx_leave(&dev->mode_config.mutex);
 		drm_irq_install(dev);
@@ -1025,9 +1025,10 @@ inteldrm_read_hws(struct inteldrm_softc *dev_priv, int reg)
  * These five ring manipulation functions are protected by dev->dev_lock.
  */
 int
-inteldrm_wait_ring(struct inteldrm_softc *dev_priv, int n)
+ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 {
-	struct intel_ring_buffer	*ring = &dev_priv->ring;
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	u_int32_t			 acthd_reg, acthd, last_acthd, last_head;
 	int				 i;
 
@@ -1061,65 +1062,76 @@ inteldrm_wait_ring(struct inteldrm_softc *dev_priv, int n)
 }
 
 void
-inteldrm_wrap_ring(struct inteldrm_softc *dev_priv)
+intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 {
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	u_int32_t	rem;;
 
-	rem = dev_priv->ring.size - dev_priv->ring.tail;
-	if (dev_priv->ring.space < rem &&
-	    inteldrm_wait_ring(dev_priv, rem) != 0)
+	rem = ring->size - ring->tail;
+	if (ring->space < rem &&
+	    ring_wait_for_space(ring, rem) != 0)
 			return; /* XXX */
 
-	dev_priv->ring.space -= rem;
+	ring->space -= rem;
 
-	bus_space_set_region_4(dev_priv->bst, dev_priv->ring.bsh,
-	    dev_priv->ring.woffset, MI_NOOP, rem / 4);
+	bus_space_set_region_4(dev_priv->bst, ring->bsh,
+	    ring->woffset, MI_NOOP, rem / 4);
 
-	dev_priv->ring.tail = 0;
+	ring->tail = 0;
 }
 
-void
-inteldrm_begin_ring(struct inteldrm_softc *dev_priv, int ncmd)
+int
+intel_ring_begin(struct intel_ring_buffer *ring, int ncmd)
 {
 	int	bytes = 4 * ncmd;
 
 	INTELDRM_VPRINTF("%s: %d\n", __func__, ncmd);
-	if (dev_priv->ring.tail + bytes > dev_priv->ring.size)
-		inteldrm_wrap_ring(dev_priv);
-	if (dev_priv->ring.space < bytes)
-		inteldrm_wait_ring(dev_priv, bytes);
-	dev_priv->ring.woffset = dev_priv->ring.tail;
-	dev_priv->ring.tail += bytes;
-	dev_priv->ring.tail &= dev_priv->ring.size - 1;
-	dev_priv->ring.space -= bytes;
+	if (ring->tail + bytes > ring->size)
+		intel_wrap_ring_buffer(ring);
+	if (ring->space < bytes)
+		ring_wait_for_space(ring, bytes);
+	ring->woffset = ring->tail;
+	ring->tail += bytes;
+	ring->tail &= ring->size - 1;
+	ring->space -= bytes;
+
+	return (0);
 }
 
 void
-inteldrm_out_ring(struct inteldrm_softc *dev_priv, u_int32_t cmd)
+intel_ring_emit(struct intel_ring_buffer *ring, u_int32_t cmd)
 {
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+
 	INTELDRM_VPRINTF("%s: %x\n", __func__, cmd);
-	bus_space_write_4(dev_priv->bst, dev_priv->ring.bsh,
-	    dev_priv->ring.woffset, cmd);
+	bus_space_write_4(dev_priv->bst, ring->bsh,
+	    ring->woffset, cmd);
 	/*
 	 * don't need to deal with wrap here because we padded
 	 * the ring out if we would wrap
 	 */
-	dev_priv->ring.woffset += 4;
+	ring->woffset += 4;
 }
 
 void
-inteldrm_advance_ring(struct inteldrm_softc *dev_priv)
+intel_ring_advance(struct intel_ring_buffer *ring)
 {
-	INTELDRM_VPRINTF("%s: %x, %x\n", __func__, dev_priv->ring.wspace,
-	    dev_priv->ring.woffset);
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+
+	INTELDRM_VPRINTF("%s: %x, %x\n", __func__, ring->wspace,
+	    ring->woffset);
 	DRM_MEMORYBARRIER();
-	I915_WRITE(PRB0_TAIL, dev_priv->ring.tail);
+	I915_WRITE(PRB0_TAIL, ring->tail);
 }
 
 void
-inteldrm_update_ring(struct inteldrm_softc *dev_priv)
+inteldrm_update_ring(struct intel_ring_buffer *ring)
 {
-	struct intel_ring_buffer	*ring = &dev_priv->ring;
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
 
 	ring->head = (I915_READ(PRB0_HEAD) & HEAD_ADDR);
 	ring->tail = (I915_READ(PRB0_TAIL) & TAIL_ADDR);
@@ -2243,7 +2255,7 @@ inteldrm_quiesce(struct inteldrm_softc *dev_priv)
 	 * sure that everything is unbound.
 	 */
 	KASSERT(dev_priv->mm.suspended);
-	KASSERT(dev_priv->ring.ring_obj == NULL);
+	KASSERT(dev_priv->rings[RCS].ring_obj == NULL);
 	atomic_setbits_int(&dev_priv->sc_flags, INTELDRM_QUIET);
 	while (dev_priv->entries)
 		tsleep(&dev_priv->entries, 0, "intelquiet", 0);
@@ -2318,8 +2330,9 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 }
 
 void
-i915_gem_cleanup_hws(struct inteldrm_softc *dev_priv)
+cleanup_status_page(struct intel_ring_buffer *ring)
 {
+	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
 	struct drm_obj		*obj;
 	struct drm_i915_gem_object *obj_priv;
 
@@ -2342,12 +2355,15 @@ i915_gem_cleanup_hws(struct inteldrm_softc *dev_priv)
 }
 
 int
-i915_gem_init_ringbuffer(struct inteldrm_softc *dev_priv)
+intel_init_ring_buffer(struct drm_device *dev,
+    struct intel_ring_buffer *ring)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_obj		*obj;
 	struct drm_i915_gem_object *obj_priv;
 	int			 ret;
+
+	ring->dev = dev;
 
 	ret = i915_gem_init_hws(dev_priv);
 	if (ret != 0)
@@ -2367,37 +2383,39 @@ i915_gem_init_ringbuffer(struct inteldrm_softc *dev_priv)
 		goto unref;
 
 	/* Set up the kernel mapping for the ring. */
-	dev_priv->ring.size = obj->size;
+	ring->size = obj->size;
 
 	if ((ret = agp_map_subregion(dev_priv->agph, obj_priv->gtt_offset,
-	    obj->size, &dev_priv->ring.bsh)) != 0) {
+	    obj->size, &ring->bsh)) != 0) {
 		DRM_INFO("can't map ringbuffer\n");
 		goto unpin;
 	}
-	dev_priv->ring.ring_obj = obj;
+	ring->ring_obj = obj;
 
-	if ((ret = inteldrm_start_ring(dev_priv)) != 0)
+	if ((ret = init_ring_common(ring)) != 0)
 		goto unmap;
 
 	drm_unhold_object(obj);
 	return (0);
 
 unmap:
-	agp_unmap_subregion(dev_priv->agph, dev_priv->ring.bsh, obj->size);
+	agp_unmap_subregion(dev_priv->agph, ring->bsh, obj->size);
 unpin:
-	memset(&dev_priv->ring, 0, sizeof(dev_priv->ring));
+	memset(ring, 0, sizeof(*ring));
 	i915_gem_object_unpin(obj_priv);
 unref:
 	drm_unhold_and_unref(obj);
 delhws:
-	i915_gem_cleanup_hws(dev_priv);
+	cleanup_status_page(ring);
 	return (ret);
 }
 
 int
-inteldrm_start_ring(struct inteldrm_softc *dev_priv)
+init_ring_common(struct intel_ring_buffer *ring)
 {
-	struct drm_obj		*obj = dev_priv->ring.ring_obj;
+	struct drm_device	*dev = ring->dev;
+	drm_i915_private_t	*dev_priv = dev->dev_private;
+	struct drm_obj		*obj = ring->ring_obj;
 	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	u_int32_t		 head;
 
@@ -2433,7 +2451,7 @@ inteldrm_start_ring(struct inteldrm_softc *dev_priv)
 	}
 
 	/* Update our cache of the ring state */
-	inteldrm_update_ring(dev_priv);
+	inteldrm_update_ring(ring);
 
 	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
 		I915_WRITE(MI_MODE | MI_FLUSH_ENABLE << 16 | MI_FLUSH_ENABLE,
@@ -3209,7 +3227,7 @@ inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 	 */
 	 if (dev_priv->mm.suspended == 0) {
 		struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
-		if (inteldrm_start_ring(dev_priv) != 0)
+		if (init_ring_common(&dev_priv->rings[RCS]) != 0)
 			panic("can't restart ring, we're fucked");
 
 		/* put the hardware status page back */

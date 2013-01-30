@@ -50,7 +50,7 @@ i915_load_modeset_init(struct drm_device *dev)
 
 cleanup_gem:
 	DRM_LOCK();
-	i915_gem_cleanup_ringbuffer(dev_priv);
+	i915_gem_cleanup_ringbuffer(dev);
 	DRM_UNLOCK();
 	i915_gem_cleanup_aliasing_ppgtt(dev);
 	return (ret);
