@@ -1558,6 +1558,10 @@ intel_init_render_ring_buffer(struct drm_device *dev)
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 
+	ring->name = "render ring";
+	ring->id = RCS;
+	ring->mmio_base = RENDER_RING_BASE;
+
 #ifdef notyet
 	*ring = render_ring;
 	if (INTEL_INFO(dev_priv)->gen >= 6) {
@@ -1589,6 +1593,11 @@ intel_render_ring_init_dri(struct drm_device *dev, uint64_t start,
 	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 
 	*ring = render_ring;
+
+	ring->name = "render ring";
+	ring->id = RCS;
+	ring->mmio_base = RENDER_RING_BASE;
+
 	if (INTEL_INFO(dev_priv)->gen >= 6) {
 		ring->add_request = gen6_add_request;
 		ring->irq_get = gen6_render_ring_get_irq;
@@ -1631,10 +1640,16 @@ intel_init_bsd_ring_buffer(struct drm_device *dev)
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_ring_buffer *ring = &dev_priv->rings[VCS];
 
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+	ring->name = "bsd ring";
+	ring->id = VCS;
+
+	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
 		*ring = gen6_bsd_ring;
-	else
+		ring->mmio_base = GEN6_BSD_RING_BASE;
+	} else {
 		*ring = bsd_ring;
+		ring->mmio_base = BSD_RING_BASE;
+	}
 
 	return intel_init_ring_buffer(dev, ring);
 }
@@ -1644,6 +1659,11 @@ intel_init_blt_ring_buffer(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_ring_buffer *ring = &dev_priv->rings[BCS];
+
+	ring->name = "blitter ring";
+	ring->id = BCS;
+
+	ring->mmio_base = BLT_RING_BASE;
 
 	*ring = gen6_blt_ring;
 

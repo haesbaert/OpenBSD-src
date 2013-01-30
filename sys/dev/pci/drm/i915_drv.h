@@ -34,6 +34,7 @@
 #include "i915_reg.h"
 #include "i915_drm.h"
 #include "intel_bios.h"
+#include "intel_ringbuffer.h"
 
 /* General customization:
  */
@@ -84,24 +85,6 @@ struct drm_i915_gem_phys_object {
 	int id;
 	struct drm_dmamem *handle;
 	struct drm_i915_gem_object *cur_obj;
-};
-
-struct intel_ring_buffer {
-	struct drm_obj		*ring_obj;
-	struct drm_device	*dev;
-	const char		*name;
-	enum intel_ring_id {
-		RCS = 0x0,
-		VCS,
-		BCS,
-	} id;
-#define I915_NUM_RINGS 3
-	bus_space_handle_t	 bsh;
-	bus_size_t		 size;
-	u_int32_t		 head;
-	u_int32_t		 space;
-	u_int32_t		 tail;
-	u_int32_t		 woffset;
 };
 
 struct inteldrm_softc;

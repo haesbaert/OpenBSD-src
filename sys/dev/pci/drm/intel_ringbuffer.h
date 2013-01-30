@@ -32,6 +32,25 @@ struct  intel_hw_status_page {
 #define I915_READ_SYNC_0(ring) I915_READ(RING_SYNC_0((ring)->mmio_base))
 #define I915_READ_SYNC_1(ring) I915_READ(RING_SYNC_1((ring)->mmio_base))
 
+
+struct intel_ring_buffer {
+	struct drm_obj		*ring_obj;
+	uint32_t		 mmio_base;
+	struct drm_device	*dev;
+	const char		*name;
+	enum intel_ring_id {
+		RCS = 0x0,
+		VCS,
+		BCS,
+	} id;
+#define I915_NUM_RINGS 3
+	bus_space_handle_t	 bsh;
+	bus_size_t		 size;
+	u_int32_t		 head;
+	u_int32_t		 space;
+	u_int32_t		 tail;
+	u_int32_t		 woffset;
+};
 #ifdef notyet
 struct  intel_ring_buffer {
 	const char	*name;
