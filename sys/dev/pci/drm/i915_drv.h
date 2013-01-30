@@ -136,6 +136,9 @@ struct intel_device_info {
 	u8 is_broadwater:1;
 	u8 is_crestline:1;
 	u8 is_ivybridge:1;
+	u8 is_valleyview:1;
+	u8 has_force_wake:1;
+	u8 is_haswell:1;
 	u8 has_fbc:1;
 	u8 has_pipe_cxsr:1;
 	u8 has_hotplug:1;
@@ -772,6 +775,7 @@ struct drm_i915_gem_object {
 	 */
 	int					 pending_flip;
 };
+#define to_gem_object(obj) (&((struct drm_i915_gem_object *)(obj))->base)
 
 #define to_intel_bo(x) container_of(x,struct drm_i915_gem_object, base)
 
@@ -1152,6 +1156,8 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
  (INTEL_INFO(dev_priv)->is_mobile == 0))
 #define IS_SANDYBRIDGE_M(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
  (INTEL_INFO(dev_priv)->is_mobile == 1))
+#define IS_VALLEYVIEW(dev_priv) (INTEL_INFO(dev_priv)->is_valleyview)
+#define IS_HASWELL(dev_priv)	(INTEL_INFO(dev_priv)->is_haswell)
 
 /*
  * The genX designation typically refers to the render engine, so render
@@ -1210,6 +1216,10 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define INTEL_PCH_TYPE(dev)	(dev->pch_type)
 #define HAS_PCH_CPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_CPT)
 #define HAS_PCH_IBX(dev)	(INTEL_PCH_TYPE(dev) == PCH_IBX)
+
+#define HAS_FORCE_WAKE(dev) (INTEL_INFO(dev)->has_force_wake)
+
+#define HAS_L3_GPU_CACHE(dev) (IS_IVYBRIDGE(dev) || IS_HASWELL(dev))
 
 /*
  * Interrupts that are always left unmasked.
