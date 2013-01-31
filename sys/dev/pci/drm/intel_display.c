@@ -1031,9 +1031,9 @@ void intel_wait_for_pipe_off(struct drm_device *dev, int pipe)
 
 		/* Wait for the display line to settle */
 		for (retries = 100; retries > 0; retries--) {
-			last_line = I915_READ(reg) & DSL_LINEMASK;
+			last_line = I915_READ(reg) & DSL_LINEMASK_GEN2;
 			DELAY(5000);
-			if ((I915_READ(reg) & DSL_LINEMASK) == last_line)
+			if ((I915_READ(reg) & DSL_LINEMASK_GEN2) == last_line)
 				break;
 		}
 		if (retries == 0)
@@ -2427,13 +2427,13 @@ i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb, int x,
 		break;
 	case 16:
 		if (fb->depth == 15)
-			dspcntr |= DISPPLANE_15_16BPP;
+			dspcntr |= DISPPLANE_BGRX555;
 		else
-			dspcntr |= DISPPLANE_16BPP;
+			dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case 24:
 	case 32:
-		dspcntr |= DISPPLANE_32BPP_NO_ALPHA;
+		dspcntr |= DISPPLANE_BGRX888;
 		break;
 	default:
 		DRM_ERROR("Unknown color depth %d\n", fb->bits_per_pixel);
@@ -2506,14 +2506,14 @@ ironlake_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb, int x,
 			return -EINVAL;
 		}
 
-		dspcntr |= DISPPLANE_16BPP;
+		dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case 24:
 	case 32:
 		if (fb->depth == 24)
-			dspcntr |= DISPPLANE_32BPP_NO_ALPHA;
+			dspcntr |= DISPPLANE_BGRX888;
 		else if (fb->depth == 30)
-			dspcntr |= DISPPLANE_32BPP_30BIT_NO_ALPHA;
+			dspcntr |= DISPPLANE_BGRX101010;
 		else {
 			DRM_ERROR("bpp %d depth %d\n", fb->bits_per_pixel,
 			    fb->depth);
@@ -3425,7 +3425,7 @@ intel_cpt_verify_modeset(struct drm_device *dev, int pipe)
 	}
 	if (retries == 0) {
 		/* Without this, mode sets may fail silently on FDI */
-		I915_WRITE(tc2reg, TRANS_AUTOTRAIN_GEN_STALL_DIS);
+		I915_WRITE(tc2reg, TRANS_CHICKEN2_TIMING_OVERRIDE);
 		DELAY(250);
 		I915_WRITE(tc2reg, 0);
 		for (retries = 5; retries > 0; retries--) {
@@ -9039,11 +9039,11 @@ ironlake_init_clock_gating(struct drm_device *dev)
 	uint32_t dspclk_gate = VRHUNIT_CLOCK_GATE_DISABLE;
 
 	/* Required for FBC */
-	dspclk_gate |= DPFCUNIT_CLOCK_GATE_DISABLE |
-		DPFCRUNIT_CLOCK_GATE_DISABLE |
-		DPFDUNIT_CLOCK_GATE_DISABLE;
+	dspclk_gate |= ILK_DPFCUNIT_CLOCK_GATE_DISABLE |
+		ILK_DPFCRUNIT_CLOCK_GATE_DISABLE |
+		ILK_DPFDUNIT_CLOCK_GATE_ENABLE;
 	/* Required for CxSR */
-	dspclk_gate |= DPARBUNIT_CLOCK_GATE_DISABLE;
+	dspclk_gate |= ILK_DPARBUNIT_CLOCK_GATE_ENABLE;
 
 	I915_WRITE(PCH_3DCGDIS0,
 		   MARIUNIT_CLOCK_GATE_DISABLE |
@@ -9051,7 +9051,7 @@ ironlake_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(PCH_3DCGDIS1,
 		   VFMUNIT_CLOCK_GATE_DISABLE);
 
-	I915_WRITE(PCH_DSPCLK_GATE_D, dspclk_gate);
+	I915_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
 
 	/*
 	 * According to the spec the following bits should be set in
@@ -9063,9 +9063,9 @@ ironlake_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(ILK_DISPLAY_CHICKEN2,
 		   (I915_READ(ILK_DISPLAY_CHICKEN2) |
 		    ILK_DPARB_GATE | ILK_VSDPFD_FULL));
-	I915_WRITE(ILK_DSPCLK_GATE,
-		   (I915_READ(ILK_DSPCLK_GATE) |
-		    ILK_DPARB_CLK_GATE));
+	I915_WRITE(ILK_DSPCLK_GATE_D,
+		   (I915_READ(ILK_DSPCLK_GATE_D) |
+		    ILK_DPARBUNIT_CLOCK_GATE_ENABLE));
 	I915_WRITE(DISP_ARB_CTL,
 		   (I915_READ(DISP_ARB_CTL) |
 		    DISP_FBC_WM_DIS));
@@ -9087,11 +9087,11 @@ ironlake_init_clock_gating(struct drm_device *dev)
 		I915_WRITE(ILK_DISPLAY_CHICKEN2,
 			   I915_READ(ILK_DISPLAY_CHICKEN2) |
 			   ILK_DPARB_GATE);
-		I915_WRITE(ILK_DSPCLK_GATE,
-			   I915_READ(ILK_DSPCLK_GATE) |
-			   ILK_DPFC_DIS1 |
-			   ILK_DPFC_DIS2 |
-			   ILK_CLK_FBC);
+		I915_WRITE(ILK_DSPCLK_GATE_D,
+			   I915_READ(ILK_DSPCLK_GATE_D) |
+			   ILK_DPFCRUNIT_CLOCK_GATE_DISABLE |
+			   ILK_DPFCUNIT_CLOCK_GATE_DISABLE |
+			   ILK_DPFDUNIT_CLOCK_GATE_ENABLE);
 	}
 
 	I915_WRITE(ILK_DISPLAY_CHICKEN2,
@@ -9109,7 +9109,7 @@ gen6_init_clock_gating(struct drm_device *dev)
 	int pipe;
 	uint32_t dspclk_gate = VRHUNIT_CLOCK_GATE_DISABLE;
 
-	I915_WRITE(PCH_DSPCLK_GATE_D, dspclk_gate);
+	I915_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
 
 	I915_WRITE(ILK_DISPLAY_CHICKEN2,
 		   I915_READ(ILK_DISPLAY_CHICKEN2) |
@@ -9152,10 +9152,10 @@ gen6_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(ILK_DISPLAY_CHICKEN2,
 		   I915_READ(ILK_DISPLAY_CHICKEN2) |
 		   ILK_DPARB_GATE | ILK_VSDPFD_FULL);
-	I915_WRITE(ILK_DSPCLK_GATE,
-		   I915_READ(ILK_DSPCLK_GATE) |
-		   ILK_DPARB_CLK_GATE  |
-		   ILK_DPFD_CLK_GATE);
+	I915_WRITE(ILK_DSPCLK_GATE_D,
+		   I915_READ(ILK_DSPCLK_GATE_D) |
+		   ILK_DPARBUNIT_CLOCK_GATE_ENABLE |
+		   ILK_DPFDUNIT_CLOCK_GATE_ENABLE);
 
 	for_each_pipe(pipe) {
 		I915_WRITE(DSPCNTR(pipe),
@@ -9172,7 +9172,7 @@ ivybridge_init_clock_gating(struct drm_device *dev)
 	int pipe;
 	uint32_t dspclk_gate = VRHUNIT_CLOCK_GATE_DISABLE;
 
-	I915_WRITE(PCH_DSPCLK_GATE_D, dspclk_gate);
+	I915_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
 
 	I915_WRITE(WM3_LP_ILK, 0);
 	I915_WRITE(WM2_LP_ILK, 0);
@@ -9183,7 +9183,7 @@ ivybridge_init_clock_gating(struct drm_device *dev)
 	 */
 	I915_WRITE(GEN6_UCGCTL2, GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
 
-	I915_WRITE(ILK_DSPCLK_GATE, IVB_VRHUNIT_CLK_GATE);
+	I915_WRITE(ILK_DSPCLK_GATE_D, ILK_VRHUNIT_CLOCK_GATE_DISABLE);
 
 	I915_WRITE(IVB_CHICKEN3,
 		   CHICKEN3_DGMG_REQ_OUT_FIX_DISABLE |
@@ -9312,7 +9312,7 @@ cpt_init_clock_gating(struct drm_device *dev)
 		   DPLS_EDP_PPS_FIX_DIS);
 	/* Without this, mode sets may fail silently on FDI */
 	for_each_pipe(pipe)
-		I915_WRITE(TRANS_CHICKEN2(pipe), TRANS_AUTOTRAIN_GEN_STALL_DIS);
+		I915_WRITE(TRANS_CHICKEN2(pipe), TRANS_CHICKEN2_TIMING_OVERRIDE);
 }
 
 void

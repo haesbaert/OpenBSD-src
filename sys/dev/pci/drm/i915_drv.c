@@ -605,9 +605,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 			 * arb state is a masked write, so set bit + bit
 			 * in mask
 			 */
-			tmp = MI_ARB_C3_LP_WRITE_ENABLE |
-			    (MI_ARB_C3_LP_WRITE_ENABLE << MI_ARB_MASK_SHIFT);
-			I915_WRITE(MI_ARB_STATE, tmp);
+			I915_WRITE(MI_ARB_STATE,
+			           _MASKED_BIT_ENABLE(MI_ARB_C3_LP_WRITE_ENABLE));
 		}
 	}
 
@@ -915,7 +914,7 @@ inteldrm_ironlake_intr(void *arg)
 		dev_priv->mm.hang_cnt = 0;
 		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 	}
-	if (gt_iir & GT_MASTER_ERROR)
+	if (gt_iir & GT_RENDER_CS_ERROR_INTERRUPT)
 		inteldrm_error(dev_priv);
 
 	if (IS_GEN7(dev_priv)) {
@@ -2589,7 +2588,7 @@ inteldrm_error(struct inteldrm_softc *dev_priv)
 		I915_WRITE(EMR, I915_READ(EMR) | eir);
 		if (IS_IRONLAKE(dev_priv) || IS_GEN6(dev_priv) ||
 		    IS_GEN7(dev_priv)) {
-			I915_WRITE(GTIIR, GT_MASTER_ERROR);
+			I915_WRITE(GTIIR, GT_RENDER_CS_ERROR_INTERRUPT);
 		} else {
 			I915_WRITE(IIR,
 			    I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT);

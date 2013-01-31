@@ -816,8 +816,8 @@ i915_save_state(struct inteldrm_softc *dev)
 
 	/* Clock gating state */
 	if (HAS_PCH_SPLIT(dev_priv)) {
-		dev_priv->saveDSPCLK_GATE_D = I915_READ(PCH_DSPCLK_GATE_D);
-		dev_priv->saveDSPCLK_GATE = I915_READ(ILK_DSPCLK_GATE);
+		dev_priv->saveDSPCLK_GATE_D = I915_READ(ILK_DSPCLK_GATE_D);
+		dev_priv->saveDSPCLK_GATE = I915_READ(ILK_DSPCLK_GATE_D);
 	} else if (IS_G4X(dev_priv)) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
@@ -886,8 +886,8 @@ i915_restore_state(struct inteldrm_softc *dev)
 
 	/* Clock gating state */
 	if (HAS_PCH_SPLIT(dev_priv)) {
-		I915_WRITE(PCH_DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
-		I915_WRITE(ILK_DSPCLK_GATE, dev_priv->saveDSPCLK_GATE);
+		I915_WRITE(ILK_DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
+		I915_WRITE(ILK_DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE);
 	} if (IS_G4X(dev_priv)) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
