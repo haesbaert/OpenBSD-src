@@ -2023,7 +2023,7 @@ i915_gem_attach_phys_object(struct drm_device *dev,
 	}
 
 	/* create a new object */
-	if (dev_priv->mm.phys_objs[id - 1]) {
+	if (!dev_priv->mm.phys_objs[id - 1]) {
 		ret = i915_gem_init_phys_object(dev, id,
 						obj->base.size, align);
 		if (ret) {
