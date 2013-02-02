@@ -102,7 +102,7 @@ intel_lvds_enable(struct intel_lvds *intel_lvds)
 	u32 ctl_reg, lvds_reg, stat_reg;
 	int retries;
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		ctl_reg = PCH_PP_CONTROL;
 		lvds_reg = PCH_LVDS;
 		stat_reg = PCH_PP_STATUS;
@@ -151,7 +151,7 @@ intel_lvds_disable(struct intel_lvds *intel_lvds)
 	u32 ctl_reg, lvds_reg, stat_reg;
 	int retries;
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		ctl_reg = PCH_PP_CONTROL;
 		lvds_reg = PCH_LVDS;
 		stat_reg = PCH_PP_STATUS;
@@ -281,7 +281,7 @@ intel_lvds_mode_fixup(struct drm_encoder *encoder,
 	int pipe;
 
 	/* Should never happen!! */
-	if (INTEL_INFO(dev_priv)->gen < 4 && intel_crtc->pipe == 0) {
+	if (INTEL_INFO(dev)->gen < 4 && intel_crtc->pipe == 0) {
 		DRM_ERROR("Can't support LVDS on pipe A\n");
 		return false;
 	}
@@ -303,7 +303,7 @@ intel_lvds_mode_fixup(struct drm_encoder *encoder,
 	 */
 	intel_fixed_panel_mode(intel_lvds->fixed_mode, adjusted_mode);
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		intel_pch_panel_fitting(dev, intel_lvds->fitting_mode,
 					mode, adjusted_mode);
 		return true;
@@ -315,7 +315,7 @@ intel_lvds_mode_fixup(struct drm_encoder *encoder,
 		goto out;
 
 	/* 965+ wants fuzzy fitting */
-	if (INTEL_INFO(dev_priv)->gen >= 4)
+	if (INTEL_INFO(dev)->gen >= 4)
 		pfit_control |= ((intel_crtc->pipe << PFIT_PIPE_SHIFT) |
 				 PFIT_FILTER_FUZZY);
 
@@ -343,7 +343,7 @@ intel_lvds_mode_fixup(struct drm_encoder *encoder,
 
 	case DRM_MODE_SCALE_ASPECT:
 		/* Scale but preserve the aspect ratio */
-		if (INTEL_INFO(dev_priv)->gen >= 4) {
+		if (INTEL_INFO(dev)->gen >= 4) {
 			u32 scaled_width = adjusted_mode->hdisplay * mode->vdisplay;
 			u32 scaled_height = mode->hdisplay * adjusted_mode->vdisplay;
 
@@ -403,7 +403,7 @@ intel_lvds_mode_fixup(struct drm_encoder *encoder,
 		if (mode->vdisplay != adjusted_mode->vdisplay ||
 		    mode->hdisplay != adjusted_mode->hdisplay) {
 			pfit_control |= PFIT_ENABLE;
-			if (INTEL_INFO(dev_priv)->gen >= 4)
+			if (INTEL_INFO(dev)->gen >= 4)
 				pfit_control |= PFIT_SCALING_AUTO;
 			else
 				pfit_control |= (VERT_AUTO_SCALE |
@@ -425,7 +425,7 @@ out:
 	}
 
 	/* Make sure pre-965 set dither correctly */
-	if (INTEL_INFO(dev_priv)->gen < 4 && dev_priv->lvds_dither)
+	if (INTEL_INFO(dev)->gen < 4 && dev_priv->lvds_dither)
 		pfit_control |= PANEL_8TO6_DITHER_ENABLE;
 
 	if (pfit_control != intel_lvds->pfit_control ||
@@ -449,14 +449,14 @@ void
 intel_lvds_prepare(struct drm_encoder *encoder)
 {
 	struct intel_lvds *intel_lvds = to_intel_lvds(encoder);
-	struct inteldrm_softc *dev_priv = encoder->dev->dev_private;
+	struct drm_device *dev = encoder->dev;
 
 	/*
 	 * Prior to Ironlake, we must disable the pipe if we want to adjust
 	 * the panel fitter. However at all other times we can just reset
 	 * the registers regardless.
 	 */
-	if (!HAS_PCH_SPLIT(dev_priv) && intel_lvds->pfit_dirty)
+	if (!HAS_PCH_SPLIT(dev) && intel_lvds->pfit_dirty)
 		intel_lvds_disable(intel_lvds);
 }
 
@@ -933,16 +933,14 @@ lvds_is_present_in_vbt(struct drm_device *dev, u8 *i2c_pin)
 bool
 intel_lvds_supported(struct drm_device *dev)
 {
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-
 	/* With the introduction of the PCH we gained a dedicated
 	 * LVDS presence pin, use it. */
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		return true;
 
 	/* Otherwise LVDS was only attached to mobile products,
 	 * except for the inglorious 830gm */
-	return IS_MOBILE(dev_priv) && !IS_I830(dev_priv);
+	return IS_MOBILE(dev) && !IS_I830(dev);
 }
 
 /**
@@ -980,7 +978,7 @@ intel_lvds_init(struct drm_device *dev)
 		return false;
 	}
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		if ((I915_READ(PCH_LVDS) & LVDS_DETECTED) == 0)
 			return false;
 		if (dev_priv->edp.support) {
@@ -994,7 +992,7 @@ intel_lvds_init(struct drm_device *dev)
 	intel_connector = malloc(sizeof(struct intel_connector), M_DRM,
 	    M_WAITOK | M_ZERO);
 
-	if (!HAS_PCH_SPLIT(dev_priv)) {
+	if (!HAS_PCH_SPLIT(dev)) {
 		intel_lvds->pfit_control = I915_READ(PFIT_CONTROL);
 	}
 
@@ -1011,7 +1009,7 @@ intel_lvds_init(struct drm_device *dev)
 	intel_encoder->type = INTEL_OUTPUT_LVDS;
 
 	intel_encoder->clone_mask = (1 << INTEL_LVDS_CLONE_BIT);
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		intel_encoder->crtc_mask = (1 << 0) | (1 << 1) | (1 << 2);
 	else
 		intel_encoder->crtc_mask = (1 << 1);
@@ -1098,7 +1096,7 @@ intel_lvds_init(struct drm_device *dev)
 	 */
 
 	/* Ironlake: FIXME if still fail, not try pipe mode now */
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		goto failed;
 
 	lvds = I915_READ(LVDS);
@@ -1119,7 +1117,7 @@ intel_lvds_init(struct drm_device *dev)
 		goto failed;
 
 out:
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		u32 pwm;
 
 		pipe = (I915_READ(PCH_LVDS) & LVDS_PIPEB_SELECT) ? 1 : 0;

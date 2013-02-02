@@ -48,7 +48,7 @@ const struct lvds_dvo_timing *
 	     const struct bdb_lvds_lfp_data_ptrs *, int);
 void	 parse_lfp_panel_data(struct inteldrm_softc *, struct bdb_header *);
 void	 parse_sdvo_panel_data(struct inteldrm_softc *, struct bdb_header *);
-int	 intel_bios_ssc_frequency(struct inteldrm_softc *, bool);
+int	 intel_bios_ssc_frequency(struct drm_device *, bool);
 void	 parse_general_features(struct inteldrm_softc *, struct bdb_header *);
 void	 parse_general_definitions(struct inteldrm_softc *,
 	     struct bdb_header *);
@@ -306,9 +306,9 @@ parse_sdvo_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 }
 
 int
-intel_bios_ssc_frequency(struct inteldrm_softc *dev_priv, bool alternate)
+intel_bios_ssc_frequency(struct drm_device *dev, bool alternate)
 {
-	switch (INTEL_INFO(dev_priv)->gen) {
+	switch (INTEL_INFO(dev)->gen) {
 	case 2:
 		return alternate ? 66 : 48;
 	case 3:
@@ -322,6 +322,7 @@ intel_bios_ssc_frequency(struct inteldrm_softc *dev_priv, bool alternate)
 void
 parse_general_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct bdb_general_features *general;
 
 	general = find_section(bdb, BDB_GENERAL_FEATURES);
@@ -330,7 +331,7 @@ parse_general_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 		dev_priv->int_crt_support = general->int_crt_support;
 		dev_priv->lvds_use_ssc = general->enable_ssc;
 		dev_priv->lvds_ssc_freq =
-			intel_bios_ssc_frequency(dev_priv, general->ssc_freq);
+			intel_bios_ssc_frequency(dev, general->ssc_freq);
 		dev_priv->display_clock_mode = general->display_clock_mode;
 		DRM_DEBUG_KMS("BDB_GENERAL_FEATURES int_tv_support %d int_crt_support %d lvds_use_ssc %d lvds_ssc_freq %d display_clock_mode %d\n",
 			      dev_priv->int_tv_support,
@@ -455,13 +456,14 @@ parse_sdvo_device_mapping(struct inteldrm_softc *dev_priv,
 void
 parse_driver_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct bdb_driver_features *driver;
 
 	driver = find_section(bdb, BDB_DRIVER_FEATURES);
 	if (!driver)
 		return;
 
-	if (SUPPORTS_EDP(dev_priv) &&
+	if (SUPPORTS_EDP(dev) &&
 	    driver->lvds_config == BDB_DRIVER_FEATURE_EDP)
 		dev_priv->edp.support = 1;
 
@@ -472,13 +474,14 @@ parse_driver_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 void
 parse_edp(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct bdb_edp *edp;
 	struct edp_power_seq *edp_pps;
 	struct edp_link_params *edp_link_params;
 
 	edp = find_section(bdb, BDB_EDP);
 	if (!edp) {
-		if (SUPPORTS_EDP(dev_priv) && dev_priv->edp.support) {
+		if (SUPPORTS_EDP(dev) && dev_priv->edp.support) {
 			DRM_DEBUG_KMS("No eDP BDB found but eDP panel "
 				      "supported, assume %dbpp panel color "
 				      "depth.\n",
@@ -613,6 +616,8 @@ parse_device_mapping(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 void
 init_vbt_defaults(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
 	dev_priv->crt_ddc_pin = GMBUS_PORT_VGADDC;
 
 	/* LFP panel data */
@@ -628,7 +633,7 @@ init_vbt_defaults(struct inteldrm_softc *dev_priv)
 
 	/* Default to using SSC */
 	dev_priv->lvds_use_ssc = 1;
-	dev_priv->lvds_ssc_freq = intel_bios_ssc_frequency(dev_priv, 1);
+	dev_priv->lvds_ssc_freq = intel_bios_ssc_frequency(dev, 1);
 	DRM_DEBUG_KMS("Set default to SSC at %dMHz\n", dev_priv->lvds_ssc_freq);
 
 	/* eDP data */

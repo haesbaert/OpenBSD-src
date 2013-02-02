@@ -99,13 +99,14 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 void
 i915_i2c_probe(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct gmbus_port gp;
 	struct i2c_controller ic;
 	uint8_t buf[128];
 	uint8_t cmd;
 	int err, i;
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		dev_priv->gpio_mmio_base = PCH_GPIOA - GPIOA;
 	else
 		dev_priv->gpio_mmio_base = 0;
@@ -133,7 +134,9 @@ i915_i2c_probe(struct inteldrm_softc *dev_priv)
 int
 intel_setup_gmbus(struct inteldrm_softc *dev_priv)
 {
-	if (HAS_PCH_SPLIT(dev_priv))
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
+	if (HAS_PCH_SPLIT(dev))
 		dev_priv->gpio_mmio_base = PCH_GPIOA - GPIOA;
 	else
 		dev_priv->gpio_mmio_base = 0;

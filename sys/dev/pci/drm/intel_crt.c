@@ -80,7 +80,7 @@ intel_crt_dpms(struct drm_encoder *encoder, int mode)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	u32 temp, reg;
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		reg = PCH_ADPA;
 	else
 		reg = ADPA;
@@ -112,7 +112,6 @@ intel_crt_mode_valid(struct drm_connector *connector,
     struct drm_display_mode *mode)
 {
 	struct drm_device *dev = connector->dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	int max_clock = 0;
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
@@ -121,7 +120,7 @@ intel_crt_mode_valid(struct drm_connector *connector,
 	if (mode->clock < 25000)
 		return MODE_CLOCK_LOW;
 
-	if (IS_GEN2(dev_priv))
+	if (IS_GEN2(dev))
 		max_clock = 350000;
 	else
 		max_clock = 400000;
@@ -153,7 +152,7 @@ intel_crt_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 
 	dpll_md_reg = DPLL_MD(intel_crtc->pipe);
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		adpa_reg = PCH_ADPA;
 	else
 		adpa_reg = ADPA;
@@ -162,7 +161,7 @@ intel_crt_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	 * Disable separate mode multiplier used when cloning SDVO to CRT
 	 * XXX this needs to be adjusted when we really are cloning
 	 */
-	if (INTEL_INFO(dev_priv)->gen >= 4 && !HAS_PCH_SPLIT(dev_priv)) {
+	if (INTEL_INFO(dev)->gen >= 4 && !HAS_PCH_SPLIT(dev)) {
 		dpll_md = I915_READ(dpll_md_reg);
 		I915_WRITE(dpll_md_reg,
 			   dpll_md & ~DPLL_MD_UDI_MULTIPLIER_MASK);
@@ -182,7 +181,7 @@ intel_crt_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	else
 		adpa |= ADPA_PIPE_B_SELECT;
 
-	if (!HAS_PCH_SPLIT(dev_priv))
+	if (!HAS_PCH_SPLIT(dev))
 		I915_WRITE(BCLRPAT(intel_crtc->pipe), 0);
 
 	I915_WRITE(adpa_reg, adpa);
@@ -200,7 +199,7 @@ intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
 
 	/* The first time through, trigger an explicit detection cycle */
 	if (crt->force_hotplug_required) {
-		bool turn_off_dac = HAS_PCH_SPLIT(dev_priv);
+		bool turn_off_dac = HAS_PCH_SPLIT(dev);
 		u32 save_adpa;
 
 		crt->force_hotplug_required = 0;
@@ -257,7 +256,7 @@ intel_crt_detect_hotplug(struct drm_connector *connector)
 	bool ret = false;
 	int i, tries = 0, retries;
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		return intel_ironlake_crt_detect_hotplug(connector);
 
 	/*
@@ -265,7 +264,7 @@ intel_crt_detect_hotplug(struct drm_connector *connector)
 	 * to get a reliable result.
 	 */
 
-	if (IS_G4X(dev_priv) && !IS_GM45(dev_priv))
+	if (IS_G4X(dev) && !IS_GM45(dev))
 		tries = 2;
 	else
 		tries = 1;
@@ -384,7 +383,7 @@ intel_crt_load_detect(struct intel_crt *crt)
 	/* Set the border color to purple. */
 	I915_WRITE(bclrpat_reg, 0x500050);
 
-	if (!IS_GEN2(dev_priv)) {
+	if (!IS_GEN2(dev)) {
 		uint32_t pipeconf = I915_READ(pipeconf_reg);
 		I915_WRITE(pipeconf_reg, pipeconf | PIPECONF_FORCE_BORDER);
 		POSTING_READ(pipeconf_reg);
@@ -465,12 +464,11 @@ enum drm_connector_status
 intel_crt_detect(struct drm_connector *connector, bool force)
 {
 	struct drm_device *dev = connector->dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crt *crt = intel_attached_crt(connector);
 	enum drm_connector_status status;
 	struct intel_load_detect_pipe tmp;
 
-	if (I915_HAS_HOTPLUG(dev_priv)) {
+	if (I915_HAS_HOTPLUG(dev)) {
 		if (intel_crt_detect_hotplug(connector)) {
 			DRM_DEBUG_KMS("CRT detected via hotplug\n");
 			return connector_status_connected;
@@ -521,7 +519,7 @@ intel_crt_get_modes(struct drm_connector *connector)
 
 	intel_gmbus_set_port(dev_priv, dev_priv->crt_ddc_pin);
 	ret = intel_ddc_get_modes(connector, &dev_priv->ddc);
-	if (ret || !IS_G4X(dev_priv))
+	if (ret || !IS_G4X(dev))
 		return ret;
 
 	/* Try to probe digital port for output in DVI-I -> VGA mode. */
@@ -540,10 +538,9 @@ void
 intel_crt_reset(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crt *crt = intel_attached_crt(connector);
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		crt->force_hotplug_required = 1;
 }
 
@@ -627,7 +624,7 @@ intel_crt_init(struct drm_device *dev)
 				1 << INTEL_ANALOG_CLONE_BIT |
 				1 << INTEL_SDVO_LVDS_CLONE_BIT);
 	crt->base.crtc_mask = (1 << 0) | (1 << 1);
-	if (IS_GEN2(dev_priv))
+	if (IS_GEN2(dev))
 		connector->interlace_allowed = 0;
 	else
 		connector->interlace_allowed = 1;
@@ -640,7 +637,7 @@ intel_crt_init(struct drm_device *dev)
 	drm_sysfs_connector_add(connector);
 #endif
 
-	if (I915_HAS_HOTPLUG(dev_priv))
+	if (I915_HAS_HOTPLUG(dev))
 		connector->polled = DRM_CONNECTOR_POLL_HPD;
 	else
 		connector->polled = DRM_CONNECTOR_POLL_CONNECT;
@@ -649,7 +646,7 @@ intel_crt_init(struct drm_device *dev)
 	 * Configure the automatic hotplug detection stuff
 	 */
 	crt->force_hotplug_required = 0;
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		u32 adpa;
 
 		adpa = I915_READ(PCH_ADPA);

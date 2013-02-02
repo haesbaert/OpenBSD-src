@@ -129,10 +129,10 @@ is_backlight_combination_mode(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
-	if (INTEL_INFO(dev_priv)->gen >= 4)
+	if (INTEL_INFO(dev)->gen >= 4)
 		return I915_READ(BLC_PWM_CTL2) & BLM_COMBINATION_MODE;
 
-	if (IS_GEN2(dev_priv))
+	if (IS_GEN2(dev))
 		return I915_READ(BLC_PWM_CTL) & BLM_LEGACY_MODE;
 
 	return 0;
@@ -141,11 +141,12 @@ is_backlight_combination_mode(struct drm_device *dev)
 u32
 i915_read_blc_pwm_ctl(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	u32 val;
 
 	/* Restore the CTL value if it lost, e.g. GPU reset */
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		val = I915_READ(BLC_PWM_PCH_CTL2);
 		if (dev_priv->saveBLC_PWM_CTL2 == 0) {
 			dev_priv->saveBLC_PWM_CTL2 = val;
@@ -188,10 +189,10 @@ intel_panel_get_max_backlight(struct drm_device *dev)
 		return 1;
 	}
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		max >>= 16;
 	} else {
-		if (INTEL_INFO(dev_priv)->gen < 4)
+		if (INTEL_INFO(dev)->gen < 4)
 			max >>= 17;
 		else
 			max >>= 16;
@@ -210,11 +211,11 @@ intel_panel_get_backlight(struct drm_device *dev)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	u32 val;
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		val = I915_READ(BLC_PWM_CPU_CTL) & BACKLIGHT_DUTY_CYCLE_MASK;
 	} else {
 		val = I915_READ(BLC_PWM_CTL) & BACKLIGHT_DUTY_CYCLE_MASK;
-		if (INTEL_INFO(dev_priv)->gen < 4)
+		if (INTEL_INFO(dev)->gen < 4)
 			val >>= 1;
 
 		if (is_backlight_combination_mode(dev)) {
@@ -246,7 +247,7 @@ intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
 
 	DRM_DEBUG("set backlight PWM = %d\n", level);
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		return intel_pch_panel_set_backlight(dev, level);
 
 	if (is_backlight_combination_mode(dev)) {
@@ -259,7 +260,7 @@ intel_panel_actually_set_backlight(struct drm_device *dev, u32 level)
 	}
 
 	tmp = I915_READ(BLC_PWM_CTL);
-	if (INTEL_INFO(dev_priv)->gen < 4) 
+	if (INTEL_INFO(dev)->gen < 4) 
 		level <<= 1;
 	tmp &= ~BACKLIGHT_DUTY_CYCLE_MASK;
 	I915_WRITE(BLC_PWM_CTL, tmp | level);

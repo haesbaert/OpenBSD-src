@@ -662,24 +662,23 @@ static uint32_t snb_plane_formats[] = {
 int
 intel_plane_init(struct drm_device *dev, enum pipe pipe)
 {
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane;
 	unsigned long possible_crtcs;
 	int ret;
 
-	if (!(IS_GEN6(dev_priv) || IS_GEN7(dev_priv)))
+	if (!(IS_GEN6(dev) || IS_GEN7(dev)))
 		return -ENODEV;
 
 	intel_plane = malloc(sizeof(struct intel_plane), M_DRM,
 	    M_WAITOK | M_ZERO);
 
-	if (IS_GEN6(dev_priv)) {
+	if (IS_GEN6(dev)) {
 		intel_plane->max_downscale = 16;
 		intel_plane->update_plane = snb_update_plane;
 		intel_plane->disable_plane = snb_disable_plane;
 		intel_plane->update_colorkey = snb_update_colorkey;
 		intel_plane->get_colorkey = snb_get_colorkey;
-	} else if (IS_GEN7(dev_priv)) {
+	} else if (IS_GEN7(dev)) {
 		intel_plane->max_downscale = 2;
 		intel_plane->update_plane = ivb_update_plane;
 		intel_plane->disable_plane = ivb_disable_plane;

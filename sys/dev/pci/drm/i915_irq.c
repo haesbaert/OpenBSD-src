@@ -63,10 +63,12 @@ i915_disable_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 inline void
 ironlake_enable_graphics_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+
 	if ((dev_priv->gt_irq_mask_reg & mask) != 0) {
 		/* XXX imr bullshit */
 		dev_priv->gt_irq_mask_reg &= ~mask;
-		if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
+		if (IS_GEN6(dev) || IS_GEN7(dev)) {
 			I915_WRITE(0x20a8, dev_priv->gt_irq_mask_reg);
 			(void)I915_READ(0x20a8);
 		} else {
@@ -79,9 +81,11 @@ ironlake_enable_graphics_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 inline void
 ironlake_disable_graphics_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+
 	if ((dev_priv->gt_irq_mask_reg & mask) != mask) {
 		dev_priv->gt_irq_mask_reg |= mask;
-		if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
+		if (IS_GEN6(dev) || IS_GEN7(dev)) {
 			I915_WRITE(0x20a8, dev_priv->gt_irq_mask_reg);
 			(void)I915_READ(0x20a8);
 		} else {
@@ -169,8 +173,8 @@ i915_get_vblank_counter(struct drm_device *dev, int pipe)
 	low_frame = PIPEFRAMEPIXEL(pipe);
 
 	/* GM45 just had to be different... */
-	if (IS_GM45(dev_priv) || IS_G4X(dev_priv) || IS_IRONLAKE(dev_priv) ||
-	    IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
+	if (IS_GM45(dev) || IS_G4X(dev) || IS_IRONLAKE(dev) ||
+	    IS_GEN6(dev) || IS_GEN7(dev)) {
 		return (I915_READ(PIPE_FRMCOUNT_GM45(pipe)));
 	}
 
@@ -194,8 +198,10 @@ i915_get_vblank_counter(struct drm_device *dev, int pipe)
 void
 i915_user_irq_get(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+
 	if (++dev_priv->user_irq_refcount == 1) {
-		if (HAS_PCH_SPLIT(dev_priv))
+		if (HAS_PCH_SPLIT(dev))
 			ironlake_enable_graphics_irq(dev_priv,
 			    GT_USER_INTERRUPT);
 		else
@@ -206,8 +212,10 @@ i915_user_irq_get(struct inteldrm_softc *dev_priv)
 void
 i915_user_irq_put(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+
 	if (--dev_priv->user_irq_refcount == 0) {
-		if (HAS_PCH_SPLIT(dev_priv))
+		if (HAS_PCH_SPLIT(dev))
 			ironlake_disable_graphics_irq(dev_priv,
 			    GT_USER_INTERRUPT);
 		else
@@ -224,15 +232,15 @@ i915_enable_vblank(struct drm_device *dev, int pipe)
 		return (EINVAL);
 
 	mtx_enter(&dev_priv->user_irq_lock);
-	if (IS_GEN7(dev_priv))
+	if (IS_GEN7(dev))
 		ironlake_enable_display_irq(dev_priv,
 		    DE_PIPEA_VBLANK_IVB << (5 * pipe));
-	else if (HAS_PCH_SPLIT(dev_priv))
+	else if (HAS_PCH_SPLIT(dev))
 		ironlake_enable_display_irq(dev_priv, (pipe == 0) ?
 		    DE_PIPEA_VBLANK : DE_PIPEB_VBLANK);
 	else
 		i915_enable_pipestat(dev_priv, pipe,
-		    (INTEL_INFO(dev_priv)->gen >= 4 ?
+		    (INTEL_INFO(dev)->gen >= 4 ?
 		    PIPE_START_VBLANK_INTERRUPT_ENABLE :
 		    PIPE_VBLANK_INTERRUPT_ENABLE));
 	mtx_leave(&dev_priv->user_irq_lock);
@@ -246,10 +254,10 @@ i915_disable_vblank(struct drm_device *dev, int pipe)
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 
 	mtx_enter(&dev_priv->user_irq_lock);
-	if (IS_GEN7(dev_priv))
+	if (IS_GEN7(dev))
 		ironlake_disable_display_irq(dev_priv,
 		    DE_PIPEA_VBLANK_IVB << (pipe * 5));
-	else if (HAS_PCH_SPLIT(dev_priv))
+	else if (HAS_PCH_SPLIT(dev))
 		ironlake_disable_display_irq(dev_priv, (pipe == 0) ?
 		    DE_PIPEA_VBLANK : DE_PIPEB_VBLANK);
 	else
@@ -267,13 +275,13 @@ i915_driver_irq_install(struct drm_device *dev)
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 
 	dev->vblank->vb_max = 0xffffff; /* only 24 bits of frame count */
-	if (IS_G4X(dev_priv) || IS_IRONLAKE(dev_priv) || IS_GEN6(dev_priv) ||
-	    IS_GEN7(dev_priv))
+	if (IS_G4X(dev) || IS_IRONLAKE(dev) || IS_GEN6(dev) ||
+	    IS_GEN7(dev))
 		dev->vblank->vb_max = 0xffffffff;
 
 	I915_WRITE(HWSTAM, 0xeffe);
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		return (ironlake_irq_install(dev_priv));
 
 	I915_WRITE(_PIPEASTAT, 0);
@@ -287,7 +295,7 @@ i915_driver_irq_install(struct drm_device *dev)
 	 * Enable some error detection, note the instruction error mask
 	 * bit is reserved, so we leave it masked.
 	 */
-	I915_WRITE(EMR, IS_G4X(dev_priv) ?
+	I915_WRITE(EMR, IS_G4X(dev) ?
 	    ~(GM45_ERROR_PAGE_TABLE | GM45_ERROR_MEM_PRIV |
 	    GM45_ERROR_CP_PRIV | I915_ERROR_MEMORY_REFRESH) :
 	    ~(I915_ERROR_PAGE_TABLE | I915_ERROR_MEMORY_REFRESH));
@@ -358,7 +366,7 @@ i915_driver_irq_uninstall(struct drm_device *dev)
 
 	I915_WRITE(HWSTAM, 0xffffffff);
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		I915_WRITE(DEIMR, 0xffffffff);
 		I915_WRITE(DEIER, 0x0);
 		I915_WRITE(DEIIR, I915_READ(DEIIR));

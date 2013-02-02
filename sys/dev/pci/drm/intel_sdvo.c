@@ -1201,13 +1201,13 @@ intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 		return;
 
 	/* Set the SDVO control regs. */
-	if (INTEL_INFO(dev_priv)->gen >= 4) {
+	if (INTEL_INFO(dev)->gen >= 4) {
 		/* The real mode polarity is set by the SDVO commands, using
 		 * struct intel_sdvo_dtd. */
 		sdvox = SDVO_VSYNC_ACTIVE_HIGH | SDVO_HSYNC_ACTIVE_HIGH;
 		if (intel_sdvo->is_hdmi)
 			sdvox |= intel_sdvo->color_range;
-		if (INTEL_INFO(dev_priv)->gen < 5)
+		if (INTEL_INFO(dev)->gen < 5)
 			sdvox |= SDVO_BORDER_ENABLE;
 	} else {
 		sdvox = I915_READ(intel_sdvo->sdvo_reg);
@@ -1230,16 +1230,16 @@ intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	if (intel_sdvo->has_hdmi_audio)
 		sdvox |= SDVO_AUDIO_ENABLE;
 
-	if (INTEL_INFO(dev_priv)->gen >= 4) {
+	if (INTEL_INFO(dev)->gen >= 4) {
 		/* done in crtc_mode_set as the dpll_md reg must be written early */
-	} else if (IS_I945G(dev_priv) || IS_I945GM(dev_priv) || IS_G33(dev_priv)) {
+	} else if (IS_I945G(dev) || IS_I945GM(dev) || IS_G33(dev)) {
 		/* done in crtc_mode_set as it lives inside the dpll register */
 	} else {
 		sdvox |= (pixel_multiplier - 1) << SDVO_PORT_MULTIPLY_SHIFT;
 	}
 
 	if (input_dtd.part2.sdvo_flags & SDVO_NEED_TO_STALL &&
-	    INTEL_INFO(dev_priv)->gen < 5)
+	    INTEL_INFO(dev)->gen < 5)
 		sdvox |= SDVO_STALL_SELECT;
 	intel_sdvo_write_sdvox(intel_sdvo, sdvox);
 }
@@ -1361,12 +1361,11 @@ int
 intel_sdvo_supports_hotplug(struct intel_sdvo *intel_sdvo)
 {
 	struct drm_device *dev = intel_sdvo->base.base.dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 	u8 response[2];
 
 	/* HW Erratum: SDVO Hotplug is broken on all i945G chips, there's noise
 	 * on the line. */
-	if (IS_I945G(dev_priv) || IS_I945GM(dev_priv))
+	if (IS_I945G(dev) || IS_I945GM(dev))
 		return false;
 
 	return intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_HOT_PLUG_SUPPORT,
@@ -2165,10 +2164,9 @@ void
 intel_sdvo_add_hdmi_properties(struct intel_sdvo_connector *connector)
 {
 	struct drm_device *dev = connector->base.base.dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	intel_attach_force_audio_property(&connector->base.base);
-	if (INTEL_INFO(dev_priv)->gen >= 4 && IS_MOBILE(dev_priv))
+	if (INTEL_INFO(dev)->gen >= 4 && IS_MOBILE(dev))
 		intel_attach_broadcast_rgb_property(&connector->base.base);
 }
 

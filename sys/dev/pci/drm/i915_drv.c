@@ -439,7 +439,7 @@ i915_drm_freeze(struct inteldrm_softc *dev_priv)
 		drm_irq_uninstall(dev);
 	}
 
-	i915_save_state(dev_priv);
+	i915_save_state(dev);
 
 	intel_opregion_fini(dev);
 
@@ -461,13 +461,13 @@ i915_drm_thaw(struct inteldrm_softc *dev_priv)
 	}
 #endif
 
-	i915_restore_state(dev_priv);
+	i915_restore_state(dev);
 	intel_opregion_setup(dev);
 
 	/* KMS EnterVT equivalent */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 
-		if (HAS_PCH_SPLIT(dev_priv))
+		if (HAS_PCH_SPLIT(dev))
 			ironlake_init_pch_refclk(dev);
 
 		mtx_enter(&dev->mode_config.mutex);
@@ -518,11 +518,12 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	struct drm_device	*dev;
 	const struct drm_pcidev	*id_entry;
 	int			 i;
+	uint16_t		 pci_device;
 
 	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
 	    PCI_PRODUCT(pa->pa_id), inteldrm_pciidlist);
-	dev_priv->pci_device = PCI_PRODUCT(pa->pa_id);
-	dev_priv->info = i915_get_device_id(dev_priv->pci_device);
+	pci_device = PCI_PRODUCT(pa->pa_id);
+	dev_priv->info = i915_get_device_id(pci_device);
 	KASSERT(dev_priv->info->gen != 0);
 
 	dev_priv->pc = pa->pa_pc;
@@ -530,9 +531,14 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	dev_priv->dmat = pa->pa_dmat;
 	dev_priv->bst = pa->pa_memt;
 
+	/* All intel chipsets need to be treated as agp, so just pass one */
+	dev_priv->drmdev = drm_attach_pci(&inteldrm_driver, pa, 1, self);
+
+	dev = (struct drm_device *)dev_priv->drmdev;
+
 	/* we need to use this api for now due to sharing with intagp */
 	bar = vga_pci_bar_info((struct vga_pci_softc *)parent,
-	    (IS_I9XX(dev_priv) ? 0 : 1));
+	    (IS_I9XX(dev) ? 0 : 1));
 	if (bar == NULL) {
 		printf(": can't get BAR info\n");
 		return;
@@ -549,7 +555,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	 * i945G/GM report MSI capability despite not actually supporting it.
 	 * so explicitly disable it.
 	 */
-	if (IS_I945G(dev_priv) || IS_I945GM(dev_priv))
+	if (IS_I945G(dev) || IS_I945GM(dev))
 		pa->pa_flags &= ~PCI_FLAGS_MSI_ENABLED;
 
 	if (pci_intr_map(pa, &dev_priv->ih) != 0) {
@@ -562,7 +568,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	 * on until the X server talks to us, kms will change this.
 	 */
 	dev_priv->irqh = pci_intr_establish(dev_priv->pc, dev_priv->ih, IPL_TTY,
-	    (HAS_PCH_SPLIT(dev_priv) ? inteldrm_ironlake_intr : inteldrm_intr),
+	    (HAS_PCH_SPLIT(dev) ? inteldrm_ironlake_intr : inteldrm_intr),
 	    dev_priv, dev_priv->dev.dv_xname);
 	if (dev_priv->irqh == NULL) {
 		printf(": couldn't  establish interrupt\n");
@@ -570,7 +576,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	}
 
 	/* Unmask the interrupts that we always want on. */
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		dev_priv->irq_mask_reg = ~PCH_SPLIT_DISPLAY_INTR_FIX;
 		/* masked for now, turned on on demand */
 		dev_priv->gt_irq_mask_reg = ~PCH_SPLIT_RENDER_INTR_FIX;
@@ -598,7 +604,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	dev_priv->mm.suspended = 1;
 
 	/* On GEN3 we really need to make sure the ARB C3 LP bit is set */
-	if (IS_GEN3(dev_priv)) {
+	if (IS_GEN3(dev)) {
 		u_int32_t tmp = I915_READ(MI_ARB_STATE);
 		if (!(tmp & MI_ARB_C3_LP_WRITE_ENABLE)) {
 			/*
@@ -613,24 +619,24 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	/* For the X server, in kms mode this will not be needed */
 	dev_priv->fence_reg_start = 3;
 
-	if (INTEL_INFO(dev_priv)->gen >= 4 || IS_I945G(dev_priv) ||
-	    IS_I945GM(dev_priv) || IS_G33(dev_priv))
+	if (INTEL_INFO(dev)->gen >= 4 || IS_I945G(dev) ||
+	    IS_I945GM(dev) || IS_G33(dev))
 		dev_priv->num_fence_regs = 16;
 	else
 		dev_priv->num_fence_regs = 8;
 
 	/* Initialise fences to zero, else on some macs we'll get corruption */
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
+	if (IS_GEN6(dev) || IS_GEN7(dev)) {
 		for (i = 0; i < 16; i++)
 			I915_WRITE64(FENCE_REG_SANDYBRIDGE_0 + (i * 8), 0);
-	} else if (INTEL_INFO(dev_priv)->gen >= 4) {
+	} else if (INTEL_INFO(dev)->gen >= 4) {
 		for (i = 0; i < 16; i++)
 			I915_WRITE64(FENCE_REG_965_0 + (i * 8), 0);
 	} else {
 		for (i = 0; i < 8; i++)
 			I915_WRITE(FENCE_REG_830_0 + (i * 4), 0);
-		if (IS_I945G(dev_priv) || IS_I945GM(dev_priv) ||
-		    IS_G33(dev_priv))
+		if (IS_I945G(dev) || IS_I945GM(dev) ||
+		    IS_G33(dev))
 			for (i = 0; i < 8; i++)
 				I915_WRITE(FENCE_REG_945_8 + (i * 4), 0);
 	}
@@ -641,10 +647,10 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	}
 
 	/* Set up the IFP for chipset flushing */
-	if (IS_I915G(dev_priv) || IS_I915GM(dev_priv) || IS_I945G(dev_priv) ||
-	    IS_I945GM(dev_priv)) {
+	if (IS_I915G(dev) || IS_I915GM(dev) || IS_I945G(dev) ||
+	    IS_I945GM(dev)) {
 		i915_alloc_ifp(dev_priv, &bpa);
-	} else if (INTEL_INFO(dev_priv)->gen >= 4 || IS_G33(dev_priv)) {
+	} else if (INTEL_INFO(dev)->gen >= 4 || IS_G33(dev)) {
 		i965_alloc_ifp(dev_priv, &bpa);
 	} else {
 		int nsegs;
@@ -666,7 +672,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	inteldrm_detect_bit_6_swizzle(dev_priv, &bpa);
 	/* Init HWS */
-	if (!I915_NEED_GFX_HWS(dev_priv)) {
+	if (!I915_NEED_GFX_HWS(dev)) {
 		if (i915_init_phys_hws(dev_priv, pa->pa_dmat) != 0) {
 			printf(": couldn't alloc HWS page\n");
 			return;
@@ -681,19 +687,14 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
 	mtx_init(&dev_priv->gt_lock, IPL_NONE);
 
-	if (IS_IVYBRIDGE(dev_priv))
+	if (IS_IVYBRIDGE(dev))
 		dev_priv->num_pipe = 3;
-	else if (IS_MOBILE(dev_priv) || !IS_GEN2(dev_priv))
+	else if (IS_MOBILE(dev) || !IS_GEN2(dev))
 		dev_priv->num_pipe = 2;
 	else
 		dev_priv->num_pipe = 1;
 
 	intel_detect_pch(dev_priv);
-
-	/* All intel chipsets need to be treated as agp, so just pass one */
-	dev_priv->drmdev = drm_attach_pci(&inteldrm_driver, pa, 1, self);
-
-	dev = (struct drm_device *)dev_priv->drmdev;
 
 	intel_opregion_setup(dev);
 	intel_setup_bios(dev);
@@ -727,7 +728,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 int
 inteldrm_detach(struct device *self, int flags)
 {
-	struct inteldrm_softc *dev_priv = (struct inteldrm_softc *)self;
+	struct inteldrm_softc	*dev_priv = (struct inteldrm_softc *)self;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 
 	/* this will quiesce any dma that's going on and kill the timeouts. */
 	if (dev_priv->drmdev != NULL) {
@@ -735,7 +737,7 @@ inteldrm_detach(struct device *self, int flags)
 		dev_priv->drmdev = NULL;
 	}
 
-	if (!I915_NEED_GFX_HWS(dev_priv) && dev_priv->hws_dmamem) {
+	if (!I915_NEED_GFX_HWS(dev) && dev_priv->hws_dmamem) {
 		drm_dmamem_free(dev_priv->dmat, dev_priv->hws_dmamem);
 		dev_priv->hws_dmamem = NULL;
 		/* Need to rewrite hardware status page */
@@ -743,11 +745,11 @@ inteldrm_detach(struct device *self, int flags)
 		dev_priv->hw_status_page = NULL;
 	}
 
-	if (IS_I9XX(dev_priv) && dev_priv->ifp.i9xx.bsh != 0) {
+	if (IS_I9XX(dev) && dev_priv->ifp.i9xx.bsh != 0) {
 		bus_space_unmap(dev_priv->ifp.i9xx.bst, dev_priv->ifp.i9xx.bsh,
 		    PAGE_SIZE);
-	} else if ((IS_I830(dev_priv) || IS_845G(dev_priv) || IS_I85X(dev_priv) ||
-	    IS_I865G(dev_priv)) && dev_priv->ifp.i8xx.kva != NULL) {
+	} else if ((IS_I830(dev) || IS_845G(dev) || IS_I85X(dev) ||
+	    IS_I865G(dev)) && dev_priv->ifp.i8xx.kva != NULL) {
 		bus_dmamem_unmap(dev_priv->dmat, dev_priv->ifp.i8xx.kva,
 		     PAGE_SIZE);
 		bus_dmamem_free(dev_priv->dmat, &dev_priv->ifp.i8xx.seg, 1);
@@ -765,16 +767,17 @@ int
 inteldrm_activate(struct device *arg, int act)
 {
 	struct inteldrm_softc	*dev_priv = (struct inteldrm_softc *)arg;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 
 	switch (act) {
 	case DVACT_QUIESCE:
 		inteldrm_quiesce(dev_priv);
 		break;
 	case DVACT_SUSPEND:
-		i915_save_state(dev_priv);
+		i915_save_state(dev);
 		break;
 	case DVACT_RESUME:
-		i915_restore_state(dev_priv);
+		i915_restore_state(dev);
 		/* entrypoints can stop sleeping now */
 		atomic_clearbits_int(&dev_priv->sc_flags, INTELDRM_QUIET);
 		wakeup(&dev_priv->flags);
@@ -905,7 +908,7 @@ inteldrm_ironlake_intr(void *arg)
 	pm_iir = I915_READ(GEN6_PMIIR);
 
 	if (de_iir == 0 && gt_iir == 0 && pch_iir == 0 &&
-	    (!IS_GEN6(dev_priv) || pm_iir == 0))
+	    (!IS_GEN6(dev) || pm_iir == 0))
 		goto done;
 	ret = 1;
 
@@ -917,7 +920,7 @@ inteldrm_ironlake_intr(void *arg)
 	if (gt_iir & GT_RENDER_CS_ERROR_INTERRUPT)
 		inteldrm_error(dev_priv);
 
-	if (IS_GEN7(dev_priv)) {
+	if (IS_GEN7(dev)) {
 		for (i = 0; i < 3; i++) {
 			if (de_iir & (DE_PIPEA_VBLANK_IVB << (5 * i)))
 				drm_handle_vblank(dev, i);
@@ -1007,7 +1010,7 @@ inteldrm_read_hws(struct inteldrm_softc *dev_priv, int reg)
 	bus_dmamap_t		 map;
 	u_int32_t		 val;
 
-	if (I915_NEED_GFX_HWS(dev_priv)) {
+	if (I915_NEED_GFX_HWS(dev)) {
 		obj_priv = (struct drm_i915_gem_object *)dev_priv->hws_obj;
 		map = obj_priv->dmamap;
 		tag = dev_priv->agpdmat;
@@ -1035,7 +1038,7 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 	u_int32_t			 acthd_reg, acthd, last_acthd, last_head;
 	int				 i;
 
-	acthd_reg = INTEL_INFO(dev_priv)->gen >= 4 ? ACTHD_I965 : ACTHD;
+	acthd_reg = INTEL_INFO(dev)->gen >= 4 ? ACTHD_I965 : ACTHD;
 	last_head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
 	last_acthd = I915_READ(acthd_reg);
 
@@ -1238,11 +1241,13 @@ nope:
 void
 inteldrm_chipset_flush(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+
 	/*
 	 * Write to this flush page flushes the chipset write cache.
 	 * The write will return when it is done.
 	 */
-	if (IS_I9XX(dev_priv)) {
+	if (IS_I9XX(dev)) {
 	    if (dev_priv->ifp.i9xx.bsh != 0)
 		bus_space_write_4(dev_priv->ifp.i9xx.bst,
 		    dev_priv->ifp.i9xx.bsh, 0, 1);
@@ -1297,11 +1302,12 @@ int
 inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 {
 	drm_i915_getparam_t	*param = data;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 	int			 value;
 
 	switch (param->param) {
 	case I915_PARAM_CHIPSET_ID:
-		value = dev_priv->pci_device;
+		value = dev->pci_device;
 		break;
 	case I915_PARAM_HAS_GEM:
 		value = 1;
@@ -1554,8 +1560,9 @@ u_int32_t
 i915_gem_flush(struct inteldrm_softc *dev_priv, uint32_t invalidate_domains,
     uint32_t flush_domains)
 {
-	uint32_t	cmd;
-	int		ret = 0;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	uint32_t		 cmd;
+	int			 ret = 0;
 
 	if (flush_domains & I915_GEM_DOMAIN_CPU)
 		inteldrm_chipset_flush(dev_priv);
@@ -1597,7 +1604,7 @@ i915_gem_flush(struct inteldrm_softc *dev_priv, uint32_t invalidate_domains,
 	 * On the 965, the sampler cache always gets flushed
 	 * and this bit is reserved.
 	 */
-	if (INTEL_INFO(dev_priv)->gen < 4 &&
+	if (INTEL_INFO(dev)->gen < 4 &&
 	    invalidate_domains & I915_GEM_DOMAIN_SAMPLER)
 		cmd |= MI_READ_FLUSH;
 	if (invalidate_domains & I915_GEM_DOMAIN_INSTRUCTION)
@@ -1788,7 +1795,7 @@ again:
 	reg->obj = obj;
 	TAILQ_INSERT_TAIL(&dev_priv->mm.fence_list, reg, list);
 
-	switch (INTEL_INFO(dev_priv)->gen) {
+	switch (INTEL_INFO(dev)->gen) {
 	case 7:
 	case 6:
 		sandybridge_write_fence_reg(reg);
@@ -2147,7 +2154,7 @@ i915_dispatch_gem_execbuffer(struct drm_device *dev,
 	exec_start = (uint32_t)exec_offset + exec->batch_start_offset;
 	exec_len = (uint32_t)exec->batch_len;
 
-	if (IS_I830(dev_priv) || IS_845G(dev_priv)) {
+	if (IS_I830(dev) || IS_845G(dev)) {
 		BEGIN_LP_RING(6);
 		OUT_RING(MI_BATCH_BUFFER);
 		OUT_RING(exec_start | MI_BATCH_NON_SECURE);
@@ -2155,8 +2162,8 @@ i915_dispatch_gem_execbuffer(struct drm_device *dev,
 		OUT_RING(MI_NOOP);
 	} else {
 		BEGIN_LP_RING(4);
-		if (INTEL_INFO(dev_priv)->gen >= 4) {
-			if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+		if (INTEL_INFO(dev)->gen >= 4) {
+			if (IS_GEN6(dev) || IS_GEN7(dev))
 				OUT_RING(MI_BATCH_BUFFER_START |
 				    MI_BATCH_NON_SECURE_I965);
 			else
@@ -2287,7 +2294,7 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	/* If we need a physical address for the status page, it's already
 	 * initialized at driver load time.
 	 */
-	if (!I915_NEED_GFX_HWS(dev_priv))
+	if (!I915_NEED_GFX_HWS(dev))
 		return 0;
 
 	obj = drm_gem_object_alloc(dev, 4096);
@@ -2336,10 +2343,11 @@ void
 cleanup_status_page(struct intel_ring_buffer *ring)
 {
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
+	struct drm_device	*dev = ring->dev;
 	struct drm_obj		*obj;
 	struct drm_i915_gem_object *obj_priv;
 
-	if (!I915_NEED_GFX_HWS(dev_priv) || dev_priv->hws_obj == NULL)
+	if (!I915_NEED_GFX_HWS(dev) || dev_priv->hws_obj == NULL)
 		return;
 
 	obj = dev_priv->hws_obj;
@@ -2456,10 +2464,10 @@ init_ring_common(struct intel_ring_buffer *ring)
 	/* Update our cache of the ring state */
 	inteldrm_update_ring(ring);
 
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+	if (IS_GEN6(dev) || IS_GEN7(dev))
 		I915_WRITE(MI_MODE | MI_FLUSH_ENABLE << 16 | MI_FLUSH_ENABLE,
 		    (VS_TIMER_DISPATCH) << 15 | VS_TIMER_DISPATCH);
-	else if (IS_I9XX(dev_priv) && !IS_GEN3(dev_priv))
+	else if (IS_I9XX(dev) && !IS_GEN3(dev))
 		I915_WRITE(MI_MODE, (VS_TIMER_DISPATCH) << 15 |
 		    VS_TIMER_DISPATCH);
 
@@ -2482,17 +2490,18 @@ inteldrm_timeout(void *arg)
 void
 inteldrm_error(struct inteldrm_softc *dev_priv)
 {
-	u_int32_t	eir, ipeir;
-	u_int8_t	reset = GRDOM_RENDER;
-	char 		*errbitstr;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	u_int32_t		 eir, ipeir;
+	u_int8_t		 reset = GRDOM_RENDER;
+	char 			*errbitstr;
 
 	eir = I915_READ(EIR);
 	if (eir == 0)
 		return;
 
-	if (IS_IRONLAKE(dev_priv)) {
+	if (IS_IRONLAKE(dev)) {
 		errbitstr = "\20\x05PTEE\x04MPVE\x03CPVE";
-	} else if (IS_G4X(dev_priv)) {
+	} else if (IS_G4X(dev)) {
 		errbitstr = "\20\x10 BCSINSTERR\x06PTEERR\x05MPVERR\x04CPVERR"
 		     "\x03 BCSPTEERR\x02REFRESHERR\x01INSTERR";
 	} else {
@@ -2500,13 +2509,13 @@ inteldrm_error(struct inteldrm_softc *dev_priv)
 	}
 
 	printf("render error detected, EIR: %b\n", eir, errbitstr);
-	if (IS_IRONLAKE(dev_priv) || IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
+	if (IS_IRONLAKE(dev) || IS_GEN6(dev) || IS_GEN7(dev)) {
 		if (eir & I915_ERROR_PAGE_TABLE) {
 			dev_priv->mm.wedged = 1;
 			reset = GRDOM_FULL;
 		}
 	} else {
-		if (IS_G4X(dev_priv)) {
+		if (IS_G4X(dev)) {
 			if (eir & (GM45_ERROR_MEM_PRIV | GM45_ERROR_CP_PRIV)) {
 				printf("  IPEIR: 0x%08x\n",
 				    I915_READ(IPEIR_I965));
@@ -2528,7 +2537,7 @@ inteldrm_error(struct inteldrm_softc *dev_priv)
 				reset = GRDOM_FULL;
 
 			}
-		} else if (IS_I9XX(dev_priv) && eir & I915_ERROR_PAGE_TABLE) {
+		} else if (IS_I9XX(dev) && eir & I915_ERROR_PAGE_TABLE) {
 			printf("  PGTBL_ER: 0x%08x\n", I915_READ(PGTBL_ER));
 			dev_priv->mm.wedged = 1;
 			reset = GRDOM_FULL;
@@ -2542,7 +2551,7 @@ inteldrm_error(struct inteldrm_softc *dev_priv)
 		if (eir & I915_ERROR_INSTRUCTION) {
 			printf("  INSTPM: 0x%08x\n",
 			       I915_READ(INSTPM));
-			if (INTEL_INFO(dev_priv)->gen < 4) {
+			if (INTEL_INFO(dev)->gen < 4) {
 				ipeir = I915_READ(IPEIR);
 
 				printf("  IPEIR: 0x%08x\n",
@@ -2586,8 +2595,8 @@ inteldrm_error(struct inteldrm_softc *dev_priv)
 		if (dev_priv->mm.wedged == 0)
 			DRM_ERROR("EIR stuck: 0x%08x, masking\n", eir);
 		I915_WRITE(EMR, I915_READ(EMR) | eir);
-		if (IS_IRONLAKE(dev_priv) || IS_GEN6(dev_priv) ||
-		    IS_GEN7(dev_priv)) {
+		if (IS_IRONLAKE(dev) || IS_GEN6(dev) ||
+		    IS_GEN7(dev)) {
 			I915_WRITE(GTIIR, GT_RENDER_CS_ERROR_INTERRUPT);
 		} else {
 			I915_WRITE(IIR,
@@ -2613,7 +2622,7 @@ inteldrm_hung(void *arg, void *reset_type)
 	u_int8_t		 reset = (u_int8_t)(uintptr_t)reset_type;
 
 	DRM_LOCK();
-	if (HAS_RESET(dev_priv)) {
+	if (HAS_RESET(dev)) {
 		DRM_INFO("resetting gpu: ");
 		inteldrm_965_reset(dev_priv, reset);
 		printf("done!\n");
@@ -2650,7 +2659,7 @@ inteldrm_hung(void *arg, void *reset_type)
 	/* unbind everything */
 	(void)i915_gem_evict_inactive(dev_priv, 0);
 
-	if (HAS_RESET(dev_priv))
+	if (HAS_RESET(dev))
 		dev_priv->mm.wedged = 0;
 	DRM_UNLOCK();
 }
@@ -2659,6 +2668,7 @@ void
 inteldrm_hangcheck(void *arg)
 {
 	struct inteldrm_softc	*dev_priv = arg;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 	u_int32_t		 acthd, instdone, instdone1;
 
 	/* are we idle? no requests, or ring is empty */
@@ -2669,7 +2679,7 @@ inteldrm_hangcheck(void *arg)
 		return;
 	}
 
-	if (INTEL_INFO(dev_priv)->gen >= 4) {
+	if (INTEL_INFO(dev)->gen >= 4) {
 		acthd = I915_READ(ACTHD_I965);
 		instdone = I915_READ(INSTDONE_I965);
 		instdone1 = I915_READ(INSTDONE1);
@@ -2685,7 +2695,7 @@ inteldrm_hangcheck(void *arg)
 	    dev_priv->mm.last_instdone1 == instdone1) {
 		/* if that's twice we didn't hit it, then we're hung */
 		if (++dev_priv->mm.hang_cnt >= 2) {
-			if (!IS_GEN2(dev_priv)) {
+			if (!IS_GEN2(dev)) {
 				u_int32_t tmp = I915_READ(PRB0_CTL);
 				if (tmp & RING_WAIT) {
 					I915_WRITE(PRB0_CTL, tmp);
@@ -2803,14 +2813,15 @@ int
 inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
     struct pci_attach_args *bpa)
 {
-	u_int64_t	mchbar_addr;
-	pcireg_t	tmp, low, high = 0;
-	u_long		addr;
-	int		reg, ret = 1, enabled = 0;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	u_int64_t		 mchbar_addr;
+	pcireg_t		 tmp, low, high = 0;
+	u_long			 addr;
+	int			 reg, ret = 1, enabled = 0;
 
-	reg = INTEL_INFO(dev_priv)->gen >= 4 ?  MCHBAR_I965 : MCHBAR_I915;
+	reg = INTEL_INFO(dev)->gen >= 4 ?  MCHBAR_I965 : MCHBAR_I915;
 
-	if (IS_I915G(dev_priv) || IS_I915GM(dev_priv)) {
+	if (IS_I915G(dev) || IS_I915GM(dev)) {
 		tmp = pci_conf_read(bpa->pa_pc, bpa->pa_tag, DEVEN_REG);
 		enabled = !!(tmp & DEVEN_MCHBAR_EN);
 	} else {
@@ -2822,7 +2833,7 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 		return (0);
 	}
 
-	if (INTEL_INFO(dev_priv)->gen >= 4)
+	if (INTEL_INFO(dev)->gen >= 4)
 		high = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg + 4);
 	low = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg);
 	mchbar_addr = ((u_int64_t)high << 32) | low;
@@ -2845,7 +2856,7 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 			mchbar_addr = addr;
 			ret = 2;
 			/* We've allocated it, now fill in the BAR again */
-			if (INTEL_INFO(dev_priv)->gen >= 4)
+			if (INTEL_INFO(dev)->gen >= 4)
 				pci_conf_write(bpa->pa_pc, bpa->pa_tag,
 				    reg + 4, upper_32_bits(mchbar_addr));
 			pci_conf_write(bpa->pa_pc, bpa->pa_tag,
@@ -2853,7 +2864,7 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 		}
 	}
 	/* set the enable bit */
-	if (IS_I915G(dev_priv) || IS_I915GM(dev_priv)) {
+	if (IS_I915G(dev) || IS_I915GM(dev)) {
 		pci_conf_write(bpa->pa_pc, bpa->pa_tag, DEVEN_REG,
 		    tmp | DEVEN_MCHBAR_EN);
 	} else {
@@ -2872,15 +2883,16 @@ void
 inteldrm_teardown_mchbar(struct inteldrm_softc *dev_priv,
     struct pci_attach_args *bpa, int disable)
 {
-	u_int64_t	mchbar_addr;
-	pcireg_t	tmp, low, high = 0;
-	int		reg;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	u_int64_t		 mchbar_addr;
+	pcireg_t		 tmp, low, high = 0;
+	int			 reg;
 
-	reg = INTEL_INFO(dev_priv)->gen >= 4 ? MCHBAR_I965 : MCHBAR_I915;
+	reg = INTEL_INFO(dev)->gen >= 4 ? MCHBAR_I965 : MCHBAR_I915;
 
 	switch(disable) {
 	case 2:
-		if (INTEL_INFO(dev_priv)->gen >= 4)
+		if (INTEL_INFO(dev)->gen >= 4)
 			high = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg + 4);
 		low = pci_conf_read(bpa->pa_pc, bpa->pa_tag, reg);
 		mchbar_addr = ((u_int64_t)high << 32) | low;
@@ -2888,7 +2900,7 @@ inteldrm_teardown_mchbar(struct inteldrm_softc *dev_priv,
 			extent_free(bpa->pa_memex, mchbar_addr, MCHBAR_SIZE, 0);
 		/* FALLTHROUGH */
 	case 1:
-		if (IS_I915G(dev_priv) || IS_I915GM(dev_priv)) {
+		if (IS_I915G(dev) || IS_I915GM(dev)) {
 			tmp = pci_conf_read(bpa->pa_pc, bpa->pa_tag, DEVEN_REG);
 			tmp &= ~DEVEN_MCHBAR_EN;
 			pci_conf_write(bpa->pa_pc, bpa->pa_tag, DEVEN_REG, tmp);
@@ -2912,24 +2924,25 @@ void
 inteldrm_detect_bit_6_swizzle(struct inteldrm_softc *dev_priv,
     struct pci_attach_args *bpa)
 {
-	uint32_t	swizzle_x = I915_BIT_6_SWIZZLE_UNKNOWN;
-	uint32_t	swizzle_y = I915_BIT_6_SWIZZLE_UNKNOWN;
-	int		need_disable;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	uint32_t		 swizzle_x = I915_BIT_6_SWIZZLE_UNKNOWN;
+	uint32_t		 swizzle_y = I915_BIT_6_SWIZZLE_UNKNOWN;
+	int			 need_disable;
 
-	if (!IS_I9XX(dev_priv)) {
+	if (!IS_I9XX(dev)) {
 		/* As far as we know, the 865 doesn't have these bit 6
 		 * swizzling issues.
 		 */
 		swizzle_x = I915_BIT_6_SWIZZLE_NONE;
 		swizzle_y = I915_BIT_6_SWIZZLE_NONE;
-	} else if (HAS_PCH_SPLIT(dev_priv)) {
+	} else if (HAS_PCH_SPLIT(dev)) {
 		/*
 		 * On ironlake and sandybridge the swizzling is the same
 		 * no matter what the DRAM config
 		 */
 		swizzle_x = I915_BIT_6_SWIZZLE_9_10;
 		swizzle_y = I915_BIT_6_SWIZZLE_9;
-	} else if (IS_MOBILE(dev_priv)) {
+	} else if (IS_MOBILE(dev)) {
 		uint32_t dcc;
 
 		/* try to enable MCHBAR, a lot of biosen disable it */
@@ -3128,9 +3141,10 @@ i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *obj)
 bus_size_t
 i915_get_fence_size(struct inteldrm_softc *dev_priv, bus_size_t size)
 {
-	bus_size_t	i, start;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	bus_size_t		 i, start;
 
-	if (INTEL_INFO(dev_priv)->gen >= 4) {
+	if (INTEL_INFO(dev)->gen >= 4) {
 		/* 965 can have fences anywhere, so align to gpu-page size */
 		return ((size + (4096 - 1)) & ~(4096 - 1));
 	} else {
@@ -3138,7 +3152,7 @@ i915_get_fence_size(struct inteldrm_softc *dev_priv, bus_size_t size)
 		 * Align the size to a power of two greater than the smallest
 		 * fence size.
 		 */
-		if (IS_I9XX(dev_priv))
+		if (IS_I9XX(dev))
 			start = 1024 * 1024;
 		else
 			start = 512 * 1024;
@@ -3154,16 +3168,15 @@ int
 i915_gem_object_fence_offset_ok(struct drm_obj *obj, int tiling_mode)
 {
 	struct drm_device	*dev = obj->dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 
 	if (obj_priv->dmamap == NULL || tiling_mode == I915_TILING_NONE)
 		return (1);
 
-	if (INTEL_INFO(dev_priv)->gen < 4) {
+	if (INTEL_INFO(dev)->gen < 4) {
 		if (obj_priv->gtt_offset & (obj->size -1))
 			return (0);
-		if (IS_I9XX(dev_priv)) {
+		if (IS_I9XX(dev)) {
 			if (obj_priv->gtt_offset & ~I915_FENCE_START_MASK)
 				return (0);
 		} else {
@@ -3188,8 +3201,9 @@ i915_gem_object_fence_offset_ok(struct drm_obj *obj, int tiling_mode)
 void
 inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 {
-	pcireg_t	reg;
-	int		i = 0;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	pcireg_t		 reg;
+	int			 i = 0;
 
 	/*
 	 * There seems to be soemthing wrong with !full reset modes, so force
@@ -3198,7 +3212,7 @@ inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 	flags = GRDOM_FULL;
 
 	if (flags == GRDOM_FULL)
-		i915_save_display(dev_priv);
+		i915_save_display(dev);
 
 	reg = pci_conf_read(dev_priv->pc, dev_priv->tag, I965_GDRST);
 	/*
@@ -3234,7 +3248,7 @@ inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 			panic("can't restart ring, we're fucked");
 
 		/* put the hardware status page back */
-		if (I915_NEED_GFX_HWS(dev_priv)) {
+		if (I915_NEED_GFX_HWS(dev)) {
 			I915_WRITE(HWS_PGA, ((struct drm_i915_gem_object *)
 			    dev_priv->hws_obj)->gtt_offset);
 		} else {
@@ -3253,7 +3267,7 @@ inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 
 
 	 if (flags == GRDOM_FULL)
-		i915_restore_display(dev_priv);
+		i915_restore_display(dev);
 }
 
 /*
@@ -3466,7 +3480,7 @@ i915_ringbuffer_info(int kdev)
 	printf("RingTail :  %08x\n", tail);
 	printf("RingMask :  %08x\n", dev_priv->ring.size - 1);
 	printf("RingSize :  %08lx\n", dev_priv->ring.size);
-	printf("Acthd :  %08x\n", I915_READ(INTEL_INFO(dev_priv)->gen >= 4 ?
+	printf("Acthd :  %08x\n", I915_READ(INTEL_INFO(dev)->gen >= 4 ?
 	    ACTHD_I965 : ACTHD));
 }
 

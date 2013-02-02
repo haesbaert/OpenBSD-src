@@ -29,26 +29,26 @@
 #include "i915_drm.h"
 #include "i915_drv.h"
 
-int	i915_pipe_enabled(struct inteldrm_softc *, enum pipe);
-void	i915_save_palette(struct inteldrm_softc *, enum pipe);
-void	i915_restore_palette(struct inteldrm_softc *, enum pipe);
-u_int8_t	i915_read_indexed(struct inteldrm_softc *, u_int16_t,
+int	i915_pipe_enabled(struct drm_device *, enum pipe);
+void	i915_save_palette(struct drm_device *, enum pipe);
+void	i915_restore_palette(struct drm_device *, enum pipe);
+u_int8_t	i915_read_indexed(struct drm_device *, u_int16_t,
 		    u_int16_t, u_int8_t);
-void	i915_write_indexed(struct inteldrm_softc *, u_int16_t,
+void	i915_write_indexed(struct drm_device *, u_int16_t,
 	    u_int16_t, u_int8_t, u_int8_t);
-void	i915_write_ar(struct inteldrm_softc *, u_int16_t, u_int8_t,
+void	i915_write_ar(struct drm_device *, u_int16_t, u_int8_t,
 	    u_int8_t, u_int16_t);
-u_int8_t	i915_read_ar(struct inteldrm_softc *, u_int16_t,
+u_int8_t	i915_read_ar(struct drm_device *, u_int16_t,
 		    u_int8_t, u_int16_t);
-void	i915_save_vga(struct inteldrm_softc *);
-void	i915_restore_vga(struct inteldrm_softc *);
-void	i915_save_modeset_reg(struct inteldrm_softc *);
-void	i915_restore_modeset_reg(struct inteldrm_softc *);
+void	i915_save_vga(struct drm_device *);
+void	i915_restore_vga(struct drm_device *);
+void	i915_save_modeset_reg(struct drm_device *);
+void	i915_restore_modeset_reg(struct drm_device *);
 
 int
-i915_pipe_enabled(struct inteldrm_softc *dev, enum pipe pipe)
+i915_pipe_enabled(struct drm_device *dev, enum pipe pipe)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	u32	dpll_reg;
 
 	/* On IVB, 3rd pipe shares PLL with another one */
@@ -64,9 +64,9 @@ i915_pipe_enabled(struct inteldrm_softc *dev, enum pipe pipe)
 }
 
 void
-i915_save_palette(struct inteldrm_softc *dev, enum pipe pipe)
+i915_save_palette(struct drm_device *dev, enum pipe pipe)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	unsigned long reg = (pipe == PIPE_A ? _PALETTE_A : _PALETTE_B);
 	u32 *array;
 	int i;
@@ -87,9 +87,9 @@ i915_save_palette(struct inteldrm_softc *dev, enum pipe pipe)
 }
 
 void
-i915_restore_palette(struct inteldrm_softc *dev, enum pipe pipe)
+i915_restore_palette(struct drm_device *dev, enum pipe pipe)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	unsigned long reg = (pipe == PIPE_A ? _PALETTE_A : _PALETTE_B);
 	u32 *array;
 	int i;
@@ -110,43 +110,51 @@ i915_restore_palette(struct inteldrm_softc *dev, enum pipe pipe)
 }
 
 u_int8_t
-i915_read_indexed(struct inteldrm_softc *dev_priv, u_int16_t index_port,
+i915_read_indexed(struct drm_device *dev, u_int16_t index_port,
     u_int16_t data_port, u_int8_t reg)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
 	I915_WRITE8(index_port, reg);
 	return I915_READ8(data_port);
 }
 
 u_int8_t
-i915_read_ar(struct inteldrm_softc *dev_priv, u_int16_t st01,
+i915_read_ar(struct drm_device *dev, u_int16_t st01,
     u_int8_t reg, u_int16_t palette_enable)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
 	I915_READ8(st01);
 	I915_WRITE8(VGA_AR_INDEX, palette_enable | reg);
 	return I915_READ8(VGA_AR_DATA_READ);
 }
 
 void
-i915_write_ar(struct inteldrm_softc *dev_priv, u_int16_t st01, u_int8_t reg,
+i915_write_ar(struct drm_device *dev, u_int16_t st01, u_int8_t reg,
     u_int8_t val, u_int16_t palette_enable)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
 	I915_READ8(st01);
 	I915_WRITE8(VGA_AR_INDEX, palette_enable | reg);
 	I915_WRITE8(VGA_AR_DATA_WRITE, val);
 }
 
 void
-i915_write_indexed(struct inteldrm_softc *dev_priv, u_int16_t index_port,
+i915_write_indexed(struct drm_device *dev, u_int16_t index_port,
     u_int16_t data_port, u_int8_t reg, u_int8_t val)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
 	I915_WRITE8(index_port, reg);
 	I915_WRITE8(data_port, val);
 }
 
 void
-i915_save_vga(struct inteldrm_softc *dev)
+i915_save_vga(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int i;
 	u16 cr_index, cr_data, st01;
 
@@ -203,9 +211,9 @@ i915_save_vga(struct inteldrm_softc *dev)
 }
 
 void
-i915_restore_vga(struct inteldrm_softc *dev)
+i915_restore_vga(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int i;
 	u16 cr_index, cr_data, st01;
 
@@ -257,9 +265,9 @@ i915_restore_vga(struct inteldrm_softc *dev)
 }
 
 void
-i915_save_modeset_reg(struct inteldrm_softc *dev)
+i915_save_modeset_reg(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int i;
 
 	/* Cursor state */
@@ -417,15 +425,15 @@ i915_save_modeset_reg(struct inteldrm_softc *dev)
 }
 
 void
-i915_restore_modeset_reg(struct inteldrm_softc *dev)
+i915_restore_modeset_reg(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int dpll_a_reg, fpa0_reg, fpa1_reg;
 	int dpll_b_reg, fpb0_reg, fpb1_reg;
 	int i;
 
 	/* XXX until we have FDI link training */
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+	if (IS_GEN6(dev) || IS_GEN7(dev))
 		return;
 
 	/* Fences */
@@ -625,9 +633,9 @@ i915_restore_modeset_reg(struct inteldrm_softc *dev)
 }
 
 void
-i915_save_display(struct inteldrm_softc *dev)
+i915_save_display(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	/* Display arbitration control */
 	dev_priv->saveDSPARB = I915_READ(DSPARB);
@@ -704,9 +712,9 @@ i915_save_display(struct inteldrm_softc *dev)
 }
 
 void
-i915_restore_display(struct inteldrm_softc *dev)
+i915_restore_display(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	/* Display arbitration */
 	I915_WRITE(DSPARB, dev_priv->saveDSPARB);
@@ -784,9 +792,9 @@ i915_restore_display(struct inteldrm_softc *dev)
 }
 
 int
-i915_save_state(struct inteldrm_softc *dev)
+i915_save_state(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int i;
 
 	dev_priv->saveLBB = pci_conf_read(dev_priv->pc, dev_priv->tag, LBB);
@@ -815,28 +823,28 @@ i915_save_state(struct inteldrm_softc *dev)
 	/* XXX gen6_disable_rps(dev) */
 
 	/* Clock gating state */
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		dev_priv->saveDSPCLK_GATE_D = I915_READ(ILK_DSPCLK_GATE_D);
 		dev_priv->saveDSPCLK_GATE = I915_READ(ILK_DSPCLK_GATE_D);
-	} else if (IS_G4X(dev_priv)) {
+	} else if (IS_G4X(dev)) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
 		dev_priv->saveRAMCLK_GATE_D = I915_READ(RAMCLK_GATE_D);
 		dev_priv->saveDSPCLK_GATE_D = I915_READ(DSPCLK_GATE_D);
-	} else if (IS_CRESTLINE(dev_priv)) {
+	} else if (IS_CRESTLINE(dev)) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
 		dev_priv->saveDSPCLK_GATE_D = I915_READ(DSPCLK_GATE_D);
 		dev_priv->saveRAMCLK_GATE_D = I915_READ(RAMCLK_GATE_D);
 		dev_priv->saveDEUC = I915_READ16(DEUC);
-	} else if (INTEL_INFO(dev_priv)->gen >= 4) {
+	} else if (INTEL_INFO(dev)->gen >= 4) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
 		dev_priv->saveRENCLK_GATE_D2 = I915_READ(RENCLK_GATE_D2);
-	} else if (IS_I9XX(dev_priv)) {
+	} else if (IS_I9XX(dev)) {
 		dev_priv->saveD_STATE = I915_READ(D_STATE);
-	} else if (IS_I85X(dev_priv) || IS_I865G(dev_priv)) {
+	} else if (IS_I85X(dev) || IS_I865G(dev)) {
 		dev_priv->saveRENCLK_GATE_D1 = I915_READ(RENCLK_GATE_D1);
-	} else if (IS_I830(dev_priv)) {
+	} else if (IS_I830(dev)) {
 		dev_priv->saveDSPCLK_GATE_D = I915_READ(DSPCLK_GATE_D);
 	}
 
@@ -858,9 +866,9 @@ i915_save_state(struct inteldrm_softc *dev)
 }
 
 int
-i915_restore_state(struct inteldrm_softc *dev)
+i915_restore_state(struct drm_device *dev)
 {
-	struct inteldrm_softc *dev_priv = dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int i;
 
 	pci_conf_write(dev_priv->pc, dev_priv->tag, LBB, dev_priv->saveLBB);
@@ -885,28 +893,28 @@ i915_restore_state(struct inteldrm_softc *dev)
 	}
 
 	/* Clock gating state */
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		I915_WRITE(ILK_DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
 		I915_WRITE(ILK_DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE);
-	} if (IS_G4X(dev_priv)) {
+	} if (IS_G4X(dev)) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
 		I915_WRITE(RAMCLK_GATE_D, dev_priv->saveRAMCLK_GATE_D);
 		I915_WRITE(DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
-	} else if (IS_CRESTLINE(dev_priv)) {
+	} else if (IS_CRESTLINE(dev)) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
 		I915_WRITE(DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
 		I915_WRITE(RAMCLK_GATE_D, dev_priv->saveRAMCLK_GATE_D);
 		I915_WRITE16(DEUC, dev_priv->saveDEUC);
-	} else if (INTEL_INFO(dev_priv)->gen >= 4) {
+	} else if (INTEL_INFO(dev)->gen >= 4) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
 		I915_WRITE(RENCLK_GATE_D2, dev_priv->saveRENCLK_GATE_D2);
-	} else if (IS_I9XX(dev_priv)) {
+	} else if (IS_I9XX(dev)) {
 		I915_WRITE(D_STATE, dev_priv->saveD_STATE);
-	} else if (IS_I85X(dev_priv) || IS_I865G(dev_priv)) {
+	} else if (IS_I85X(dev) || IS_I865G(dev)) {
 		I915_WRITE(RENCLK_GATE_D1, dev_priv->saveRENCLK_GATE_D1);
-	} else if (IS_I830(dev_priv)) {
+	} else if (IS_I830(dev)) {
 		I915_WRITE(DSPCLK_GATE_D, dev_priv->saveDSPCLK_GATE_D);
 	}
 

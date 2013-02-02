@@ -625,7 +625,7 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 		return (0);
 
 	/* XXX until we have support for the rings on sandybridge */
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+	if (IS_GEN6(dev) || IS_GEN7(dev))
 		return (0);
 
 	if (dev_priv->mm.wedged) {
@@ -1249,7 +1249,6 @@ bus_size_t
 i915_gem_get_gtt_alignment(struct drm_obj *obj)
 {
 	struct drm_device	*dev = obj->dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
 	bus_size_t		 start, i;
 
@@ -1257,7 +1256,7 @@ i915_gem_get_gtt_alignment(struct drm_obj *obj)
 	 * Minimum alignment is 4k (GTT page size), but fence registers may
 	 * modify this
 	 */
-	if (INTEL_INFO(dev_priv)->gen >= 4 ||
+	if (INTEL_INFO(dev)->gen >= 4 ||
 	    obj_priv->tiling_mode == I915_TILING_NONE)
 		return (4096);
 
@@ -1265,7 +1264,7 @@ i915_gem_get_gtt_alignment(struct drm_obj *obj)
 	 * Older chips need to be aligned to the size of the smallest fence
 	 * register that can contain the object.
 	 */
-	if (IS_I9XX(dev_priv))
+	if (IS_I9XX(dev))
 		start = 1024 * 1024;
 	else
 		start = 512 * 1024;
@@ -1626,6 +1625,7 @@ i915_wait_request(struct inteldrm_softc *dev_priv, uint32_t seqno,
 uint32_t
 i915_add_request(struct inteldrm_softc *dev_priv)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
 	int				 was_empty;
@@ -1646,7 +1646,7 @@ i915_add_request(struct inteldrm_softc *dev_priv)
 	if (dev_priv->mm.next_gem_seqno == 0)
 		dev_priv->mm.next_gem_seqno++;
 
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+	if (IS_GEN6(dev) || IS_GEN7(dev))
 		BEGIN_LP_RING(10);
 	else 
 		BEGIN_LP_RING(4);
@@ -1774,7 +1774,7 @@ i915_write_fence_reg(struct drm_i915_fence_reg *reg)
 	}
 
 	if (obj_priv->tiling_mode == I915_TILING_Y &&
-	    HAS_128_BYTE_Y_TILING(dev_priv))
+	    HAS_128_BYTE_Y_TILING(dev))
 		tile_width = 128;
 	else
 		tile_width = 512;
@@ -1785,7 +1785,7 @@ i915_write_fence_reg(struct drm_i915_fence_reg *reg)
 
 	/* XXX print more */
 	if ((obj_priv->tiling_mode == I915_TILING_Y &&
-	    HAS_128_BYTE_Y_TILING(dev_priv) &&
+	    HAS_128_BYTE_Y_TILING(dev) &&
 	    pitch_val > I830_FENCE_MAX_PITCH_VAL) ||
 	    pitch_val > I915_FENCE_MAX_PITCH_VAL)
 		printf("%s: invalid pitch provided", __func__);
@@ -1878,7 +1878,7 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 	}
 
 	mtx_enter(&dev_priv->fence_lock);
-	if (INTEL_INFO(dev_priv)->gen >= 4) {
+	if (INTEL_INFO(dev)->gen >= 4) {
 		I915_WRITE64(FENCE_REG_965_0 + (obj_priv->fence_reg * 8), 0);
 	} else {
 		u_int32_t fence_reg;

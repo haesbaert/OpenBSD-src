@@ -67,21 +67,21 @@ i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 	if (tiling_mode == I915_TILING_NONE)
 		return (1);
 
-	if (!IS_I9XX(dev_priv) || (tiling_mode == I915_TILING_Y &&
-	    HAS_128_BYTE_Y_TILING(dev_priv)))
+	if (!IS_I9XX(dev) || (tiling_mode == I915_TILING_Y &&
+	    HAS_128_BYTE_Y_TILING(dev)))
 		tile_width = 128;
 	else
 		tile_width = 512;
 
 	/* Check stride and size constraints */
-	if (INTEL_INFO(dev_priv)->gen >= 4) {
+	if (INTEL_INFO(dev)->gen >= 4) {
 		/* fence reg has end address, so size is ok */
 		if (stride / 128 > I965_FENCE_MAX_PITCH_VAL)
 			return (0);
-	} else if (IS_GEN3(dev_priv) || IS_GEN2(dev_priv)) {
+	} else if (IS_GEN3(dev) || IS_GEN2(dev)) {
 		if (stride > 8192)
 			return (0);
-		if (IS_GEN3(dev_priv)) {
+		if (IS_GEN3(dev)) {
 			if (size > I830_FENCE_MAX_SIZE_VAL << 20)
 				return (0);
 		} else if (size > I830_FENCE_MAX_SIZE_VAL << 19)
@@ -89,7 +89,7 @@ i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 	}
 
 	/* 965+ just needs multiples of the tile width */
-	if (INTEL_INFO(dev_priv)->gen >= 4)
+	if (INTEL_INFO(dev)->gen >= 4)
 		return ((stride & (tile_width - 1)) == 0);
 
 	/* Pre-965 needs power-of-two */

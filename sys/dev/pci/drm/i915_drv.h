@@ -233,7 +233,6 @@ struct inteldrm_softc {
 	struct gmbus_port	 gp;
 
 	u_long			 flags;
-	u_int16_t		 pci_device;
 
 	pci_chipset_tag_t	 pc;
 	pcitag_t		 tag;
@@ -974,10 +973,10 @@ int i915_gem_evict_inactive(struct inteldrm_softc *, int);
 
 /* i915_suspend.c */
 
-extern void i915_save_display(struct inteldrm_softc *);
-extern void i915_restore_display(struct inteldrm_softc *);
-extern int i915_save_state(struct inteldrm_softc *);
-extern int i915_restore_state(struct inteldrm_softc *);
+extern void i915_save_display(struct drm_device *);
+extern void i915_restore_display(struct drm_device *);
+extern int i915_save_state(struct drm_device *);
+extern int i915_restore_state(struct drm_device *);
 
 /* intel_i2c.c */
 extern int intel_setup_gmbus(struct inteldrm_softc *);
@@ -1123,41 +1122,41 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define READ_HWSP(dev_priv, reg)  inteldrm_read_hws(dev_priv, reg)
 #define I915_GEM_HWS_INDEX		0x20
 
-#define INTEL_INFO(dev)		((dev)->info)
+#define INTEL_INFO(dev) (((struct inteldrm_softc *) (dev)->dev_private)->info)
 
 /* Chipset type macros */
 
-#define IS_I830(dev_priv)	((dev_priv)->pci_device == 0x3577)
-#define IS_845G(dev_priv)	((dev_priv)->pci_device == 0x2562)
-#define IS_I85X(dev_priv)	(INTEL_INFO(dev_priv)->is_i85x)
-#define IS_I865G(dev_priv)	((dev_priv)->pci_device == 0x2572)
-#define IS_I915G(dev_priv)	(INTEL_INFO(dev_priv)->is_i915g)
-#define IS_I915GM(dev_priv)	((dev_priv)->pci_device == 0x2592)
-#define IS_I945G(dev_priv)	((dev_priv)->pci_device == 0x2772)
-#define IS_I945GM(dev_priv)	(INTEL_INFO(dev_priv)->is_i945gm)
-#define IS_BROADWATER(dev_priv)	(INTEL_INFO(dev_priv)->is_broadwater)
-#define IS_CRESTLINE(dev_priv)	(INTEL_INFO(dev_priv)->is_crestline)
-#define IS_GM45(dev_priv)	((dev_priv)->pci_device == 0x2A42)
-#define IS_G4X(dev_priv)	(INTEL_INFO(dev_priv)->is_g4x)
-#define IS_PINEVIEW_G(dev_priv)	((dev_priv)->pci_device == 0xa001)
-#define IS_PINEVIEW_M(dev_priv)	((dev_priv)->pci_device == 0xa011)
-#define IS_PINEVIEW(dev_priv)	(INTEL_INFO(dev_priv)->is_pineview)
-#define IS_G33(dev_priv)	(INTEL_INFO(dev_priv)->is_g33)
-#define IS_IRONLAKE_D(dev_priv)	((dev_priv)->pci_device == 0x0042)
-#define IS_IRONLAKE_M(dev_priv)	((dev_priv)->pci_device == 0x0046)
-#define IS_IVYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->is_ivybridge)
-#define IS_MOBILE(dev_priv)	(INTEL_INFO(dev_priv)->is_mobile)
+#define IS_I830(dev)		((dev)->pci_device == 0x3577)
+#define IS_845G(dev)		((dev)->pci_device == 0x2562)
+#define IS_I85X(dev)		(INTEL_INFO(dev)->is_i85x)
+#define IS_I865G(dev)		((dev)->pci_device == 0x2572)
+#define IS_I915G(dev)		(INTEL_INFO(dev)->is_i915g)
+#define IS_I915GM(dev)		((dev)->pci_device == 0x2592)
+#define IS_I945G(dev)		((dev)->pci_device == 0x2772)
+#define IS_I945GM(dev)		(INTEL_INFO(dev)->is_i945gm)
+#define IS_BROADWATER(dev)	(INTEL_INFO(dev)->is_broadwater)
+#define IS_CRESTLINE(dev)	(INTEL_INFO(dev)->is_crestline)
+#define IS_GM45(dev)		((dev)->pci_device == 0x2A42)
+#define IS_G4X(dev)		(INTEL_INFO(dev)->is_g4x)
+#define IS_PINEVIEW_G(dev)	((dev)->pci_device == 0xa001)
+#define IS_PINEVIEW_M(dev)	((dev)->pci_device == 0xa011)
+#define IS_PINEVIEW(dev)	(INTEL_INFO(dev)->is_pineview)
+#define IS_G33(dev)		(INTEL_INFO(dev)->is_g33)
+#define IS_IRONLAKE_D(dev)	((dev)->pci_device == 0x0042)
+#define IS_IRONLAKE_M(dev)	((dev)->pci_device == 0x0046)
+#define IS_IVYBRIDGE(dev)	(INTEL_INFO(dev)->is_ivybridge)
+#define IS_MOBILE(dev)		(INTEL_INFO(dev)->is_mobile)
 
-#define IS_I9XX(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 3)
-#define IS_IRONLAKE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
+#define IS_I9XX(dev)		(INTEL_INFO(dev)->gen >= 3)
+#define IS_IRONLAKE(dev)	(INTEL_INFO(dev)->gen == 5)
 
-#define IS_SANDYBRIDGE(dev_priv)	(INTEL_INFO(dev_priv)->gen == 6)
-#define IS_SANDYBRIDGE_D(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
- (INTEL_INFO(dev_priv)->is_mobile == 0))
-#define IS_SANDYBRIDGE_M(dev_priv)	(IS_SANDYBRIDGE(dev_priv) && \
- (INTEL_INFO(dev_priv)->is_mobile == 1))
-#define IS_VALLEYVIEW(dev_priv) (INTEL_INFO(dev_priv)->is_valleyview)
-#define IS_HASWELL(dev_priv)	(INTEL_INFO(dev_priv)->is_haswell)
+#define IS_SANDYBRIDGE(dev)	(INTEL_INFO(dev)->gen == 6)
+#define IS_SANDYBRIDGE_D(dev)	(IS_SANDYBRIDGE(dev) && \
+ (INTEL_INFO(dev)->is_mobile == 0))
+#define IS_SANDYBRIDGE_M(dev)	(IS_SANDYBRIDGE(dev) && \
+ (INTEL_INFO(dev)->is_mobile == 1))
+#define IS_VALLEYVIEW(dev)	(INTEL_INFO(dev)->is_valleyview)
+#define IS_HASWELL(dev)	(INTEL_INFO(dev)->is_haswell)
 
 /*
  * The genX designation typically refers to the render engine, so render
@@ -1165,50 +1164,50 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
  * have their own (e.g. HAS_PCH_SPLIT for ILK+ display, IS_foo for particular
  * chips, etc.).
  */
-#define IS_GEN2(dev_priv)	(INTEL_INFO(dev_priv)->gen == 2)
-#define IS_GEN3(dev_priv)	(INTEL_INFO(dev_priv)->gen == 3)
-#define IS_GEN4(dev_priv)	(INTEL_INFO(dev_priv)->gen == 4)
-#define IS_GEN5(dev_priv)	(INTEL_INFO(dev_priv)->gen == 5)
-#define IS_GEN6(dev_priv)	(INTEL_INFO(dev_priv)->gen == 6)
-#define IS_GEN7(dev_priv)	(INTEL_INFO(dev_priv)->gen == 7)
+#define IS_GEN2(dev)		(INTEL_INFO(dev)->gen == 2)
+#define IS_GEN3(dev)		(INTEL_INFO(dev)->gen == 3)
+#define IS_GEN4(dev)		(INTEL_INFO(dev)->gen == 4)
+#define IS_GEN5(dev)		(INTEL_INFO(dev)->gen == 5)
+#define IS_GEN6(dev)		(INTEL_INFO(dev)->gen == 6)
+#define IS_GEN7(dev)		(INTEL_INFO(dev)->gen == 7)
 
-#define HAS_BSD(dev_priv)	(INTEL_INFO(dev_priv)->has_bsd_ring)
-#define HAS_BLT(dev_priv)	(INTEL_INFO(dev_priv)->has_blt_ring)
-#define HAS_LLC(dev_priv)	(INTEL_INFO(dev_priv)->has_llc)
-#define I915_NEED_GFX_HWS(dev_priv)	(INTEL_INFO(dev_priv)->need_gfx_hws)
+#define HAS_BSD(dev)		(INTEL_INFO(dev)->has_bsd_ring)
+#define HAS_BLT(dev)		(INTEL_INFO(dev)->has_blt_ring)
+#define HAS_LLC(dev)		(INTEL_INFO(dev)->has_llc)
+#define I915_NEED_GFX_HWS(dev)	(INTEL_INFO(dev)->need_gfx_hws)
 
-#define HAS_HW_CONTEXTS(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 6)
-#define HAS_ALIASING_PPGTT(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 6)
+#define HAS_HW_CONTEXTS(dev)	(INTEL_INFO(dev)->gen >= 6)
+#define HAS_ALIASING_PPGTT(dev)	(INTEL_INFO(dev)->gen >= 6)
 
-#define HAS_OVERLAY(dev_priv)		(INTEL_INFO(dev_priv)->has_overlay)
-#define OVERLAY_NEEDS_PHYSICAL(dev_priv) \
-    (INTEL_INFO(dev_priv)->overlay_needs_physical)
+#define HAS_OVERLAY(dev)	(INTEL_INFO(dev)->has_overlay)
+#define OVERLAY_NEEDS_PHYSICAL(dev) \
+    (INTEL_INFO(dev)->overlay_needs_physical)
 
 /* Early gen2 have a totally busted CS tlb and require pinned batches. */
-#define HAS_BROKEN_CS_TLB(dev_priv)	(IS_I830(dev_priv) || IS_845G(dev_priv))
+#define HAS_BROKEN_CS_TLB(dev)	(IS_I830(dev) || IS_845G(dev))
 
 /*
  * With the 945 and later, Y tiling got adjusted so that it was 32 128-byte
  * rows, which changes the alignment requirements and fence programming.
  */
-#define HAS_128_BYTE_Y_TILING(dev_priv) (IS_I9XX(dev_priv) &&	\
-	!(IS_I915G(dev_priv) || IS_I915GM(dev_priv)))
+#define HAS_128_BYTE_Y_TILING(dev) (IS_I9XX(dev) &&	\
+	!(IS_I915G(dev) || IS_I915GM(dev)))
 
-#define HAS_RESET(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 4 && \
-    (!IS_GEN6(dev_priv)) && (!IS_GEN7(dev_priv)))
+#define HAS_RESET(dev)	(INTEL_INFO(dev)->gen >= 4 && \
+    (!IS_GEN6(dev)) && (!IS_GEN7(dev)))
 
 #define SUPPORTS_DIGITAL_OUTPUTS(dev)	(!IS_GEN2(dev) && !IS_PINEVIEW(dev))
 #define SUPPORTS_INTEGRATED_HDMI(dev)	(IS_G4X(dev) || IS_GEN5(dev))
 #define SUPPORTS_INTEGRATED_DP(dev)	(IS_G4X(dev) || IS_GEN5(dev))
 #define SUPPORTS_EDP(dev)		(IS_IRONLAKE_M(dev))
-#define SUPPORTS_TV(dev_priv)		(INTEL_INFO(dev_priv)->supports_tv)
-#define I915_HAS_HOTPLUG(dev_priv)	(INTEL_INFO(dev_priv)->has_hotplug)
+#define SUPPORTS_TV(dev)		(INTEL_INFO(dev)->supports_tv)
+#define I915_HAS_HOTPLUG(dev)		(INTEL_INFO(dev)->has_hotplug)
 
 #define HAS_FW_BLC(dev)		(INTEL_INFO(dev)->gen > 2)
 #define HAS_PIPE_CXSR(dev)	(INTEL_INFO(dev)->has_pipe_cxsr)
 #define I915_HAS_FBC(dev)	(INTEL_INFO(dev)->has_fbc)
 
-#define HAS_PIPE_CONTROL(dev_priv)	(INTEL_INFO(dev_priv)->gen >= 5)
+#define HAS_PIPE_CONTROL(dev)	(INTEL_INFO(dev)->gen >= 5)
 
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \
     IS_GEN7(dev))

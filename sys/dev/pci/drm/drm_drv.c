@@ -99,12 +99,20 @@ drm_attach_pci(const struct drm_driver_info *driver, struct pci_attach_args *pa,
     int is_agp, struct device *dev)
 {
 	struct drm_attach_args arg;
+	pcireg_t subsys;
 
 	arg.driver = driver;
 	arg.dmat = pa->pa_dmat;
 	arg.bst = pa->pa_memt;
 	arg.irq = pa->pa_intrline;
 	arg.is_agp = is_agp;
+
+	arg.pci_vendor = PCI_VENDOR(pa->pa_id);
+	arg.pci_device = PCI_PRODUCT(pa->pa_id);
+
+	subsys = pci_conf_read(pa->pa_pc, pa->pa_tag, PCI_SUBSYS_ID_REG);
+	arg.pci_subvendor = PCI_VENDOR(subsys);
+	arg.pci_subdevice = PCI_PRODUCT(subsys);
 
 	arg.busid_len = 20;
 	arg.busid = malloc(arg.busid_len + 1, M_DRM, M_NOWAIT);

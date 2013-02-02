@@ -494,11 +494,11 @@ intel_dp_aux_ch(struct intel_dp *intel_dp, uint8_t *send, int send_bytes,
 	 * clock divider.
 	 */
 	if (is_cpu_edp(intel_dp)) {
-		if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
+		if (IS_GEN6(dev) || IS_GEN7(dev))
 			aux_clock_divider = 200; /* SNB & IVB eDP input clock at 400Mhz */
 		else
 			aux_clock_divider = 225; /* eDP input clock at 450Mhz */
-	} else if (HAS_PCH_SPLIT(dev_priv))
+	} else if (HAS_PCH_SPLIT(dev))
 		aux_clock_divider = 63; /* IRL input clock fixed at 125Mhz */
 	else
 		aux_clock_divider = intel_hrawclk(dev) / 2;
@@ -899,7 +899,7 @@ intel_dp_set_m_n(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	intel_dp_compute_m_n(intel_crtc->bpp, lane_count,
 			     mode->clock, adjusted_mode->clock, &m_n);
 
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		I915_WRITE(TRANSDATA_M1(pipe),
 			   ((m_n.tu - 1) << PIPE_GMCH_DATA_M_TU_SIZE_SHIFT) |
 			   m_n.gmch_m);
@@ -991,7 +991,7 @@ intel_dp_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 
 	/* Split out the IBX/CPU vs CPT settings */
 
-	if (is_cpu_edp(intel_dp) && IS_GEN7(dev_priv)) {
+	if (is_cpu_edp(intel_dp) && IS_GEN7(dev)) {
 		if (adjusted_mode->flags & DRM_MODE_FLAG_PHSYNC)
 			intel_dp->DP |= DP_SYNC_HS_HIGH;
 		if (adjusted_mode->flags & DRM_MODE_FLAG_PVSYNC)
@@ -1230,7 +1230,7 @@ ironlake_edp_panel_on(struct intel_dp *intel_dp)
 	ironlake_wait_panel_power_cycle(intel_dp);
 
 	pp = ironlake_get_pp_control(dev_priv);
-	if (IS_GEN5(dev_priv)) {
+	if (IS_GEN5(dev)) {
 		/* ILK workaround: disable reset around power sequence */
 		pp &= ~PANEL_POWER_RESET;
 		I915_WRITE(PCH_PP_CONTROL, pp);
@@ -1238,7 +1238,7 @@ ironlake_edp_panel_on(struct intel_dp *intel_dp)
 	}
 
 	pp |= POWER_TARGET_ON;
-	if (!IS_GEN5(dev_priv))
+	if (!IS_GEN5(dev))
 		pp |= PANEL_POWER_RESET;
 
 	I915_WRITE(PCH_PP_CONTROL, pp);
@@ -1246,7 +1246,7 @@ ironlake_edp_panel_on(struct intel_dp *intel_dp)
 
 	ironlake_wait_panel_on(intel_dp);
 
-	if (IS_GEN5(dev_priv)) {
+	if (IS_GEN5(dev)) {
 		pp |= PANEL_POWER_RESET; /* restore panel reset bit */
 		I915_WRITE(PCH_PP_CONTROL, pp);
 		POSTING_READ(PCH_PP_CONTROL);
@@ -1546,7 +1546,7 @@ intel_dp_voltage_max(struct intel_dp *intel_dp)
 	struct drm_device *dev = intel_dp->base.base.dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
-	if (IS_GEN7(dev_priv) && is_cpu_edp(intel_dp))
+	if (IS_GEN7(dev) && is_cpu_edp(intel_dp))
 		return DP_TRAIN_VOLTAGE_SWING_800;
 	else if (HAS_PCH_CPT(dev_priv) && !is_cpu_edp(intel_dp))
 		return DP_TRAIN_VOLTAGE_SWING_1200;
@@ -1558,9 +1558,8 @@ uint8_t
 intel_dp_pre_emphasis_max(struct intel_dp *intel_dp, uint8_t voltage_swing)
 {
 	struct drm_device *dev = intel_dp->base.base.dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 
-	if (IS_GEN7(dev_priv) && is_cpu_edp(intel_dp)) {
+	if (IS_GEN7(dev) && is_cpu_edp(intel_dp)) {
 		switch (voltage_swing & DP_TRAIN_VOLTAGE_SWING_MASK) {
 		case DP_TRAIN_VOLTAGE_SWING_400:
 			return DP_TRAIN_PRE_EMPHASIS_6;
@@ -1812,7 +1811,7 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 
 	DP |= DP_PORT_EN;
 
-	if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev_priv) || !is_cpu_edp(intel_dp)))
+	if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev) || !is_cpu_edp(intel_dp)))
 		DP &= ~DP_LINK_TRAIN_MASK_CPT;
 	else
 		DP &= ~DP_LINK_TRAIN_MASK;
@@ -1827,10 +1826,10 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 		uint32_t    signal_levels;
 
 
-		if (IS_GEN7(dev_priv) && is_cpu_edp(intel_dp)) {
+		if (IS_GEN7(dev) && is_cpu_edp(intel_dp)) {
 			signal_levels = intel_gen7_edp_signal_levels(intel_dp->train_set[0]);
 			DP = (DP & ~EDP_LINK_TRAIN_VOL_EMP_MASK_IVB) | signal_levels;
-		} else if (IS_GEN6(dev_priv) && is_cpu_edp(intel_dp)) {
+		} else if (IS_GEN6(dev) && is_cpu_edp(intel_dp)) {
 			signal_levels = intel_gen6_edp_signal_levels(intel_dp->train_set[0]);
 			DP = (DP & ~EDP_LINK_TRAIN_VOL_EMP_MASK_SNB) | signal_levels;
 		} else {
@@ -1839,7 +1838,7 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 			DP = (DP & ~(DP_VOLTAGE_MASK|DP_PRE_EMPHASIS_MASK)) | signal_levels;
 		}
 
-		if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev_priv) || !is_cpu_edp(intel_dp)))
+		if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev) || !is_cpu_edp(intel_dp)))
 			reg = DP | DP_LINK_TRAIN_PAT_1_CPT;
 		else
 			reg = DP | DP_LINK_TRAIN_PAT_1;
@@ -1919,10 +1918,10 @@ intel_dp_complete_link_train(struct intel_dp *intel_dp)
 			break;
 		}
 
-		if (IS_GEN7(dev_priv) && is_cpu_edp(intel_dp)) {
+		if (IS_GEN7(dev) && is_cpu_edp(intel_dp)) {
 			signal_levels = intel_gen7_edp_signal_levels(intel_dp->train_set[0]);
 			DP = (DP & ~EDP_LINK_TRAIN_VOL_EMP_MASK_IVB) | signal_levels;
-		} else if (IS_GEN6(dev_priv) && is_cpu_edp(intel_dp)) {
+		} else if (IS_GEN6(dev) && is_cpu_edp(intel_dp)) {
 			signal_levels = intel_gen6_edp_signal_levels(intel_dp->train_set[0]);
 			DP = (DP & ~EDP_LINK_TRAIN_VOL_EMP_MASK_SNB) | signal_levels;
 		} else {
@@ -1930,7 +1929,7 @@ intel_dp_complete_link_train(struct intel_dp *intel_dp)
 			DP = (DP & ~(DP_VOLTAGE_MASK|DP_PRE_EMPHASIS_MASK)) | signal_levels;
 		}
 
-		if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev_priv) || !is_cpu_edp(intel_dp)))
+		if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev) || !is_cpu_edp(intel_dp)))
 			reg = DP | DP_LINK_TRAIN_PAT_2_CPT;
 		else
 			reg = DP | DP_LINK_TRAIN_PAT_2;
@@ -1970,7 +1969,7 @@ intel_dp_complete_link_train(struct intel_dp *intel_dp)
 		++tries;
 	}
 
-	if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev_priv) || !is_cpu_edp(intel_dp)))
+	if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev) || !is_cpu_edp(intel_dp)))
 		reg = DP | DP_LINK_TRAIN_OFF_CPT;
 	else
 		reg = DP | DP_LINK_TRAIN_OFF;
@@ -2000,7 +1999,7 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 		DELAY(100);
 	}
 
-	if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev_priv) || !is_cpu_edp(intel_dp))) {
+	if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev) || !is_cpu_edp(intel_dp))) {
 		DP &= ~DP_LINK_TRAIN_MASK_CPT;
 		I915_WRITE(intel_dp->output_reg, DP | DP_LINK_TRAIN_PAT_IDLE_CPT);
 	} else {
@@ -2012,7 +2011,7 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 	drm_msleep(17, "915dlo");
 
 	if (is_edp(intel_dp)) {
-		if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev_priv) || !is_cpu_edp(intel_dp)))
+		if (HAS_PCH_CPT(dev_priv) && (IS_GEN7(dev) || !is_cpu_edp(intel_dp)))
 			DP |= DP_LINK_TRAIN_OFF_CPT;
 		else
 			DP |= DP_LINK_TRAIN_OFF;
@@ -2237,13 +2236,12 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 {
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
 	struct drm_device *dev = intel_dp->base.base.dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 	enum drm_connector_status status;
 	struct edid *edid = NULL;
 
 	intel_dp->has_audio = false;
 
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (HAS_PCH_SPLIT(dev))
 		status = ironlake_dp_detect(intel_dp);
 	else
 		status = g4x_dp_detect(intel_dp);
@@ -2541,7 +2539,7 @@ intel_dp_init(struct drm_device *dev, int output_reg)
 	    M_WAITOK | M_ZERO);
 	intel_encoder = &intel_dp->base;
 
-	if (HAS_PCH_SPLIT(dev_priv) && output_reg == PCH_DP_D)
+	if (HAS_PCH_SPLIT(dev) && output_reg == PCH_DP_D)
 		if (intel_dpd_is_edp(dev))
 			intel_dp->is_pch_edp = true;
 
@@ -2696,7 +2694,7 @@ intel_dp_init(struct drm_device *dev, int output_reg)
 	 * 0xd.  Failure to do so will result in spurious interrupts being
 	 * generated on the port when a cable is not attached.
 	 */
-	if (IS_G4X(dev_priv) && !IS_GM45(dev_priv)) {
+	if (IS_G4X(dev) && !IS_GM45(dev)) {
 		u32 temp = I915_READ(PEG_BAND_GAP_DATA);
 		I915_WRITE(PEG_BAND_GAP_DATA, (temp & ~0xf) | 0xd);
 	}

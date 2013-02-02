@@ -259,7 +259,7 @@ intel_hdmi_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	u32 sdvox;
 
 	sdvox = SDVO_ENCODING_HDMI | SDVO_BORDER_ENABLE;
-	if (!HAS_PCH_SPLIT(dev_priv))
+	if (!HAS_PCH_SPLIT(dev))
 		sdvox |= intel_hdmi->color_range;
 	if (adjusted_mode->flags & DRM_MODE_FLAG_PVSYNC)
 		sdvox |= SDVO_VSYNC_ACTIVE_HIGH;
@@ -312,7 +312,7 @@ intel_hdmi_dpms(struct drm_encoder *encoder, int mode)
 	/* HW workaround, need to toggle enable bit off and on for 12bpc, but
 	 * we do this anyway which shows more stable in testing.
 	 */
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		I915_WRITE(intel_hdmi->sdvox_reg, temp & ~SDVO_ENABLE);
 		POSTING_READ(intel_hdmi->sdvox_reg);
 	}
@@ -329,7 +329,7 @@ intel_hdmi_dpms(struct drm_encoder *encoder, int mode)
 	/* HW workaround, need to write this twice for issue that may result
 	 * in first write getting masked.
 	 */
-	if (HAS_PCH_SPLIT(dev_priv)) {
+	if (HAS_PCH_SPLIT(dev)) {
 		I915_WRITE(intel_hdmi->sdvox_reg, temp);
 		POSTING_READ(intel_hdmi->sdvox_reg);
 	}
@@ -584,7 +584,7 @@ intel_hdmi_init(struct drm_device *dev, int sdvox_reg)
 
 	intel_hdmi->sdvox_reg = sdvox_reg;
 
-	if (!HAS_PCH_SPLIT(dev_priv)) {
+	if (!HAS_PCH_SPLIT(dev)) {
 		intel_hdmi->write_infoframe = i9xx_write_infoframe;
 		I915_WRITE(VIDEO_DIP_CTL, 0);
 	} else {
@@ -606,7 +606,7 @@ intel_hdmi_init(struct drm_device *dev, int sdvox_reg)
 	 * 0xd.  Failure to do so will result in spurious interrupts being
 	 * generated on the port when a cable is not attached.
 	 */
-	if (IS_G4X(dev_priv) && !IS_GM45(dev_priv)) {
+	if (IS_G4X(dev) && !IS_GM45(dev)) {
 		u32 temp = I915_READ(PEG_BAND_GAP_DATA);
 		I915_WRITE(PEG_BAND_GAP_DATA, (temp & ~0xf) | 0xd);
 	}
