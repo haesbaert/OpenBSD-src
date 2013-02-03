@@ -78,7 +78,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 			 * reference for us, and held
 			 */
 			KASSERT(obj_priv->pin_count == 0);
-			KASSERT(!inteldrm_is_active(obj_priv));
+			KASSERT(!obj_priv->active);
 			DRM_ASSERT_HELD(obj);
 
 			/* Wait on the rendering and unbind the buffer. */

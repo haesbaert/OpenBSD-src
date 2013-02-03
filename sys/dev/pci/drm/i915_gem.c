@@ -364,7 +364,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 	if (++obj->pin_count == 1) {
 		atomic_inc(&dev->pin_count);
 		atomic_add(obj->base.size, &dev->pin_memory);
-		if (!inteldrm_is_active(obj))
+		if (!obj->active)
 			i915_list_remove(obj);
 	}
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
@@ -387,7 +387,7 @@ i915_gem_object_unpin(struct drm_i915_gem_object *obj)
 	 * the inactive list
 	 */
 	if (--obj->pin_count == 0) {
-		if (!inteldrm_is_active(obj))
+		if (!obj->active)
 			i915_gem_object_move_to_inactive(obj);
 		atomic_dec(&dev->pin_count);
 		atomic_sub(obj->base.size, &dev->pin_memory);
@@ -485,7 +485,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		return (EBADF);
 	}
 
-	args->busy = inteldrm_is_active(obj);
+	args->busy = obj->active;
 	if (args->busy) {
 		/*
 		 * Unconditionally flush objects write domain if they are
@@ -502,7 +502,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		 * working set size.
 		 */
 		i915_gem_retire_requests(dev_priv);
-		args->busy = inteldrm_is_active(obj);
+		args->busy = obj->active;
 	}
 
 	drm_gem_object_unreference(&obj->base);
@@ -1042,7 +1042,7 @@ i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj,
 	}
 
 	/* wait for queued rendering so we know it's flushed and bo is idle */
-	if (pipelined == 0 && inteldrm_is_active(obj)) {
+	if (pipelined == 0 && obj->active) {
 		if (write) {
 			seqno = obj->last_rendering_seqno;
 		} else {
@@ -1106,7 +1106,7 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write,
 	KASSERT((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) == 0);
 	if (write) {
 		obj->base.read_domains = obj->base.write_domain = I915_GEM_DOMAIN_GTT;
-		atomic_setbits_int(&obj->base.do_flags, I915_DIRTY);
+		obj->dirty = 1;
 	} else {
 		obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 	}
@@ -1400,11 +1400,11 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj, int interruptible)
 	if (ret)
 		return ret;
 
-	KASSERT(!inteldrm_is_active(obj));
+	KASSERT(!obj->active);
 
 	/* if it's purgeable don't bother dirtying the pages */
 	if (i915_obj_purgeable(obj))
-		atomic_clearbits_int(&obj->base.do_flags, I915_DIRTY);
+		obj->dirty = 0;
 	/*
 	 * unload the map, then unwire the backing object.
 	 */
@@ -1417,7 +1417,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj, int interruptible)
 	free(obj->dma_segs, M_DRM);
 	obj->dma_segs = NULL;
 	/* XXX this should change whether we tell uvm the page is dirty */
-	atomic_clearbits_int(&obj->base.do_flags, I915_DIRTY);
+	obj->dirty = 0;
 
 	obj->gtt_offset = 0;
 	atomic_dec(&dev->gtt_count);
@@ -1445,7 +1445,7 @@ i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj)
 	int			 ret;
 
 	/* wait for queued rendering so we know it's flushed and bo is idle */
-	if (inteldrm_is_active(obj)) {
+	if (obj->active) {
 		ret =  i915_wait_request(dev_priv,
 		    obj->last_rendering_seqno, true);
 	}
@@ -1465,9 +1465,9 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj)
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 
 	/* Add a reference if we're newly entering the active list. */
-	if (!inteldrm_is_active(obj)) {
+	if (!obj->active) {
 		drm_ref(&obj->base.uobj);
-		atomic_setbits_int(&obj->base.do_flags, I915_ACTIVE);
+		obj->active = 1;
 	}
 
 	if (inteldrm_needs_fence(obj)) {
@@ -1541,8 +1541,8 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 	KASSERT((obj->base.do_flags & I915_GPU_WRITE) == 0);
 	/* unlock because this unref could recurse */
 	mtx_leave(&dev_priv->list_lock);
-	if (inteldrm_is_active(obj)) {
-		atomic_clearbits_int(&obj->base.do_flags, I915_ACTIVE);
+	if (obj->active) {
+		obj->active = 0;
 		drm_unref_locked(&obj->base.uobj);
 	} else {
 		drm_unlock_obj(&obj->base);

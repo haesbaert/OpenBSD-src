@@ -1527,7 +1527,7 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 		 * available quite yet.
 		 */
 		if (obj->write_domain != 0) {
-			KASSERT(inteldrm_is_active(obj_priv));
+			KASSERT(obj_priv->active);
 			i915_move_to_tail(obj_priv,
 			    &dev_priv->mm.flushing_list);
 			i915_gem_object_move_off_active(obj_priv);
@@ -1641,7 +1641,7 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 	TAILQ_FOREACH(obj_priv, &dev_priv->mm.inactive_list, list) {
 		obj = &obj_priv->base;
 		if (obj->size >= min_size) {
-			if ((!inteldrm_is_dirty(obj_priv) ||
+			if ((!obj_priv->dirty ||
 			    i915_obj_purgeable(obj_priv)) &&
 			    (best == NULL || obj->size < best->size)) {
 				best = obj;
@@ -3283,11 +3283,10 @@ inteldrm_verify_inactive(struct inteldrm_softc *dev_priv, char *file,
 
 	TAILQ_FOREACH(obj_priv, &dev_priv->mm.inactive_list, list) {
 		obj = (struct drm_obj *)obj_priv;
-		if (obj_priv->pin_count || inteldrm_is_active(obj_priv) ||
+		if (obj_priv->pin_count || obj_priv->active ||
 		    obj->write_domain & I915_GEM_GPU_DOMAINS)
 			DRM_ERROR("inactive %p (p $d a $d w $x) %s:%d\n",
-			    obj, obj_priv->pin_count,
-			    inteldrm_is_active(obj_priv),
+			    obj, obj_priv->pin_count, obj_priv->active,
 			    obj->write_domain, file, line);
 	}
 }

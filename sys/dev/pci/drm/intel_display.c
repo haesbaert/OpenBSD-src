@@ -7473,7 +7473,7 @@ intel_crtc_idle_timer(void *arg)
 	struct intel_framebuffer *intel_fb;
 
 	intel_fb = to_intel_framebuffer(crtc->fb);
-	if (intel_fb && inteldrm_is_active(intel_fb->obj)) {
+	if (intel_fb && intel_fb->obj->active) {
 		/* The framebuffer is still being accessed by the GPU. */
 		timeout_add_msec(&intel_crtc->idle_timeout, CRTC_IDLE_TIMEOUT);
 		return;

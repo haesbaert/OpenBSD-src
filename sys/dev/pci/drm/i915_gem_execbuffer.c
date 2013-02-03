@@ -185,7 +185,7 @@ i915_gem_object_set_to_gpu_domain(struct drm_obj *obj)
 	if (obj->pending_write_domain == 0)
 		obj->pending_read_domains |= obj->read_domains;
 	else
-		atomic_setbits_int(&obj->do_flags, I915_DIRTY);
+		obj_priv->dirty = 1;
 
 	/*
 	 * Flush the current write domain if

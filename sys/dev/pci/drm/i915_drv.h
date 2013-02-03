@@ -723,13 +723,11 @@ struct inteldrm_file {
 #define CHIP_GEN7	0x4000000
 
 /* flags we use in drm_obj's do_flags */
-#define I915_ACTIVE		0x0010	/* being used by the gpu. */
 #define I915_IN_EXEC		0x0020	/* being processed in execbuffer */
 #define I915_USER_PINNED	0x0040	/* BO has been pinned from userland */
 #define I915_GPU_WRITE		0x0080	/* BO has been not flushed */
 #define I915_DONTNEED		0x0100	/* BO backing pages purgable */
 #define I915_PURGED		0x0200	/* BO backing pages purged */
-#define I915_DIRTY		0x0400	/* BO written to since last bound */
 #define I915_EXEC_NEEDS_FENCE	0x0800	/* being processed but will need fence*/
 #define I915_FENCED_EXEC	0x1000	/* Most recent exec needs fence */
 #define I915_FENCE_INVALID	0x2000	/* fence has been lazily invalidated */
@@ -763,6 +761,19 @@ struct drm_i915_gem_object {
 	/** Current tiling mode for the object. */
 	u_int32_t				 tiling_mode;
 	u_int32_t				 stride;
+
+	/**
+	 * This is set if the object is on the active lists (has pending
+	 * rendering and so a non-zero seqno), and is not set if it i s on
+	 * inactive (ready to be unbound) list.
+	 */
+	unsigned int active:1;
+
+	/**
+	 * This is set if the object has been written to since last bound
+	 * to the GTT
+	 */
+	unsigned int dirty:1;
 
 	/** for phy allocated objects */
 	struct drm_i915_gem_phys_object *phys_obj;
@@ -1292,18 +1303,6 @@ static __inline int
 i915_obj_purged(struct drm_i915_gem_object *obj_priv)
 {
 	return (obj_priv->base.do_flags & I915_PURGED);
-}
-
-static __inline int
-inteldrm_is_active(struct drm_i915_gem_object *obj_priv)
-{
-	return (obj_priv->base.do_flags & I915_ACTIVE);
-}
-
-static __inline int
-inteldrm_is_dirty(struct drm_i915_gem_object *obj_priv)
-{
-	return (obj_priv->base.do_flags & I915_DIRTY);
 }
 
 static __inline int
