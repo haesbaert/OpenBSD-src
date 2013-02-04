@@ -97,7 +97,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 			seqno = request->seqno;
 			mtx_leave(&dev_priv->request_lock);
 
-			ret = i915_wait_request(dev_priv, seqno, interruptible);
+			ret = i915_wait_seqno(request->ring, seqno, interruptible);
 			if (ret)
 				return (ret);
 
@@ -122,7 +122,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 		mtx_leave(&dev_priv->list_lock);
 
 		if (write_domain) {
-			if (i915_gem_flush(dev_priv, write_domain,
+			if (i915_gem_flush(obj_priv->ring, write_domain,
 			    write_domain) == 0)
 				return (ENOMEM);
 			continue;
@@ -146,22 +146,30 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 int
 i915_gem_evict_everything(struct inteldrm_softc *dev_priv, int interruptible)
 {
+	struct intel_ring_buffer *ring;
 	u_int32_t	seqno;
 	int		ret;
+	int		i;
 
 	if (TAILQ_EMPTY(&dev_priv->mm.inactive_list) &&
 	    TAILQ_EMPTY(&dev_priv->mm.flushing_list) &&
 	    TAILQ_EMPTY(&dev_priv->mm.active_list))
 		return (ENOSPC);
 
-	seqno = i915_gem_flush(dev_priv, I915_GEM_GPU_DOMAINS,
-	    I915_GEM_GPU_DOMAINS);
-	if (seqno == 0)
-		return (ENOMEM);
+	/* Flush everything onto the inactive list. */
+	for_each_ring(ring, dev_priv, i) {
+		seqno = i915_gem_flush(ring, I915_GEM_GPU_DOMAINS,
+		    I915_GEM_GPU_DOMAINS);
+		if (seqno == 0)
+			return (ENOMEM);
+        }
 
-	if ((ret = i915_wait_request(dev_priv, seqno, interruptible)) != 0 ||
-	    (ret = i915_gem_evict_inactive(dev_priv, interruptible)) != 0)
-		return (ret);
+	for_each_ring(ring, dev_priv, i) {
+		if ((ret = i915_wait_seqno(ring, seqno, interruptible)) != 0 ||
+		    (ret = i915_gem_evict_inactive(dev_priv,
+		    interruptible)) != 0)
+			return (ret);
+	}
 
 	/*
 	 * All lists should be empty because we flushed the whole queue, then

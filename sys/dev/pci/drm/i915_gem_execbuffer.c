@@ -268,6 +268,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	struct drm_i915_gem_object		*obj_priv, *batch_obj_priv;
 	struct drm_obj				**object_list = NULL;
 	struct drm_obj				*batch_obj, *obj;
+	struct intel_ring_buffer		*ring;
 	size_t					 oflow;
 	int					 ret, ret2, i;
 	int					 pinned = 0, pin_tries;
@@ -288,26 +289,28 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		DRM_ERROR("execbuf with %d buffers\n", args->buffer_count);
 		return (EINVAL);
 	}
-#if 1
-	/* XXX support BSD/BLT rings */
+
 	switch (args->flags & I915_EXEC_RING_MASK) {
 	case I915_EXEC_DEFAULT:
 	case I915_EXEC_RENDER:
+		ring = &dev_priv->rings[RCS];
 		break;
 	case I915_EXEC_BSD:
-		printf("BSD ring not supported\n");
-		return (EINVAL);
+		ring = &dev_priv->rings[VCS];
 		break;
 	case I915_EXEC_BLT:
-		printf("BLT ring not supported\n");
-		return (EINVAL);
+		ring = &dev_priv->rings[BCS];
 		break;
 	default:
 		printf("unknown ring %d\n",
 		    (int)(args->flags & I915_EXEC_RING_MASK));
 		return (EINVAL);
 	}
-#endif
+	if (!intel_ring_initialized(ring)) {
+		DRM_DEBUG("execbuf with invalid ring: %d\n",
+			  (int)(args->flags & I915_EXEC_RING_MASK));
+		return (EINVAL);
+	}
 
 	/* Copy in the exec list from userland, check for overflow */
 	oflow = SIZE_MAX / args->buffer_count;
@@ -435,7 +438,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
 	/* flush and invalidate any domains that need them. */
-	(void)i915_gem_flush(dev_priv, dev->invalidate_domains,
+	(void)i915_gem_flush(ring, dev->invalidate_domains,
 	    dev->flush_domains);
 
 	/*
@@ -481,7 +484,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 			    I915_FENCED_EXEC);
 		}
 
-		i915_gem_object_move_to_active(to_intel_bo(object_list[i]));
+		i915_gem_object_move_to_active(to_intel_bo(object_list[i]), ring);
 		drm_unlock_obj(obj);
 	}
 	mtx_leave(&dev_priv->list_lock);
@@ -492,7 +495,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	/*
 	 * XXX make sure that this may never fail by preallocating the request.
 	 */
-	i915_dispatch_gem_execbuffer(dev, args, batch_obj_priv->gtt_offset);
+	i915_dispatch_gem_execbuffer(ring, args, batch_obj_priv->gtt_offset);
 	mtx_leave(&dev_priv->request_lock);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);

@@ -1476,7 +1476,7 @@ inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
 			    obj_priv, write_list);
 			atomic_clearbits_int(&obj->do_flags,
 			     I915_GPU_WRITE);
-			i915_gem_object_move_to_active(obj_priv);
+			i915_gem_object_move_to_active(obj_priv, obj_priv->ring);
 			obj->write_domain = 0;
 			/* if we still need the fence, update LRU */
 			if (inteldrm_needs_fence(obj_priv)) {
@@ -1557,10 +1557,11 @@ i915_gem_retire_work_handler(void *arg1, void *unused)
  * the request. else (failed or just cpu flushed)  we return 0.
  */
 u_int32_t
-i915_gem_flush(struct inteldrm_softc *dev_priv, uint32_t invalidate_domains,
+i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
     uint32_t flush_domains)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
+	struct drm_device	*dev = ring->dev;
 	uint32_t		 cmd;
 	int			 ret = 0;
 
@@ -1619,7 +1620,7 @@ i915_gem_flush(struct inteldrm_softc *dev_priv, uint32_t invalidate_domains,
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
 		inteldrm_process_flushing(dev_priv, flush_domains);
-		ret = i915_add_request(dev_priv);
+		ret = i915_add_request(ring);
 	}
 	mtx_leave(&dev_priv->request_lock);
 
@@ -2144,9 +2145,10 @@ err:
 /** Dispatch a batchbuffer to the ring
  */
 void
-i915_dispatch_gem_execbuffer(struct drm_device *dev,
+i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
     struct drm_i915_gem_execbuffer2 *exec, uint64_t exec_offset)
 {
+	struct drm_device	*dev = ring->dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	uint32_t		 exec_start, exec_len;
 
@@ -2193,7 +2195,7 @@ i915_dispatch_gem_execbuffer(struct drm_device *dev,
 	 * that this call will emit. so we don't need the return. If it fails
 	 * then the next seqno will take care of it.
 	 */
-	(void)i915_add_request(dev_priv);
+	(void)i915_add_request(ring);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 }

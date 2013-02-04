@@ -494,7 +494,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		 * flushing now shoul reduce latency.
 		 */
 		if (obj->base.write_domain)
-			(void)i915_gem_flush(dev_priv, obj->base.write_domain,
+			(void)i915_gem_flush(obj->ring, obj->base.write_domain,
 			    obj->base.write_domain);
 		/*
 		 * Update the active list after the flush otherwise this is
@@ -1025,8 +1025,6 @@ int
 i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj,
     int pipelined, int interruptible, int write)
 {
-	struct drm_device	*dev = obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	u_int32_t		 seqno;
 	int			 ret = 0;
 
@@ -1037,7 +1035,7 @@ i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj,
 		 * This call will move stuff form the flushing list to the
 		 * active list so all we need to is wait for it.
 		 */
-		(void)i915_gem_flush(dev_priv, 0, obj->base.write_domain);
+		(void)i915_gem_flush(obj->ring, 0, obj->base.write_domain);
 		KASSERT(obj->base.write_domain == 0);
 	}
 
@@ -1048,7 +1046,7 @@ i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj,
 		} else {
 			seqno = obj->last_write_seqno;
 		}
-		ret =  i915_wait_request(dev_priv, seqno, interruptible);
+		ret =  i915_wait_seqno(obj->ring, seqno, interruptible);
 	}
 	return (ret);
 }
@@ -1440,13 +1438,11 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj, int interruptible)
 int
 i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj)
 {
-	struct drm_device	*dev = obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	int			 ret;
 
 	/* wait for queued rendering so we know it's flushed and bo is idle */
 	if (obj->active) {
-		ret =  i915_wait_request(dev_priv,
+		ret =  i915_wait_seqno(obj->ring,
 		    obj->last_rendering_seqno, true);
 	}
 	return (ret);
@@ -1454,7 +1450,8 @@ i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj)
 
 /* called locked */
 void
-i915_gem_object_move_to_active(struct drm_i915_gem_object *obj)
+i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
+			       struct intel_ring_buffer *ring)
 {
 	struct drm_device		*dev = obj->base.dev;
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
@@ -1463,6 +1460,7 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj)
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
+	obj->ring = ring;
 
 	/* Add a reference if we're newly entering the active list. */
 	if (!obj->active) {
@@ -1566,9 +1564,11 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
  * Called locked, sleeps with it.
  */
 int
-i915_wait_request(struct inteldrm_softc *dev_priv, uint32_t seqno,
+i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno,
     int interruptible)
 {
+	struct drm_device *dev = ring->dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	int ret = 0;
 
 	/* Check first because poking a wedged chip is bad. */
@@ -1577,7 +1577,7 @@ i915_wait_request(struct inteldrm_softc *dev_priv, uint32_t seqno,
 
 	if (seqno == dev_priv->mm.next_gem_seqno) {
 		mtx_enter(&dev_priv->request_lock);
-		seqno = i915_add_request(dev_priv);
+		seqno = i915_add_request(ring);
 		mtx_leave(&dev_priv->request_lock);
 		if (seqno == 0)
 			return (ENOMEM);
@@ -1623,8 +1623,9 @@ i915_wait_request(struct inteldrm_softc *dev_priv, uint32_t seqno,
  * Returned sequence numbers are nonzero on success.
  */
 uint32_t
-i915_add_request(struct inteldrm_softc *dev_priv)
+i915_add_request(struct intel_ring_buffer *ring)
 {
+	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
@@ -1661,6 +1662,7 @@ i915_add_request(struct inteldrm_softc *dev_priv)
 
 	/* XXX request timing for throttle */
 	request->seqno = seqno;
+	request->ring = ring;
 	was_empty = TAILQ_EMPTY(&dev_priv->mm.request_list);
 	TAILQ_INSERT_TAIL(&dev_priv->mm.request_list, request, list);
 
@@ -1864,7 +1866,7 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj, int interruptible)
 	/* if rendering is queued up that depends on the fence, wait for it */
 	reg = &dev_priv->fence_regs[obj_priv->fence_reg];
 	if (reg->last_rendering_seqno != 0) {
-		ret = i915_wait_request(dev_priv, reg->last_rendering_seqno,
+		ret = i915_wait_seqno(obj_priv->ring, reg->last_rendering_seqno,
 		    interruptible);
 		if (ret != 0)
 			return (ret);

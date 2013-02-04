@@ -286,11 +286,12 @@ intel_overlay_do_wait_request(struct intel_overlay *overlay,
 {
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	KASSERT(!overlay->last_flip_req);
-//	ret = i915_add_request(LP_RING(dev_priv), NULL, request);
-	ret = i915_add_request(dev_priv);
+//	ret = i915_add_request(ring, NULL, request);
+	ret = i915_add_request(ring);
 	if (ret) {
 		free(request, M_DRM);
 		return ret;
@@ -298,10 +299,9 @@ intel_overlay_do_wait_request(struct intel_overlay *overlay,
 	overlay->last_flip_req = request->seqno;
 	overlay->flip_tail = tail;
 #ifdef notyet
-	ret = i915_wait_request(LP_RING(dev_priv), overlay->last_flip_req,
-				true);
+	ret = i915_wait_seqno(ring, overlay->last_flip_req, true);
 #endif
-	ret = i915_wait_request(dev_priv, request->seqno, 0);
+	ret = i915_wait_seqno(ring, request->seqno, 0);
 	if (ret)
 		return ret;
 
@@ -405,6 +405,7 @@ intel_overlay_continue(struct intel_overlay *overlay,
 {
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	struct drm_i915_gem_request *request;
 	u32 flip_addr = overlay->flip_addr;
 	u32 tmp;
@@ -431,8 +432,8 @@ intel_overlay_continue(struct intel_overlay *overlay,
 	OUT_RING(flip_addr);
 	ADVANCE_LP_RING();
 
-//	ret = i915_add_request(LP_RING(dev_priv), NULL, request);
-	ret = i915_add_request(dev_priv);
+//	ret = i915_add_request(ring, NULL, request);
+	ret = i915_add_request(ring);
 	if (ret) {
 		free(request, M_DRM);
 		return ret;
@@ -519,13 +520,13 @@ intel_overlay_recover_from_interrupt(struct intel_overlay *overlay)
 #if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	if (overlay->last_flip_req == 0)
 		return 0;
 
-	ret = i915_wait_request(LP_RING(dev_priv), overlay->last_flip_req,
-				true);
+	ret = i915_wait_seqno(ring, overlay->last_flip_req, true);
 	if (ret)
 		return ret;
 

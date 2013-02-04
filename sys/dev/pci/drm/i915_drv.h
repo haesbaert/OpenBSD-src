@@ -745,6 +745,7 @@ struct drm_i915_gem_object {
 	bus_dma_segment_t			*dma_segs;
 	/* Current offset of the object in GTT space. */
 	bus_addr_t				 gtt_offset;
+	struct intel_ring_buffer		*ring;
 	u_int32_t				*bit_17;
 	/* extra flags to bus_dma */
 	int					 dma_flags;
@@ -801,6 +802,8 @@ struct drm_i915_gem_object {
  */
 struct drm_i915_gem_request {
 	TAILQ_ENTRY(drm_i915_gem_request)	list;
+	/** On Which ring this request was generated */
+	struct intel_ring_buffer	*ring;
 	/** GEM sequence number associated with this request. */
 	uint32_t			seqno;
 };
@@ -874,11 +877,12 @@ void	i915_gem_retire_request(struct inteldrm_softc *,
 	    struct drm_i915_gem_request *);
 void	i915_gem_retire_work_handler(void *, void*);
 int	i915_gem_idle(struct inteldrm_softc *);
-void	i915_gem_object_move_to_active(struct drm_i915_gem_object *);
+void	i915_gem_object_move_to_active(struct drm_i915_gem_object *,
+	    struct intel_ring_buffer *);
 void	i915_gem_object_move_off_active(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *);
-uint32_t	i915_add_request(struct inteldrm_softc *);
+uint32_t	i915_add_request(struct intel_ring_buffer *ring);
 void	inteldrm_process_flushing(struct inteldrm_softc *, u_int32_t);
 void	i915_move_to_tail(struct drm_i915_gem_object *, struct i915_gem_list *);
 void	i915_list_remove(struct drm_i915_gem_object *);
@@ -890,7 +894,7 @@ int	i915_gem_get_relocs_from_user(struct drm_i915_gem_exec_object2 *,
 	    u_int32_t, struct drm_i915_gem_relocation_entry **);
 int	i915_gem_put_relocs_to_user(struct drm_i915_gem_exec_object2 *,
 	    u_int32_t, struct drm_i915_gem_relocation_entry *);
-void	i915_dispatch_gem_execbuffer(struct drm_device *,
+void	i915_dispatch_gem_execbuffer(struct intel_ring_buffer *,
 	    struct drm_i915_gem_execbuffer2 *, uint64_t);
 void	i915_gem_object_set_to_gpu_domain(struct drm_obj *);
 int	i915_gem_object_pin_and_relocate(struct drm_obj *,
@@ -898,7 +902,7 @@ int	i915_gem_object_pin_and_relocate(struct drm_obj *,
 	    struct drm_i915_gem_relocation_entry *);
 int	i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *,
 	    bus_size_t, int);
-u_int32_t	i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
+u_int32_t	i915_gem_flush(struct intel_ring_buffer *, uint32_t, uint32_t);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 		     size_t);
@@ -955,8 +959,7 @@ void i915_gem_retire_requests(struct inteldrm_softc *);
 struct drm_obj  *i915_gem_find_inactive_object(struct inteldrm_softc *,
 	size_t);
 int i915_gem_object_unbind(struct drm_i915_gem_object *, int);
-int i915_wait_request(struct inteldrm_softc *, uint32_t, int);
-u_int32_t i915_gem_flush(struct inteldrm_softc *, uint32_t, uint32_t);
+int i915_wait_seqno(struct intel_ring_buffer *, uint32_t, int);
 #define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
 
 void i915_gem_detach_phys_object(struct drm_device *,
