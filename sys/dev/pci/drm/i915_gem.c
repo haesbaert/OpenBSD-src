@@ -65,6 +65,7 @@ void	 i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj);
 int i915_gem_init_phys_object(struct drm_device *, int, int, int);
 int i915_gem_phys_pwrite(struct drm_device *, struct drm_i915_gem_object *,
 			 struct drm_i915_gem_pwrite *, struct drm_file *);
+bool intel_enable_blt(struct drm_device *);
 
 // i915_gem_info_add_obj
 // i915_gem_info_remove_obj
@@ -188,12 +189,28 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 // i915_gem_init_swizzling
 // i915_gem_init_ppgtt
 
+bool
+intel_enable_blt(struct drm_device *dev)
+{
+	if (!HAS_BLT(dev))
+		return false;
+
+#ifdef notyet
+	/* The blitter was dysfunctional on early prototypes */
+	if (IS_GEN6(dev) && dev->pdev->revision < 8) {
+		DRM_INFO("BLT not supported on this pre-production hardware;"
+			 " graphics performance will be degraded.\n");
+		return false;
+	}
+#endif
+
+	return true;
+}
+
 int
 i915_gem_init_hw(struct drm_device *dev)
 {
-#ifdef notyet
 	drm_i915_private_t *dev_priv = dev->dev_private;
-#endif
 	int ret;
 
 #ifdef notyet
@@ -212,7 +229,6 @@ i915_gem_init_hw(struct drm_device *dev)
 	if (ret)
 		return ret;
 
-#ifdef notyet
 	if (HAS_BSD(dev)) {
 		ret = intel_init_bsd_ring_buffer(dev);
 		if (ret)
@@ -225,6 +241,7 @@ i915_gem_init_hw(struct drm_device *dev)
 			goto cleanup_bsd_ring;
 	}
 
+#ifdef notyet
 	dev_priv->next_seqno = 1;
 
 	/*
@@ -237,13 +254,11 @@ i915_gem_init_hw(struct drm_device *dev)
 
 	return 0;
 
-#ifdef notyet
 cleanup_bsd_ring:
-	intel_cleanup_ring_buffer(&dev_priv->ring[VCS]);
+	intel_cleanup_ring_buffer(&dev_priv->rings[VCS]);
 cleanup_render_ring:
-	intel_cleanup_ring_buffer(&dev_priv->ring[RCS]);
+	intel_cleanup_ring_buffer(&dev_priv->rings[RCS]);
 	return ret;
-#endif
 }
 
 int

@@ -1633,6 +1633,7 @@ intel_render_ring_init_dri(struct drm_device *dev, uint64_t start,
 	ring->virtual_start = (void *)ring->map.virtual;
 	return 0;
 }
+#endif // notyet
 
 int
 intel_init_bsd_ring_buffer(struct drm_device *dev)
@@ -1643,11 +1644,11 @@ intel_init_bsd_ring_buffer(struct drm_device *dev)
 	ring->name = "bsd ring";
 	ring->id = VCS;
 
-	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
-		*ring = gen6_bsd_ring;
+	if (IS_GEN6(dev) || IS_GEN7(dev)) {
+//		*ring = gen6_bsd_ring;
 		ring->mmio_base = GEN6_BSD_RING_BASE;
 	} else {
-		*ring = bsd_ring;
+//		*ring = bsd_ring;
 		ring->mmio_base = BSD_RING_BASE;
 	}
 
@@ -1665,8 +1666,7 @@ intel_init_blt_ring_buffer(struct drm_device *dev)
 
 	ring->mmio_base = BLT_RING_BASE;
 
-	*ring = gen6_blt_ring;
+//	*ring = gen6_blt_ring;
 
 	return intel_init_ring_buffer(dev, ring);
 }
-#endif // notyet

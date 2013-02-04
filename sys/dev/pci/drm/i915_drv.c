@@ -1324,7 +1324,7 @@ inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 	case I915_PARAM_HAS_BSD:
 #ifdef notyet
 		// XXX support BSD ring
-		value = HAS_BSD(dev_priv);
+		value = HAS_BSD(dev);
 #else
 		return EINVAL;
 #endif
@@ -1332,7 +1332,7 @@ inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 	case I915_PARAM_HAS_BLT:
 #ifdef notyet
 		// XXX support BLT ring
-		value = HAS_BLT(dev_priv);
+		value = HAS_BLT(dev);
 #else
 		return EINVAL;
 #endif
