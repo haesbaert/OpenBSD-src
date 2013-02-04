@@ -7808,16 +7808,17 @@ intel_gen2_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	unsigned long offset;
 	u32 flip_mask;
+	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
 	int ret;
 
-	ret = intel_pin_and_fence_fb_obj(dev, obj, LP_RING(dev_priv));
+	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
 	if (ret)
 		goto out;
 
 	/* Offset into the new buffer for cases of shared fbs between CRTCs */
 	offset = crtc->y * fb->pitches[0] + crtc->x * fb->bits_per_pixel/8;
 
-	ret = BEGIN_LP_RING(6);
+	ret = intel_ring_begin(ring, 6);
 	if (ret)
 		goto out;
 
@@ -7828,14 +7829,14 @@ intel_gen2_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 		flip_mask = MI_WAIT_FOR_PLANE_B_FLIP;
 	else
 		flip_mask = MI_WAIT_FOR_PLANE_A_FLIP;
-	OUT_RING(MI_WAIT_FOR_EVENT | flip_mask);
-	OUT_RING(MI_NOOP);
-	OUT_RING(MI_DISPLAY_FLIP |
-		 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
-	OUT_RING(fb->pitches[0]);
-	OUT_RING(obj->gtt_offset + offset);
-	OUT_RING(0); /* aux display base address, unused */
-	ADVANCE_LP_RING();
+	intel_ring_emit(ring, MI_WAIT_FOR_EVENT | flip_mask);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_DISPLAY_FLIP |
+			MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
+	intel_ring_emit(ring, fb->pitches[0]);
+	intel_ring_emit(ring, obj->gtt_offset + offset);
+	intel_ring_emit(ring, 0); /* aux display base address, unused */
+	intel_ring_advance(ring);
 out:
 	return ret;
 }
@@ -7848,16 +7849,17 @@ intel_gen3_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	unsigned long offset;
 	u32 flip_mask;
+	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
 	int ret;
 
-	ret = intel_pin_and_fence_fb_obj(dev, obj, LP_RING(dev_priv));
+	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
 	if (ret)
 		goto out;
 
 	/* Offset into the new buffer for cases of shared fbs between CRTCs */
 	offset = crtc->y * fb->pitches[0] + crtc->x * fb->bits_per_pixel/8;
 
-	ret = BEGIN_LP_RING(6);
+	ret = intel_ring_begin(ring, 6);
 	if (ret)
 		goto out;
 
@@ -7865,15 +7867,15 @@ intel_gen3_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 		flip_mask = MI_WAIT_FOR_PLANE_B_FLIP;
 	else
 		flip_mask = MI_WAIT_FOR_PLANE_A_FLIP;
-	OUT_RING(MI_WAIT_FOR_EVENT | flip_mask);
-	OUT_RING(MI_NOOP);
-	OUT_RING(MI_DISPLAY_FLIP_I915 |
+	intel_ring_emit(ring, MI_WAIT_FOR_EVENT | flip_mask);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_DISPLAY_FLIP_I915 |
 		 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
-	OUT_RING(fb->pitches[0]);
-	OUT_RING(obj->gtt_offset + offset);
-	OUT_RING(MI_NOOP);
+	intel_ring_emit(ring, fb->pitches[0]);
+	intel_ring_emit(ring, obj->gtt_offset + offset);
+	intel_ring_emit(ring, MI_NOOP);
 
-	ADVANCE_LP_RING();
+	intel_ring_advance(ring);
 out:
 	return ret;
 }
@@ -7885,13 +7887,14 @@ intel_gen4_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	uint32_t pf, pipesrc;
+	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
 	int ret;
 
-	ret = intel_pin_and_fence_fb_obj(dev, obj, LP_RING(dev_priv));
+	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
 	if (ret)
 		goto out;
 
-	ret = BEGIN_LP_RING(4);
+	ret = intel_ring_begin(ring, 4);
 	if (ret)
 		goto out;
 
@@ -7899,10 +7902,10 @@ intel_gen4_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	 * Display Registers (which do not change across a page-flip)
 	 * so we need only reprogram the base address.
 	 */
-	OUT_RING(MI_DISPLAY_FLIP |
+	intel_ring_emit(ring, MI_DISPLAY_FLIP |
 		 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
-	OUT_RING(fb->pitches[0]);
-	OUT_RING(obj->gtt_offset | obj->tiling_mode);
+	intel_ring_emit(ring, fb->pitches[0]);
+	intel_ring_emit(ring, obj->gtt_offset | obj->tiling_mode);
 
 	/* XXX Enabling the panel-fitter across page-flip is so far
 	 * untested on non-native modes, so ignore it for now.
@@ -7910,8 +7913,8 @@ intel_gen4_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	 */
 	pf = 0;
 	pipesrc = I915_READ(PIPESRC(intel_crtc->pipe)) & 0x0fff0fff;
-	OUT_RING(pf | pipesrc);
-	ADVANCE_LP_RING();
+	intel_ring_emit(ring, pf | pipesrc);
+	intel_ring_advance(ring);
 out:
 	return ret;
 }
@@ -7923,20 +7926,21 @@ intel_gen6_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	uint32_t pf, pipesrc;
+	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
 	int ret;
 
-	ret = intel_pin_and_fence_fb_obj(dev, obj, LP_RING(dev_priv));
+	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
 	if (ret)
 		goto out;
 
-	ret = BEGIN_LP_RING(4);
+	ret = intel_ring_begin(ring, 4);
 	if (ret)
 		goto out;
 
-	OUT_RING(MI_DISPLAY_FLIP |
+	intel_ring_emit(ring, MI_DISPLAY_FLIP |
 		 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
-	OUT_RING(fb->pitches[0] | obj->tiling_mode);
-	OUT_RING(obj->gtt_offset);
+	intel_ring_emit(ring, fb->pitches[0] | obj->tiling_mode);
+	intel_ring_emit(ring, obj->gtt_offset);
 
 	/* Contrary to the suggestions in the documentation,
 	 * "Enable Panel Fitter" does not seem to be required when page
@@ -7946,8 +7950,8 @@ intel_gen6_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	 */
 	pf = 0;
 	pipesrc = I915_READ(PIPESRC(intel_crtc->pipe)) & 0x0fff0fff;
-	OUT_RING(pf | pipesrc);
-	ADVANCE_LP_RING();
+	intel_ring_emit(ring, pf | pipesrc);
+	intel_ring_advance(ring);
 out:
 	return ret;
 }
@@ -9390,6 +9394,7 @@ ironlake_enable_rc6(struct drm_device *dev)
 	printf("%s stub\n", __func__);
 #ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
 	int ret;
 
 	/* rc6 disabled by default due to repeated reports of hanging during
@@ -9409,31 +9414,31 @@ ironlake_enable_rc6(struct drm_device *dev)
 	 * GPU can automatically power down the render unit if given a page
 	 * to save state.
 	 */
-	ret = BEGIN_LP_RING(6);
+	ret = intel_ring_begin(ring, 6);
 	if (ret) {
 		ironlake_teardown_rc6(dev);
 		DRM_UNLOCK();
 		return;
 	}
 
-	OUT_RING(MI_SUSPEND_FLUSH | MI_SUSPEND_FLUSH_EN);
-	OUT_RING(MI_SET_CONTEXT);
-	OUT_RING(dev_priv->renderctx->gtt_offset |
+	intel_ring_emit(ring, MI_SUSPEND_FLUSH | MI_SUSPEND_FLUSH_EN);
+	intel_ring_emit(ring, MI_SET_CONTEXT);
+	intel_ring_emit(ring, dev_priv->renderctx->gtt_offset |
 		 MI_MM_SPACE_GTT |
 		 MI_SAVE_EXT_STATE_EN |
 		 MI_RESTORE_EXT_STATE_EN |
 		 MI_RESTORE_INHIBIT);
-	OUT_RING(MI_SUSPEND_FLUSH);
-	OUT_RING(MI_NOOP);
-	OUT_RING(MI_FLUSH);
-	ADVANCE_LP_RING();
+	intel_ring_emit(ring, MI_SUSPEND_FLUSH);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_FLUSH);
+	intel_ring_advance(ring);
 
 	/*
 	 * Wait for the command parser to advance past MI_SET_CONTEXT. The HW
 	 * does an implicit flush, combined with MI_FLUSH above, it should be
 	 * safe to assume that renderctx is valid
 	 */
-	ret = intel_wait_ring_idle(LP_RING(dev_priv));
+	ret = intel_wait_ring_idle(ring);
 	if (ret) {
 		DRM_ERROR("failed to enable ironlake power power savings\n");
 		ironlake_teardown_rc6(dev);

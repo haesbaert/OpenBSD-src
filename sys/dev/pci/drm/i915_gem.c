@@ -1648,15 +1648,15 @@ i915_add_request(struct intel_ring_buffer *ring)
 		dev_priv->mm.next_gem_seqno++;
 
 	if (IS_GEN6(dev) || IS_GEN7(dev))
-		BEGIN_LP_RING(10);
+		intel_ring_begin(ring, 10);
 	else 
-		BEGIN_LP_RING(4);
+		intel_ring_begin(ring, 4);
 
-	OUT_RING(MI_STORE_DWORD_INDEX);
-	OUT_RING(I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	OUT_RING(seqno);
-	OUT_RING(MI_USER_INTERRUPT);
-	ADVANCE_LP_RING();
+	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
+	intel_ring_emit(ring, seqno);
+	intel_ring_emit(ring, MI_USER_INTERRUPT);
+	intel_ring_advance(ring);
 
 	DRM_DEBUG("%d\n", seqno);
 

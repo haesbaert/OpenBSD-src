@@ -1612,10 +1612,10 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
 		cmd |= MI_EXE_FLUSH;
 
 	mtx_enter(&dev_priv->request_lock);
-	BEGIN_LP_RING(2);
-	OUT_RING(cmd);
-	OUT_RING(MI_NOOP);
-	ADVANCE_LP_RING();
+	intel_ring_begin(ring, 2);
+	intel_ring_emit(ring, cmd);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
 
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
@@ -2157,24 +2157,24 @@ i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
 	exec_len = (uint32_t)exec->batch_len;
 
 	if (IS_I830(dev) || IS_845G(dev)) {
-		BEGIN_LP_RING(6);
-		OUT_RING(MI_BATCH_BUFFER);
-		OUT_RING(exec_start | MI_BATCH_NON_SECURE);
-		OUT_RING(exec_start + exec_len - 4);
-		OUT_RING(MI_NOOP);
+		intel_ring_begin(ring, 6);
+		intel_ring_emit(ring, MI_BATCH_BUFFER);
+		intel_ring_emit(ring, exec_start | MI_BATCH_NON_SECURE);
+		intel_ring_emit(ring, exec_start + exec_len - 4);
+		intel_ring_emit(ring, MI_NOOP);
 	} else {
-		BEGIN_LP_RING(4);
+		intel_ring_begin(ring, 4);
 		if (INTEL_INFO(dev)->gen >= 4) {
 			if (IS_GEN6(dev) || IS_GEN7(dev))
-				OUT_RING(MI_BATCH_BUFFER_START |
+				intel_ring_emit(ring, MI_BATCH_BUFFER_START |
 				    MI_BATCH_NON_SECURE_I965);
 			else
-				OUT_RING(MI_BATCH_BUFFER_START | (2 << 6) |
+				intel_ring_emit(ring, MI_BATCH_BUFFER_START | (2 << 6) |
 				    MI_BATCH_NON_SECURE_I965);
-			OUT_RING(exec_start);
+			intel_ring_emit(ring, exec_start);
 		} else {
-			OUT_RING(MI_BATCH_BUFFER_START | (2 << 6));
-			OUT_RING(exec_start | MI_BATCH_NON_SECURE);
+			intel_ring_emit(ring, MI_BATCH_BUFFER_START | (2 << 6));
+			intel_ring_emit(ring, exec_start | MI_BATCH_NON_SECURE);
 		}
 	}
 
@@ -2187,9 +2187,9 @@ i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
 	 * (so that we have *some* interrupts representing completion of
 	 * buffers that we can wait on when trying to clear up gtt space).
 	 */
-	OUT_RING(MI_FLUSH | MI_NO_WRITE_FLUSH);
-	OUT_RING(MI_NOOP);
-	ADVANCE_LP_RING();
+	intel_ring_emit(ring, MI_FLUSH | MI_NO_WRITE_FLUSH);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
 	/*
 	 * move to active associated all previous buffers with the seqno
 	 * that this call will emit. so we don't need the return. If it fails
