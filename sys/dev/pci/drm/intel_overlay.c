@@ -250,21 +250,21 @@ void	 intel_overlay_release_old_vid_tail(struct intel_overlay *);
 struct overlay_registers *
 intel_overlay_map_regs(struct intel_overlay *overlay)
 {
-	printf("%s stub\n", __func__);
-	return (NULL);
-#if 0
 	struct overlay_registers *regs;
-	struct inteldrm_softc *dev_priv = overlay->dev->dev_private;
 
-	if (OVERLAY_NEEDS_PHYSICAL(dev)) {
-		regs = overlay->reg_bo->phys_obj->handle->vaddr;
+	if (OVERLAY_NEEDS_PHYSICAL(overlay->dev)) {
+		regs = (struct overlay_registers *)overlay->reg_bo->phys_obj->handle->kva;
 	} else {
+#ifdef notyet 
 		regs = pmap_mapdev_attr(overlay->dev->agp->base +
 		    overlay->reg_bo->gtt_offset, PAGE_SIZE,
 		    PAT_WRITE_COMBINING);
+#else
+		printf("%s partial stub %s\n", __func__);
+		return (NULL);
+#endif
 	}
 	return (regs);
-#endif
 }
 
 void
@@ -284,29 +284,29 @@ int
 intel_overlay_do_wait_request(struct intel_overlay *overlay,
     struct drm_i915_gem_request *request, void (*tail)(struct intel_overlay *))
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	int ret;
 
 	KASSERT(!overlay->last_flip_req);
-	ret = i915_add_request(LP_RING(dev_priv), NULL, request);
+//	ret = i915_add_request(LP_RING(dev_priv), NULL, request);
+	ret = i915_add_request(dev_priv);
 	if (ret) {
 		free(request, M_DRM);
 		return ret;
 	}
 	overlay->last_flip_req = request->seqno;
 	overlay->flip_tail = tail;
+#ifdef notyet
 	ret = i915_wait_request(LP_RING(dev_priv), overlay->last_flip_req,
 				true);
+#endif
+	ret = i915_wait_request(dev_priv, request->seqno, 0);
 	if (ret)
 		return ret;
 
 	overlay->last_flip_req = 0;
 	return 0;
-#endif
 }
 
 /* Workaround for i830 bug where pipe a must be enable to change control regs */
@@ -361,9 +361,6 @@ i830_deactivate_pipe_a(struct drm_device *dev)
 int
 intel_overlay_on(struct intel_overlay *overlay)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_i915_gem_request *request;
@@ -399,7 +396,6 @@ out:
 		i830_deactivate_pipe_a(dev);
 
 	return ret;
-#endif
 }
 
 /* overlay needs to be enabled in OCMD reg */
@@ -407,9 +403,6 @@ int
 intel_overlay_continue(struct intel_overlay *overlay,
     bool load_polyphase_filter)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_i915_gem_request *request;
@@ -438,7 +431,8 @@ intel_overlay_continue(struct intel_overlay *overlay,
 	OUT_RING(flip_addr);
 	ADVANCE_LP_RING();
 
-	ret = i915_add_request(LP_RING(dev_priv), NULL, request);
+//	ret = i915_add_request(LP_RING(dev_priv), NULL, request);
+	ret = i915_add_request(dev_priv);
 	if (ret) {
 		free(request, M_DRM);
 		return ret;
@@ -446,7 +440,6 @@ intel_overlay_continue(struct intel_overlay *overlay,
 
 	overlay->last_flip_req = request->seqno;
 	return 0;
-#endif
 }
 
 void
@@ -481,9 +474,6 @@ intel_overlay_off_tail(struct intel_overlay *overlay)
 int
 intel_overlay_off(struct intel_overlay *overlay)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	u32 flip_addr = overlay->flip_addr;
@@ -517,7 +507,6 @@ intel_overlay_off(struct intel_overlay *overlay)
 
 	return intel_overlay_do_wait_request(overlay, request,
 					     intel_overlay_off_tail);
-#endif
 }
 
 /* recover from an interruption due to a signal
@@ -555,9 +544,6 @@ intel_overlay_recover_from_interrupt(struct intel_overlay *overlay)
 int
 intel_overlay_release_old_vid(struct intel_overlay *overlay)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#if 0
 	struct drm_device *dev = overlay->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	int ret;
@@ -592,7 +578,6 @@ intel_overlay_release_old_vid(struct intel_overlay *overlay)
 
 	intel_overlay_release_old_vid_tail(overlay);
 	return 0;
-#endif
 }
 
 int
