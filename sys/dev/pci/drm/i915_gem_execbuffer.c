@@ -402,7 +402,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		}
 		pinned = 0;
 		/* evict everyone we can from the aperture */
-		ret = i915_gem_evict_everything(dev_priv, 1);
+		ret = i915_gem_evict_everything(dev_priv);
 		if (ret)
 			goto err;
 	}

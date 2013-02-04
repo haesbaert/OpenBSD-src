@@ -616,8 +616,9 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		}
 	}
 
-	/* For the X server, in kms mode this will not be needed */
-	dev_priv->fence_reg_start = 3;
+	/* Old X drivers will take 0-2 for front, back, depth buffers */
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		dev_priv->fence_reg_start = 3;
 
 	if (INTEL_INFO(dev)->gen >= 4 || IS_I945G(dev) ||
 	    IS_I945GM(dev) || IS_G33(dev))
@@ -671,6 +672,9 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	}
 
 	inteldrm_detect_bit_6_swizzle(dev_priv, &bpa);
+
+	dev_priv->mm.interruptible = true;
+
 	/* Init HWS */
 	if (!I915_NEED_GFX_HWS(dev)) {
 		if (i915_init_phys_hws(dev_priv, pa->pa_dmat) != 0) {
@@ -1456,7 +1460,7 @@ inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
 				 * since we have the fence we no not need
 				 * to have the object held
 				 */
-				i915_gem_get_fence_reg(obj, 1);
+				i915_gem_get_fence_reg(obj);
 			}
 
 		}
@@ -1653,7 +1657,7 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
  * and tiling format.
  */
 int
-i915_gem_get_fence_reg(struct drm_obj *obj, int interruptible)
+i915_gem_get_fence_reg(struct drm_obj *obj)
 {
 	struct drm_device		*dev = obj->dev;
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
@@ -1744,7 +1748,7 @@ again:
 		if (reg == NULL)
 			goto again;
 
-		ret = i915_gem_object_put_fence_reg(old_obj, interruptible);
+		ret = i915_gem_object_put_fence_reg(old_obj);
 		drm_unhold_and_unref(old_obj);
 		if (ret != 0)
 			return (ret);
@@ -1854,12 +1858,12 @@ inteldrm_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 		 * not change.
 		 */
 		KASSERT(obj_priv->pin_count == 0);
-		if ((ret = i915_gem_object_unbind(obj_priv, 0)))
+		if ((ret = i915_gem_object_unbind(obj_priv)))
 			goto error;
 	}
 
 	if (obj_priv->dmamap == NULL) {
-		ret = i915_gem_object_bind_to_gtt(obj_priv, 0, 0);
+		ret = i915_gem_object_bind_to_gtt(obj_priv, 0);
 		if (ret) {
 			printf("%s: failed to bind\n", __func__);
 			goto error;
@@ -1873,7 +1877,7 @@ inteldrm_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 	 * is done by the GL application), however it gives coherency problems
 	 * normally.
 	 */
-	ret = i915_gem_object_set_to_gtt_domain(obj_priv, write, 0);
+	ret = i915_gem_object_set_to_gtt_domain(obj_priv, write);
 	if (ret) {
 		printf("%s: failed to set to gtt (%d)\n",
 		    __func__, ret);
@@ -2084,7 +2088,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 			 continue;
 		}
 
-		ret = i915_gem_object_set_to_gtt_domain(obj_priv, 1, 1);
+		ret = i915_gem_object_set_to_gtt_domain(obj_priv, 1);
 		if (ret != 0)
 			goto err;
 
@@ -2252,7 +2256,7 @@ inteldrm_quiesce(struct inteldrm_softc *dev_priv)
 	/* KASSERT(dev->pin_count == 0); */
 
 	/* can't fail since uninterruptible */
-	(void)i915_gem_evict_inactive(dev_priv, 0);
+	(void)i915_gem_evict_inactive(dev_priv);
 }
 
 int
@@ -2633,7 +2637,7 @@ inteldrm_hung(void *arg, void *reset_type)
 	mtx_leave(&dev_priv->list_lock);
 
 	/* unbind everything */
-	(void)i915_gem_evict_inactive(dev_priv, 0);
+	(void)i915_gem_evict_inactive(dev_priv);
 
 	if (HAS_RESET(dev))
 		dev_priv->mm.wedged = 0;

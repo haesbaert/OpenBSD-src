@@ -914,7 +914,7 @@ int	i915_gem_object_pin_and_relocate(struct drm_obj *,
 	    struct drm_file *, struct drm_i915_gem_exec_object2 *,
 	    struct drm_i915_gem_relocation_entry *);
 int	i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *,
-	    bus_size_t, int);
+	    bus_size_t);
 u_int32_t	i915_gem_flush(struct intel_ring_buffer *, uint32_t, uint32_t);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
@@ -926,16 +926,16 @@ int	i915_gem_object_get_fence(struct drm_obj *,
 	    struct intel_ring_buffer *);
 
 int	i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *,
-	    int, int);
+	    int);
 int	i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *,
 	    u32, struct intel_ring_buffer *);
 int	i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *,
-	    int, int);
+	    int);
 int	i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *,
-	    int, int, int);
-int	i915_gem_get_fence_reg(struct drm_obj *, int);
+	    int, int);
+int	i915_gem_get_fence_reg(struct drm_obj *);
 int	i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj);
-int	i915_gem_object_put_fence_reg(struct drm_obj *, int);
+int	i915_gem_object_put_fence_reg(struct drm_obj *);
 bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
 bus_size_t	i915_get_fence_size(struct inteldrm_softc *, bus_size_t);
@@ -974,8 +974,8 @@ void inteldrm_verify_inactive(struct inteldrm_softc *, char *, int);
 void i915_gem_retire_requests(struct inteldrm_softc *);
 struct drm_obj  *i915_gem_find_inactive_object(struct inteldrm_softc *,
 	size_t);
-int i915_gem_object_unbind(struct drm_i915_gem_object *, int);
-int i915_wait_seqno(struct intel_ring_buffer *, uint32_t, int);
+int i915_gem_object_unbind(struct drm_i915_gem_object *);
+int i915_wait_seqno(struct intel_ring_buffer *, uint32_t);
 #define I915_GEM_GPU_DOMAINS	(~(I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT))
 
 void i915_gem_detach_phys_object(struct drm_device *,
@@ -997,9 +997,9 @@ void	inteldrm_purge_obj(struct drm_obj *);
 void	inteldrm_chipset_flush(struct inteldrm_softc *);
 
 /* i915_gem_evict.c */
-int i915_gem_evict_everything(struct inteldrm_softc *, int);
-int i915_gem_evict_something(struct inteldrm_softc *, size_t, int);
-int i915_gem_evict_inactive(struct inteldrm_softc *, int);
+int i915_gem_evict_everything(struct inteldrm_softc *);
+int i915_gem_evict_something(struct inteldrm_softc *, size_t);
+int i915_gem_evict_inactive(struct inteldrm_softc *);
 
 /* i915_suspend.c */
 

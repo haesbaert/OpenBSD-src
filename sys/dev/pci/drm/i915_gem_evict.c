@@ -56,8 +56,7 @@
 #include <sys/workq.h>
 
 int
-i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
-    int interruptible)
+i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 {
 	struct drm_obj		*obj;
 	struct drm_i915_gem_request *request;
@@ -82,7 +81,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 			DRM_ASSERT_HELD(obj);
 
 			/* Wait on the rendering and unbind the buffer. */
-			ret = i915_gem_object_unbind(obj_priv, interruptible);
+			ret = i915_gem_object_unbind(obj_priv);
 			drm_unhold_and_unref(obj);
 			return (ret);
 		}
@@ -97,7 +96,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 			seqno = request->seqno;
 			mtx_leave(&dev_priv->request_lock);
 
-			ret = i915_wait_seqno(request->ring, seqno, interruptible);
+			ret = i915_wait_seqno(request->ring, seqno);
 			if (ret)
 				return (ret);
 
@@ -134,17 +133,15 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size,
 		 * everything and start again. (This should be rare.)
 		 */
 		if (!TAILQ_EMPTY(&dev_priv->mm.inactive_list))
-			return (i915_gem_evict_inactive(dev_priv,
-			    interruptible));
+			return (i915_gem_evict_inactive(dev_priv));
 		else
-			return (i915_gem_evict_everything(dev_priv,
-			    interruptible));
+			return (i915_gem_evict_everything(dev_priv));
 	}
 	/* NOTREACHED */
 }
 
 int
-i915_gem_evict_everything(struct inteldrm_softc *dev_priv, int interruptible)
+i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 {
 	struct intel_ring_buffer *ring;
 	u_int32_t	seqno;
@@ -165,9 +162,8 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv, int interruptible)
         }
 
 	for_each_ring(ring, dev_priv, i) {
-		if ((ret = i915_wait_seqno(ring, seqno, interruptible)) != 0 ||
-		    (ret = i915_gem_evict_inactive(dev_priv,
-		    interruptible)) != 0)
+		if ((ret = i915_wait_seqno(ring, seqno)) != 0 ||
+		    (ret = i915_gem_evict_inactive(dev_priv)) != 0)
 			return (ret);
 	}
 
@@ -184,7 +180,7 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv, int interruptible)
 
 /* Clear out the inactive list and unbind everything in it. */
 int
-i915_gem_evict_inactive(struct inteldrm_softc *dev_priv, int interruptible)
+i915_gem_evict_inactive(struct inteldrm_softc *dev_priv)
 {
 	struct drm_i915_gem_object *obj_priv;
 	int			 ret = 0;
@@ -201,7 +197,7 @@ i915_gem_evict_inactive(struct inteldrm_softc *dev_priv, int interruptible)
 		mtx_leave(&dev_priv->list_lock);
 
 		drm_hold_object(&obj_priv->base);
-		ret = i915_gem_object_unbind(obj_priv, interruptible);
+		ret = i915_gem_object_unbind(obj_priv);
 		drm_unhold_and_unref(&obj_priv->base);
 
 		mtx_enter(&dev_priv->list_lock);

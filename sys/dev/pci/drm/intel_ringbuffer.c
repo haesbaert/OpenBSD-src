@@ -1336,7 +1336,7 @@ intel_ring_wait_seqno(struct intel_ring_buffer *ring, u32 seqno)
 {
 	int ret;
 
-	ret = i915_wait_seqno(ring, seqno, 1);
+	ret = i915_wait_seqno(ring, seqno);
 	if (!ret)
 		i915_gem_retire_requests_ring(ring);
 

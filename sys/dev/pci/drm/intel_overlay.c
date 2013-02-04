@@ -301,7 +301,7 @@ intel_overlay_do_wait_request(struct intel_overlay *overlay,
 #ifdef notyet
 	ret = i915_wait_seqno(ring, overlay->last_flip_req, true);
 #endif
-	ret = i915_wait_seqno(ring, request->seqno, 0);
+	ret = i915_wait_seqno(ring, request->seqno);
 	if (ret)
 		return ret;
 
@@ -859,7 +859,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 	if (ret != 0)
 		goto out_unpin;
 
-	ret = i915_gem_object_put_fence_reg(&new_bo->base, 1);
+	ret = i915_gem_object_put_fence_reg(&new_bo->base);
 	if (ret)
 		goto out_unpin;
 
@@ -1528,7 +1528,7 @@ intel_setup_overlay(struct drm_device *dev)
 		}
 		overlay->flip_addr = reg_bo->gtt_offset;
 
-		ret = i915_gem_object_set_to_gtt_domain(reg_bo, true, 1);
+		ret = i915_gem_object_set_to_gtt_domain(reg_bo, true);
 		if (ret) {
 			DRM_ERROR("failed to move overlay register bo into the GTT\n");
 			goto out_unpin_bo;

@@ -2331,6 +2331,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 			   struct drm_i915_gem_object *obj,
 			   struct intel_ring_buffer *pipelined)
 {
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	u32 alignment;
 	int ret;
 
@@ -2356,7 +2357,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		panic("Wrong tiling for fb obj");
 	}
 
-//	dev_priv->mm.interruptible = false;
+	dev_priv->mm.interruptible = false;
 	ret = i915_gem_object_pin_to_display_plane(obj, alignment, pipelined);
 	if (ret)
 		goto err_interruptible;
@@ -2374,13 +2375,13 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		i915_gem_object_pin_fence(obj);
 	}
 
-//	dev_priv->mm.interruptible = true;
+	dev_priv->mm.interruptible = true;
 	return 0;
 
 err_unpin:
 	i915_gem_object_unpin(obj);
 err_interruptible:
-//	dev_priv->mm.interruptible = true;
+	dev_priv->mm.interruptible = true;
 	return ret;
 }
 
@@ -3627,12 +3628,12 @@ intel_crtc_dpms_overlay(struct intel_crtc *intel_crtc, bool enable)
 {
 	if (!enable && intel_crtc->overlay) {
 		struct drm_device *dev = intel_crtc->base.dev;
-//		struct inteldrm_softc *dev_priv = dev->dev_private;
+		struct inteldrm_softc *dev_priv = dev->dev_private;
 
 		DRM_LOCK();
-//		dev_priv->mm.interruptible = false;
+		dev_priv->mm.interruptible = false;
 		(void) intel_overlay_switch_off(intel_crtc->overlay);
-//		dev_priv->mm.interruptible = true;
+		dev_priv->mm.interruptible = true;
 		DRM_UNLOCK();
 	}
 
@@ -6948,7 +6949,7 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 			goto fail_locked;
 		}
 
-		ret = i915_gem_object_put_fence_reg(&obj->base, 1);
+		ret = i915_gem_object_put_fence_reg(&obj->base);
 		if (ret) {
 			DRM_ERROR("failed to release fence for cursor\n");
 			goto fail_unpin;
