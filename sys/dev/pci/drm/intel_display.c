@@ -331,6 +331,19 @@ void	 intel_crtc_idle_timer(void *);
 void	 intel_gpu_idle_timer(void *);
 void	 intel_idle_update(void *, int);
 void	 intel_decrease_pllclock(struct drm_crtc *);
+int	 intel_default_queue_flip(struct drm_device *, struct drm_crtc *,
+	     struct drm_framebuffer *, struct drm_i915_gem_object *);
+int	 intel_gen2_queue_flip(struct drm_device *, struct drm_crtc *,
+	     struct drm_framebuffer *, struct drm_i915_gem_object *);
+int	 intel_gen3_queue_flip(struct drm_device *, struct drm_crtc *,
+	     struct drm_framebuffer *, struct drm_i915_gem_object *);
+int	 intel_gen4_queue_flip(struct drm_device *, struct drm_crtc *,
+	     struct drm_framebuffer *, struct drm_i915_gem_object *);
+int	 intel_gen6_queue_flip(struct drm_device *, struct drm_crtc *,
+	     struct drm_framebuffer *, struct drm_i915_gem_object *);
+int	 intel_gen7_queue_flip(struct drm_device *, struct drm_crtc *,
+	     struct drm_framebuffer *, struct drm_i915_gem_object *);
+void	 intel_unpin_work_fn(void *, int);
 
 static inline u32 /* units of 100MHz */
 intel_fdi_link_freq(struct drm_device *dev)
@@ -2242,16 +2255,12 @@ intel_update_fbc(struct drm_device *dev)
 		dev_priv->no_fbc_reason = FBC_MODULE_PARAM;
 		goto out_disable;
 	}
-#ifdef notyet
 	if (intel_fb->obj->base.size > dev_priv->cfb_size) {
 		DRM_DEBUG_KMS("framebuffer too large, disabling "
 			      "compression\n");
 		dev_priv->no_fbc_reason = FBC_STOLEN_TOO_SMALL;
 		goto out_disable;
 	}
-#else
-	printf("%s todo fb size check\n", __func__);
-#endif
 	if ((crtc->mode.flags & DRM_MODE_FLAG_INTERLACE) ||
 	    (crtc->mode.flags & DRM_MODE_FLAG_DBLSCAN)) {
 		DRM_DEBUG_KMS("mode incompatible with compression, "
@@ -3808,11 +3817,7 @@ intel_crtc_disable(struct drm_crtc *crtc)
 
 	if (crtc->fb) {
 		DRM_LOCK();
-#ifdef notyet
 		intel_unpin_fb_obj(to_intel_framebuffer(crtc->fb)->obj);
-#else
-		printf("%s todo unpin fb\n", __func__);
-#endif
 		DRM_UNLOCK();
 	}
 }
@@ -6972,16 +6977,14 @@ intel_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file,
 		I915_WRITE(CURSIZE, (height << 12) | width);
 
  finish:
-#ifdef notyet
 	if (intel_crtc->cursor_bo) {
 		if (dev_priv->info->cursor_needs_physical) {
 			if (intel_crtc->cursor_bo != obj)
 				i915_gem_detach_phys_object(dev, intel_crtc->cursor_bo);
 		} else
-			i915_gem_object_unpin(&intel_crtc->cursor_bo);
+			i915_gem_object_unpin(intel_crtc->cursor_bo);
 		drm_gem_object_unreference(&intel_crtc->cursor_bo->base);
 	}
-#endif
 
 	DRM_UNLOCK();
 
@@ -7113,14 +7116,12 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
     struct drm_display_mode *mode, int depth, int bpp,
     struct drm_framebuffer **res)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
 	struct drm_i915_gem_object *obj;
 	struct drm_mode_fb_cmd2 mode_cmd;
 
-	obj = i915_gem_alloc_object(dev,
-				    intel_framebuffer_size_for_mode(mode, bpp));
+	obj = to_intel_bo(drm_gem_object_alloc(dev,
+	    intel_framebuffer_size_for_mode(mode, bpp)));
+
 	if (obj == NULL)
 		return (-ENOMEM);
 
@@ -7131,16 +7132,12 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(bpp, depth);
 
 	return (intel_framebuffer_create(dev, &mode_cmd, obj, res));
-#endif
 }
 
 int
 mode_fits_in_fbdev(struct drm_device *dev,
     struct drm_display_mode *mode, struct drm_framebuffer **res)
 {
-	printf("%s stub\n", __func__);
-	return 0;
-#ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_i915_gem_object *obj;
 	struct drm_framebuffer *fb;
@@ -7170,7 +7167,6 @@ mode_fits_in_fbdev(struct drm_device *dev,
 
 	*res = fb;
 	return (0);
-#endif
 }
 
 bool
@@ -7669,12 +7665,9 @@ intel_crtc_destroy(struct drm_crtc *crtc)
 	free(intel_crtc, M_DRM);
 }
 
-#ifdef notyet
 void
 intel_unpin_work_fn(void *arg, int pending)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct intel_unpin_work *work = arg;
 	struct drm_device *dev;
 
@@ -7687,9 +7680,7 @@ intel_unpin_work_fn(void *arg, int pending)
 	intel_update_fbc(work->dev);
 	DRM_UNLOCK();
 	free(work, M_DRM);
-#endif
 }
-#endif
 
 void
 do_intel_finish_page_flip(struct drm_device *dev, struct drm_crtc *crtc)
@@ -7800,7 +7791,6 @@ intel_prepare_page_flip(struct drm_device *dev, int plane)
 	mtx_leave(&dev->event_lock);
 }
 
-#ifdef notyet
 int
 intel_gen2_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
     struct drm_framebuffer *fb, struct drm_i915_gem_object *obj)
@@ -7809,7 +7799,7 @@ intel_gen2_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	unsigned long offset;
 	u32 flip_mask;
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
@@ -7850,7 +7840,7 @@ intel_gen3_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	unsigned long offset;
 	u32 flip_mask;
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
@@ -7888,7 +7878,7 @@ intel_gen4_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	uint32_t pf, pipesrc;
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
@@ -7927,7 +7917,7 @@ intel_gen6_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	uint32_t pf, pipesrc;
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
@@ -7995,7 +7985,6 @@ intel_default_queue_flip(struct drm_device *dev, struct drm_crtc *crtc,
 {
 	return -ENODEV;
 }
-#endif // notyet
 
 int
 intel_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -8402,12 +8391,7 @@ intel_setup_outputs(struct drm_device *dev)
 	}
 
 	/* disable all the possible outputs/crtcs before entering KMS mode */
-#ifdef notyet
 	drm_helper_disable_unused_functions(dev);
-#else
-	printf("%s skipping call to drm_helper_disable_unused_functions\n",
-	    __func__);
-#endif
 
 	if (HAS_PCH_SPLIT(dev))
 		ironlake_init_pch_refclk(dev);
@@ -9395,7 +9379,7 @@ ironlake_enable_rc6(struct drm_device *dev)
 	printf("%s stub\n", __func__);
 #ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct intel_ring_buffer *ring = &dev_priv->ring[RCS];
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
 	/* rc6 disabled by default due to repeated reports of hanging during
@@ -9642,7 +9626,6 @@ intel_init_display(struct drm_device *dev)
 	}
 
 	/* Default just returns -ENODEV to indicate unsupported */
-#ifdef notyet
 	dev_priv->display.queue_flip = intel_default_queue_flip;
 
 	switch (INTEL_INFO(dev)->gen) {
@@ -9666,9 +9649,6 @@ intel_init_display(struct drm_device *dev)
 		dev_priv->display.queue_flip = intel_gen7_queue_flip;
 		break;
 	}
-#else
-	printf("%s todo set queue_flip\n", __func__);
-#endif
 }
 
 /*
