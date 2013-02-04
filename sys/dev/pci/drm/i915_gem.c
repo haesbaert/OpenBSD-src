@@ -66,6 +66,8 @@ int i915_gem_init_phys_object(struct drm_device *, int, int, int);
 int i915_gem_phys_pwrite(struct drm_device *, struct drm_i915_gem_object *,
 			 struct drm_i915_gem_pwrite *, struct drm_file *);
 bool intel_enable_blt(struct drm_device *);
+int i915_gpu_idle(struct drm_device *);
+int i915_gem_handle_seqno_wrap(struct drm_device *);
 
 // i915_gem_info_add_obj
 // i915_gem_info_remove_obj
@@ -150,7 +152,7 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 		return (0);
 
 	DRM_LOCK();
-	if (dev_priv->mm.suspended || dev_priv->rings[RCS].ring_obj == NULL) {
+	if (dev_priv->mm.suspended || dev_priv->rings[RCS].obj == NULL) {
 		KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
 		KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
 		(void)i915_gem_evict_inactive(dev_priv, 0);
@@ -241,13 +243,13 @@ i915_gem_init_hw(struct drm_device *dev)
 			goto cleanup_bsd_ring;
 	}
 
-#ifdef notyet
 	dev_priv->next_seqno = 1;
 
 	/*
 	 * XXX: There was some w/a described somewhere suggesting loading
 	 * contexts before PPGTT.
 	 */
+#ifdef notyet
 	i915_gem_context_init(dev);
 	i915_gem_init_ppgtt(dev);
 #endif
@@ -602,17 +604,17 @@ intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 {
 	struct inteldrm_softc	*dev_priv;
 
-	if (ring->ring_obj == NULL)
+	if (ring->obj == NULL)
 		return;
 
 	dev_priv = ring->dev->dev_private;
 
 	agp_unmap_subregion(dev_priv->agph, ring->bsh,
-	    ring->ring_obj->size);
-	drm_hold_object(ring->ring_obj);
-	i915_gem_object_unpin(to_intel_bo(ring->ring_obj));
-	drm_unhold_and_unref(ring->ring_obj);
-	ring->ring_obj = NULL;
+	    ring->obj->base.size);
+	drm_hold_object(&ring->obj->base);
+	i915_gem_object_unpin(ring->obj);
+	drm_unhold_and_unref(&ring->obj->base);
+	ring->obj = NULL;
 	memset(ring, 0, sizeof(*ring));
 
 	cleanup_status_page(ring);
@@ -910,6 +912,14 @@ out:
 	DRM_READUNLOCK();
 
 	return (ret);
+}
+
+int
+i915_gem_check_wedge(struct inteldrm_softc *dev_priv,
+		     bool interruptible)
+{
+	printf("%s stub\n", __func__);
+	return 0;
 }
 
 /**
@@ -1563,6 +1573,56 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 }
 
+int
+i915_gem_handle_seqno_wrap(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int ret, i, j;
+
+	/* The hardware uses various monotonic 32-bit counters, if we
+	 * detect that they will wraparound we need to idle the GPU
+	 * and reset those counters.
+	 */
+	ret = 0;
+	for_each_ring(ring, dev_priv, i) {
+		for (j = 0; j < nitems(ring->sync_seqno); j++)
+			ret |= ring->sync_seqno[j] != 0;
+	}
+	if (ret == 0)
+		return ret;
+
+	ret = i915_gpu_idle(dev);
+	if (ret)
+		return ret;
+
+	i915_gem_retire_requests(dev_priv);
+	for_each_ring(ring, dev_priv, i) {
+		for (j = 0; j < nitems(ring->sync_seqno); j++)
+			ring->sync_seqno[j] = 0;
+	}
+
+	return 0;
+}
+
+int
+i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	/* reserve 0 for non-seqno */
+	if (dev_priv->next_seqno == 0) {
+		int ret = i915_gem_handle_seqno_wrap(dev);
+		if (ret)
+			return ret;
+
+		dev_priv->next_seqno = 1;
+	}
+
+	*seqno = dev_priv->next_seqno++;
+	return 0;
+}
+
 // i915_gem_object_truncate
 // i915_gem_object_is_purgeable
 // i915_gem_process_flushing_list
@@ -1571,6 +1631,13 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 // i915_gem_flush_ring
 // i915_ring_idle
 // i915_gpu_idle
+
+int
+i915_gpu_idle(struct drm_device *dev)
+{
+	printf("%s stub\n", __func__);
+	return 0;
+}
 
 /**
  * Waits for a sequence number to be signaled, and cleans up the
@@ -1695,7 +1762,12 @@ i915_add_request(struct intel_ring_buffer *ring)
 // i915_gem_reset_ring_lists
 // i915_gem_reset_fences
 // i915_gem_reset
-// i915_gem_retire_requests_ring
+
+void
+i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
+{
+	printf("%s stub\n", __func__);
+}
 
 /**
  * This function clears the request list as sequence numbers are passed.

@@ -1067,26 +1067,7 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 	return (EBUSY);
 }
 
-void
-intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
-{
-	struct drm_device		*dev = ring->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	u_int32_t	rem;;
-
-	rem = ring->size - ring->tail;
-	if (ring->space < rem &&
-	    ring_wait_for_space(ring, rem) != 0)
-			return; /* XXX */
-
-	ring->space -= rem;
-
-	bus_space_set_region_4(dev_priv->bst, ring->bsh,
-	    ring->woffset, MI_NOOP, rem / 4);
-
-	ring->tail = 0;
-}
-
+#if 0
 int
 intel_ring_begin(struct intel_ring_buffer *ring, int ncmd)
 {
@@ -1104,6 +1085,7 @@ intel_ring_begin(struct intel_ring_buffer *ring, int ncmd)
 
 	return (0);
 }
+#endif
 
 void
 intel_ring_emit(struct intel_ring_buffer *ring, u_int32_t cmd)
@@ -1119,18 +1101,6 @@ intel_ring_emit(struct intel_ring_buffer *ring, u_int32_t cmd)
 	 * the ring out if we would wrap
 	 */
 	ring->woffset += 4;
-}
-
-void
-intel_ring_advance(struct intel_ring_buffer *ring)
-{
-	struct drm_device		*dev = ring->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-
-	INTELDRM_VPRINTF("%s: %x, %x\n", __func__, ring->wspace,
-	    ring->woffset);
-	DRM_MEMORYBARRIER();
-	I915_WRITE(PRB0_TAIL, ring->tail);
 }
 
 void
@@ -2267,7 +2237,7 @@ inteldrm_quiesce(struct inteldrm_softc *dev_priv)
 	 * sure that everything is unbound.
 	 */
 	KASSERT(dev_priv->mm.suspended);
-	KASSERT(dev_priv->rings[RCS].ring_obj == NULL);
+	KASSERT(dev_priv->rings[RCS].obj == NULL);
 	atomic_setbits_int(&dev_priv->sc_flags, INTELDRM_QUIET);
 	while (dev_priv->entries)
 		tsleep(&dev_priv->entries, 0, "intelquiet", 0);
@@ -2341,6 +2311,7 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	return 0;
 }
 
+#if 0
 void
 cleanup_status_page(struct intel_ring_buffer *ring)
 {
@@ -2366,6 +2337,7 @@ cleanup_status_page(struct intel_ring_buffer *ring)
 	/* Write high address into HWS_PGA when disabling. */
 	I915_WRITE(HWS_PGA, 0x1ffff000);
 }
+#endif
 
 int
 intel_init_ring_buffer(struct drm_device *dev,
@@ -2403,7 +2375,7 @@ intel_init_ring_buffer(struct drm_device *dev,
 		DRM_INFO("can't map ringbuffer\n");
 		goto unpin;
 	}
-	ring->ring_obj = obj;
+	ring->obj = obj_priv;
 
 	if ((ret = init_ring_common(ring)) != 0)
 		goto unmap;
@@ -2423,13 +2395,14 @@ delhws:
 	return (ret);
 }
 
+#if 0
 int
 init_ring_common(struct intel_ring_buffer *ring)
 {
 	struct drm_device	*dev = ring->dev;
 	drm_i915_private_t	*dev_priv = dev->dev_private;
-	struct drm_obj		*obj = ring->ring_obj;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
+	struct drm_i915_gem_object *obj_priv = ring->obj;
+	struct drm_obj		*obj = (struct drm_obj *)obj_priv;
 	u_int32_t		 head;
 
 	/* Stop the ring if it's running. */
@@ -2475,6 +2448,7 @@ init_ring_common(struct intel_ring_buffer *ring)
 
 	return (0);
 }
+#endif
 
 void
 inteldrm_timeout(void *arg)

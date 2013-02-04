@@ -253,6 +253,7 @@ struct inteldrm_softc {
 
 	drm_i915_sarea_t *sarea_priv;
 	struct intel_ring_buffer rings[I915_NUM_RINGS];
+	uint32_t next_seqno;
 
 	union flush {
 		struct {
@@ -590,6 +591,12 @@ struct inteldrm_softc {
 		uint32_t next_gem_seqno;
 
 		/**
+		 * Are we in a non-interruptible section of code like
+		 * modesetting?
+		 */
+		bool interruptible;
+
+		/**
 		 * Flag if the X Server, and thus DRM, is not currently in
 		 * control of the device.
 		 *
@@ -653,6 +660,8 @@ struct inteldrm_softc {
 	u8 corr;
 
 	enum no_fbc_reason no_fbc_reason;
+
+	unsigned int stop_rings;
 
 	unsigned long cfb_size;
 	unsigned int cfb_fb;
@@ -829,7 +838,7 @@ void		intel_cleanup_ring_buffer(struct intel_ring_buffer *);
 static inline bool
 intel_ring_initialized(struct intel_ring_buffer *ring)
 {
-	return ring->ring_obj != NULL;
+	return ring->obj != NULL;
 }
 
 /* i915_irq.c */
@@ -875,6 +884,10 @@ int	i915_gem_object_pin(struct drm_i915_gem_object *, uint32_t, int);
 void	i915_gem_object_unpin(struct drm_i915_gem_object *);
 void	i915_gem_retire_request(struct inteldrm_softc *,
 	    struct drm_i915_gem_request *);
+void	i915_gem_retire_requests_ring(struct intel_ring_buffer *);
+int	i915_gem_check_wedge(struct inteldrm_softc *,
+			     bool interruptible);
+
 void	i915_gem_retire_work_handler(void *, void*);
 int	i915_gem_idle(struct inteldrm_softc *);
 void	i915_gem_object_move_to_active(struct drm_i915_gem_object *,
@@ -906,6 +919,9 @@ u_int32_t	i915_gem_flush(struct intel_ring_buffer *, uint32_t, uint32_t);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 		     size_t);
+
+extern int i915_gem_get_seqno(struct drm_device *, u32 *);
+
 int	i915_gem_object_get_fence(struct drm_obj *,
 	    struct intel_ring_buffer *);
 
