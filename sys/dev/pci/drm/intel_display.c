@@ -3817,7 +3817,12 @@ intel_crtc_disable(struct drm_crtc *crtc)
 
 	if (crtc->fb) {
 		DRM_LOCK();
+#ifdef notyet
+// XXX this panics on reboot with current code
 		intel_unpin_fb_obj(to_intel_framebuffer(crtc->fb)->obj);
+#else
+		printf("%s todo unpin fb\n", __func__);
+#endif
 		DRM_UNLOCK();
 	}
 }
