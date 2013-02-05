@@ -1222,7 +1222,7 @@ intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 		sdvox |= (9 << 19) | SDVO_BORDER_ENABLE;
 	}
 
-	if (INTEL_PCH_TYPE(dev_priv) >= PCH_CPT)
+	if (INTEL_PCH_TYPE(dev) >= PCH_CPT)
 		sdvox |= TRANSCODER_CPT(intel_crtc->pipe);
 	else
 		sdvox |= TRANSCODER(intel_crtc->pipe);

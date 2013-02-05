@@ -1077,11 +1077,12 @@ assert_pll(struct inteldrm_softc *dev_priv, enum pipe pipe, bool state)
 void
 assert_pch_pll(struct inteldrm_softc *dev_priv, enum pipe pipe, bool state)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	int reg;
 	u32 val;
 	bool cur_state;
 
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		u32 pch_dpll;
 
 		pch_dpll = I915_READ(PCH_DPLL_SEL);
@@ -1293,10 +1294,12 @@ assert_transcoder_disabled(struct inteldrm_softc *dev_priv, enum pipe pipe)
 bool
 hdmi_pipe_enabled(struct inteldrm_softc *dev_priv, enum pipe pipe, u32 val)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
 	if ((val & PORT_ENABLE) == 0)
 		return false;
 
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		if ((val & PORT_TRANS_SEL_MASK) != PORT_TRANS_SEL_CPT(pipe))
 			return false;
 	} else {
@@ -1309,10 +1312,12 @@ hdmi_pipe_enabled(struct inteldrm_softc *dev_priv, enum pipe pipe, u32 val)
 bool
 lvds_pipe_enabled(struct inteldrm_softc *dev_priv, enum pipe pipe, u32 val)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
 	if ((val & LVDS_PORT_EN) == 0)
 		return false;
 
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		if ((val & PORT_TRANS_SEL_MASK) != PORT_TRANS_SEL_CPT(pipe))
 			return false;
 	} else {
@@ -1325,9 +1330,11 @@ lvds_pipe_enabled(struct inteldrm_softc *dev_priv, enum pipe pipe, u32 val)
 bool
 adpa_pipe_enabled(struct inteldrm_softc *dev_priv, enum pipe pipe, u32 val)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
 	if ((val & ADPA_DAC_ENABLE) == 0)
 		return false;
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		if ((val & PORT_TRANS_SEL_MASK) != PORT_TRANS_SEL_CPT(pipe))
 			return false;
 	} else {
@@ -1341,10 +1348,12 @@ bool
 dp_pipe_enabled(struct inteldrm_softc *dev_priv, enum pipe pipe, u32 port_sel,
     u32 val)
 {
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
 	if ((val & DP_PORT_EN) == 0)
 		return false;
 
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		u32	trans_dp_ctl_reg = TRANS_DP_CTL(pipe);
 		u32	trans_dp_ctl = I915_READ(trans_dp_ctl_reg);
 		if ((trans_dp_ctl & TRANS_DP_PORT_SEL_MASK) != port_sel)
@@ -1563,7 +1572,7 @@ intel_enable_transcoder(struct inteldrm_softc *dev_priv, enum pipe pipe)
 	val = I915_READ(reg);
 	pipeconf_val = I915_READ(PIPECONF(pipe));
 
-	if (HAS_PCH_IBX(dev_priv)) {
+	if (HAS_PCH_IBX(dev)) {
 		/*
 		 * make the BPC in transcoder be consistent with
 		 * that in pipeconf reg.
@@ -1574,7 +1583,7 @@ intel_enable_transcoder(struct inteldrm_softc *dev_priv, enum pipe pipe)
 
 	val &= ~TRANS_INTERLACE_MASK;
 	if ((pipeconf_val & PIPECONF_INTERLACE_MASK) == PIPECONF_INTERLACED_ILK)
-		if (HAS_PCH_IBX(dev_priv) &&
+		if (HAS_PCH_IBX(dev) &&
 		    intel_pipe_has_type(crtc, INTEL_OUTPUT_SDVO))
 			val |= TRANS_LEGACY_INTERLACED_ILK;
 		else
@@ -2767,7 +2776,7 @@ intel_fdi_normal_train(struct drm_crtc *crtc)
 
 	reg = FDI_RX_CTL(pipe);
 	temp = I915_READ(reg);
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		temp &= ~FDI_LINK_TRAIN_PATTERN_MASK_CPT;
 		temp |= FDI_LINK_TRAIN_NORMAL_CPT;
 	} else {
@@ -2843,7 +2852,7 @@ ironlake_fdi_link_train(struct drm_crtc *crtc)
 	DELAY(150);
 
 	/* Ironlake workaround, enable clock pointer after FDI enable*/
-	if (HAS_PCH_IBX(dev_priv)) {
+	if (HAS_PCH_IBX(dev)) {
 		I915_WRITE(FDI_RX_CHICKEN(pipe), FDI_RX_PHASE_SYNC_POINTER_OVR);
 		I915_WRITE(FDI_RX_CHICKEN(pipe), FDI_RX_PHASE_SYNC_POINTER_OVR |
 			   FDI_RX_PHASE_SYNC_POINTER_EN);
@@ -2939,7 +2948,7 @@ gen6_fdi_link_train(struct drm_crtc *crtc)
 
 	reg = FDI_RX_CTL(pipe);
 	temp = I915_READ(reg);
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		temp &= ~FDI_LINK_TRAIN_PATTERN_MASK_CPT;
 		temp |= FDI_LINK_TRAIN_PATTERN_1_CPT;
 	} else {
@@ -2951,7 +2960,7 @@ gen6_fdi_link_train(struct drm_crtc *crtc)
 	POSTING_READ(reg);
 	DELAY(150);
 
-	if (HAS_PCH_CPT(dev_priv))
+	if (HAS_PCH_CPT(dev))
 		cpt_phase_pointer_enable(dev, pipe);
 
 	for (i = 0; i < 4; i++) {
@@ -2991,7 +3000,7 @@ gen6_fdi_link_train(struct drm_crtc *crtc)
 
 	reg = FDI_RX_CTL(pipe);
 	temp = I915_READ(reg);
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		temp &= ~FDI_LINK_TRAIN_PATTERN_MASK_CPT;
 		temp |= FDI_LINK_TRAIN_PATTERN_2_CPT;
 	} else {
@@ -3221,12 +3230,12 @@ ironlake_fdi_disable(struct drm_crtc *crtc)
 	DELAY(100);
 
 	/* Ironlake workaround, disable clock pointer after downing FDI */
-	if (HAS_PCH_IBX(dev_priv)) {
+	if (HAS_PCH_IBX(dev)) {
 		I915_WRITE(FDI_RX_CHICKEN(pipe), FDI_RX_PHASE_SYNC_POINTER_OVR);
 		I915_WRITE(FDI_RX_CHICKEN(pipe),
 			   I915_READ(FDI_RX_CHICKEN(pipe) &
 				     ~FDI_RX_PHASE_SYNC_POINTER_EN));
-	} else if (HAS_PCH_CPT(dev_priv)) {
+	} else if (HAS_PCH_CPT(dev)) {
 		cpt_phase_pointer_disable(dev, pipe);
 	}
 
@@ -3239,7 +3248,7 @@ ironlake_fdi_disable(struct drm_crtc *crtc)
 
 	reg = FDI_RX_CTL(pipe);
 	temp = I915_READ(reg);
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		temp &= ~FDI_LINK_TRAIN_PATTERN_MASK_CPT;
 		temp |= FDI_LINK_TRAIN_PATTERN_1_CPT;
 	} else {
@@ -3345,7 +3354,7 @@ ironlake_pch_enable(struct drm_crtc *crtc)
 
 	intel_enable_pch_pll(dev_priv, pipe);
 
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		transc_sel = intel_crtc->use_pll_a ? TRANSC_DPLLA_SEL :
 			TRANSC_DPLLB_SEL;
 
@@ -3378,7 +3387,7 @@ ironlake_pch_enable(struct drm_crtc *crtc)
 	intel_fdi_normal_train(crtc);
 
 	/* For PCH DP, enable TRANS_DP_CTL */
-	if (HAS_PCH_CPT(dev_priv) &&
+	if (HAS_PCH_CPT(dev) &&
 	    (intel_pipe_has_type(crtc, INTEL_OUTPUT_DISPLAYPORT) ||
 	     intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP))) {
 		u32 bpc = (I915_READ(PIPECONF(pipe)) & PIPE_BPC_MASK) >> 5;
@@ -3544,7 +3553,7 @@ ironlake_crtc_disable(struct drm_crtc *crtc)
 
 	intel_disable_transcoder(dev_priv, pipe);
 
-	if (HAS_PCH_CPT(dev_priv)) {
+	if (HAS_PCH_CPT(dev)) {
 		/* disable TRANS_DP_CTL */
 		reg = TRANS_DP_CTL(pipe);
 		temp = I915_READ(reg);
@@ -3872,14 +3881,13 @@ intel_encoder_commit(struct drm_encoder *encoder)
 {
 	struct drm_encoder_helper_funcs *encoder_funcs = encoder->helper_private;
 	struct drm_device *dev = encoder->dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
 	struct intel_crtc *intel_crtc = to_intel_crtc(intel_encoder->base.crtc);
 
 	/* lvds has its own version of commit see intel_lvds_commit */
 	encoder_funcs->dpms(encoder, DRM_MODE_DPMS_ON);
 
-	if (HAS_PCH_CPT(dev_priv))
+	if (HAS_PCH_CPT(dev))
 		intel_cpt_verify_modeset(dev, intel_crtc->pipe);
 }
 
@@ -5967,7 +5975,7 @@ ironlake_init_pch_refclk(struct drm_device *dev)
 		}
 	}
 
-	if (HAS_PCH_IBX(dev_priv)) {
+	if (HAS_PCH_IBX(dev)) {
 		has_ck505 = dev_priv->display_clock_mode;
 		can_ssc = has_ck505;
 	} else {
@@ -6377,7 +6385,7 @@ ironlake_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	if (is_lvds) {
 		temp = I915_READ(PCH_LVDS);
 		temp |= LVDS_PORT_EN | LVDS_A0A2_CLKA_POWER_UP;
-		if (HAS_PCH_CPT(dev_priv)) {
+		if (HAS_PCH_CPT(dev)) {
 			temp &= ~PORT_TRANS_SEL_MASK;
 			temp |= PORT_TRANS_SEL_CPT(pipe);
 		} else {
@@ -6643,7 +6651,7 @@ ironlake_write_eld(struct drm_connector *connector, struct drm_crtc *crtc)
 	int aud_cntl_st;
 	int aud_cntrl_st2;
 
-	if (HAS_PCH_IBX(dev_priv)) {
+	if (HAS_PCH_IBX(connector->dev)) {
 		hdmiw_hdmiedid = IBX_HDMIW_HDMIEDID_A;
 		aud_config = IBX_AUD_CONFIG_A;
 		aud_cntl_st = IBX_AUD_CNTL_ST_A;
@@ -9540,9 +9548,9 @@ intel_init_display(struct drm_device *dev)
 			}
 		}
 
-		if (HAS_PCH_IBX(dev_priv))
+		if (HAS_PCH_IBX(dev))
 			dev_priv->display.init_pch_clock_gating = ibx_init_clock_gating;
-		else if (HAS_PCH_CPT(dev_priv))
+		else if (HAS_PCH_CPT(dev))
 			dev_priv->display.init_pch_clock_gating = cpt_init_clock_gating;
 
 		if (IS_GEN5(dev)) {

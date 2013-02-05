@@ -272,7 +272,7 @@ intel_hdmi_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 		sdvox |= COLOR_FORMAT_8bpc;
 
 	/* Required on CPT */
-	if (intel_hdmi->has_hdmi_sink && HAS_PCH_CPT(dev_priv))
+	if (intel_hdmi->has_hdmi_sink && HAS_PCH_CPT(dev))
 		sdvox |= HDMI_MODE_SELECT;
 
 	if (intel_hdmi->has_audio) {
@@ -283,7 +283,7 @@ intel_hdmi_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 		intel_write_eld(encoder, adjusted_mode);
 	}
 
-	if (HAS_PCH_CPT(dev_priv))
+	if (HAS_PCH_CPT(dev))
 		sdvox |= PORT_TRANS_SEL_CPT(intel_crtc->pipe);
 	else if (intel_crtc->pipe == 1)
 		sdvox |= SDVO_PIPE_B_SELECT;

@@ -1242,7 +1242,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \
     IS_GEN7(dev))
 
-#define INTEL_PCH_TYPE(dev)	(dev->pch_type)
+#define INTEL_PCH_TYPE(dev)	(((struct inteldrm_softc *) (dev)->dev_private)->pch_type)
 #define HAS_PCH_CPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_CPT)
 #define HAS_PCH_IBX(dev)	(INTEL_PCH_TYPE(dev) == PCH_IBX)
 
