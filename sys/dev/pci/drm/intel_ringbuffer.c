@@ -1346,9 +1346,6 @@ intel_ring_wait_seqno(struct intel_ring_buffer *ring, u32 seqno)
 int
 intel_ring_wait_request(struct intel_ring_buffer *ring, int n)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#if 0
 	struct drm_i915_gem_request *request;
 	u32 seqno = 0;
 	int ret;
@@ -1406,54 +1403,51 @@ intel_ring_wait_request(struct intel_ring_buffer *ring, int n)
 #endif
 
 	return 0;
-#endif
 }
 
-#ifdef notyet
 int
 ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 {
 	struct drm_device *dev = ring->dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
-	unsigned long end;
-	int ret;
+	int ret, i;
 
 	ret = intel_ring_wait_request(ring, n);
 	if (ret != -ENOSPC)
 		return ret;
 
-	trace_i915_ring_wait_begin(ring);
+//	trace_i915_ring_wait_begin(ring);
 	/* With GEM the hangcheck timer should kick us out of the loop,
 	 * leaving it early runs the risk of corrupting GEM state (due
 	 * to running on almost untested codepaths). But on resume
 	 * timers don't work yet, so prevent a complete hang in that
 	 * case by choosing an insanely large timeout. */
-	end = jiffies + 60 * HZ;
 
-	do {
+	for (i = 0; i < 100000; i++) {
 		ring->head = I915_READ_HEAD(ring);
 		ring->space = ring_space(ring);
 		if (ring->space >= n) {
-			trace_i915_ring_wait_end(ring);
+//			trace_i915_ring_wait_end(ring);
 			return 0;
 		}
 
+#ifdef notyet
 		if (dev->primary->master) {
 			struct drm_i915_master_private *master_priv = dev->primary->master->driver_priv;
 			if (master_priv->sarea_priv)
 				master_priv->sarea_priv->perf_boxes |= I915_BOX_WAIT;
 		}
+#endif
 
-		msleep(1);
+		delay(10);
 
 		ret = i915_gem_check_wedge(dev_priv, dev_priv->mm.interruptible);
 		if (ret)
 			return ret;
-	} while (!time_after(jiffies, end));
-	trace_i915_ring_wait_end(ring);
+	}
+//	trace_i915_ring_wait_end(ring);
 	return -EBUSY;
 }
-#endif
 
 int
 intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
@@ -1470,7 +1464,7 @@ intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 	ring->space -= rem;
 
 	bus_space_set_region_4(dev_priv->bst, ring->bsh,
-	    ring->woffset, MI_NOOP, rem / 4);
+	    ring->tail, MI_NOOP, rem / 4);
 
 	ring->tail = 0;
 	ring->space = ring_space(ring);
@@ -1481,15 +1475,12 @@ intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 int
 intel_ring_idle(struct intel_ring_buffer *ring)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#if 0
 	u32 seqno;
 	int ret;
 
 	/* We need to add any requests required to flush the objects and ring */
 	if (ring->outstanding_lazy_request) {
-		ret = i915_add_request(ring);
+		ret = i915_add_request(ring, NULL, NULL);
 		if (ret)
 			return ret;
 	}
@@ -1503,7 +1494,6 @@ intel_ring_idle(struct intel_ring_buffer *ring)
 			   list)->seqno;
 
 	return i915_wait_seqno(ring, seqno);
-#endif
 }
 
 int
@@ -1969,4 +1959,14 @@ intel_ring_invalidate_all_caches(struct intel_ring_buffer *ring)
 
 	ring->gpu_caches_dirty = false;
 	return 0;
+}
+
+void
+intel_ring_emit(struct intel_ring_buffer *ring, uint32_t data)
+{
+	struct drm_device	*dev = ring->dev;
+	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	bus_space_write_4(dev_priv->bst, ring->bsh,
+	    ring->tail, data);
+	ring->tail += 4;
 }

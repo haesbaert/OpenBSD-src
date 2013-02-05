@@ -63,7 +63,6 @@ struct  intel_ring_buffer {
 	int			 space;
 	int			 size;
 	int			 effective_size;
-	u_int32_t		 woffset;
 	struct intel_hw_status_page status_page;
 
 	/** We track the position of the requests in the ring buffer, and
@@ -214,19 +213,10 @@ static inline int intel_wait_ring_idle(struct intel_ring_buffer *ring)
 
 int intel_ring_begin(struct intel_ring_buffer *ring, int n);
 
-#ifdef notyet
-static inline void intel_ring_emit(struct intel_ring_buffer *ring,
-				   uint32_t data)
-{
-	*(volatile uint32_t *)((char *)ring->virtual_start +
-	    ring->tail) = data;
-	ring->tail += 4;
-}
-#endif
-
 void intel_ring_advance(struct intel_ring_buffer *ring);
 
-uint32_t intel_ring_get_seqno(struct intel_ring_buffer *ring);
+int intel_ring_flush_all_caches(struct intel_ring_buffer *ring);
+int intel_ring_invalidate_all_caches(struct intel_ring_buffer *ring);
 
 int intel_init_render_ring_buffer(struct drm_device *dev);
 int intel_init_bsd_ring_buffer(struct drm_device *dev);
@@ -238,6 +228,12 @@ void intel_ring_setup_status_page(struct intel_ring_buffer *ring);
 static inline u32 intel_ring_get_tail(struct intel_ring_buffer *ring)
 {
 	return ring->tail;
+}
+
+static inline u32 intel_ring_get_seqno(struct intel_ring_buffer *ring)
+{
+//	BUG_ON(ring->outstanding_lazy_request == 0);
+	return ring->outstanding_lazy_request;
 }
 
 void i915_trace_irq_get(struct intel_ring_buffer *ring, uint32_t seqno);

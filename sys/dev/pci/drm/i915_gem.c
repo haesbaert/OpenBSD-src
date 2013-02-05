@@ -94,7 +94,13 @@ i915_gem_free_object(struct drm_obj *gem_obj)
 	/* XXX dmatag went away? */
 }
 
-// init_ring_lists
+void
+init_ring_lists(struct intel_ring_buffer *ring)
+{
+	INIT_LIST_HEAD(&ring->active_list);
+	INIT_LIST_HEAD(&ring->request_list);
+}
+
 // i915_gem_load
 // i915_gem_do_init
 
@@ -178,7 +184,6 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 	/* if we hung then the timer alredy fired. */
 	timeout_del(&dev_priv->mm.hang_timer);
 
-	inteldrm_update_ring(&dev_priv->rings[RCS]);
 	i915_gem_cleanup_ringbuffer(dev);
 	DRM_UNLOCK();
 
@@ -490,7 +495,6 @@ int
 i915_gem_busy_ioctl(struct drm_device *dev, void *data,
     struct drm_file *file)
 {
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_busy *args = data;
 	struct drm_i915_gem_object *obj;
 	int ret = 0;
@@ -518,7 +522,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		 * only updated on a delayed timer. Updating now reduces 
 		 * working set size.
 		 */
-		i915_gem_retire_requests(dev_priv);
+		i915_gem_retire_requests(dev);
 		args->busy = obj->active;
 	}
 
@@ -663,7 +667,7 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 	/* gtt mapping means that the inactive list may not be empty */
 	KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
 	KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.request_list));
+//	KASSERT(TAILQ_EMPTY(&dev_priv->mm.request_list));
 	DRM_UNLOCK();
 
 	drm_irq_install(dev);
@@ -918,7 +922,8 @@ int
 i915_gem_check_wedge(struct inteldrm_softc *dev_priv,
 		     bool interruptible)
 {
-	printf("%s stub\n", __func__);
+	if (dev_priv->mm.wedged)
+		return (EIO);
 	return 0;
 }
 
@@ -1592,7 +1597,7 @@ i915_gem_handle_seqno_wrap(struct drm_device *dev)
 	if (ret)
 		return ret;
 
-	i915_gem_retire_requests(dev_priv);
+	i915_gem_retire_requests(dev);
 	for_each_ring(ring, dev_priv, i) {
 		for (j = 0; j < nitems(ring->sync_seqno); j++)
 			ring->sync_seqno[j] = 0;
@@ -1655,7 +1660,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 
 	if (seqno == dev_priv->mm.next_gem_seqno) {
 		mtx_enter(&dev_priv->request_lock);
-		seqno = i915_add_request(ring);
+		seqno = i915_add_request(ring, NULL, NULL);
 		mtx_leave(&dev_priv->request_lock);
 		if (seqno == 0)
 			return (ENOMEM);
@@ -1683,7 +1688,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	 * a separate wait queue to handle that.
 	 */
 	if (ret == 0)
-		i915_gem_retire_requests(dev_priv);
+		i915_gem_retire_requests(dev);
 
 	return (ret);
 }
@@ -1691,109 +1696,190 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 // i915_gem_get_seqno
 // i915_gem_next_request_seqno
 
-/**
- * Creates a new sequence number, emitting a write of it to the status page
- * plus an interrupt, which will trigger and interrupt if they are currently
- * enabled.
- *
- * Must be called with struct_lock held.
- *
- * Returned sequence numbers are nonzero on success.
- */
-uint32_t
-i915_add_request(struct intel_ring_buffer *ring)
+int
+i915_add_request(struct intel_ring_buffer *ring,
+		 struct drm_file *file,
+		 u32 *out_seqno)
 {
-	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	struct drm_i915_gem_request	*request;
-	uint32_t			 seqno;
-	int				 was_empty;
+//	drm_i915_private_t *dev_priv = ring->dev->dev_private;
+	struct drm_i915_gem_request *request;
+	u32 request_ring_position;
+	int was_empty;
+	int ret;
 
-	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
-
-	request = drm_calloc(1, sizeof(*request));
-	if (request == NULL) {
-		printf("%s: failed to allocate request\n", __func__);
-		return 0;
-	}
-
-	/* Grab the seqno we're going to make this request be, and bump the
-	 * next (skipping 0 so it can be the reserved no-seqno value).
+	/*
+	 * Emit any outstanding flushes - execbuf can fail to emit the flush
+	 * after having emitted the batchbuffer command. Hence we need to fix
+	 * things up similar to emitting the lazy request. The difference here
+	 * is that the flush _must_ happen before the next request, no matter
+	 * what.
 	 */
-	seqno = dev_priv->mm.next_gem_seqno;
-	dev_priv->mm.next_gem_seqno++;
-	if (dev_priv->mm.next_gem_seqno == 0)
-		dev_priv->mm.next_gem_seqno++;
+	ret = intel_ring_flush_all_caches(ring);
+	if (ret)
+		return ret;
 
-	if (IS_GEN6(dev) || IS_GEN7(dev))
-		intel_ring_begin(ring, 10);
-	else 
-		intel_ring_begin(ring, 4);
+	request = malloc(sizeof(*request), M_DRM, M_NOWAIT);
+	if (request == NULL)
+		return -ENOMEM;
 
-	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
-	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, seqno);
-	intel_ring_emit(ring, MI_USER_INTERRUPT);
-	intel_ring_advance(ring);
 
-	DRM_DEBUG("%d\n", seqno);
+	/* Record the position of the start of the request so that
+	 * should we detect the updated seqno part-way through the
+	 * GPU processing the request, we never over-estimate the
+	 * position of the head.
+	 */
+	request_ring_position = intel_ring_get_tail(ring);
 
-	/* XXX request timing for throttle */
-	request->seqno = seqno;
-	request->ring = ring;
-	was_empty = TAILQ_EMPTY(&dev_priv->mm.request_list);
-	TAILQ_INSERT_TAIL(&dev_priv->mm.request_list, request, list);
-
-	if (dev_priv->mm.suspended == 0) {
-		if (was_empty)
-			timeout_add_sec(&dev_priv->mm.retire_timer, 1);
-		/* XXX was_empty? */
-		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
+	ret = ring->add_request(ring);
+	if (ret) {
+		free(request, M_DRM);
+		return ret;
 	}
-	return seqno;
+
+	request->seqno = intel_ring_get_seqno(ring);
+	request->ring = ring;
+	request->tail = request_ring_position;
+//	request->emitted_jiffies = jiffies;
+	was_empty = list_empty(&ring->request_list);
+	list_add_tail(&request->list, &ring->request_list);
+	request->file_priv = NULL;
+
+#ifdef notyet
+	if (file) {
+		struct drm_i915_file_private *file_priv = file->driver_priv;
+
+		mtx_enter(&file_priv->mm.lock);
+		request->file_priv = file_priv;
+		list_add_tail(&request->client_list,
+			      &file_priv->mm.request_list);
+		mtx_leave(&file_priv->mm.lock);
+	}
+#endif
+
+//	trace_i915_gem_request_add(ring, request->seqno);
+	ring->outstanding_lazy_request = 0;
+
+#ifdef notyet
+	if (!dev_priv->mm.suspended) {
+		if (i915_enable_hangcheck) {
+			timeout_add_msec(&dev_priv->hangcheck_timer,
+				  DRM_I915_HANGCHECK_PERIOD);
+		}
+		if (was_empty) {
+			queue_delayed_work(dev_priv->wq,
+					   &dev_priv->mm.retire_work,
+					   round_jiffies_up_relative(HZ));
+			intel_mark_busy(dev_priv->dev);
+		}
+	}
+#endif
+
+	if (out_seqno)
+		*out_seqno = request->seqno;
+	return 0;
 }
 
-// i915_gem_request_remove_from_client
+static inline void
+i915_gem_request_remove_from_client(struct drm_i915_gem_request *request)
+{
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct drm_i915_file_private *file_priv = request->file_priv;
+
+	if (!file_priv)
+		return;
+
+	mtx_enter(&file_priv->mm.lock);
+	if (request->file_priv) {
+		list_del(&request->client_list);
+		request->file_priv = NULL;
+	}
+	mtx_leave(&file_priv->mm.lock);
+#endif
+}
+
 // i915_gem_release
 // i915_gem_reset_ring_lists
 // i915_gem_reset_fences
 // i915_gem_reset
 
-void
-i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
-{
-	printf("%s stub\n", __func__);
-}
 
 /**
  * This function clears the request list as sequence numbers are passed.
  */
 void
-i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
+i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 {
-	struct drm_i915_gem_request	*request;
-	uint32_t			 seqno;
+	uint32_t seqno;
 
-	if (dev_priv->hw_status_page == NULL)
+	if (list_empty(&ring->request_list))
 		return;
 
-	seqno = i915_get_gem_seqno(dev_priv);
+//	WARN_ON(i915_verify_lists(ring->dev));
 
-	mtx_enter(&dev_priv->request_lock);
-	while ((request = TAILQ_FIRST(&dev_priv->mm.request_list)) != NULL) {
-		if (i915_seqno_passed(seqno, request->seqno) ||
-		    dev_priv->mm.wedged) {
-			TAILQ_REMOVE(&dev_priv->mm.request_list, request, list);
-			i915_gem_retire_request(dev_priv, request);
-			mtx_leave(&dev_priv->request_lock);
+	seqno = ring->get_seqno(ring, true);
 
-			drm_free(request);
-			mtx_enter(&dev_priv->request_lock);
-		} else
+	while (!list_empty(&ring->request_list)) {
+		struct drm_i915_gem_request *request;
+
+		request = list_first_entry(&ring->request_list,
+					   struct drm_i915_gem_request,
+					   list);
+
+		if (!i915_seqno_passed(seqno, request->seqno))
 			break;
+
+//		trace_i915_gem_request_retire(ring, request->seqno);
+		/* We know the GPU must have read the request to have
+		 * sent us the seqno + interrupt, so use the position
+		 * of tail of the request to update the last known position
+		 * of the GPU head.
+		 */
+		ring->last_retired_head = request->tail;
+
+		list_del(&request->list);
+		i915_gem_request_remove_from_client(request);
+		free(request, M_DRM);
 	}
-	mtx_leave(&dev_priv->request_lock);
+
+#ifdef notyet
+	/* Move any buffers on the active list that are no longer referenced
+	 * by the ringbuffer to the flushing/inactive lists as appropriate.
+	 */
+	while (!list_empty(&ring->active_list)) {
+		struct drm_i915_gem_object *obj;
+
+		obj = list_first_entry(&ring->active_list,
+				      struct drm_i915_gem_object,
+				      ring_list);
+
+		if (!i915_seqno_passed(seqno, obj->last_read_seqno))
+			break;
+
+		i915_gem_object_move_to_inactive(obj);
+	}
+#endif
+
+	if (ring->trace_irq_seqno &&
+		     i915_seqno_passed(seqno, ring->trace_irq_seqno)) {
+		ring->irq_put(ring);
+		ring->trace_irq_seqno = 0;
+	}
+
+//	WARN_ON(i915_verify_lists(ring->dev));
 }
+
+void
+i915_gem_retire_requests(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int i;
+
+	for_each_ring(ring, dev_priv, i)
+		i915_gem_retire_requests_ring(ring);
+}
+
 
 void
 sandybridge_write_fence_reg(struct drm_i915_fence_reg *reg)

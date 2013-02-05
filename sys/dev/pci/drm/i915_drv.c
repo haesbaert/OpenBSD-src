@@ -76,7 +76,6 @@ void	inteldrm_lastclose(struct drm_device *);
 void	intel_wrap_ring_buffer(struct intel_ring_buffer *);
 int	inteldrm_gmch_match(struct pci_attach_args *);
 void	inteldrm_timeout(void *);
-void	inteldrm_hangcheck(void *);
 void	inteldrm_hung(void *, void *);
 void	inteldrm_965_reset(struct inteldrm_softc *, u_int8_t);
 int	inteldrm_fault(struct drm_obj *, struct uvm_faultinfo *, off_t,
@@ -594,10 +593,12 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	TAILQ_INIT(&dev_priv->mm.flushing_list);
 	TAILQ_INIT(&dev_priv->mm.inactive_list);
 	TAILQ_INIT(&dev_priv->mm.gpu_write_list);
-	TAILQ_INIT(&dev_priv->mm.request_list);
+//	TAILQ_INIT(&dev_priv->mm.request_list);
 	TAILQ_INIT(&dev_priv->mm.fence_list);
+	for (i = 0; i < I915_NUM_RINGS; i++)
+		init_ring_lists(&dev_priv->rings[i]);
 	timeout_set(&dev_priv->mm.retire_timer, inteldrm_timeout, dev_priv);
-	timeout_set(&dev_priv->mm.hang_timer, inteldrm_hangcheck, dev_priv);
+	timeout_set(&dev_priv->mm.hang_timer, i915_hangcheck_elapsed, dev_priv);
 	dev_priv->mm.next_gem_seqno = 1;
 	dev_priv->mm.suspended = 1;
 
@@ -918,7 +919,7 @@ inteldrm_ironlake_intr(void *arg)
 
 	if (gt_iir & GT_USER_INTERRUPT) {
 		wakeup(dev_priv);
-		dev_priv->mm.hang_cnt = 0;
+		dev_priv->hangcheck_count = 0;
 		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 	}
 	if (gt_iir & GT_RENDER_CS_ERROR_INTERRUPT)
@@ -990,7 +991,7 @@ inteldrm_intr(void *arg)
 
 	if (iir & I915_USER_INTERRUPT) {
 		wakeup(dev_priv);
-		dev_priv->mm.hang_cnt = 0;
+		dev_priv->hangcheck_count = 0;
 		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 	}
 
@@ -1029,97 +1030,6 @@ inteldrm_read_hws(struct inteldrm_softc *dev_priv, int reg)
 	bus_dmamap_sync(tag, map, 0, PAGE_SIZE, BUS_DMASYNC_PREREAD);
 
 	return (val);
-}
-
-/*
- * These five ring manipulation functions are protected by dev->dev_lock.
- */
-int
-ring_wait_for_space(struct intel_ring_buffer *ring, int n)
-{
-	struct drm_device		*dev = ring->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	u_int32_t			 acthd_reg, acthd, last_acthd, last_head;
-	int				 i;
-
-	acthd_reg = INTEL_INFO(dev)->gen >= 4 ? ACTHD_I965 : ACTHD;
-	last_head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
-	last_acthd = I915_READ(acthd_reg);
-
-	/* ugh. Could really do with a proper, resettable timer here. */
-	for (i = 0; i < 100000; i++) {
-		ring->head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
-		acthd = I915_READ(acthd_reg);
-		ring->space = ring->head - (ring->tail + 8);
-
-		INTELDRM_VPRINTF("%s: head: %x tail: %x space: %x\n", __func__,
-			ring->head, ring->tail, ring->space);
-		if (ring->space < 0)
-			ring->space += ring->size;
-		if (ring->space >= n)
-			return (0);
-
-		/* Only timeout if the ring isn't chewing away on something */
-		if (ring->head != last_head || acthd != last_acthd)
-			i = 0;
-
-		last_head = ring->head;
-		last_acthd = acthd;
-		delay(10);
-	}
-
-	return (EBUSY);
-}
-
-#if 0
-int
-intel_ring_begin(struct intel_ring_buffer *ring, int ncmd)
-{
-	int	bytes = 4 * ncmd;
-
-	INTELDRM_VPRINTF("%s: %d\n", __func__, ncmd);
-	if (ring->tail + bytes > ring->size)
-		intel_wrap_ring_buffer(ring);
-	if (ring->space < bytes)
-		ring_wait_for_space(ring, bytes);
-	ring->woffset = ring->tail;
-	ring->tail += bytes;
-	ring->tail &= ring->size - 1;
-	ring->space -= bytes;
-
-	return (0);
-}
-#endif
-
-void
-intel_ring_emit(struct intel_ring_buffer *ring, u_int32_t cmd)
-{
-	struct drm_device		*dev = ring->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-
-	INTELDRM_VPRINTF("%s: %x\n", __func__, cmd);
-	bus_space_write_4(dev_priv->bst, ring->bsh,
-	    ring->woffset, cmd);
-	/*
-	 * don't need to deal with wrap here because we padded
-	 * the ring out if we would wrap
-	 */
-	ring->woffset += 4;
-}
-
-void
-inteldrm_update_ring(struct intel_ring_buffer *ring)
-{
-	struct drm_device		*dev = ring->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-
-	ring->head = (I915_READ(PRB0_HEAD) & HEAD_ADDR);
-	ring->tail = (I915_READ(PRB0_TAIL) & TAIL_ADDR);
-	ring->space = ring->head - (ring->tail + 8);
-	if (ring->space < 0)
-		ring->space += ring->size;
-	INTELDRM_VPRINTF("%s: head: %x tail: %x space: %x\n", __func__,
-		ring->head, ring->tail, ring->space);
 }
 
 /*
@@ -1519,9 +1429,21 @@ void
 i915_gem_retire_work_handler(void *arg1, void *unused)
 {
 	struct inteldrm_softc	*dev_priv = arg1;
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	struct intel_ring_buffer *ring;
+	bool idle;
+	int i;
 
-	i915_gem_retire_requests(dev_priv);
-	if (!TAILQ_EMPTY(&dev_priv->mm.request_list))
+	i915_gem_retire_requests(dev);
+
+	idle = true;
+	for_each_ring(ring, dev_priv, i) {
+		if (ring->gpu_caches_dirty)
+			i915_add_request(ring, NULL, NULL);
+
+		idle &= list_empty(&ring->request_list);
+	}
+	if (!idle)
 		timeout_add_sec(&dev_priv->mm.retire_timer, 1);
 }
 
@@ -1594,7 +1516,7 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
 		inteldrm_process_flushing(dev_priv, flush_domains);
-		ret = i915_add_request(ring);
+		ret = i915_add_request(ring, NULL, NULL);
 	}
 	mtx_leave(&dev_priv->request_lock);
 
@@ -2169,7 +2091,7 @@ i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
 	 * that this call will emit. so we don't need the return. If it fails
 	 * then the next seqno will take care of it.
 	 */
-	(void)i915_add_request(ring);
+	(void)i915_add_request(ring, NULL, NULL);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 }
@@ -2399,61 +2321,6 @@ delhws:
 	return (ret);
 }
 
-#if 0
-int
-init_ring_common(struct intel_ring_buffer *ring)
-{
-	struct drm_device	*dev = ring->dev;
-	drm_i915_private_t	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = ring->obj;
-	struct drm_obj		*obj = (struct drm_obj *)obj_priv;
-	u_int32_t		 head;
-
-	/* Stop the ring if it's running. */
-	I915_WRITE(PRB0_CTL, 0);
-	I915_WRITE(PRB0_TAIL, 0);
-	I915_WRITE(PRB0_HEAD, 0);
-
-	/* Initialize the ring. */
-	I915_WRITE(PRB0_START, obj_priv->gtt_offset);
-	head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
-
-	/* G45 ring initialisation fails to reset head to zero */
-	if (head != 0) {
-		I915_WRITE(PRB0_HEAD, 0);
-		DRM_DEBUG("Forced ring head to zero ctl %08x head %08x"
-		    "tail %08x start %08x\n", I915_READ(PRB0_CTL),
-		    I915_READ(PRB0_HEAD), I915_READ(PRB0_TAIL),
-		    I915_READ(PRB0_START));
-	}
-
-	I915_WRITE(PRB0_CTL, ((obj->size - 4096) & RING_NR_PAGES) |
-	    RING_NO_REPORT | RING_VALID);
-
-	head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
-	/* If ring head still != 0, the ring is dead */
-	if (head != 0) {
-		DRM_ERROR("Ring initialisation failed: ctl %08x head %08x"
-		    "tail %08x start %08x\n", I915_READ(PRB0_CTL),
-		    I915_READ(PRB0_HEAD), I915_READ(PRB0_TAIL),
-		    I915_READ(PRB0_START));
-		return (EIO);
-	}
-
-	/* Update our cache of the ring state */
-	inteldrm_update_ring(ring);
-
-	if (IS_GEN6(dev) || IS_GEN7(dev))
-		I915_WRITE(MI_MODE | MI_FLUSH_ENABLE << 16 | MI_FLUSH_ENABLE,
-		    (VS_TIMER_DISPATCH) << 15 | VS_TIMER_DISPATCH);
-	else if (IS_I9XX(dev) && !IS_GEN3(dev))
-		I915_WRITE(MI_MODE, (VS_TIMER_DISPATCH) << 15 |
-		    VS_TIMER_DISPATCH);
-
-	return (0);
-}
-#endif
-
 void
 inteldrm_timeout(void *arg)
 {
@@ -2612,7 +2479,7 @@ inteldrm_hung(void *arg, void *reset_type)
 	/*
 	 * Clear out all of the requests and make everything inactive.
 	 */
-	i915_gem_retire_requests(dev_priv);
+	i915_gem_retire_requests(dev);
 
 	/*
 	 * Clear the active and flushing lists to inactive. Since
@@ -2642,66 +2509,6 @@ inteldrm_hung(void *arg, void *reset_type)
 	if (HAS_RESET(dev))
 		dev_priv->mm.wedged = 0;
 	DRM_UNLOCK();
-}
-
-void
-inteldrm_hangcheck(void *arg)
-{
-	struct inteldrm_softc	*dev_priv = arg;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	u_int32_t		 acthd, instdone, instdone1;
-
-	/* are we idle? no requests, or ring is empty */
-	if (TAILQ_EMPTY(&dev_priv->mm.request_list) ||
-	    (I915_READ(PRB0_HEAD) & HEAD_ADDR) ==
-	    (I915_READ(PRB0_TAIL) & TAIL_ADDR)) {
-		dev_priv->mm.hang_cnt = 0;
-		return;
-	}
-
-	if (INTEL_INFO(dev)->gen >= 4) {
-		acthd = I915_READ(ACTHD_I965);
-		instdone = I915_READ(INSTDONE_I965);
-		instdone1 = I915_READ(INSTDONE1);
-	} else {
-		acthd = I915_READ(ACTHD);
-		instdone = I915_READ(INSTDONE);
-		instdone1 = 0;
-	}
-
-	/* if we've hit ourselves before and the hardware hasn't moved, hung. */
-	if (dev_priv->mm.last_acthd == acthd &&
-	    dev_priv->mm.last_instdone == instdone &&
-	    dev_priv->mm.last_instdone1 == instdone1) {
-		/* if that's twice we didn't hit it, then we're hung */
-		if (++dev_priv->mm.hang_cnt >= 2) {
-			if (!IS_GEN2(dev)) {
-				u_int32_t tmp = I915_READ(PRB0_CTL);
-				if (tmp & RING_WAIT) {
-					I915_WRITE(PRB0_CTL, tmp);
-					(void)I915_READ(PRB0_CTL);
-					goto out;
-				}
-			}
-			dev_priv->mm.hang_cnt = 0;
-			/* XXX atomic */
-			dev_priv->mm.wedged = 1; 
-			DRM_INFO("gpu hung!\n");
-			/* XXX locking */
-			wakeup(dev_priv);
-			inteldrm_error(dev_priv);
-			return;
-		}
-	} else {
-		dev_priv->mm.hang_cnt = 0;
-
-		dev_priv->mm.last_acthd = acthd;
-		dev_priv->mm.last_instdone = instdone;
-		dev_priv->mm.last_instdone1 = instdone1;
-	}
-out:
-	/* Set ourselves up again, in case we haven't added another batch */
-	timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 }
 
 void

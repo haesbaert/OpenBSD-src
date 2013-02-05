@@ -58,14 +58,15 @@
 int
 i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 {
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 	struct drm_obj		*obj;
-	struct drm_i915_gem_request *request;
+//	struct drm_i915_gem_request *request;
 	struct drm_i915_gem_object *obj_priv;
-	u_int32_t		 seqno;
+//	u_int32_t		 seqno;
 	int			 ret = 0, write_domain = 0;
 
 	for (;;) {
-		i915_gem_retire_requests(dev_priv);
+		i915_gem_retire_requests(dev);
 
 		/* If there's an inactive buffer available now, grab it
 		 * and be done.
@@ -86,6 +87,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 			return (ret);
 		}
 
+#ifdef notyet
 		/* If we didn't get anything, but the ring is still processing
 		 * things, wait for one of those things to finish and hopefully
 		 * leave us a buffer to evict.
@@ -103,6 +105,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 			continue;
 		}
 		mtx_leave(&dev_priv->request_lock);
+#endif
 
 		/* If we didn't have anything on the request list but there
 		 * are buffers awaiting a flush, emit one and try again.

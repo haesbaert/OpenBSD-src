@@ -590,11 +590,6 @@ struct inteldrm_softc {
 		 */
 		struct timeout retire_timer;
 		struct timeout hang_timer;
-		/* for hangcheck */
-		int		hang_cnt;
-		u_int32_t	last_acthd;
-		u_int32_t	last_instdone;
-		u_int32_t	last_instdone1;
 
 		uint32_t next_gem_seqno;
 
@@ -677,6 +672,10 @@ struct inteldrm_softc {
 #endif
 
 	enum no_fbc_reason no_fbc_reason;
+
+	int hangcheck_count;
+	uint32_t last_acthd[I915_NUM_RINGS];
+	uint32_t prev_instdone[I915_NUM_INSTDONE_REG];
 
 	unsigned int stop_rings;
 
@@ -827,11 +826,20 @@ struct drm_i915_gem_object {
  * an emission time with seqnos for tracking how far ahead of the GPU we are.
  */
 struct drm_i915_gem_request {
-	TAILQ_ENTRY(drm_i915_gem_request)	list;
 	/** On Which ring this request was generated */
 	struct intel_ring_buffer	*ring;
 	/** GEM sequence number associated with this request. */
 	uint32_t			seqno;
+
+	/** Postion in the ringbuffer of the end of the request */
+	u32 tail;
+
+	/** global list entry for this request */
+	struct list_head list;
+
+	struct drm_i915_file_private *file_priv;
+	/** file_priv list entry for this request */
+	struct list_head client_list;
 };
 
 u_int32_t	inteldrm_read_hws(struct inteldrm_softc *, int);
@@ -859,6 +867,7 @@ intel_ring_initialized(struct intel_ring_buffer *ring)
 }
 
 /* i915_irq.c */
+void	 i915_hangcheck_elapsed(void *);
 
 extern int i915_driver_irq_install(struct drm_device * dev);
 extern void i915_driver_irq_uninstall(struct drm_device * dev);
@@ -915,7 +924,8 @@ void	i915_gem_object_move_to_active(struct drm_i915_gem_object *,
 void	i915_gem_object_move_off_active(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *);
-uint32_t	i915_add_request(struct intel_ring_buffer *ring);
+int	i915_add_request(struct intel_ring_buffer *,
+                 struct drm_file *, u32 *);
 void	inteldrm_process_flushing(struct inteldrm_softc *, u_int32_t);
 void	i915_move_to_tail(struct drm_i915_gem_object *, struct i915_gem_list *);
 void	i915_list_remove(struct drm_i915_gem_object *);
@@ -991,7 +1001,7 @@ void inteldrm_verify_inactive(struct inteldrm_softc *, char *, int);
 #define inteldrm_verify_inactive(dev,file,line)
 #endif
 
-void i915_gem_retire_requests(struct inteldrm_softc *);
+void i915_gem_retire_requests(struct drm_device *);
 struct drm_obj  *i915_gem_find_inactive_object(struct inteldrm_softc *,
 	size_t);
 int i915_gem_object_unbind(struct drm_i915_gem_object *);
@@ -1035,6 +1045,7 @@ extern void intel_gmbus_set_port(struct inteldrm_softc *, int);
 /* i915_gem.c */
 int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,
     uint32_t *);
+void init_ring_lists(struct intel_ring_buffer *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);
@@ -1317,7 +1328,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 /**
  * Returns true if seq1 is later than seq2.
  */
-static __inline int
+static __inline bool
 i915_seqno_passed(uint32_t seq1, uint32_t seq2)
 {
 	return ((int32_t)(seq1 - seq2) >= 0);
