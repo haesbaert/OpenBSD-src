@@ -1147,11 +1147,11 @@ intel_tv_detect_type(struct intel_tv *intel_tv, struct drm_connector *connector)
 
 	/* Disable TV interrupts around load detect or we'll recurse */
 	if (connector->polled & DRM_CONNECTOR_POLL_HPD) {
-		mtx_enter(&dev_priv->user_irq_lock);
+		mtx_enter(&dev_priv->irq_lock);
 		i915_disable_pipestat(dev_priv, 0,
 				      PIPE_HOTPLUG_INTERRUPT_ENABLE |
 				      PIPE_HOTPLUG_TV_INTERRUPT_ENABLE);
-		mtx_leave(&dev_priv->user_irq_lock);
+		mtx_leave(&dev_priv->irq_lock);
 	}
 
 	save_tv_dac = tv_dac = I915_READ(TV_DAC);
@@ -1210,11 +1210,11 @@ intel_tv_detect_type(struct intel_tv *intel_tv, struct drm_connector *connector)
 
 	/* Restore interrupt config */
 	if (connector->polled & DRM_CONNECTOR_POLL_HPD) {
-		mtx_enter(&dev_priv->user_irq_lock);
+		mtx_enter(&dev_priv->irq_lock);
 		i915_enable_pipestat(dev_priv, 0,
 				     PIPE_HOTPLUG_INTERRUPT_ENABLE |
 				     PIPE_HOTPLUG_TV_INTERRUPT_ENABLE);
-		mtx_leave(&dev_priv->user_irq_lock);
+		mtx_leave(&dev_priv->irq_lock);
 	}
 
 	return type;

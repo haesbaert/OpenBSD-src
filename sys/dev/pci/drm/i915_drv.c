@@ -363,7 +363,7 @@ static const struct intel_gfx_device_id {
 	{0, 0, NULL}
 };
 
-static const struct drm_driver_info inteldrm_driver = {
+static struct drm_driver_info inteldrm_driver = {
 	.buf_priv_size		= 1,	/* No dev_priv */
 	.file_priv_size		= sizeof(struct inteldrm_file),
 	.ioctl			= inteldrm_ioctl,
@@ -372,8 +372,6 @@ static const struct drm_driver_info inteldrm_driver = {
 	.get_vblank_counter	= i915_get_vblank_counter,
 	.enable_vblank		= i915_enable_vblank,
 	.disable_vblank		= i915_disable_vblank,
-	.irq_install		= i915_driver_irq_install,
-	.irq_uninstall		= i915_driver_irq_uninstall,
 
 	.gem_init_object	= i915_gem_init_object,
 	.gem_free_object	= i915_gem_free_object,
@@ -577,12 +575,12 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	/* Unmask the interrupts that we always want on. */
 	if (HAS_PCH_SPLIT(dev)) {
-		dev_priv->irq_mask_reg = ~PCH_SPLIT_DISPLAY_INTR_FIX;
+		dev_priv->irq_mask = ~PCH_SPLIT_DISPLAY_INTR_FIX;
 		/* masked for now, turned on on demand */
-		dev_priv->gt_irq_mask_reg = ~PCH_SPLIT_RENDER_INTR_FIX;
-		dev_priv->pch_irq_mask_reg = ~PCH_SPLIT_HOTPLUG_INTR_FIX;
+		dev_priv->gt_irq_mask = ~PCH_SPLIT_RENDER_INTR_FIX;
+		dev_priv->pch_irq_mask = ~PCH_SPLIT_HOTPLUG_INTR_FIX;
 	} else {
-		dev_priv->irq_mask_reg = ~I915_INTERRUPT_ENABLE_FIX;
+		dev_priv->irq_mask = ~I915_INTERRUPT_ENABLE_FIX;
 	}
 
 	dev_priv->workq = workq_create("intelrel", 1, IPL_TTY);
@@ -685,7 +683,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	printf(": %s\n", pci_intr_string(pa->pa_pc, dev_priv->ih));
 
-	mtx_init(&dev_priv->user_irq_lock, IPL_TTY);
+	mtx_init(&dev_priv->irq_lock, IPL_TTY);
 	mtx_init(&dev_priv->list_lock, IPL_NONE);
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
@@ -699,6 +697,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		dev_priv->num_pipe = 1;
 
 	intel_detect_pch(dev_priv);
+
+	intel_irq_init(dev);
 
 	intel_opregion_setup(dev);
 	intel_setup_bios(dev);
@@ -970,7 +970,7 @@ inteldrm_intr(void *arg)
 	/*
 	 * lock is to protect from writes to PIPESTAT and IMR from other cores.
 	 */
-	mtx_enter(&dev_priv->user_irq_lock);
+	mtx_enter(&dev_priv->irq_lock);
 	/*
 	 * Clear the PIPE(A|B)STAT regs before the IIR
 	 */
@@ -994,7 +994,7 @@ inteldrm_intr(void *arg)
 		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 	}
 
-	mtx_leave(&dev_priv->user_irq_lock);
+	mtx_leave(&dev_priv->irq_lock);
 
 	if (pipea_stats & PIPE_VBLANK_INTERRUPT_STATUS)
 		drm_handle_vblank(dev, 0);

@@ -823,8 +823,8 @@ gen5_ring_get_irq(struct intel_ring_buffer *ring)
 
 	MUTEX_ASSERT_LOCKED(&ring->irq_lock);
 	if (ring->irq_refcount++ == 0) {
-		dev_priv->gt_irq_mask_reg &= ~ring->irq_enable_mask;
-		I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+		dev_priv->gt_irq_mask &= ~ring->irq_enable_mask;
+		I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 		POSTING_READ(GTIMR);
 	}
 
@@ -839,8 +839,8 @@ gen5_ring_put_irq(struct intel_ring_buffer *ring)
 
 	MUTEX_ASSERT_LOCKED(&ring->irq_lock);
 	if (--ring->irq_refcount == 0) {
-		dev_priv->gt_irq_mask_reg |= ring->irq_enable_mask;
-		I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+		dev_priv->gt_irq_mask |= ring->irq_enable_mask;
+		I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 		POSTING_READ(GTIMR);
 	}
 }
@@ -856,8 +856,8 @@ i9xx_ring_get_irq(struct intel_ring_buffer *ring)
 
 	MUTEX_ASSERT_LOCKED(&ring->irq_lock);
 	if (ring->irq_refcount++ == 0) {
-		dev_priv->irq_mask_reg &= ~ring->irq_enable_mask;
-		I915_WRITE(IMR, dev_priv->irq_mask_reg);
+		dev_priv->irq_mask &= ~ring->irq_enable_mask;
+		I915_WRITE(IMR, dev_priv->irq_mask);
 		POSTING_READ(IMR);
 	}
 
@@ -872,8 +872,8 @@ i9xx_ring_put_irq(struct intel_ring_buffer *ring)
 
 	MUTEX_ASSERT_LOCKED(&ring->irq_lock);
 	if (--ring->irq_refcount == 0) {
-		dev_priv->irq_mask_reg |= ring->irq_enable_mask;
-		I915_WRITE(IMR, dev_priv->irq_mask_reg);
+		dev_priv->irq_mask |= ring->irq_enable_mask;
+		I915_WRITE(IMR, dev_priv->irq_mask);
 		POSTING_READ(IMR);
 	}
 }
@@ -889,8 +889,8 @@ i8xx_ring_get_irq(struct intel_ring_buffer *ring)
 
 	MUTEX_ASSERT_LOCKED(&ring->irq_lock);
 	if (ring->irq_refcount++ == 0) {
-		dev_priv->irq_mask_reg &= ~ring->irq_enable_mask;
-		I915_WRITE16(IMR, dev_priv->irq_mask_reg);
+		dev_priv->irq_mask &= ~ring->irq_enable_mask;
+		I915_WRITE16(IMR, dev_priv->irq_mask);
 		POSTING_READ16(IMR);
 	}
 
@@ -905,8 +905,8 @@ i8xx_ring_put_irq(struct intel_ring_buffer *ring)
 
 	MUTEX_ASSERT_LOCKED(&ring->irq_lock);
 	if (--ring->irq_refcount == 0) {
-		dev_priv->irq_mask_reg |= ring->irq_enable_mask;
-		I915_WRITE16(IMR, dev_priv->irq_mask_reg);
+		dev_priv->irq_mask |= ring->irq_enable_mask;
+		I915_WRITE16(IMR, dev_priv->irq_mask);
 		POSTING_READ16(IMR);
 	}
 }
@@ -1003,8 +1003,8 @@ gen6_ring_get_irq(struct intel_ring_buffer *ring)
 						GEN6_RENDER_L3_PARITY_ERROR));
 		else
 			I915_WRITE_IMR(ring, ~ring->irq_enable_mask);
-		dev_priv->gt_irq_mask_reg &= ~ring->irq_enable_mask;
-		I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+		dev_priv->gt_irq_mask &= ~ring->irq_enable_mask;
+		I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 		POSTING_READ(GTIMR);
 	}
 
@@ -1023,8 +1023,8 @@ gen6_ring_put_irq(struct intel_ring_buffer *ring)
 			I915_WRITE_IMR(ring, ~GEN6_RENDER_L3_PARITY_ERROR);
 		else
 			I915_WRITE_IMR(ring, ~0);
-		dev_priv->gt_irq_mask_reg |= ring->irq_enable_mask;
-		I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+		dev_priv->gt_irq_mask |= ring->irq_enable_mask;
+		I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 		POSTING_READ(GTIMR);
 	}
 

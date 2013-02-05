@@ -479,6 +479,25 @@ struct drm_mode_handle {
 	uint32_t		 handle;
 };
 
+/* Size of ringbuffer for vblank timestamps. Just double-buffer
+ * in initial implementation.
+ */
+#define DRM_VBLANKTIME_RBSIZE 2
+
+/* Flags and return codes for get_vblank_timestamp() driver function. */
+#define DRM_CALLED_FROM_VBLIRQ 1
+#define DRM_VBLANKTIME_SCANOUTPOS_METHOD (1 << 0)
+#define DRM_VBLANKTIME_INVBL             (1 << 1)
+
+/* get_scanout_position() return flags */
+#define DRM_SCANOUTPOS_VALID        (1 << 0)
+#define DRM_SCANOUTPOS_INVBL        (1 << 1)
+#define DRM_SCANOUTPOS_ACCURATE     (1 << 2)
+
+typedef int irqreturn_t;
+#define IRQ_NONE	0
+#define IRQ_HANDLED	1
+
 struct drm_driver_info {
 	int	(*firstopen)(struct drm_device *);
 	int	(*open)(struct drm_device *, struct drm_file *);
@@ -488,12 +507,79 @@ struct drm_driver_info {
 	void	(*lastclose)(struct drm_device *);
 	int	(*dma_ioctl)(struct drm_device *, struct drm_dma *,
 		    struct drm_file *);
-	int	(*irq_install)(struct drm_device *);
-	void	(*irq_uninstall)(struct drm_device *);
 	int	vblank_pipes;
 	u_int32_t (*get_vblank_counter)(struct drm_device *, int);
 	int	(*enable_vblank)(struct drm_device *, int);
 	void	(*disable_vblank)(struct drm_device *, int);
+
+	/**
+	 * Called by vblank timestamping code.
+	 *
+	 * Return the current display scanout position from a crtc.
+	 *
+	 * \param dev  DRM device.
+	 * \param crtc Id of the crtc to query.
+	 * \param *vpos Target location for current vertical scanout position.
+	 * \param *hpos Target location for current horizontal scanout position.
+	 *
+	 * Returns vpos as a positive number while in active scanout area.
+	 * Returns vpos as a negative number inside vblank, counting the number
+	 * of scanlines to go until end of vblank, e.g., -1 means "one scanline
+	 * until start of active scanout / end of vblank."
+	 *
+	 * \return Flags, or'ed together as follows:
+	 *
+	 * DRM_SCANOUTPOS_VALID = Query successful.
+	 * DRM_SCANOUTPOS_INVBL = Inside vblank.
+	 * DRM_SCANOUTPOS_ACCURATE = Returned position is accurate. A lack of
+	 * this flag means that returned position may be offset by a constant
+	 * but unknown small number of scanlines wrt. real scanout position.
+	 *
+	 */
+	int (*get_scanout_position) (struct drm_device *dev, int crtc,
+				     int *vpos, int *hpos);
+
+	/**
+	 * Called by \c drm_get_last_vbltimestamp. Should return a precise
+	 * timestamp when the most recent VBLANK interval ended or will end.
+	 *
+	 * Specifically, the timestamp in @vblank_time should correspond as
+	 * closely as possible to the time when the first video scanline of
+	 * the video frame after the end of VBLANK will start scanning out,
+	 * the time immediately after end of the VBLANK interval. If the
+	 * @crtc is currently inside VBLANK, this will be a time in the future.
+	 * If the @crtc is currently scanning out a frame, this will be the
+	 * past start time of the current scanout. This is meant to adhere
+	 * to the OpenML OML_sync_control extension specification.
+	 *
+	 * \param dev dev DRM device handle.
+	 * \param crtc crtc for which timestamp should be returned.
+	 * \param *max_error Maximum allowable timestamp error in nanoseconds.
+	 *                   Implementation should strive to provide timestamp
+	 *                   with an error of at most *max_error nanoseconds.
+	 *                   Returns true upper bound on error for timestamp.
+	 * \param *vblank_time Target location for returned vblank timestamp.
+	 * \param flags 0 = Defaults, no special treatment needed.
+	 * \param       DRM_CALLED_FROM_VBLIRQ = Function is called from vblank
+	 *	        irq handler. Some drivers need to apply some workarounds
+	 *              for gpu-specific vblank irq quirks if flag is set.
+	 *
+	 * \returns
+	 * Zero if timestamping isn't supported in current display mode or a
+	 * negative number on failure. A positive status code on success,
+	 * which describes how the vblank_time timestamp was computed.
+	 */
+	int (*get_vblank_timestamp) (struct drm_device *dev, int crtc,
+				     int *max_error,
+				     struct timeval *vblank_time,
+				     unsigned flags);
+
+	/* these have to be filled in */
+
+	irqreturn_t(*irq_handler) (int, void *);
+	void (*irq_preinstall) (struct drm_device *);
+	int (*irq_postinstall) (struct drm_device *);
+	void (*irq_uninstall) (struct drm_device *);
 	/*
 	 * driver-specific constructor for gem objects to set up private data.
 	 * returns 0 on success.
@@ -557,7 +643,7 @@ struct drm_cmdline_mode {
 struct drm_device {
 	struct device	  device; /* softc is an extension of struct device */
 
-	const struct drm_driver_info *driver;
+	struct drm_driver_info *driver;
 
 	u_int16_t	 pci_device;
 	u_int16_t	 pci_vendor;
@@ -632,7 +718,7 @@ struct drm_device {
 };
 
 struct drm_attach_args {
-	const struct drm_driver_info	*driver;
+	struct drm_driver_info		*driver;
 	char				*busid;
 	bus_dma_tag_t			 dmat;
 	bus_space_tag_t			 bst;
@@ -686,7 +772,7 @@ bool dmi_check_system(const struct dmi_system_id *);
 
 /* Device setup support (drm_drv.c) */
 int	drm_pciprobe(struct pci_attach_args *, const struct drm_pcidev * );
-struct device	*drm_attach_pci(const struct drm_driver_info *, 
+struct device	*drm_attach_pci(struct drm_driver_info *, 
 		     struct pci_attach_args *, int, struct device *);
 dev_type_ioctl(drmioctl);
 dev_type_read(drmread);
@@ -768,7 +854,7 @@ void	drm_vblank_off(struct drm_device *, int);
 void	drm_vblank_pre_modeset(struct drm_device *, int);
 void	drm_vblank_post_modeset(struct drm_device *, int);
 int	drm_modeset_ctl(struct drm_device *, void *, struct drm_file *);
-void	drm_handle_vblank(struct drm_device *, int);
+bool	drm_handle_vblank(struct drm_device *, int);
 
 /* AGP/PCI Express/GART support (drm_agpsupport.c) */
 struct drm_agp_head *drm_agp_init(void);

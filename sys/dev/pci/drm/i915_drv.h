@@ -53,6 +53,14 @@ enum pipe {
 };
 #define pipe_name(p) ((p) + 'A')
 
+enum transcoder {
+	TRANSCODER_A = 0,
+	TRANSCODER_B,
+	TRANSCODER_C,
+	TRANSCODER_EDP = 0xF,
+};
+#define transcoder_name(t) ((t) + 'A')
+
 enum plane {
 	PLANE_A = 0,
 	PLANE_B,
@@ -277,15 +285,15 @@ struct inteldrm_softc {
 	size_t			 max_gem_obj_size; /* XXX */
 
 	/* Protects user_irq_refcount and irq_mask reg */
-	struct mutex		 user_irq_lock;
+	struct mutex		 irq_lock;
 	/* Refcount for user irq, only enabled when needed */
 	int			 user_irq_refcount;
 	/* Cached value of IMR to avoid reads in updating the bitfield */
-	u_int32_t		 irq_mask_reg;
+	u_int32_t		 irq_mask;
 	u_int32_t		 pipestat[2];
 	/* these two  ironlake only, we should union this with pipestat XXX */
-	u_int32_t		 gt_irq_mask_reg;
-	u_int32_t		 pch_irq_mask_reg;
+	u_int32_t		 gt_irq_mask;
+	u_int32_t		 pch_irq_mask;
 
 	u_int32_t		 hotplug_supported_mask;
 
@@ -659,6 +667,15 @@ struct inteldrm_softc {
 	int r_t;
 	u8 corr;
 
+#ifdef notyet
+	/* gen6+ rps state */
+	struct intel_gen6_power_mgmt rps;
+
+	/* ilk-only ips/rps state. Everything in here is protected by the global
+	* mchdev_lock in intel_pm.c */
+	struct intel_ilk_power_mgmt ips;
+#endif
+
 	enum no_fbc_reason no_fbc_reason;
 
 	unsigned int stop_rings;
@@ -850,6 +867,9 @@ extern void i915_disable_vblank(struct drm_device *dev, int crtc);
 extern u32 i915_get_vblank_counter(struct drm_device *dev, int crtc);
 extern void i915_user_irq_get(struct inteldrm_softc *);
 extern void i915_user_irq_put(struct inteldrm_softc *);
+
+extern void intel_irq_init(struct drm_device *dev);
+
 void	i915_enable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 void	i915_disable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 

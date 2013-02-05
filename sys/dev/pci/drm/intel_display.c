@@ -960,6 +960,16 @@ intel_find_pll_g4x_dp(const intel_limit_t *limit, struct drm_crtc *crtc,
 	return true;
 }
 
+enum transcoder
+intel_pipe_to_cpu_transcoder(drm_i915_private_t *dev_priv,
+					     enum pipe pipe)
+{
+	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+
+	return intel_crtc->cpu_transcoder;
+}
+
 /**
  * intel_wait_for_vblank - wait for vblank on a given pipe
  * @dev: drm device

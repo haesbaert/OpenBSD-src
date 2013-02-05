@@ -45,6 +45,7 @@ void	i915_restore_vga(struct drm_device *);
 void	i915_save_modeset_reg(struct drm_device *);
 void	i915_restore_modeset_reg(struct drm_device *);
 
+#if 0
 int
 i915_pipe_enabled(struct drm_device *dev, enum pipe pipe)
 {
@@ -62,6 +63,7 @@ i915_pipe_enabled(struct drm_device *dev, enum pipe pipe)
 
 	return (I915_READ(dpll_reg) & DPLL_VCO_ENABLE);
 }
+#endif
 
 void
 i915_save_palette(struct drm_device *dev, enum pipe pipe)

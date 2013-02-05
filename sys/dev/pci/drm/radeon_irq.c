@@ -326,8 +326,9 @@ radeon_irq_wait(struct drm_device *dev, void *data, struct drm_file *file_priv)
 /* drm_dma.h hooks
 */
 int
-radeon_driver_irq_install(struct drm_device * dev)
+radeon_driver_irq_install(int irq, void *arg)
 {
+	struct drm_device	*dev = (struct drm_device *) arg;
 	drm_radeon_private_t	*dev_priv = dev->dev_private;
 	u_int32_t		 dummy;
 
