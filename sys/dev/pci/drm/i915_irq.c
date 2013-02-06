@@ -63,6 +63,7 @@ u32	 ring_last_seqno(struct intel_ring_buffer *);
 bool	 i915_hangcheck_ring_idle(struct intel_ring_buffer *, bool *);
 bool	 kick_ring(struct intel_ring_buffer *);
 bool	 i915_hangcheck_hung(struct drm_device *);
+void	 i915_hangcheck_elapsed(unsigned long);
 void	 ironlake_irq_preinstall(struct drm_device *);
 void	 valleyview_irq_preinstall(struct drm_device *);
 void 	 ironlake_enable_pch_hotplug(struct drm_device *);
@@ -84,8 +85,6 @@ int	 i965_irq_postinstall(struct drm_device *);
 irqreturn_t i965_irq_handler(int, void *);
 void	 i965_irq_uninstall(struct drm_device *);
 void	 intel_irq_init(struct drm_device *);
-
-bool i915_enable_hangcheck = true;
 
 /* For display hotplug interrupt */
 void
@@ -1868,10 +1867,11 @@ i915_hangcheck_hung(struct drm_device *dev)
  * again, we assume the chip is wedged and try to fix it.
  */
 void
-i915_hangcheck_elapsed(void *arg)
+i915_hangcheck_elapsed(unsigned long data)
 {
-	drm_i915_private_t *dev_priv = arg;
-	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+#ifdef notyet
+	struct drm_device *dev = (struct drm_device *)data;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	uint32_t acthd[I915_NUM_RINGS], instdone[I915_NUM_INSTDONE_REG];
 	struct intel_ring_buffer *ring;
 	bool err = false, idle;
@@ -1914,7 +1914,9 @@ i915_hangcheck_elapsed(void *arg)
 
 repeat:
 	/* Reset timer case chip hangs without another request being added */
-	timeout_add_msec(&dev_priv->mm.hang_timer, 750);
+	mod_timer(&dev_priv->hangcheck_timer,
+		  round_jiffies_up(jiffies + DRM_I915_HANGCHECK_JIFFIES));
+#endif
 }
 
 /* drm_dma.h hooks

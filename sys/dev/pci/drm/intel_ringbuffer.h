@@ -203,10 +203,17 @@ static inline int intel_wait_ring_idle(struct intel_ring_buffer *ring)
 
 int intel_ring_begin(struct intel_ring_buffer *ring, int n);
 
-void intel_ring_advance(struct intel_ring_buffer *ring);
+#ifdef notyet
+static inline void intel_ring_emit(struct intel_ring_buffer *ring,
+				   uint32_t data)
+{
+	*(volatile uint32_t *)((char *)ring->virtual_start +
+	    ring->tail) = data;
+	ring->tail += 4;
+}
+#endif
 
-int intel_ring_flush_all_caches(struct intel_ring_buffer *ring);
-int intel_ring_invalidate_all_caches(struct intel_ring_buffer *ring);
+void intel_ring_advance(struct intel_ring_buffer *ring);
 
 int intel_init_render_ring_buffer(struct drm_device *dev);
 int intel_init_bsd_ring_buffer(struct drm_device *dev);
