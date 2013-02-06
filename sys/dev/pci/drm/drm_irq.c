@@ -84,19 +84,8 @@ drm_irq_install(struct drm_device *dev)
 	dev->irq_enabled = 1;
 	DRM_UNLOCK();
 
-	/* Before installing handler */
-	if (dev->driver->irq_preinstall)
-		dev->driver->irq_preinstall(dev);
-
-	/* Install handler */
-	if (dev->driver->irq_handler)
-		ret = dev->driver->irq_handler(dev->irq, dev);
-	if (ret < 0)
+	if ((ret = dev->driver->irq_install(dev)) != 0)
 		goto err;
-
-	/* After installing handler */
-	if (dev->driver->irq_postinstall)
-		ret = dev->driver->irq_postinstall(dev);
 
 	return (0);
 err:
@@ -570,12 +559,9 @@ drm_handle_vblank_events(struct drm_device *dev, int crtc)
 	mtx_leave(&dev->event_lock);
 }
 
-bool
+void
 drm_handle_vblank(struct drm_device *dev, int crtc)
 {
-
-	if (!dev->num_crtcs)
-		return false;
 	/*
 	 * XXX if we had proper atomic operations this mutex wouldn't
 	 * XXX need to be held.
@@ -585,5 +571,4 @@ drm_handle_vblank(struct drm_device *dev, int crtc)
 	wakeup(&dev->vblank->vb_crtcs[crtc]);
 	mtx_leave(&dev->vblank->vb_lock);
 	drm_handle_vblank_events(dev, crtc);
-	return true;
 }

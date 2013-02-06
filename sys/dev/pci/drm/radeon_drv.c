@@ -686,7 +686,7 @@ const static struct drm_pcidev radeondrm_pciidlist[] = {
         {0, 0, 0}
 };
 
-static struct drm_driver_info radeondrm_driver = {
+static const struct drm_driver_info radeondrm_driver = {
 	.buf_priv_size		= sizeof(drm_radeon_buf_priv_t),
 	.file_priv_size		= sizeof(struct drm_radeon_file),
 	.firstopen		= radeon_driver_firstopen,
@@ -698,7 +698,7 @@ static struct drm_driver_info radeondrm_driver = {
 	.get_vblank_counter	= radeon_get_vblank_counter,
 	.enable_vblank		= radeon_enable_vblank,
 	.disable_vblank		= radeon_disable_vblank,
-	.irq_handler		= radeon_driver_irq_install,
+	.irq_install		= radeon_driver_irq_install,
 	.irq_uninstall		= radeon_driver_irq_uninstall,
 	.dma_ioctl		= radeon_cp_buffers,
 
