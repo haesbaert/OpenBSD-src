@@ -1044,6 +1044,128 @@ intel_read_status_page(struct intel_ring_buffer *ring, int reg)
 }
 
 /*
+ * These five ring manipulation functions are protected by dev->dev_lock.
+ */
+int
+ring_wait_for_space(struct intel_ring_buffer *ring, int n)
+{
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	u_int32_t			 acthd_reg, acthd, last_acthd, last_head;
+	int				 i;
+
+	acthd_reg = INTEL_INFO(dev)->gen >= 4 ? ACTHD_I965 : ACTHD;
+	last_head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
+	last_acthd = I915_READ(acthd_reg);
+
+	/* ugh. Could really do with a proper, resettable timer here. */
+	for (i = 0; i < 100000; i++) {
+		ring->head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
+		acthd = I915_READ(acthd_reg);
+		ring->space = ring->head - (ring->tail + 8);
+
+		INTELDRM_VPRINTF("%s: head: %x tail: %x space: %x\n", __func__,
+			ring->head, ring->tail, ring->space);
+		if (ring->space < 0)
+			ring->space += ring->size;
+		if (ring->space >= n)
+			return (0);
+
+		/* Only timeout if the ring isn't chewing away on something */
+		if (ring->head != last_head || acthd != last_acthd)
+			i = 0;
+
+		last_head = ring->head;
+		last_acthd = acthd;
+		delay(10);
+	}
+
+	return (EBUSY);
+}
+
+void
+intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
+{
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+	u_int32_t	rem;;
+
+	rem = ring->size - ring->tail;
+	if (ring->space < rem &&
+	    ring_wait_for_space(ring, rem) != 0)
+			return; /* XXX */
+
+	ring->space -= rem;
+
+	bus_space_set_region_4(dev_priv->bst, ring->bsh,
+	    ring->woffset, MI_NOOP, rem / 4);
+
+	ring->tail = 0;
+}
+
+int
+intel_ring_begin(struct intel_ring_buffer *ring, int ncmd)
+{
+	int	bytes = 4 * ncmd;
+
+	INTELDRM_VPRINTF("%s: %d\n", __func__, ncmd);
+	if (ring->tail + bytes > ring->size)
+		intel_wrap_ring_buffer(ring);
+	if (ring->space < bytes)
+		ring_wait_for_space(ring, bytes);
+	ring->woffset = ring->tail;
+	ring->tail += bytes;
+	ring->tail &= ring->size - 1;
+	ring->space -= bytes;
+
+	return (0);
+}
+
+void
+intel_ring_emit(struct intel_ring_buffer *ring, u_int32_t cmd)
+{
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+
+	INTELDRM_VPRINTF("%s: %x\n", __func__, cmd);
+	bus_space_write_4(dev_priv->bst, ring->bsh,
+	    ring->woffset, cmd);
+	/*
+	 * don't need to deal with wrap here because we padded
+	 * the ring out if we would wrap
+	 */
+	ring->woffset += 4;
+}
+
+void
+intel_ring_advance(struct intel_ring_buffer *ring)
+{
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+
+	INTELDRM_VPRINTF("%s: %x, %x\n", __func__, ring->wspace,
+	    ring->woffset);
+	DRM_MEMORYBARRIER();
+	I915_WRITE(PRB0_TAIL, ring->tail);
+}
+
+void
+inteldrm_update_ring(struct intel_ring_buffer *ring)
+{
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
+
+	ring->head = (I915_READ(PRB0_HEAD) & HEAD_ADDR);
+	ring->tail = (I915_READ(PRB0_TAIL) & TAIL_ADDR);
+	ring->space = ring->head - (ring->tail + 8);
+	if (ring->space < 0)
+		ring->space += ring->size;
+	INTELDRM_VPRINTF("%s: head: %x tail: %x space: %x\n", __func__,
+		ring->head, ring->tail, ring->space);
+}
+
+
+/*
  * Sets up the hardware status page for devices that need a physical address
  * in the register.
  */
@@ -2330,6 +2452,59 @@ unref:
 delhws:
 	cleanup_status_page(ring);
 	return (ret);
+}
+
+int
+init_ring_common(struct intel_ring_buffer *ring)
+{
+	struct drm_device	*dev = ring->dev;
+	drm_i915_private_t	*dev_priv = dev->dev_private;
+	struct drm_i915_gem_object *obj_priv = ring->obj;
+	struct drm_obj		*obj = &obj_priv->base;
+	u_int32_t		 head;
+
+	/* Stop the ring if it's running. */
+	I915_WRITE(PRB0_CTL, 0);
+	I915_WRITE(PRB0_TAIL, 0);
+	I915_WRITE(PRB0_HEAD, 0);
+
+	/* Initialize the ring. */
+	I915_WRITE(PRB0_START, obj_priv->gtt_offset);
+	head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
+
+	/* G45 ring initialisation fails to reset head to zero */
+	if (head != 0) {
+		I915_WRITE(PRB0_HEAD, 0);
+		DRM_DEBUG("Forced ring head to zero ctl %08x head %08x"
+		    "tail %08x start %08x\n", I915_READ(PRB0_CTL),
+		    I915_READ(PRB0_HEAD), I915_READ(PRB0_TAIL),
+		    I915_READ(PRB0_START));
+	}
+
+	I915_WRITE(PRB0_CTL, ((obj->size - 4096) & RING_NR_PAGES) |
+	    RING_NO_REPORT | RING_VALID);
+
+	head = I915_READ(PRB0_HEAD) & HEAD_ADDR;
+	/* If ring head still != 0, the ring is dead */
+	if (head != 0) {
+		DRM_ERROR("Ring initialisation failed: ctl %08x head %08x"
+		    "tail %08x start %08x\n", I915_READ(PRB0_CTL),
+		    I915_READ(PRB0_HEAD), I915_READ(PRB0_TAIL),
+		    I915_READ(PRB0_START));
+		return (EIO);
+	}
+
+	/* Update our cache of the ring state */
+	inteldrm_update_ring(ring);
+
+	if (IS_GEN6(dev) || IS_GEN7(dev))
+		I915_WRITE(MI_MODE | MI_FLUSH_ENABLE << 16 | MI_FLUSH_ENABLE,
+		    (VS_TIMER_DISPATCH) << 15 | VS_TIMER_DISPATCH);
+	else if (IS_I9XX(dev) && !IS_GEN3(dev))
+		I915_WRITE(MI_MODE, (VS_TIMER_DISPATCH) << 15 |
+		    VS_TIMER_DISPATCH);
+
+	return (0);
 }
 
 void

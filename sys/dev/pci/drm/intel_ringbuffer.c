@@ -407,6 +407,7 @@ intel_ring_get_active_head(struct intel_ring_buffer *ring)
 	return I915_READ(acthd_reg);
 }
 
+#ifdef notyet
 int
 init_ring_common(struct intel_ring_buffer *ring)
 {
@@ -498,6 +499,7 @@ out:
 
 	return ret;
 }
+#endif
 
 int
 init_pipe_control(struct intel_ring_buffer *ring)
@@ -1405,6 +1407,7 @@ intel_ring_wait_request(struct intel_ring_buffer *ring, int n)
 	return 0;
 }
 
+#ifdef notyet
 int
 ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 {
@@ -1448,7 +1451,9 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 //	trace_i915_ring_wait_end(ring);
 	return -EBUSY;
 }
+#endif
 
+#ifdef notyet
 int
 intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 {
@@ -1471,6 +1476,7 @@ intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 
 	return 0;
 }
+#endif
 
 int
 intel_ring_idle(struct intel_ring_buffer *ring)
@@ -1505,6 +1511,7 @@ intel_ring_alloc_seqno(struct intel_ring_buffer *ring)
 	return i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_request);
 }
 
+#ifdef notyet
 int
 intel_ring_begin(struct intel_ring_buffer *ring, int num_dwords)
 {
@@ -1547,7 +1554,7 @@ intel_ring_advance(struct intel_ring_buffer *ring)
 		return;
 	ring->write_tail(ring, ring->tail);
 }
-
+#endif
 
 void
 gen6_bsd_ring_write_tail(struct intel_ring_buffer *ring, u32 value)
@@ -1961,6 +1968,7 @@ intel_ring_invalidate_all_caches(struct intel_ring_buffer *ring)
 	return 0;
 }
 
+#ifdef notyet
 void
 intel_ring_emit(struct intel_ring_buffer *ring, uint32_t data)
 {
@@ -1970,3 +1978,4 @@ intel_ring_emit(struct intel_ring_buffer *ring, uint32_t data)
 	    ring->tail, data);
 	ring->tail += 4;
 }
+#endif

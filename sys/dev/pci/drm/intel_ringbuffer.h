@@ -60,6 +60,7 @@ struct  intel_ring_buffer {
 	bus_space_handle_t	 bsh;
 	uint32_t		 head;
 	uint32_t		 tail;
+	uint32_t		 woffset;
 	int			 space;
 	int			 size;
 	int			 effective_size;
