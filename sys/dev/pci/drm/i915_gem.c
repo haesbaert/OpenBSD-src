@@ -1482,7 +1482,7 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 	struct drm_device		*dev = obj->base.dev;
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_fence_reg	*reg;
-	u_int32_t			 seqno = dev_priv->mm.next_gem_seqno;
+	u_int32_t			 seqno = intel_ring_get_seqno(ring);
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
