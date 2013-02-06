@@ -60,7 +60,6 @@
 int
 i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 {
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	int			 tile_width;
 
 	/* Linear is always ok */
@@ -93,8 +92,10 @@ i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 		return ((stride & (tile_width - 1)) == 0);
 
 	/* Pre-965 needs power-of-two */
-	if (stride < tile_width || stride & (stride - 1) ||
-	    i915_get_fence_size(dev_priv, size) != size)
+	if (stride < tile_width)
+		return (0);
+
+	if (stride & (stride - 1))
 		return (0);
 	return (1);
 }
