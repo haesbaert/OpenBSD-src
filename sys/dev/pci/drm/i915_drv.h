@@ -591,8 +591,6 @@ struct inteldrm_softc {
 		struct timeout retire_timer;
 		struct timeout hang_timer;
 
-		uint32_t next_gem_seqno;
-
 		/**
 		 * Are we in a non-interruptible section of code like
 		 * modesetting?

@@ -1658,7 +1658,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	if (dev_priv->mm.wedged)
 		return (EIO);
 
-	if (seqno == dev_priv->mm.next_gem_seqno) {
+	if (seqno == dev_priv->next_seqno) {
 		mtx_enter(&dev_priv->request_lock);
 		seqno = i915_add_request(ring, NULL, NULL);
 		mtx_leave(&dev_priv->request_lock);

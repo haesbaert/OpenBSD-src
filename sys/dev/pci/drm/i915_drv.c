@@ -599,7 +599,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		init_ring_lists(&dev_priv->rings[i]);
 	timeout_set(&dev_priv->mm.retire_timer, inteldrm_timeout, dev_priv);
 	timeout_set(&dev_priv->mm.hang_timer, i915_hangcheck_elapsed, dev_priv);
-	dev_priv->mm.next_gem_seqno = 1;
+	dev_priv->next_seqno = 1;
 	dev_priv->mm.suspended = 1;
 
 	/* On GEN3 we really need to make sure the ARB C3 LP bit is set */
