@@ -1032,6 +1032,17 @@ inteldrm_read_hws(struct inteldrm_softc *dev_priv, int reg)
 	return (val);
 }
 
+uint32_t
+intel_read_status_page(struct intel_ring_buffer *ring, int reg)
+{
+#ifdef notyet
+        return (atomic_load_acq_32(ring->status_page.page_addr + reg));
+#else
+        printf("%s stub\n", __func__);
+        return (inteldrm_read_hws(ring->dev->dev_private, reg));
+#endif
+}
+
 /*
  * Sets up the hardware status page for devices that need a physical address
  * in the register.

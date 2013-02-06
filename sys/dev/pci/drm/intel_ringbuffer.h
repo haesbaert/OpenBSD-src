@@ -172,17 +172,6 @@ intel_ring_sync_index(struct intel_ring_buffer *ring,
 	return idx;
 }
 
-static inline uint32_t
-intel_read_status_page(struct intel_ring_buffer *ring, int reg)
-{
-#ifdef notyet
-	return (atomic_load_acq_32(ring->status_page.page_addr + reg));
-#else
-	printf("%s stub\n", __func__);
-	return 0;
-#endif
-}
-
 /**
  * Reads a dword out of the status page, which is written to from the command
  * queue by automatic updates, MI_REPORT_HEAD, MI_STORE_DATA_INDEX, or
@@ -235,6 +224,8 @@ static inline u32 intel_ring_get_seqno(struct intel_ring_buffer *ring)
 //	BUG_ON(ring->outstanding_lazy_request == 0);
 	return ring->outstanding_lazy_request;
 }
+
+u32 intel_read_status_page(struct intel_ring_buffer *ring, int reg);
 
 void i915_trace_irq_get(struct intel_ring_buffer *ring, uint32_t seqno);
 
