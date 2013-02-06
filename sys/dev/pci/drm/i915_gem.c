@@ -1838,7 +1838,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		ring->last_retired_head = request->tail;
 
 		list_del(&request->list);
-		i915_gem_request_remove_from_client(request);
+//		i915_gem_request_remove_from_client(request);
 		free(request, M_DRM);
 	}
 

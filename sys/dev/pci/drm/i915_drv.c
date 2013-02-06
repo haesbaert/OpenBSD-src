@@ -1038,7 +1038,7 @@ intel_read_status_page(struct intel_ring_buffer *ring, int reg)
 #ifdef notyet
         return (atomic_load_acq_32(ring->status_page.page_addr + reg));
 #else
-        printf("%s stub\n", __func__);
+	// XXX
         return (inteldrm_read_hws(ring->dev->dev_private, reg));
 #endif
 }
