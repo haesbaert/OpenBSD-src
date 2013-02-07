@@ -1126,6 +1126,7 @@ i915_dispatch_execbuffer(struct intel_ring_buffer *ring,
 	return 0;
 }
 
+#ifdef notyet
 void
 cleanup_status_page(struct intel_ring_buffer *ring)
 {
@@ -1143,6 +1144,7 @@ cleanup_status_page(struct intel_ring_buffer *ring)
 	drm_gem_object_unreference(&obj->base);
 	ring->status_page.obj = NULL;
 }
+#endif
 
 int
 init_status_page(struct intel_ring_buffer *ring)

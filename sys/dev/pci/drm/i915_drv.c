@@ -2357,7 +2357,6 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	return 0;
 }
 
-#if 0
 void
 cleanup_status_page(struct intel_ring_buffer *ring)
 {
@@ -2383,7 +2382,6 @@ cleanup_status_page(struct intel_ring_buffer *ring)
 	/* Write high address into HWS_PGA when disabling. */
 	I915_WRITE(HWS_PGA, 0x1ffff000);
 }
-#endif
 
 int
 intel_init_ring_buffer(struct drm_device *dev,
