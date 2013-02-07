@@ -93,7 +93,7 @@ intel_attach_force_audio_property(struct drm_connector *connector)
 
 		dev_priv->force_audio_property = prop;
 	}
-	drm_connector_attach_property(connector, prop, 0);
+	drm_object_attach_property(&connector->base, prop, 0);
 }
 
 static const struct drm_prop_enum_list broadcast_rgb_names[] = {
@@ -120,5 +120,5 @@ intel_attach_broadcast_rgb_property(struct drm_connector *connector)
 		dev_priv->broadcast_rgb_property = prop;
 	}
 
-	drm_connector_attach_property(connector, prop, 0);
+	drm_object_attach_property(&connector->base, prop, 0);
 }

@@ -208,7 +208,7 @@ void	 i9xx_crtc_prepare(struct drm_crtc *);
 void	 i9xx_crtc_commit(struct drm_crtc *);
 void	 ironlake_crtc_prepare(struct drm_crtc *);
 void	 ironlake_crtc_commit(struct drm_crtc *);
-bool	 intel_crtc_mode_fixup(struct drm_crtc *, struct drm_display_mode *,
+bool	 intel_crtc_mode_fixup(struct drm_crtc *, const struct drm_display_mode *,
 	     struct drm_display_mode *);
 int	 i945_get_display_clock_speed(struct drm_device *);
 int	 i915_get_display_clock_speed(struct drm_device *);
@@ -280,13 +280,14 @@ int	 intel_crtc_cursor_set(struct drm_crtc *, struct drm_file *, uint32_t,
 int	 intel_crtc_cursor_move(struct drm_crtc *, int, int);
 void	 intel_crtc_gamma_set(struct drm_crtc *, u16 *, u16 *, u16 *, uint32_t,
 	     uint32_t);
-int	 intel_framebuffer_create(struct drm_device *,
-	     struct drm_mode_fb_cmd2 *, struct drm_i915_gem_object *,
-	     struct drm_framebuffer **);
+struct drm_framebuffer *
+	 intel_framebuffer_create(struct drm_device *,
+	     struct drm_mode_fb_cmd2 *, struct drm_i915_gem_object *);
 u32	 intel_framebuffer_pitch_for_width(int, int);
 u32	 intel_framebuffer_size_for_mode(struct drm_display_mode *, int);
-int	 intel_framebuffer_create_for_mode(struct drm_device *,
-	     struct drm_display_mode *, int, int, struct drm_framebuffer **);
+struct drm_framebuffer *
+	 intel_framebuffer_create_for_mode(struct drm_device *,
+	     struct drm_display_mode *, int, int);
 int	 mode_fits_in_fbdev(struct drm_device *, struct drm_display_mode *,
 	     struct drm_framebuffer **);
 int	 intel_crtc_clock_get(struct drm_device *, struct drm_crtc *);
@@ -303,9 +304,9 @@ void	 intel_setup_outputs(struct drm_device *);
 void	 intel_user_framebuffer_destroy(struct drm_framebuffer *);
 int	 intel_user_framebuffer_create_handle(struct drm_framebuffer *,
 	     struct drm_file *, unsigned int *);
-int	 intel_user_framebuffer_create(struct drm_device *,
-	     struct drm_file *, struct drm_mode_fb_cmd2 *,
-	     struct drm_framebuffer **);
+struct drm_framebuffer *
+	 intel_user_framebuffer_create(struct drm_device *,
+	 struct drm_file *, struct drm_mode_fb_cmd2 *);
 unsigned long	 intel_pxfreq(u32);
 int	 intel_enable_rc6(struct drm_device *);
 void	 ironlake_init_clock_gating(struct drm_device *);
@@ -724,15 +725,11 @@ bool
 intel_pipe_has_type(struct drm_crtc *crtc, int type)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
+	struct intel_encoder *encoder;
 
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		if (encoder->crtc == crtc && intel_encoder->type == type)
+	for_each_encoder_on_crtc(dev, crtc, encoder)
+		if (encoder->type == type)
 			return true;
-	}
 
 	return false;
 }
@@ -2230,7 +2227,7 @@ intel_update_fbc(struct drm_device *dev)
 	 *   - new fb is too large to fit in compressed buffer
 	 *   - going to an unsupported config (interlace, pixel multiply, etc.)
 	 */
-	TAILQ_FOREACH(tmp_crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, head) {
 		if (tmp_crtc->enabled && tmp_crtc->fb) {
 			if (crtc) {
 				DRM_DEBUG_KMS("more than one pipe active, disabling compression\n");
@@ -3308,22 +3305,16 @@ bool
 intel_crtc_driving_pch(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
 	struct intel_encoder *intel_encoder;
 
 	/*
 	 * If there's a non-PCH eDP on this crtc, it must be DP_A, and that
 	 * must be driven by its own crtc; no sharing is possible.
 	 */
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		if (encoder->crtc != crtc)
-			continue;
-
+	for_each_encoder_on_crtc(dev, crtc, intel_encoder) {
 		switch (intel_encoder->type) {
 		case INTEL_OUTPUT_EDP:
-			if (!intel_encoder_is_pch_edp(encoder))
+			if (!intel_encoder_is_pch_edp(&intel_encoder->base))
 				return false;
 			continue;
 		}
@@ -3901,7 +3892,7 @@ intel_encoder_destroy(struct drm_encoder *encoder)
 }
 
 bool
-intel_crtc_mode_fixup(struct drm_crtc *crtc, struct drm_display_mode *mode,
+intel_crtc_mode_fixup(struct drm_crtc *crtc, const struct drm_display_mode *mode,
     struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = crtc->dev;
@@ -4375,7 +4366,7 @@ single_enabled_crtc(struct drm_device *dev)
 {
 	struct drm_crtc *crtc, *enabled = NULL;
 
-	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (crtc->enabled && crtc->fb) {
 			if (enabled)
 				return NULL;
@@ -5390,16 +5381,12 @@ intel_choose_pipe_bpp_dither(struct drm_crtc *crtc, unsigned int *pipe_bpp,
 {
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct drm_encoder *encoder;
 	struct drm_connector *connector;
+	struct intel_encoder *intel_encoder;
 	unsigned int display_bpc = UINT_MAX, bpc;
 
 	/* Walk the encoders & connectors on this crtc, get min bpc */
-	TAILQ_FOREACH(encoder, &dev->mode_config.encoder_list, head) {
-		struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
-
-		if (encoder->crtc != crtc)
-			continue;
+	for_each_encoder_on_crtc(dev, crtc, intel_encoder) {
 
 		if (intel_encoder->type == INTEL_OUTPUT_LVDS) {
 			unsigned int lvds_bpc;
@@ -5429,9 +5416,9 @@ intel_choose_pipe_bpp_dither(struct drm_crtc *crtc, unsigned int *pipe_bpp,
 		}
 
 		/* Not one of the known troublemakers, check the EDID */
-		TAILQ_FOREACH(connector, &dev->mode_config.connector_list,
+		list_for_each_entry(connector, &dev->mode_config.connector_list,
 				    head) {
-			if (connector->encoder != encoder)
+			if (connector->encoder != &intel_encoder->base)
 				continue;
 
 			/* Don't use an invalid EDID bpc value */
@@ -5595,27 +5582,21 @@ i9xx_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	u32 dpll, dspcntr, pipeconf, vsyncshift;
 	bool ok, has_reduced_clock = false, is_sdvo = false, is_dvo = false;
 	bool is_crt = false, is_lvds = false, is_tv = false, is_dp = false;
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
+	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
 	int ret;
 	u32 temp;
 	u32 lvds_sync = 0;
 
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		if (encoder->crtc != crtc)
-			continue;
-
-		switch (intel_encoder->type) {
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		switch (encoder->type) {
 		case INTEL_OUTPUT_LVDS:
 			is_lvds = true;
 			break;
 		case INTEL_OUTPUT_SDVO:
 		case INTEL_OUTPUT_HDMI:
 			is_sdvo = true;
-			if (intel_encoder->needs_tv_clock)
+			if (encoder->needs_tv_clock)
 				is_tv = true;
 			break;
 		case INTEL_OUTPUT_DVO:
@@ -5947,8 +5928,7 @@ ironlake_init_pch_refclk(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
+	struct intel_encoder *encoder;
 	u32 temp;
 	bool has_lvds = false;
 	bool has_cpu_edp = false;
@@ -5958,16 +5938,16 @@ ironlake_init_pch_refclk(struct drm_device *dev)
 	bool can_ssc = false;
 
 	/* We need to take the global config into account */
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		switch (intel_encoder->type) {
+	list_for_each_entry(encoder, &mode_config->encoder_list,
+			    base.head) {
+		switch (encoder->type) {
 		case INTEL_OUTPUT_LVDS:
 			has_panel = true;
 			has_lvds = true;
 			break;
 		case INTEL_OUTPUT_EDP:
 			has_panel = true;
-			if (intel_encoder_is_pch_edp(encoder))
+			if (intel_encoder_is_pch_edp(&encoder->base))
 				has_pch_edp = true;
 			else
 				has_cpu_edp = true;
@@ -6063,24 +6043,18 @@ ironlake_get_refclk(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
-	struct drm_mode_config *mode_config = &dev->mode_config;
+	struct intel_encoder *encoder;
 	struct intel_encoder *edp_encoder = NULL;
 	int num_connectors = 0;
 	bool is_lvds = false;
 
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		if (encoder->crtc != crtc)
-			continue;
-
-		switch (intel_encoder->type) {
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		switch (encoder->type) {
 		case INTEL_OUTPUT_LVDS:
 			is_lvds = true;
 			break;
 		case INTEL_OUTPUT_EDP:
-			edp_encoder = intel_encoder;
+			edp_encoder = encoder;
 			break;
 		}
 		num_connectors++;
@@ -6111,9 +6085,7 @@ ironlake_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	bool ok, has_reduced_clock = false, is_sdvo = false;
 	bool is_crt = false, is_lvds = false, is_tv = false, is_dp = false;
 	struct intel_encoder *has_edp_encoder = NULL;
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
+	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
 	int ret;
 	struct fdi_m_n m_n = {0};
@@ -6123,19 +6095,15 @@ ironlake_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	unsigned int pipe_bpp;
 	bool dither;
 
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		if (encoder->crtc != crtc)
-			continue;
-
-		switch (intel_encoder->type) {
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		switch (encoder->type) {
 		case INTEL_OUTPUT_LVDS:
 			is_lvds = true;
 			break;
 		case INTEL_OUTPUT_SDVO:
 		case INTEL_OUTPUT_HDMI:
 			is_sdvo = true;
-			if (intel_encoder->needs_tv_clock)
+			if (encoder->needs_tv_clock)
 				is_tv = true;
 			break;
 		case INTEL_OUTPUT_TVOUT:
@@ -6148,7 +6116,7 @@ ironlake_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
 			is_dp = true;
 			break;
 		case INTEL_OUTPUT_EDP:
-			has_edp_encoder = intel_encoder;
+			has_edp_encoder = encoder;
 			break;
 		}
 
@@ -7090,24 +7058,22 @@ static struct drm_display_mode load_detect_mode = {
 		 704, 832, 0, 480, 489, 491, 520, 0, DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC),
 };
 
-int
+struct drm_framebuffer *
 intel_framebuffer_create(struct drm_device *dev,
-    struct drm_mode_fb_cmd2 *mode_cmd, struct drm_i915_gem_object *obj,
-    struct drm_framebuffer **res)
+    struct drm_mode_fb_cmd2 *mode_cmd, struct drm_i915_gem_object *obj)
 {
 	struct intel_framebuffer *intel_fb;
 	int ret;
 
-	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_WAITOK | M_ZERO);
+	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_NOWAIT | M_ZERO);
 	ret = intel_framebuffer_init(dev, intel_fb, mode_cmd, obj);
 	if (ret) {
 		drm_unref(&obj->base.uobj);
 		free(intel_fb, M_DRM);
-		return (ret);
+		return (NULL);
 	}
 
-	*res = &intel_fb->base;
-	return (0);
+	return &intel_fb->base;
 }
 
 u32
@@ -7124,10 +7090,9 @@ intel_framebuffer_size_for_mode(struct drm_display_mode *mode, int bpp)
 	return roundup2(pitch * mode->vdisplay, PAGE_SIZE);
 }
 
-int
+struct drm_framebuffer *
 intel_framebuffer_create_for_mode(struct drm_device *dev,
-    struct drm_display_mode *mode, int depth, int bpp,
-    struct drm_framebuffer **res)
+    struct drm_display_mode *mode, int depth, int bpp)
 {
 	struct drm_i915_gem_object *obj;
 	struct drm_mode_fb_cmd2 mode_cmd;
@@ -7136,7 +7101,7 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
 	    intel_framebuffer_size_for_mode(mode, bpp)));
 
 	if (obj == NULL)
-		return (-ENOMEM);
+		return (NULL);
 
 	mode_cmd.width = mode->hdisplay;
 	mode_cmd.height = mode->vdisplay;
@@ -7144,7 +7109,7 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
 								bpp);
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(bpp, depth);
 
-	return (intel_framebuffer_create(dev, &mode_cmd, obj, res));
+	return (intel_framebuffer_create(dev, &mode_cmd, obj));
 }
 
 int
@@ -7233,7 +7198,7 @@ intel_get_load_detect_pipe(struct intel_encoder *intel_encoder,
 	}
 
 	/* Find an unused one (if possible) */
-	TAILQ_FOREACH(possible_crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(possible_crtc, &dev->mode_config.crtc_list, head) {
 		i++;
 		if (!(encoder->possible_crtcs & (1 << i)))
 			continue;
@@ -7274,8 +7239,7 @@ intel_get_load_detect_pipe(struct intel_encoder *intel_encoder,
 	r = mode_fits_in_fbdev(dev, mode, &crtc->fb);
 	if (crtc->fb == NULL) {
 		DRM_DEBUG_KMS("creating tmp fb for load-detection\n");
-		r = intel_framebuffer_create_for_mode(dev, mode, 24, 32,
-		    &crtc->fb);
+		crtc->fb = intel_framebuffer_create_for_mode(dev, mode, 24, 32);
 		old->release_fb = crtc->fb;
 	} else
 		DRM_DEBUG_KMS("reusing fbdev for load-detection framebuffer\n");
@@ -7592,7 +7556,7 @@ intel_idle_update(void *arg, int pending)
 	i915_update_gfx_val(dev_priv);
 #endif
 
-	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		/* Skip inactive CRTCs */
 		if (!crtc->fb)
 			continue;
@@ -7631,7 +7595,7 @@ intel_mark_busy(struct drm_device *dev, struct drm_i915_gem_object *obj)
 	else
 		timeout_add_msec(&dev_priv->idle_timeout, GPU_IDLE_TIMEOUT);
 
-	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (!crtc->fb)
 			continue;
 
@@ -8254,14 +8218,13 @@ intel_get_pipe_from_crtc_id(struct drm_device *dev, void *data,
 int
 intel_encoder_clones(struct drm_device *dev, int type_mask)
 {
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
+	struct intel_encoder *encoder;
 	int index_mask = 0;
 	int entry = 0;
 
-	TAILQ_FOREACH(encoder, &dev->mode_config.encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		if (type_mask & intel_encoder->clone_mask)
+	list_for_each_entry(encoder,
+			    &dev->mode_config.encoder_list, base.head) {
+		if (type_mask & encoder->clone_mask)
 			index_mask |= (1 << entry);
 		entry++;
 	}
@@ -8291,8 +8254,7 @@ void
 intel_setup_outputs(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct drm_encoder *encoder;
-	struct intel_encoder *intel_encoder;
+	struct intel_encoder *encoder;
 	bool dpd_is_edp = false;
 	bool has_lvds;
 
@@ -8396,11 +8358,10 @@ intel_setup_outputs(struct drm_device *dev)
 	if (SUPPORTS_TV(dev))
 		intel_tv_init(dev);
 
-	TAILQ_FOREACH(encoder, &dev->mode_config.encoder_list, head) {
-		intel_encoder = to_intel_encoder(encoder);
-		encoder->possible_crtcs = intel_encoder->crtc_mask;
-		encoder->possible_clones =
-			intel_encoder_clones(dev, intel_encoder->clone_mask);
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, base.head) {
+		encoder->base.possible_crtcs = encoder->crtc_mask;
+		encoder->base.possible_clones =
+			intel_encoder_clones(dev, encoder->clone_mask);
 	}
 
 	/* disable all the possible outputs/crtcs before entering KMS mode */
@@ -8481,19 +8442,18 @@ intel_framebuffer_init(struct drm_device *dev,
 	return 0;
 }
 
-int
+struct drm_framebuffer *
 intel_user_framebuffer_create(struct drm_device *dev,
-    struct drm_file *filp, struct drm_mode_fb_cmd2 *mode_cmd,
-    struct drm_framebuffer **res)
+    struct drm_file *filp, struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct drm_i915_gem_object *obj;
 
 	obj = to_intel_bo(drm_gem_object_lookup(dev, filp,
 						mode_cmd->handles[0]));
 	if (&obj->base == NULL)
-		return (-ENOENT);
+		return (NULL);
 
-	return (intel_framebuffer_create(dev, mode_cmd, obj, res));
+	return (intel_framebuffer_create(dev, mode_cmd, obj));
 }
 
 static const struct drm_mode_config_funcs intel_mode_funcs = {
@@ -9863,7 +9823,7 @@ intel_modeset_cleanup(struct drm_device *dev)
 	intel_unregister_dsm_handler();
 #endif
 
-	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		/* Skip inactive CRTCs */
 		if (!crtc->fb)
 			continue;
@@ -9897,7 +9857,7 @@ intel_modeset_cleanup(struct drm_device *dev)
 #endif
 
 	/* Shut off idle work before the crtcs get freed. */
-	TAILQ_FOREACH(crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		intel_crtc = to_intel_crtc(crtc);
 		timeout_del(&intel_crtc->idle_timeout);
 	}

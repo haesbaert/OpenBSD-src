@@ -784,7 +784,7 @@ const struct tv_mode	*intel_tv_mode_lookup(const char *);
 const struct tv_mode	*intel_tv_mode_find(struct intel_tv *);
 enum drm_mode_status	 intel_tv_mode_valid(struct drm_connector *,
 			     struct drm_display_mode *);
-bool	 intel_tv_mode_fixup(struct drm_encoder *, struct drm_display_mode *,
+bool	 intel_tv_mode_fixup(struct drm_encoder *, const struct drm_display_mode *,
 	     struct drm_display_mode *);
 void	 intel_tv_mode_set(struct drm_encoder *, struct drm_display_mode *,
 	     struct drm_display_mode *);
@@ -867,7 +867,7 @@ intel_tv_mode_valid(struct drm_connector *connector,
 }
 
 bool
-intel_tv_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
+intel_tv_mode_fixup(struct drm_encoder *encoder, const struct drm_display_mode *mode,
     struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
@@ -880,7 +880,7 @@ intel_tv_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
 		return false;
 
 	/* FIXME: lock encoder list */
-	TAILQ_FOREACH(other_encoder, &drm_config->encoder_list, head) {
+	list_for_each_entry(encoder, &drm_config->encoder_list, head) {
 		if (other_encoder != encoder &&
 		    other_encoder->crtc == encoder->crtc)
 			return false;
@@ -1245,7 +1245,7 @@ intel_tv_find_better_format(struct drm_connector *connector)
 	}
 
 	intel_tv->tv_format = tv_mode->name;
-	drm_connector_property_set_value(connector,
+	drm_object_property_set_value(&connector->base,
 		connector->dev->mode_config.tv_mode_property, i);
 }
 
@@ -1407,7 +1407,7 @@ intel_tv_set_property(struct drm_connector *connector,
 	int ret = 0;
 	bool changed = false;
 
-	ret = drm_connector_property_set_value(connector, property, val);
+	ret = drm_object_property_set_value(&connector->base, property, val);
 	if (ret < 0)
 		goto out;
 
@@ -1611,18 +1611,18 @@ intel_tv_init(struct drm_device *dev)
 				      nitems(tv_modes),
 				      tv_format_names);
 
-	drm_connector_attach_property(connector, dev->mode_config.tv_mode_property,
+	drm_object_attach_property(&connector->base, dev->mode_config.tv_mode_property,
 				   initial_mode);
-	drm_connector_attach_property(connector,
+	drm_object_attach_property(&connector->base,
 				   dev->mode_config.tv_left_margin_property,
 				   intel_tv->margin[TV_MARGIN_LEFT]);
-	drm_connector_attach_property(connector,
+	drm_object_attach_property(&connector->base,
 				   dev->mode_config.tv_top_margin_property,
 				   intel_tv->margin[TV_MARGIN_TOP]);
-	drm_connector_attach_property(connector,
+	drm_object_attach_property(&connector->base,
 				   dev->mode_config.tv_right_margin_property,
 				   intel_tv->margin[TV_MARGIN_RIGHT]);
-	drm_connector_attach_property(connector,
+	drm_object_attach_property(&connector->base,
 				   dev->mode_config.tv_bottom_margin_property,
 				   intel_tv->margin[TV_MARGIN_BOTTOM]);
 #if 0

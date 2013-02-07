@@ -431,6 +431,7 @@ drmopen(dev_t kdev, int flags, int fmt, struct proc *p)
 	file_priv->kdev = kdev;
 	file_priv->flags = flags;
 	file_priv->minor = minor(kdev);
+	INIT_LIST_HEAD(&file_priv->fbs);
 	TAILQ_INIT(&file_priv->evlist);
 	file_priv->event_space = 4096; /* 4k for event buffer */
 	DRM_DEBUG("minor = %d\n", file_priv->minor);

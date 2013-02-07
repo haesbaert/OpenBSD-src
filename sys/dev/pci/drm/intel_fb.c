@@ -274,7 +274,7 @@ intel_fb_restore_mode(struct drm_device *dev)
 		DRM_DEBUG("failed to restore crtc mode\n");
 
 	/* Be sure to shut off any planes that may be active */
-	TAILQ_FOREACH(plane, &config->plane_list, head)
+	list_for_each_entry(plane, &config->plane_list, head)
 		plane->funcs->disable_plane(plane);
 
 	mtx_leave(&dev->mode_config.mutex);

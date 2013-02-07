@@ -44,7 +44,7 @@ int	 intel_lvds_mode_valid(struct drm_connector *,
 void	 centre_horizontally(struct drm_display_mode *, int);
 void	 centre_vertically(struct drm_display_mode *, int);
 bool	 intel_lvds_mode_fixup(struct drm_encoder *,
-	     struct drm_display_mode *, struct drm_display_mode *);
+	     const struct drm_display_mode *, struct drm_display_mode *);
 void	 intel_lvds_prepare(struct drm_encoder *);
 void	 intel_lvds_commit(struct drm_encoder *);
 void	 intel_lvds_mode_set(struct drm_encoder *, struct drm_display_mode *,
@@ -270,7 +270,7 @@ panel_fitter_scaling(u32 source, u32 target)
 
 bool
 intel_lvds_mode_fixup(struct drm_encoder *encoder,
-    struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
+    const struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -287,7 +287,7 @@ intel_lvds_mode_fixup(struct drm_encoder *encoder,
 	}
 
 	/* Should never happen!! */
-	TAILQ_FOREACH(tmp_encoder, &dev->mode_config.encoder_list, head) {
+	list_for_each_entry(tmp_encoder, &dev->mode_config.encoder_list, head) {
 		if (tmp_encoder != encoder && tmp_encoder->crtc == encoder->crtc) {
 			DRM_ERROR("Can't enable LVDS and another "
 			       "encoder on the same pipe\n");
@@ -845,7 +845,7 @@ intel_find_lvds_downclock(struct drm_device *dev,
 	int temp_downclock;
 
 	temp_downclock = fixed_mode->clock;
-	TAILQ_FOREACH(scan, &connector->probed_modes, head) {
+	list_for_each_entry(scan, &connector->probed_modes, head) {
 		/*
 		 * If one mode has the same resolution with the fixed_panel
 		 * mode while they have the different refresh rate, it means
@@ -1026,7 +1026,7 @@ intel_lvds_init(struct drm_device *dev)
 	 * the initial panel fitting mode will be FULL_SCREEN.
 	 */
 
-	drm_connector_attach_property(&intel_connector->base,
+	drm_object_attach_property(&connector->base,
 				      dev->mode_config.scaling_mode_property,
 				      DRM_MODE_SCALE_ASPECT);
 	intel_lvds->fitting_mode = DRM_MODE_SCALE_ASPECT;
@@ -1067,7 +1067,7 @@ intel_lvds_init(struct drm_device *dev)
 		connector->display_info.max_hfreq = 200;
 	}
 
-	TAILQ_FOREACH(scan, &connector->probed_modes, head) {
+	list_for_each_entry(scan, &connector->probed_modes, head) {
 		if (scan->type & DRM_MODE_TYPE_PREFERRED) {
 			intel_lvds->fixed_mode =
 				drm_mode_duplicate(dev, scan);

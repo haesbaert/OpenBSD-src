@@ -70,6 +70,7 @@
 #include <machine/param.h>
 #include <machine/bus.h>
 
+#include "drm_linux_list.h"
 #include "drm.h"
 #include "drm_atomic.h"
 #include "agp.h"
@@ -122,12 +123,18 @@
 
 extern struct cfdriver drm_cd;
 
+/* linux compat */
 typedef u_int64_t u64;
 typedef u_int32_t u32;
 typedef u_int16_t u16;
 typedef u_int8_t u8;
 
+typedef int64_t s64;
+
 typedef uint16_t __le16;
+
+#define EXPORT_SYMBOL(x)
+#define ARRAY_SIZE nitems
 
 #define container_of(ptr, type, member) ({                      \
 	__typeof( ((type *)0)->member ) *__mptr = (ptr);        \
@@ -300,7 +307,7 @@ struct drm_file {
 	int					 master;
 	int					 minor;
 	u_int					 obj_id; /*next gem id*/
-	TAILQ_HEAD(, drm_framebuffer)		 fbs;
+	struct list_head			 fbs;
 };
 
 struct drm_lock_data {
@@ -769,6 +776,7 @@ void	drm_vblank_pre_modeset(struct drm_device *, int);
 void	drm_vblank_post_modeset(struct drm_device *, int);
 int	drm_modeset_ctl(struct drm_device *, void *, struct drm_file *);
 void	drm_handle_vblank(struct drm_device *, int);
+void	drm_calc_timestamping_constants(struct drm_crtc *);
 
 /* AGP/PCI Express/GART support (drm_agpsupport.c) */
 struct drm_agp_head *drm_agp_init(void);

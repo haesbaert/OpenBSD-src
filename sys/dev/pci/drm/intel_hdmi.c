@@ -61,7 +61,7 @@ void	 intel_hdmi_mode_set(struct drm_encoder *, struct drm_display_mode *,
 void	 intel_hdmi_dpms(struct drm_encoder *, int);
 int	 intel_hdmi_mode_valid(struct drm_connector *,
 	     struct drm_display_mode *);
-bool	 intel_hdmi_mode_fixup(struct drm_encoder *, struct drm_display_mode *,
+bool	 intel_hdmi_mode_fixup(struct drm_encoder *, const struct drm_display_mode *,
 	     struct drm_display_mode *);
 enum drm_connector_status	 intel_hdmi_detect(struct drm_connector *,
 				     bool);
@@ -352,7 +352,7 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 
 bool
 intel_hdmi_mode_fixup(struct drm_encoder *encoder,
-    struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
+    const struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
 {
 	return true;
 }
@@ -378,7 +378,6 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 						drm_detect_hdmi_monitor(edid);
 			intel_hdmi->has_audio = drm_detect_monitor_audio(edid);
 		}
-		connector->display_info.raw_edid = NULL;
 		free(edid, M_DRM);
 	} else {
 		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] got no edid, ddc port %d\n",
@@ -422,8 +421,6 @@ intel_hdmi_detect_audio(struct drm_connector *connector)
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL)
 			has_audio = drm_detect_monitor_audio(edid);
-
-		connector->display_info.raw_edid = NULL;
 		free(edid, M_DRM);
 	}
 
@@ -438,7 +435,7 @@ intel_hdmi_set_property(struct drm_connector *connector,
 	struct inteldrm_softc *dev_priv = connector->dev->dev_private;
 	int ret;
 
-	ret = drm_connector_property_set_value(connector, property, val);
+	ret = drm_object_property_set_value(&connector->base, property, val);
 	if (ret)
 		return ret;
 

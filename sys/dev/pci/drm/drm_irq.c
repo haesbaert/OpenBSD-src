@@ -158,6 +158,59 @@ drm_control(struct drm_device *dev, void *data, struct drm_file *file_priv)
 	}
 }
 
+/**
+ * drm_calc_timestamping_constants - Calculate and
+ * store various constants which are later needed by
+ * vblank and swap-completion timestamping, e.g, by
+ * drm_calc_vbltimestamp_from_scanoutpos().
+ * They are derived from crtc's true scanout timing,
+ * so they take things like panel scaling or other
+ * adjustments into account.
+ *
+ * @crtc drm_crtc whose timestamp constants should be updated.
+ *
+ */
+void
+drm_calc_timestamping_constants(struct drm_crtc *crtc)
+{
+	int64_t linedur_ns = 0, pixeldur_ns = 0, framedur_ns = 0;
+	uint64_t dotclock;
+
+	/* Dot clock in Hz: */
+	dotclock = (uint64_t) crtc->hwmode.clock * 1000;
+
+	/* Fields of interlaced scanout modes are only halve a frame duration.
+	 * Double the dotclock to get halve the frame-/line-/pixelduration.
+	 */
+	if (crtc->hwmode.flags & DRM_MODE_FLAG_INTERLACE)
+		dotclock *= 2;
+
+	/* Valid dotclock? */
+	if (dotclock > 0) {
+		/* Convert scanline length in pixels and video dot clock to
+		 * line duration, frame duration and pixel duration in
+		 * nanoseconds:
+		 */
+		pixeldur_ns = (int64_t)1000000000 / dotclock;
+		linedur_ns  = ((uint64_t)crtc->hwmode.crtc_htotal *
+		    1000000000) / dotclock;
+		framedur_ns = (int64_t) crtc->hwmode.crtc_vtotal * linedur_ns;
+	} else
+		DRM_ERROR("crtc %d: Can't calculate constants, dotclock = 0!\n",
+			  crtc->base.id);
+
+	crtc->pixeldur_ns = pixeldur_ns;
+	crtc->linedur_ns  = linedur_ns;
+	crtc->framedur_ns = framedur_ns;
+
+	DRM_DEBUG("crtc %d: hwmode: htotal %d, vtotal %d, vdisplay %d\n",
+		  crtc->base.id, crtc->hwmode.crtc_htotal,
+		  crtc->hwmode.crtc_vtotal, crtc->hwmode.crtc_vdisplay);
+	DRM_DEBUG("crtc %d: clock %d kHz framedur %d linedur %d, pixeldur %d\n",
+		  crtc->base.id, (int) dotclock/1000, (int) framedur_ns,
+		  (int) linedur_ns, (int) pixeldur_ns);
+}
+
 void
 vblank_disable(void *arg)
 {

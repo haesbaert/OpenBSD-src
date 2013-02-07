@@ -91,8 +91,8 @@ int	 intel_dp_max_link_bw(struct intel_dp *);
 int	 intel_dp_link_clock(uint8_t);
 int	 intel_dp_link_required(int, int);
 int	 intel_dp_max_data_rate(int, int);
-bool	 intel_dp_adjust_dithering(struct intel_dp *, struct drm_display_mode *,
-	     struct drm_display_mode *);
+bool	 intel_dp_adjust_dithering(struct intel_dp *,
+	     struct drm_display_mode *, bool);
 int	 intel_dp_mode_valid(struct drm_connector *, struct drm_display_mode *);
 uint32_t pack_aux(uint8_t *, int);
 void	 unpack_aux(uint32_t, uint8_t *, int);
@@ -107,7 +107,7 @@ int	 intel_dp_aux_native_write_1(struct intel_dp *, uint16_t, uint8_t);
 int	 intel_dp_aux_native_read(struct intel_dp *, uint16_t, uint8_t *, int);
 int	 intel_dp_i2c_init(struct intel_dp *, struct intel_connector *,
 	     const char *);
-bool	 intel_dp_mode_fixup(struct drm_encoder *, struct drm_display_mode *,
+bool	 intel_dp_mode_fixup(struct drm_encoder *, const struct drm_display_mode *,
 	     struct drm_display_mode *);
 void	 intel_reduce_ratio(uint32_t *, uint32_t *);
 void	 intel_dp_compute_m_n(int, int, int, int, struct intel_dp_m_n *);
@@ -334,7 +334,7 @@ intel_dp_max_data_rate(int max_link_clock, int max_lanes)
 
 bool
 intel_dp_adjust_dithering(struct intel_dp *intel_dp,
-    struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
+    struct drm_display_mode *mode, bool adjust_mode)
 {
 	int max_link_clock = intel_dp_link_clock(intel_dp_max_link_bw(intel_dp));
 	int max_lanes = intel_dp_max_lane_count(intel_dp);
@@ -348,8 +348,8 @@ intel_dp_adjust_dithering(struct intel_dp *intel_dp,
 		if (mode_rate > max_rate)
 			return false;
 
-		if (adjusted_mode)
-			adjusted_mode->private_flags
+		if (adjust_mode)
+			mode->private_flags
 				|= INTEL_MODE_DP_FORCE_6BPC;
 
 		return true;
@@ -790,7 +790,7 @@ intel_dp_i2c_init(struct intel_dp *intel_dp,
 }
 
 bool
-intel_dp_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
+intel_dp_mode_fixup(struct drm_encoder *encoder, const struct drm_display_mode *mode,
     struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
@@ -805,14 +805,9 @@ intel_dp_mode_fixup(struct drm_encoder *encoder, struct drm_display_mode *mode,
 		intel_fixed_panel_mode(intel_dp->panel_fixed_mode, adjusted_mode);
 		intel_pch_panel_fitting(dev, DRM_MODE_SCALE_FULLSCREEN,
 					mode, adjusted_mode);
-		/*
-		 * the mode->clock is used to calculate the Data&Link M/N
-		 * of the pipe. For the eDP the fixed clock should be used.
-		 */
-		mode->clock = intel_dp->panel_fixed_mode->clock;
 	}
 
-	if (!intel_dp_adjust_dithering(intel_dp, mode, adjusted_mode))
+	if (!intel_dp_adjust_dithering(intel_dp, adjusted_mode, true))
 		return false;
 
 	bpp = adjusted_mode->private_flags & INTEL_MODE_DP_FORCE_6BPC ? 18 : 24;
@@ -865,8 +860,8 @@ intel_dp_set_m_n(struct drm_crtc *crtc, struct drm_display_mode *mode,
     struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
+	struct intel_encoder *intel_encoder;
+	struct intel_dp *intel_dp;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int lane_count = 4;
@@ -876,15 +871,11 @@ intel_dp_set_m_n(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	/*
 	 * Find the lane count in the intel_encoder private
 	 */
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		struct intel_dp *intel_dp;
+	for_each_encoder_on_crtc(dev, crtc, intel_encoder) {
+		intel_dp = enc_to_intel_dp(&intel_encoder->base);
 
-		if (encoder->crtc != crtc)
-			continue;
-
-		intel_dp = enc_to_intel_dp(encoder);
-		if (intel_dp->base.type == INTEL_OUTPUT_DISPLAYPORT ||
-		    intel_dp->base.type == INTEL_OUTPUT_EDP)
+		if (intel_encoder->type == INTEL_OUTPUT_DISPLAYPORT ||
+		    intel_encoder->type == INTEL_OUTPUT_EDP)
 		{
 			lane_count = intel_dp->lane_count;
 			break;
@@ -2252,7 +2243,6 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 		edid = intel_dp_get_edid(connector, intel_dp->adapter);
 		if (edid) {
 			intel_dp->has_audio = drm_detect_monitor_audio(edid);
-			connector->display_info.raw_edid = NULL;
 			free(edid, M_DRM);
 		}
 	}
@@ -2275,8 +2265,8 @@ intel_dp_get_modes(struct drm_connector *connector)
 	if (ret) {
 		if (is_edp(intel_dp) && !intel_dp->panel_fixed_mode) {
 			struct drm_display_mode *newmode;
-			TAILQ_FOREACH(newmode, &connector->probed_modes,
-					    head) {
+			list_for_each_entry(newmode, &connector->probed_modes,
+			    head) {
 				if ((newmode->type & DRM_MODE_TYPE_PREFERRED)) {
 					intel_dp->panel_fixed_mode =
 						drm_mode_duplicate(dev, newmode);
@@ -2308,6 +2298,7 @@ intel_dp_get_modes(struct drm_connector *connector)
 	return 0;
 }
 
+
 bool
 intel_dp_detect_audio(struct drm_connector *connector)
 {
@@ -2318,8 +2309,6 @@ intel_dp_detect_audio(struct drm_connector *connector)
 	edid = intel_dp_get_edid(connector, intel_dp->adapter);
 	if (edid) {
 		has_audio = drm_detect_monitor_audio(edid);
-
-		connector->display_info.raw_edid = NULL;
 		free(edid, M_DRM);
 	}
 
@@ -2334,7 +2323,7 @@ intel_dp_set_property(struct drm_connector *connector,
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
 	int ret;
 
-	ret = drm_connector_property_set_value(connector, property, val);
+	ret = drm_object_property_set_value(&connector->base, property, val);
 	if (ret)
 		return ret;
 
@@ -2470,18 +2459,14 @@ int
 intel_trans_dp_port_sel(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
-	struct drm_encoder *encoder;
+	struct intel_encoder *intel_encoder;
+	struct intel_dp *intel_dp;
 
-	TAILQ_FOREACH(encoder, &mode_config->encoder_list, head) {
-		struct intel_dp *intel_dp;
+	for_each_encoder_on_crtc(dev, crtc, intel_encoder) {
+		intel_dp = enc_to_intel_dp(&intel_encoder->base);
 
-		if (encoder->crtc != crtc)
-			continue;
-
-		intel_dp = enc_to_intel_dp(encoder);
-		if (intel_dp->base.type == INTEL_OUTPUT_DISPLAYPORT ||
-		    intel_dp->base.type == INTEL_OUTPUT_EDP)
+		if (intel_encoder->type == INTEL_OUTPUT_DISPLAYPORT ||
+		    intel_encoder->type == INTEL_OUTPUT_EDP)
 			return intel_dp->output_reg;
 	}
 
