@@ -23,10 +23,8 @@
  * Authors:
  *    Eric Anholt <eric@anholt.net>
  *
- * $FreeBSD$
  */
 #include "drmP.h"
-#include "drm.h"
 #include "drm_dp_helper.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
@@ -59,6 +57,10 @@ void	 parse_edp(struct inteldrm_softc *, struct bdb_header *);
 void	 parse_device_mapping(struct inteldrm_softc *, struct bdb_header *);
 void	 init_vbt_defaults(struct inteldrm_softc *);
 int	 intel_no_opregion_vbt_callback(const struct dmi_system_id *);
+const struct lvds_fp_timing *
+	 get_lvds_fp_timing(const struct bdb_header *,
+	     const struct bdb_lvds_lfp_data *,
+	     const struct bdb_lvds_lfp_data_ptrs *, int);
 
 static int panel_type;
 static int i915_lvds_downclock = 0;
@@ -102,7 +104,7 @@ get_blocksize(void *p)
 
 void
 fill_detail_timing_data(struct drm_display_mode *panel_fixed_mode,
-    const struct lvds_dvo_timing *dvo_timing)
+			const struct lvds_dvo_timing *dvo_timing)
 {
 	panel_fixed_mode->hdisplay = (dvo_timing->hactive_hi << 8) |
 		dvo_timing->hactive_lo;
@@ -145,7 +147,7 @@ fill_detail_timing_data(struct drm_display_mode *panel_fixed_mode,
 
 bool
 lvds_dvo_timing_equal_size(const struct lvds_dvo_timing *a,
-    const struct lvds_dvo_timing *b)
+			   const struct lvds_dvo_timing *b)
 {
 	if (a->hactive_hi != b->hactive_hi ||
 	    a->hactive_lo != b->hactive_lo)
@@ -181,7 +183,8 @@ lvds_dvo_timing_equal_size(const struct lvds_dvo_timing *a,
 
 const struct lvds_dvo_timing *
 get_lvds_dvo_timing(const struct bdb_lvds_lfp_data *lvds_lfp_data,
-    const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs, int index)
+		    const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs,
+		    int index)
 {
 	/*
 	 * the size of fp_timing varies on the different platform.
@@ -195,20 +198,43 @@ get_lvds_dvo_timing(const struct bdb_lvds_lfp_data *lvds_lfp_data,
 	int dvo_timing_offset =
 		lvds_lfp_data_ptrs->ptr[0].dvo_timing_offset -
 		lvds_lfp_data_ptrs->ptr[0].fp_timing_offset;
-	const char *entry = (const char *)lvds_lfp_data->data +
-	    lfp_data_size * index;
+	char *entry = (char *)lvds_lfp_data->data + lfp_data_size * index;
 
-	return (const struct lvds_dvo_timing *)(entry + dvo_timing_offset);
+	return (struct lvds_dvo_timing *)(entry + dvo_timing_offset);
+}
+
+/* get lvds_fp_timing entry
+ * this function may return NULL if the corresponding entry is invalid
+ */
+const struct lvds_fp_timing *
+get_lvds_fp_timing(const struct bdb_header *bdb,
+		   const struct bdb_lvds_lfp_data *data,
+		   const struct bdb_lvds_lfp_data_ptrs *ptrs,
+		   int index)
+{
+	size_t data_ofs = (const u8 *)data - (const u8 *)bdb;
+	u16 data_size = ((const u16 *)data)[-1]; /* stored in header */
+	size_t ofs;
+
+	if (index >= nitems(ptrs->ptr))
+		return NULL;
+	ofs = ptrs->ptr[index].fp_timing_offset;
+	if (ofs < data_ofs ||
+	    ofs + sizeof(struct lvds_fp_timing) > data_ofs + data_size)
+		return NULL;
+	return (const struct lvds_fp_timing *)((const u8 *)bdb + ofs);
 }
 
 /* Try to find integrated panel data */
 void
-parse_lfp_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
+parse_lfp_panel_data(struct inteldrm_softc *dev_priv,
+			    struct bdb_header *bdb)
 {
 	const struct bdb_lvds_options *lvds_options;
 	const struct bdb_lvds_lfp_data *lvds_lfp_data;
 	const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs;
 	const struct lvds_dvo_timing *panel_dvo_timing;
+	const struct lvds_fp_timing *fp_timing;
 	struct drm_display_mode *panel_fixed_mode;
 	int i, downclock;
 
@@ -238,6 +264,8 @@ parse_lfp_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 
 	panel_fixed_mode = malloc(sizeof(*panel_fixed_mode), M_DRM,
 	    M_WAITOK | M_ZERO);
+	if (!panel_fixed_mode)
+		return;
 
 	fill_detail_timing_data(panel_fixed_mode, panel_dvo_timing);
 
@@ -265,21 +293,40 @@ parse_lfp_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 	if (downclock < panel_dvo_timing->clock && i915_lvds_downclock) {
 		dev_priv->lvds_downclock_avail = 1;
 		dev_priv->lvds_downclock = downclock * 10;
-		DRM_DEBUG("LVDS downclock is found in VBT. "
+		DRM_DEBUG_KMS("LVDS downclock is found in VBT. "
 			      "Normal Clock %dKHz, downclock %dKHz\n",
-			  panel_fixed_mode->clock, 10 * downclock);
+			      panel_fixed_mode->clock, 10*downclock);
+	}
+
+	fp_timing = get_lvds_fp_timing(bdb, lvds_lfp_data,
+				       lvds_lfp_data_ptrs,
+				       lvds_options->panel_type);
+	if (fp_timing) {
+		/* check the resolution, just to be sure */
+		if (fp_timing->x_res == panel_fixed_mode->hdisplay &&
+		    fp_timing->y_res == panel_fixed_mode->vdisplay) {
+			dev_priv->bios_lvds_val = fp_timing->lvds_reg_val;
+			DRM_DEBUG_KMS("VBT initial LVDS value %x\n",
+				      dev_priv->bios_lvds_val);
+		}
 	}
 }
 
 /* Try to find sdvo panel data */
 void
-parse_sdvo_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
+parse_sdvo_panel_data(struct inteldrm_softc *dev_priv,
+		      struct bdb_header *bdb)
 {
 	struct lvds_dvo_timing *dvo_timing;
 	struct drm_display_mode *panel_fixed_mode;
 	int index;
 
 	index = i915_vbt_sdvo_panel_type;
+	if (index == -2) {
+		DRM_DEBUG_KMS("Ignore SDVO panel mode from BIOS VBT tables.\n");
+		return;
+	}
+
 	if (index == -1) {
 		struct bdb_sdvo_lvds_options *sdvo_lvds_options;
 
@@ -296,6 +343,8 @@ parse_sdvo_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 
 	panel_fixed_mode = malloc(sizeof(*panel_fixed_mode), M_DRM,
 	    M_WAITOK | M_ZERO);
+	if (!panel_fixed_mode)
+		return;
 
 	fill_detail_timing_data(panel_fixed_mode, dvo_timing + index);
 
@@ -306,7 +355,8 @@ parse_sdvo_panel_data(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 }
 
 int
-intel_bios_ssc_frequency(struct drm_device *dev, bool alternate)
+intel_bios_ssc_frequency(struct drm_device *dev,
+				    bool alternate)
 {
 	switch (INTEL_INFO(dev)->gen) {
 	case 2:
@@ -320,7 +370,8 @@ intel_bios_ssc_frequency(struct drm_device *dev, bool alternate)
 }
 
 void
-parse_general_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
+parse_general_features(struct inteldrm_softc *dev_priv,
+		       struct bdb_header *bdb)
 {
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct bdb_general_features *general;
@@ -344,7 +395,7 @@ parse_general_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 
 void
 parse_general_definitions(struct inteldrm_softc *dev_priv,
-    struct bdb_header *bdb)
+			  struct bdb_header *bdb)
 {
 	struct bdb_general_definitions *general;
 
@@ -354,18 +405,18 @@ parse_general_definitions(struct inteldrm_softc *dev_priv,
 		if (block_size >= sizeof(*general)) {
 			int bus_pin = general->crt_ddc_gmbus_pin;
 			DRM_DEBUG_KMS("crt_ddc_bus_pin: %d\n", bus_pin);
-			if (bus_pin >= 1 && bus_pin <= 6)
+			if (intel_gmbus_is_port_valid(bus_pin))
 				dev_priv->crt_ddc_pin = bus_pin;
 		} else {
 			DRM_DEBUG_KMS("BDB_GD too small (%d). Invalid.\n",
-				  block_size);
+				      block_size);
 		}
 	}
 }
 
 void
 parse_sdvo_device_mapping(struct inteldrm_softc *dev_priv,
-    struct bdb_header *bdb)
+			  struct bdb_header *bdb)
 {
 	struct sdvo_device_mapping *p_mapping;
 	struct bdb_general_definitions *p_defs;
@@ -454,7 +505,8 @@ parse_sdvo_device_mapping(struct inteldrm_softc *dev_priv,
 }
 
 void
-parse_driver_features(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
+parse_driver_features(struct inteldrm_softc *dev_priv,
+		       struct bdb_header *bdb)
 {
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct bdb_driver_features *driver;
@@ -481,12 +533,8 @@ parse_edp(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 
 	edp = find_section(bdb, BDB_EDP);
 	if (!edp) {
-		if (SUPPORTS_EDP(dev) && dev_priv->edp.support) {
-			DRM_DEBUG_KMS("No eDP BDB found but eDP panel "
-				      "supported, assume %dbpp panel color "
-				      "depth.\n",
-				      dev_priv->edp.bpp);
-		}
+		if (SUPPORTS_EDP(dev) && dev_priv->edp.support)
+			DRM_DEBUG_KMS("No eDP BDB found but eDP panel supported.\n");
 		return;
 	}
 
@@ -553,7 +601,8 @@ parse_edp(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 }
 
 void
-parse_device_mapping(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
+parse_device_mapping(struct inteldrm_softc *dev_priv,
+		       struct bdb_header *bdb)
 {
 	struct bdb_general_definitions *p_defs;
 	struct child_device_config *p_child, *child_dev_ptr;
@@ -596,6 +645,10 @@ parse_device_mapping(struct inteldrm_softc *dev_priv, struct bdb_header *bdb)
 	}
 	dev_priv->child_dev = malloc(sizeof(*p_child) * count, M_DRM,
 	    M_WAITOK | M_ZERO);
+	if (!dev_priv->child_dev) {
+		DRM_DEBUG_KMS("No memory space for child device\n");
+		return;
+	}
 
 	dev_priv->child_dev_num = count;
 	count = 0;
@@ -635,9 +688,6 @@ init_vbt_defaults(struct inteldrm_softc *dev_priv)
 	dev_priv->lvds_use_ssc = 1;
 	dev_priv->lvds_ssc_freq = intel_bios_ssc_frequency(dev, 1);
 	DRM_DEBUG_KMS("Set default to SSC at %dMHz\n", dev_priv->lvds_ssc_freq);
-
-	/* eDP data */
-	dev_priv->edp.bpp = 18;
 }
 
 int
@@ -667,8 +717,8 @@ dmi_check_system(const struct dmi_system_id *sysid)
 	return (false);
 }
 
-#define VGA_BIOS_ADDR   0xc0000
-#define VGA_BIOS_LEN    0x10000
+#define VGA_BIOS_ADDR	0xc0000
+#define VGA_BIOS_LEN	0x10000
 
 /**
  * intel_parse_bios - find VBT and initialize settings from the BIOS
@@ -679,12 +729,12 @@ dmi_check_system(const struct dmi_system_id *sysid)
  *
  * Returns 0 on success, nonzero on failure.
  */
-bool
+int
 intel_parse_bios(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct bdb_header *bdb = NULL;
-	u8 *bios;
+	u8 *bios = NULL;
 
 	init_vbt_defaults(dev_priv);
 
@@ -698,7 +748,6 @@ intel_parse_bios(struct drm_device *dev)
 		} else
 			dev_priv->opregion.vbt = NULL;
 	}
-	bios = NULL;
 
 #if defined(__amd64__) || defined(__i386)
 	if (bdb == NULL) {
@@ -718,7 +767,7 @@ intel_parse_bios(struct drm_device *dev)
 		}
 
 		if (!vbt) {
-			DRM_DEBUG("VBT signature missing\n");
+			DRM_DEBUG_DRIVER("VBT signature missing\n");
 			return -1;
 		}
 
@@ -748,7 +797,8 @@ intel_setup_bios(struct drm_device *dev)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	 /* Set the Panel Power On/Off timings if uninitialized. */
-	if ((I915_READ(PP_ON_DELAYS) == 0) && (I915_READ(PP_OFF_DELAYS) == 0)) {
+	if (!HAS_PCH_SPLIT(dev) &&
+	    I915_READ(PP_ON_DELAYS) == 0 && I915_READ(PP_OFF_DELAYS) == 0) {
 		/* Set T2 to 40ms and T5 to 200ms */
 		I915_WRITE(PP_ON_DELAYS, 0x019007d0);
 

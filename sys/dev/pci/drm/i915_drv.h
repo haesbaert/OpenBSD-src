@@ -314,6 +314,7 @@ struct inteldrm_softc {
 	unsigned int lvds_use_ssc:1;
 	unsigned int display_clock_mode:1;
 	int lvds_ssc_freq;
+	unsigned int bios_lvds_val; /* initial [PCH_]LVDS reg val in VBIOS */
 	struct {
 		int rate;
 		int lanes;
@@ -1009,6 +1010,10 @@ extern int i915_restore_state(struct drm_device *);
 /* intel_i2c.c */
 extern int intel_setup_gmbus(struct inteldrm_softc *);
 extern void intel_gmbus_set_port(struct inteldrm_softc *, int);
+static inline bool intel_gmbus_is_port_valid(unsigned port)
+{
+	return (port >= GMBUS_PORT_SSC && port <= GMBUS_PORT_DPD);
+}
 
 /* i915_gem.c */
 int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,

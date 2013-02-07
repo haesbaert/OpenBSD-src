@@ -23,7 +23,6 @@
  * Authors:
  *    Eric Anholt <eric@anholt.net>
  *
- * $FreeBSD$
  */
 
 #ifndef _I830_BIOS_H_
@@ -477,7 +476,7 @@ struct bdb_edp {
 } __attribute__ ((packed));
 
 void intel_setup_bios(struct drm_device *dev);
-bool intel_parse_bios(struct drm_device *dev);
+int intel_parse_bios(struct drm_device *dev);
 
 /*
  * Driver<->VBIOS interaction occurs through scratch bits in
