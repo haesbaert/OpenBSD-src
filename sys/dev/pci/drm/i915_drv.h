@@ -738,8 +738,6 @@ struct inteldrm_file {
 #define I915_IN_EXEC		0x0020	/* being processed in execbuffer */
 #define I915_USER_PINNED	0x0040	/* BO has been pinned from userland */
 #define I915_GPU_WRITE		0x0080	/* BO has been not flushed */
-#define I915_DONTNEED		0x0100	/* BO backing pages purgable */
-#define I915_PURGED		0x0200	/* BO backing pages purged */
 #define I915_EXEC_NEEDS_FENCE	0x0800	/* being processed but will need fence*/
 #define I915_FENCED_EXEC	0x1000	/* Most recent exec needs fence */
 #define I915_FENCE_INVALID	0x2000	/* fence has been lazily invalidated */
@@ -787,6 +785,11 @@ struct drm_i915_gem_object {
 	 * to the GTT
 	 */
 	unsigned int dirty:1;
+
+	/**
+	 * Advice: are the backing pages purgeable?
+	 */
+	unsigned int madv:2;
 
 	/** for phy allocated objects */
 	struct drm_i915_gem_phys_object *phys_obj;
@@ -1313,6 +1316,7 @@ i915_get_gem_seqno(struct inteldrm_softc *dev_priv)
 	return (READ_HWSP(dev_priv, I915_GEM_HWS_INDEX));
 }
 
+#if 0
 static __inline int
 i915_obj_purgeable(struct drm_i915_gem_object *obj_priv)
 {
@@ -1323,6 +1327,13 @@ static __inline int
 i915_obj_purged(struct drm_i915_gem_object *obj_priv)
 {
 	return (obj_priv->base.do_flags & I915_PURGED);
+}
+#endif
+
+static inline int
+i915_gem_object_is_purgeable(struct drm_i915_gem_object *obj)
+{
+	return obj->madv == I915_MADV_DONTNEED;
 }
 
 static __inline int

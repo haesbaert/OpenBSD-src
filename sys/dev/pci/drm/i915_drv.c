@@ -1422,7 +1422,7 @@ i915_gem_gtt_map_ioctl(struct drm_device *dev, void *data,
 	/* Check size. Also ensure that the object is not purgeable */
 	if (args->size == 0 || args->offset > obj->size || args->size >
 	    obj->size || (args->offset + args->size) > obj->size ||
-	    i915_obj_purgeable(obj_priv)) {
+	    i915_gem_object_is_purgeable(obj_priv)) {
 		ret = EINVAL;
 		goto done;
 	}
@@ -1452,6 +1452,8 @@ done:
 void
 inteldrm_purge_obj(struct drm_obj *obj)
 {
+	struct drm_i915_gem_object	*obj_priv = to_intel_bo(obj);
+
 	DRM_ASSERT_HELD(obj);
 	/*
 	 * may sleep. We free here instead of deactivate (which
@@ -1469,7 +1471,7 @@ inteldrm_purge_obj(struct drm_obj *obj)
 	 * If flush failed, it may have halfway through, so just
 	 * always mark as purged
 	 */
-	atomic_setbits_int(&obj->do_flags, I915_PURGED);
+	obj_priv->madv = __I915_MADV_PURGED;
 }
 
 void
@@ -1659,7 +1661,7 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 		obj = &obj_priv->base;
 		if (obj->size >= min_size) {
 			if ((!obj_priv->dirty ||
-			    i915_obj_purgeable(obj_priv)) &&
+			    i915_gem_object_is_purgeable(obj_priv)) &&
 			    (best == NULL || obj->size < best->size)) {
 				best = obj;
 				if (best->size == min_size)

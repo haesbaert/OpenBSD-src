@@ -427,8 +427,8 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 	DRM_LOCK();
 	drm_hold_object(&obj->base);
 
-	if (i915_obj_purgeable(obj)) {
-		printf("%s: pinning purgeable object\n", __func__);
+	if (obj->madv != I915_MADV_WILLNEED) {
+		DRM_ERROR("Attempting to pin a purgeable buffer\n");
 		ret = EINVAL;
 		goto out;
 	}
@@ -552,14 +552,11 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 {
 	struct drm_i915_gem_madvise *args = data;
 	struct drm_i915_gem_object *obj;
-	int need, ret = 0;
+	int ret = 0;
 
 	switch (args->madv) {
 	case I915_MADV_DONTNEED:
-		need = 0;
-		break;
 	case I915_MADV_WILLNEED:
-		need = 1;
 		break;
 	default:
 		return (EINVAL);
@@ -577,21 +574,15 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
-	if (!i915_obj_purged(obj)) {
-		if (need) {
-			atomic_clearbits_int(&obj->base.do_flags,
-			    I915_DONTNEED);
-		} else {
-			atomic_setbits_int(&obj->base.do_flags, I915_DONTNEED);
-		}
-	}
-
+	if (obj->madv != __I915_MADV_PURGED)
+		obj->madv = args->madv;
 
 	/* if the object is no longer bound, discard its backing storage */
-	if (i915_obj_purgeable(obj) && obj->dmamap == NULL)
+	if (i915_gem_object_is_purgeable(obj) &&
+	    obj->dmamap == NULL)
 		inteldrm_purge_obj(&obj->base);
 
-	args->retained = !i915_obj_purged(obj);
+	args->retained = obj->madv != __I915_MADV_PURGED;
 
 out:
 	drm_unhold_and_unref(&obj->base);
@@ -989,8 +980,14 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 	 * not need to hold the object, a reference alone is sufficient
 	 */
 
-	/* Check size. Also ensure that the object is not purgeable */
-	if (offset > obj->base.size || i915_obj_purgeable(obj)) {
+	/* Check size. */
+	if (offset > obj->base.size) {
+		ret = EINVAL;
+		goto done;
+	}
+
+	if (obj->madv != I915_MADV_WILLNEED) {
+		DRM_ERROR("Attempting to mmap a purgeable buffer\n");
 		ret = EINVAL;
 		goto done;
 	}
@@ -1317,9 +1314,8 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 		return (EINVAL);
 	}
 
-	/* Can't bind a purgeable buffer */
-	if (i915_obj_purgeable(obj)) {
-		printf("tried to bind purgeable buffer");
+	if (obj->madv != I915_MADV_WILLNEED) {
+		DRM_ERROR("Attempting to bind a purgeable object\n");
 		return (EINVAL);
 	}
 
@@ -1406,7 +1402,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 		return (EINVAL);
 	}
 
-	KASSERT(!i915_obj_purged(obj));
+	KASSERT(obj->madv != __I915_MADV_PURGED);
 
 	/* Move the object to the CPU domain to ensure that
 	 * any possible CPU writes while it's not in the GTT
@@ -1421,7 +1417,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	KASSERT(!obj->active);
 
 	/* if it's purgeable don't bother dirtying the pages */
-	if (i915_obj_purgeable(obj))
+	if (i915_gem_object_is_purgeable(obj))
 		obj->dirty = 0;
 	/*
 	 * unload the map, then unwire the backing object.
@@ -1444,7 +1440,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	/* Remove ourselves from any LRU list if present. */
 	i915_list_remove(obj);
 
-	if (i915_obj_purgeable(obj))
+	if (i915_gem_object_is_purgeable(obj))
 		inteldrm_purge_obj(&obj->base);
 
 	return (0);
@@ -1619,7 +1615,6 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 }
 
 // i915_gem_object_truncate
-// i915_gem_object_is_purgeable
 // i915_gem_process_flushing_list
 // i915_gem_object_needs_bit17_swizzle
 // i915_gem_wire_page
