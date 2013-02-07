@@ -2430,12 +2430,12 @@ intel_init_ring_buffer(struct drm_device *dev,
 unmap:
 	agp_unmap_subregion(dev_priv->agph, ring->bsh, obj->size);
 unpin:
-	memset(ring, 0, sizeof(*ring));
 	i915_gem_object_unpin(obj_priv);
 unref:
 	drm_unhold_and_unref(obj);
 delhws:
 	cleanup_status_page(ring);
+	memset(ring, 0, sizeof(*ring));
 	return (ret);
 }
 
