@@ -725,7 +725,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		panic("can't map aperture");
 
 	/* XXX */
-	i915_load_modeset_init(dev);
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		i915_load_modeset_init(dev);
 	intel_opregion_init(dev);
 }
 
