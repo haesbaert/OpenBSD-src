@@ -834,12 +834,6 @@ int		init_ring_common(struct intel_ring_buffer *);
 int		intel_init_render_ring_buffer(struct drm_device *);
 void		intel_cleanup_ring_buffer(struct intel_ring_buffer *);
 
-static inline bool
-intel_ring_initialized(struct intel_ring_buffer *ring)
-{
-	return ring->obj != NULL;
-}
-
 /* i915_irq.c */
 
 extern int i915_driver_irq_install(struct drm_device * dev);
