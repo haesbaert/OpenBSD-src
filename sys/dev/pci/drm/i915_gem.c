@@ -615,9 +615,8 @@ intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 	i915_gem_object_unpin(ring->obj);
 	drm_unhold_and_unref(&ring->obj->base);
 	ring->obj = NULL;
-	memset(ring, 0, sizeof(*ring));
-
 	cleanup_status_page(ring);
+	memset(ring, 0, sizeof(*ring));
 }
 
 void
