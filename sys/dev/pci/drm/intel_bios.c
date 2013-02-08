@@ -63,7 +63,7 @@ const struct lvds_fp_timing *
 	     const struct bdb_lvds_lfp_data_ptrs *, int);
 
 static int panel_type;
-static int i915_lvds_downclock = 0;
+unsigned int i915_lvds_downclock = 0;
 static int i915_vbt_sdvo_panel_type = -1;
 
 void *

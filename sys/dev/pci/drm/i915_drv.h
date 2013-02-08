@@ -53,6 +53,14 @@ enum pipe {
 };
 #define pipe_name(p) ((p) + 'A')
 
+enum transcoder {
+	TRANSCODER_A = 0,
+	TRANSCODER_B,
+	TRANSCODER_C,
+	TRANSCODER_EDP = 0xF,
+};
+#define transcoder_name(t) ((t) + 'A')
+
 enum plane {
 	PLANE_A = 0,
 	PLANE_B,
@@ -60,11 +68,37 @@ enum plane {
 };
 #define plane_name(p) ((p) + 'A')
 
+enum port {
+	PORT_A = 0,
+	PORT_B,
+	PORT_C,
+	PORT_D,
+	PORT_E,
+	I915_MAX_PORTS
+};
+#define port_name(p) ((p) + 'A')
+
 #define for_each_pipe(p) for ((p) = 0; (p) < dev_priv->num_pipe; (p)++)
 
 #define for_each_encoder_on_crtc(dev, __crtc, intel_encoder) \
 	list_for_each_entry((intel_encoder), &(dev)->mode_config.encoder_list, base.head) \
 		if ((intel_encoder)->base.crtc == (__crtc))
+
+struct intel_pch_pll {
+	int refcount; /* count of number of CRTCs sharing this PLL */
+	int active; /* count of number of active CRTCs (i.e. DPMS on) */
+	bool on; /* is the PLL actually active? Disabled during modeset */
+	int pll_reg;
+	int fp0_reg;
+	int fp1_reg;
+};
+#define I915_NUM_PLLS 2
+
+struct intel_ddi_plls {
+	int spll_refcount;
+	int wrpll1_refcount;
+	int wrpll2_refcount;
+};
 
 /* Interface history:
  *
@@ -94,7 +128,6 @@ struct drm_i915_gem_phys_object {
 struct inteldrm_softc;
 
 struct drm_i915_display_funcs {
-	void (*dpms)(struct drm_crtc *crtc, int mode);
 	bool (*fbc_enabled)(struct drm_device *dev);
 	void (*enable_fbc)(struct drm_crtc *crtc, unsigned long interval);
 	void (*disable_fbc)(struct drm_device *dev);
@@ -103,21 +136,24 @@ struct drm_i915_display_funcs {
 	void (*update_wm)(struct drm_device *dev);
 	void (*update_sprite_wm)(struct drm_device *dev, int pipe,
 				 uint32_t sprite_width, int pixel_size);
+	void (*update_linetime_wm)(struct drm_device *dev, int pipe,
+				 struct drm_display_mode *mode);
+	void (*modeset_global_resources)(struct drm_device *dev);
 	int (*crtc_mode_set)(struct drm_crtc *crtc,
 			     struct drm_display_mode *mode,
 			     struct drm_display_mode *adjusted_mode,
 			     int x, int y,
 			     struct drm_framebuffer *old_fb);
+	void (*crtc_enable)(struct drm_crtc *crtc);
+	void (*crtc_disable)(struct drm_crtc *crtc);
+	void (*off)(struct drm_crtc *crtc);
 	void (*write_eld)(struct drm_connector *connector,
 			  struct drm_crtc *crtc);
 	void (*fdi_link_train)(struct drm_crtc *crtc);
 	void (*init_clock_gating)(struct drm_device *dev);
-	void (*init_pch_clock_gating)(struct drm_device *dev);
 	int (*queue_flip)(struct drm_device *dev, struct drm_crtc *crtc,
 			  struct drm_framebuffer *fb,
 			  struct drm_i915_gem_object *obj);
-	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
-	void (*force_wake_put)(struct inteldrm_softc *dev_priv);
 	int (*update_plane)(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			    int x, int y);
 	/* clock updates for mode set */
@@ -125,6 +161,11 @@ struct drm_i915_display_funcs {
 	/* render clock increase/decrease */
 	/* display clock increase/decrease */
 	/* pll clock increase/decrease */
+};
+
+struct drm_i915_gt_funcs {
+	void (*force_wake_get)(struct inteldrm_softc *dev_priv);
+	void (*force_wake_put)(struct inteldrm_softc *dev_priv);
 };
 
 struct intel_device_info {
@@ -211,10 +252,64 @@ enum intel_pch {
 	PCH_LPT,	/* Lynxpoint PCH */
 };
 
+enum intel_sbi_destination {
+	SBI_ICLK,
+	SBI_MPHY,
+};
+
 #define QUIRK_PIPEA_FORCE	(1<<0)
 #define QUIRK_LVDS_SSC_DISABLE	(1<<1)
+#define QUIRK_INVERT_BRIGHTNESS	(1<<2)
 
 struct intel_fbdev;
+
+struct intel_gen6_power_mgmt {
+#if 0
+	struct work_struct work;
+#endif
+	u32 pm_iir;
+	/* lock - irqsave spinlock that protectects the work_struct and
+	 * pm_iir. */
+	struct mutex lock;
+
+	/* The below variables an all the rps hw state are protected by
+	 * dev->struct mutext. */
+	u8 cur_delay;
+	u8 min_delay;
+	u8 max_delay;
+
+#if 0
+	struct delayed_work delayed_resume_work;
+#endif
+
+	/*
+	 * Protects RPS/RC6 register access and PCU communication.
+	 * Must be taken after struct_mutex if nested.
+	 */
+	struct mutex hw_lock;
+};
+
+struct intel_ilk_power_mgmt {
+	u8 cur_delay;
+	u8 min_delay;
+	u8 max_delay;
+	u8 fmax;
+	u8 fstart;
+
+	u64 last_count1;
+	unsigned long last_time1;
+	unsigned long chipset_power;
+	u64 last_count2;
+	struct timespec last_time2;
+	unsigned long gfx_power;
+	u8 corr;
+
+	int c_m;
+	int r_t;
+
+	struct drm_i915_gem_object *pwrctx;
+	struct drm_i915_gem_object *renderctx;
+};
 
 /*
  * lock ordering:
@@ -247,6 +342,7 @@ struct inteldrm_softc {
 
 	uint32_t		 gpio_mmio_base;
 
+	struct drm_i915_gt_funcs gt;
 	/** gt_fifo_count and the subsequent register write are synchronized
 	 * with dev->struct_mutex. */
 	unsigned gt_fifo_count;
@@ -284,8 +380,11 @@ struct inteldrm_softc {
 	struct mutex		 user_irq_lock;
 	/* Refcount for user irq, only enabled when needed */
 	int			 user_irq_refcount;
-	/* Cached value of IMR to avoid reads in updating the bitfield */
 	u_int32_t		 irq_mask_reg;
+
+	/* DPIO indirect register protection */
+	struct mutex		 dpio_lock;
+	/* Cached value of IMR to avoid reads in updating the bitfield */
 	u_int32_t		 pipestat[2];
 	/* these two  ironlake only, we should union this with pipestat XXX */
 	u_int32_t		 gt_irq_mask_reg;
@@ -319,6 +418,7 @@ struct inteldrm_softc {
 	unsigned int display_clock_mode:1;
 	int lvds_ssc_freq;
 	unsigned int bios_lvds_val; /* initial [PCH_]LVDS reg val in VBIOS */
+	unsigned int lvds_val; /* used for checking LVDS channel mode */
 	struct {
 		int rate;
 		int lanes;
@@ -332,6 +432,10 @@ struct inteldrm_softc {
 	} edp;
 	bool no_aux_handshake;
 
+	struct intel_pch_pll	 pch_plls[I915_NUM_PLLS];
+	struct intel_ddi_plls	 ddi_plls;
+
+	/* Reclocking support */
 	bool			 render_reclock_avail;
 	bool			 lvds_downclock_avail;
 	int			 lvds_downclock;
@@ -358,6 +462,7 @@ struct inteldrm_softc {
 	struct mutex		 request_lock;
 
 	enum intel_pch pch_type;
+	unsigned short pch_id;
 
 	struct drm_i915_display_funcs display;
 
@@ -643,9 +748,6 @@ struct inteldrm_softc {
 	struct drm_connector *int_lvds_connector;
 	struct drm_connector *int_edp_connector;
 
-	struct mutex rps_lock;
-	u32 pm_iir;
-
 	u8 cur_delay;
 	u8 min_delay;
 	u8 max_delay;
@@ -661,6 +763,13 @@ struct inteldrm_softc {
 	int c_m;
 	int r_t;
 	u8 corr;
+
+	/* gen6+ rps state */
+	struct intel_gen6_power_mgmt rps;
+
+	/* ilk-only ips/rps state. Everything in here is protected by the global
+	 * mchdev_lock in intel_pm.c */
+	struct intel_ilk_power_mgmt ips;
 
 	enum no_fbc_reason no_fbc_reason;
 
@@ -678,6 +787,8 @@ struct inteldrm_softc {
 
 	struct drm_property *broadcast_rgb_property;
 	struct drm_property *force_audio_property;
+
+	bool fdi_rx_polarity_reversed;
 };
 typedef struct inteldrm_softc drm_i915_private_t;
 
@@ -832,6 +943,9 @@ void		inteldrm_update_ring(struct intel_ring_buffer *);
 int		inteldrm_pipe_enabled(struct inteldrm_softc *, int);
 int		i915_init_phys_hws(struct inteldrm_softc *, bus_dma_tag_t);
 
+unsigned long	i915_chipset_val(struct inteldrm_softc *dev_priv);
+unsigned long	i915_mch_val(struct inteldrm_softc *dev_priv);
+unsigned long	i915_gfx_val(struct inteldrm_softc *dev_priv);
 void		i915_update_gfx_val(struct inteldrm_softc *);
 
 int		intel_init_ring_buffer(struct drm_device *,
@@ -852,6 +966,9 @@ extern void i915_user_irq_get(struct inteldrm_softc *);
 extern void i915_user_irq_put(struct inteldrm_softc *);
 void	i915_enable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 void	i915_disable_pipestat(struct inteldrm_softc *, int, u_int32_t);
+
+extern void intel_gt_init(struct drm_device *dev);
+extern void intel_gt_reset(struct drm_device *dev);
 
 /* gem */
 /* Ioctls */
@@ -1031,19 +1148,23 @@ extern void opregion_enable_asle(struct drm_device *dev);
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
 
 /* modesetting */
+extern void intel_modeset_init_hw(struct drm_device *dev);
 extern void intel_modeset_init(struct drm_device *dev);
 extern void intel_modeset_gem_init(struct drm_device *dev);
 extern void intel_modeset_cleanup(struct drm_device *dev);
 extern int intel_modeset_vga_set_state(struct drm_device *dev, bool state);
+extern void intel_modeset_setup_hw_state(struct drm_device *dev,
+					 bool force_restore);
 extern bool intel_fbc_enabled(struct drm_device *dev);
 extern void intel_disable_fbc(struct drm_device *dev);
 extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
+extern void intel_init_pch_refclk(struct drm_device *dev);
 extern void ironlake_init_pch_refclk(struct drm_device *dev);
-extern void ironlake_enable_rc6(struct drm_device *dev);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void intel_detect_pch(struct inteldrm_softc *dev_priv);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 int i915_load_modeset_init(struct drm_device *dev);
+extern int intel_enable_rc6(const struct drm_device *dev);
 
 extern void __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
 extern void __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv);
@@ -1070,6 +1191,9 @@ extern void intel_display_print_error_state(struct sbuf *m,
 void gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv);
 void gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv);
 int __gen6_gt_wait_for_fifo(struct inteldrm_softc *dev_priv);
+
+int sandybridge_pcode_read(struct inteldrm_softc *dev_priv, u8 mbox, u32 *val);
+int sandybridge_pcode_write(struct inteldrm_softc *dev_priv, u8 mbox, u32 val);
 
 /* XXX need bus_space_write_8, this evaluated arguments twice */
 static __inline void
@@ -1179,6 +1303,12 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define IS_IRONLAKE_D(dev)	((dev)->pci_device == 0x0042)
 #define IS_IRONLAKE_M(dev)	((dev)->pci_device == 0x0046)
 #define IS_IVYBRIDGE(dev)	(INTEL_INFO(dev)->is_ivybridge)
+#define IS_IVB_GT1(dev)		((dev)->pci_device == 0x0156 || \
+				 (dev)->pci_device == 0x0152 || \
+				 (dev)->pci_device == 0x015a)
+#define IS_SNB_GT1(dev)		((dev)->pci_device == 0x0102 || \
+				 (dev)->pci_device == 0x0106 || \
+				 (dev)->pci_device == 0x010A)
 #define IS_MOBILE(dev)		(INTEL_INFO(dev)->is_mobile)
 
 #define IS_I9XX(dev)		(INTEL_INFO(dev)->gen >= 3)
@@ -1191,6 +1321,8 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
  (INTEL_INFO(dev)->is_mobile == 1))
 #define IS_VALLEYVIEW(dev)	(INTEL_INFO(dev)->is_valleyview)
 #define IS_HASWELL(dev)	(INTEL_INFO(dev)->is_haswell)
+#define IS_ULT(dev)	(IS_HASWELL(dev) && \
+			 ((dev)->pci_device & 0xFF00) == 0x0A00)
 
 /*
  * The genX designation typically refers to the render engine, so render
@@ -1243,12 +1375,18 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define HAS_PIPE_CONTROL(dev)	(INTEL_INFO(dev)->gen >= 5)
 
-#define HAS_PCH_SPLIT(dev)	(IS_IRONLAKE(dev) || IS_GEN6(dev) || \
-    IS_GEN7(dev))
+#define INTEL_PCH_DEVICE_ID_MASK		0xff00
+#define INTEL_PCH_IBX_DEVICE_ID_TYPE		0x3b00
+#define INTEL_PCH_CPT_DEVICE_ID_TYPE		0x1c00
+#define INTEL_PCH_PPT_DEVICE_ID_TYPE		0x1e00
+#define INTEL_PCH_LPT_DEVICE_ID_TYPE		0x8c00
+#define INTEL_PCH_LPT_LP_DEVICE_ID_TYPE		0x9c00
 
 #define INTEL_PCH_TYPE(dev)	(((struct inteldrm_softc *) (dev)->dev_private)->pch_type)
+#define HAS_PCH_LPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_LPT)
 #define HAS_PCH_CPT(dev)	(INTEL_PCH_TYPE(dev) == PCH_CPT)
 #define HAS_PCH_IBX(dev)	(INTEL_PCH_TYPE(dev) == PCH_IBX)
+#define HAS_PCH_SPLIT(dev)	(INTEL_PCH_TYPE(dev) != PCH_NONE)
 
 #define HAS_FORCE_WAKE(dev) (INTEL_INFO(dev)->has_force_wake)
 
@@ -1295,6 +1433,33 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 	"\20\x10PTEERR\x2REFRESHERR\x1INSTERR")
 
 #define PRIMARY_RINGBUFFER_SIZE         (128*1024)
+
+/**
+ * RC6 is a special power stage which allows the GPU to enter an very
+ * low-voltage mode when idle, using down to 0V while at this stage.  This
+ * stage is entered automatically when the GPU is idle when RC6 support is
+ * enabled, and as soon as new workload arises GPU wakes up automatically as well.
+ * 
+ * There are different RC6 modes available in Intel GPU, which differentiate
+ * among each other with the latency required to enter and leave RC6 and
+ * voltage consumed by the GPU in different states.
+ * 
+ * The combination of the following flags define which states GPU is allowed
+ * to enter, while RC6 is the normal RC6 state, RC6p is the deep RC6, and
+ * RC6pp is deepest RC6. Their support by hardware varies according to the
+ * GPU, BIOS, chipset and platform. RC6 is usually the safest one and the one
+ * which brings the most power savings; deeper states save more power, but
+ * require higher latency to switch to and wake up.
+ */
+#define INTEL_RC6_ENABLE			(1<<0)
+#define INTEL_RC6p_ENABLE			(1<<1)
+#define INTEL_RC6pp_ENABLE			(1<<2)
+
+extern unsigned int i915_lvds_downclock;
+extern int i915_panel_ignore_lid;
+extern unsigned int i915_powersave;
+extern int i915_enable_rc6;
+extern int i915_enable_fbc;
 
 /* Inlines */
 

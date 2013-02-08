@@ -25,20 +25,13 @@
  * Authors:
  *	Eric Anholt <eric@anholt.net>
  */
-
 #include "drmP.h"
-#include "drm.h"
 #include "drm_crtc.h"
 #include "drm_edid.h"
+#include "intel_drv.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
 #include "intel_sdvo_regs.h"
-#include "intel_drv.h"
-#include <dev/i2c/i2cvar.h>
-
-#ifndef CTASSERT
-#define CTASSERT(x)
-#endif
 
 static __inline uint16_t
 bitcount16(uint32_t x)
@@ -54,7 +47,7 @@ bitcount16(uint32_t x)
 #define SDVO_TMDS_MASK (SDVO_OUTPUT_TMDS0 | SDVO_OUTPUT_TMDS1)
 #define SDVO_RGB_MASK  (SDVO_OUTPUT_RGB0 | SDVO_OUTPUT_RGB1)
 #define SDVO_LVDS_MASK (SDVO_OUTPUT_LVDS0 | SDVO_OUTPUT_LVDS1)
-#define SDVO_TV_MASK   (SDVO_OUTPUT_CVBS0 | SDVO_OUTPUT_SVID0)
+#define SDVO_TV_MASK   (SDVO_OUTPUT_CVBS0 | SDVO_OUTPUT_SVID0 | SDVO_OUTPUT_YPRPB0)
 
 #define SDVO_OUTPUT_MASK (SDVO_TMDS_MASK | SDVO_RGB_MASK | SDVO_LVDS_MASK |\
 			SDVO_TV_MASK)
@@ -84,11 +77,10 @@ struct intel_sdvo {
 	struct i2c_controller *i2c;
 	u8 slave_addr;
 
-//	device_t ddc_iic_bus, ddc;
-	struct i2c_controller *ddc;
+	struct i2c_controller ddc;
 
 	/* Register for the SDVO device: SDVOB or SDVOC */
-	int sdvo_reg;
+	uint32_t sdvo_reg;
 
 	/* Active outputs controlled by this SDVO output */
 	uint16_t controlled_output;
@@ -111,7 +103,7 @@ struct intel_sdvo {
 	/*
 	 * Hotplug activation bits for this device
 	 */
-	uint8_t hotplug_active[2];
+	uint16_t hotplug_active;
 
 	/**
 	 * This is used to select the color range of RBG outputs in HDMI mode.
@@ -127,6 +119,9 @@ struct intel_sdvo {
 	 * shows up as RGB1 (VGA).
 	 */
 	bool is_tv;
+
+	/* On different gens SDVOB is at different places. */
+	bool is_sdvob;
 
 	/* This is for current tv format name */
 	int tv_format_index;
@@ -152,8 +147,10 @@ struct intel_sdvo {
 	/* DDC bus used by this SDVO encoder */
 	uint8_t ddc_bus;
 
-	/* Input timings for adjusted_mode */
-	struct intel_sdvo_dtd input_dtd;
+	/*
+	 * the sdvo flag gets lost in round trip: dtd->adjusted_mode->dtd
+	 */
+	uint8_t dtd_sdvo_flags;
 };
 
 struct intel_sdvo_connector {
@@ -255,7 +252,6 @@ bool	 intel_sdvo_mode_fixup(struct drm_encoder *,
 	     const struct drm_display_mode *, struct drm_display_mode *);
 void	 intel_sdvo_mode_set(struct drm_encoder *, struct drm_display_mode *,
 	     struct drm_display_mode *);
-void	 intel_sdvo_dpms(struct drm_encoder *, int);
 int	 intel_sdvo_mode_valid(struct drm_connector *,
 	     struct drm_display_mode *);
 bool	 intel_sdvo_get_capabilities(struct intel_sdvo *,
@@ -285,7 +281,6 @@ void	 intel_sdvo_select_ddc_bus(struct inteldrm_softc *,
 void	 intel_sdvo_select_i2c_bus(struct inteldrm_softc *,
 	     struct intel_sdvo *, u32);
 bool	 intel_sdvo_is_hdmi_connector(struct intel_sdvo *, int);
-u8	 intel_sdvo_get_slave_addr(struct drm_device *, int);
 void	 intel_sdvo_connector_init(struct intel_sdvo_connector *,
 	     struct intel_sdvo *);
 void	 intel_sdvo_add_hdmi_properties(struct intel_sdvo_connector *);
@@ -304,8 +299,23 @@ bool	 intel_sdvo_create_enhance_property_lvds(struct intel_sdvo *,
 	     struct intel_sdvo_enhancements_reply);
 bool	 intel_sdvo_create_enhance_property(struct intel_sdvo *,
 	     struct intel_sdvo_connector *);
-bool	 intel_sdvo_init_ddc_proxy(struct intel_sdvo *, struct drm_device *,
-	     int);
+bool	 intel_sdvo_init_ddc_proxy(struct intel_sdvo *, struct drm_device *);
+void	 intel_sdvo_debug_write(struct intel_sdvo *, u8, const void *, int);
+bool	 intel_sdvo_set_control_bus_switch(struct intel_sdvo *, u8);
+bool	 intel_sdvo_get_active_outputs(struct intel_sdvo *, u16 *);
+bool	 intel_sdvo_write_infoframe(struct intel_sdvo *, unsigned, uint8_t,
+	     uint8_t *, unsigned);
+bool	 intel_sdvo_get_preferred_input_mode(struct intel_sdvo *,
+	     const struct drm_display_mode *, struct drm_display_mode *);
+bool	 intel_sdvo_connector_get_hw_state(struct intel_connector *);
+bool	 intel_sdvo_get_hw_state(struct intel_encoder *, enum pipe *);
+void	 intel_disable_sdvo(struct intel_encoder *);
+void	 intel_enable_sdvo(struct intel_encoder *);
+void	 intel_sdvo_dpms(struct drm_connector *, int);
+uint16_t intel_sdvo_get_hotplug_support(struct intel_sdvo *);
+void	 intel_sdvo_unselect_i2c_bus(struct intel_sdvo *);
+u8	 intel_sdvo_get_slave_addr(struct drm_device *, struct intel_sdvo *);
+void	 intel_sdvo_output_cleanup(struct intel_sdvo *);
 
 struct intel_sdvo *
 to_intel_sdvo(struct drm_encoder *encoder)
@@ -325,6 +335,16 @@ to_intel_sdvo_connector(struct drm_connector *connector)
 {
 	return container_of(to_intel_connector(connector), struct intel_sdvo_connector, base);
 }
+
+bool
+intel_sdvo_output_setup(struct intel_sdvo *intel_sdvo, uint16_t flags);
+bool
+intel_sdvo_tv_create_property(struct intel_sdvo *intel_sdvo,
+			      struct intel_sdvo_connector *intel_sdvo_connector,
+			      int type);
+bool
+intel_sdvo_create_enhance_property(struct intel_sdvo *intel_sdvo,
+				   struct intel_sdvo_connector *intel_sdvo_connector);
 
 /**
  * Writes the SDVOB or SDVOC with the given value, but always writes both
@@ -495,38 +515,31 @@ static const struct _sdvo_cmd_name {
 	SDVO_CMD_NAME_ENTRY(SDVO_CMD_GET_HBUF_DATA),
 };
 
-#define IS_SDVOB(reg)	(reg == SDVOB || reg == PCH_SDVOB)
-#define SDVO_NAME(svdo) (IS_SDVOB((svdo)->sdvo_reg) ? "SDVOB" : "SDVOC")
+#define SDVO_NAME(svdo) ((svdo)->is_sdvob ? "SDVOB" : "SDVOC")
 
-#ifdef notyet
 void
 intel_sdvo_debug_write(struct intel_sdvo *intel_sdvo, u8 cmd,
-    const void *args, int args_len)
+				   const void *args, int args_len)
 {
 	int i;
 
-#ifdef DRMDDEBUG
-	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) == 0)
-		return;
-#endif
-	DRM_DEBUG_KMS("%s: W: %02X ", SDVO_NAME(intel_sdvo), cmd);
+	DRM_DEBUG_KMS("%s: W: %02X ",
+				SDVO_NAME(intel_sdvo), cmd);
 	for (i = 0; i < args_len; i++)
-		printf("%02X ", ((const u8 *)args)[i]);
+		printf("%02X ", ((u8 *)args)[i]);
 	for (; i < 8; i++)
 		printf("   ");
-	for (i = 0; i < nitems(sdvo_cmd_names); i++) {
+	for (i = 0; i < ARRAY_SIZE(sdvo_cmd_names); i++) {
 		if (cmd == sdvo_cmd_names[i].cmd) {
 			printf("(%s)", sdvo_cmd_names[i].name);
 			break;
 		}
 	}
-	if (i == nitems(sdvo_cmd_names))
+	if (i == ARRAY_SIZE(sdvo_cmd_names))
 		printf("(%02X)", cmd);
 	printf("\n");
 }
-#endif
 
-#ifdef DRMDEBUG
 static const char *cmd_status_names[] = {
 	"Power on",
 	"Success",
@@ -536,30 +549,42 @@ static const char *cmd_status_names[] = {
 	"Target not specified",
 	"Scaling not supported"
 };
-#endif
 
 bool
-intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd, const void *args,
-    int args_len)
+intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd,
+				 const void *args, int args_len)
 {
 	printf("%s stub\n", __func__);
 	return false;
 #ifdef notyet
-	u8 buf[args_len*2 + 2], status;
-	struct iic_msg msgs[args_len + 3];
-	int i, ret;
+	u8 *buf, status;
+	struct i2c_msg *msgs;
+	int i, ret = true;
+
+        /* Would be simpler to allocate both in one go ? */        
+	buf = (u8 *)malloc(args_len * 2 + 2, M_DRM,
+	    M_NOWAIT | M_ZERO);
+	if (!buf)
+		return false;
+
+	msgs = malloc(args_len + 3 * sizeof(*msgs), M_DRM,
+	    M_NOWAIT | M_ZERO);
+	if (!msgs) {
+	        free(buf, M_DRM);
+		return false;
+        }
 
 	intel_sdvo_debug_write(intel_sdvo, cmd, args, args_len);
 
 	for (i = 0; i < args_len; i++) {
-		msgs[i].slave = intel_sdvo->slave_addr;
+		msgs[i].addr = intel_sdvo->slave_addr;
 		msgs[i].flags = 0;
 		msgs[i].len = 2;
 		msgs[i].buf = buf + 2 *i;
 		buf[2*i + 0] = SDVO_I2C_ARG_0 - i;
-		buf[2*i + 1] = ((const u8*)args)[i];
+		buf[2*i + 1] = ((u8*)args)[i];
 	}
-	msgs[i].slave = intel_sdvo->slave_addr;
+	msgs[i].addr = intel_sdvo->slave_addr;
 	msgs[i].flags = 0;
 	msgs[i].len = 2;
 	msgs[i].buf = buf + 2*i;
@@ -568,38 +593,40 @@ intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd, const void *args,
 
 	/* the following two are to read the response */
 	status = SDVO_I2C_CMD_STATUS;
-	msgs[i+1].slave = intel_sdvo->slave_addr;
+	msgs[i+1].addr = intel_sdvo->slave_addr;
 	msgs[i+1].flags = 0;
 	msgs[i+1].len = 1;
 	msgs[i+1].buf = &status;
 
-	msgs[i+2].slave = intel_sdvo->slave_addr;
-	msgs[i+2].flags = IIC_M_RD;
+	msgs[i+2].addr = intel_sdvo->slave_addr;
+	msgs[i+2].flags = I2C_M_RD;
 	msgs[i+2].len = 1;
 	msgs[i+2].buf = &status;
 
-	ret = iicbus_transfer(intel_sdvo->i2c, msgs, i+3);
-	if (ret != 0) {
+	ret = i2c_transfer(intel_sdvo->i2c, msgs, i+3);
+	if (ret < 0) {
 		DRM_DEBUG_KMS("I2c transfer returned %d\n", ret);
-		return (false);
+		ret = false;
+		goto out;
 	}
-#if 0
 	if (ret != i+3) {
 		/* failure in I2C transfer */
 		DRM_DEBUG_KMS("I2c transfer returned %d/%d\n", ret, i+3);
-		return false;
+		ret = false;
 	}
-#endif
 
-	return true;
+out:
+	free(msgs, M_DRM);
+	free(buf, M_DRM);
+	return ret;
 #endif
 }
 
 bool
-intel_sdvo_read_response(struct intel_sdvo *intel_sdvo, void *response,
-    int response_len)
+intel_sdvo_read_response(struct intel_sdvo *intel_sdvo,
+				     void *response, int response_len)
 {
-	u8 retry = 5;
+	u8 retry = 15; /* 5 quick checks, followed by 10 long checks */
 	u8 status;
 	int i;
 
@@ -612,25 +639,37 @@ intel_sdvo_read_response(struct intel_sdvo *intel_sdvo, void *response,
 	 * command to be complete.
 	 *
 	 * Check 5 times in case the hardware failed to read the docs.
+	 *
+	 * Also beware that the first response by many devices is to
+	 * reply PENDING and stall for time. TVs are notorious for
+	 * requiring longer than specified to complete their replies.
+	 * Originally (in the DDX long ago), the delay was only ever 15ms
+	 * with an additional delay of 30ms applied for TVs added later after
+	 * many experiments. To accommodate both sets of delays, we do a
+	 * sequence of slow checks if the device is falling behind and fails
+	 * to reply within 5*15µs.
 	 */
-	if (!intel_sdvo_read_byte(intel_sdvo, SDVO_I2C_CMD_STATUS, &status))
+	if (!intel_sdvo_read_byte(intel_sdvo,
+				  SDVO_I2C_CMD_STATUS,
+				  &status))
 		goto log_fail;
 
-	while (status == SDVO_CMD_STATUS_PENDING && retry--) {
-		DELAY(15);
+	while (status == SDVO_CMD_STATUS_PENDING && --retry) {
+		if (retry < 10)
+			drm_msleep(15, "915srr");
+		else
+			DELAY(15);
+
 		if (!intel_sdvo_read_byte(intel_sdvo,
-		    SDVO_I2C_CMD_STATUS, &status))
+					  SDVO_I2C_CMD_STATUS,
+					  &status))
 			goto log_fail;
 	}
 
-#ifdef DRMDEBUG
-	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0) {
-		if (status <= SDVO_CMD_STATUS_SCALING_NOT_SUPP)
-			printf("(%s)", cmd_status_names[status]);
-		else
-			printf("(??? %d)", status);
-	}
-#endif
+	if (status <= SDVO_CMD_STATUS_SCALING_NOT_SUPP)
+		printf("(%s)", cmd_status_names[status]);
+	else
+		printf("(??? %d)", status);
 
 	if (status != SDVO_CMD_STATUS_SUCCESS)
 		goto log_fail;
@@ -641,23 +680,14 @@ intel_sdvo_read_response(struct intel_sdvo *intel_sdvo, void *response,
 					  SDVO_I2C_RETURN_0 + i,
 					  &((u8 *)response)[i]))
 			goto log_fail;
-#ifdef DRMDEBUG
-		if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0)
-			printf(" %02X", ((u8 *)response)[i]);
-#endif
+		printf(" %02X", ((u8 *)response)[i]);
 	}
-#ifdef DRMDEBUG
-	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0)
-		printf("\n");
-#endif
-	return (true);
+	printf("\n");
+	return true;
 
 log_fail:
-#ifdef DRMDEBUG
-	if ((drm_debug_flag & DRM_DEBUGBITS_KMS) != 0)
-		printf("... failed\n");
-#endif
-	return (false);
+	printf("... failed\n");
+	return false;
 }
 
 int
@@ -671,20 +701,18 @@ intel_sdvo_get_pixel_multiplier(struct drm_display_mode *mode)
 		return 4;
 }
 
-#ifdef notyet
 bool
-intel_sdvo_set_control_bus_switch(struct intel_sdvo *intel_sdvo, u8 ddc_bus)
+intel_sdvo_set_control_bus_switch(struct intel_sdvo *intel_sdvo,
+					      u8 ddc_bus)
 {
 	/* This must be the immediately preceding write before the i2c xfer */
 	return intel_sdvo_write_cmd(intel_sdvo,
 				    SDVO_CMD_SET_CONTROL_BUS_SWITCH,
 				    &ddc_bus, 1);
 }
-#endif
 
 bool
-intel_sdvo_set_value(struct intel_sdvo *intel_sdvo, u8 cmd, const void *data,
-    int len)
+intel_sdvo_set_value(struct intel_sdvo *intel_sdvo, u8 cmd, const void *data, int len)
 {
 	if (!intel_sdvo_write_cmd(intel_sdvo, cmd, data, len))
 		return false;
@@ -693,8 +721,7 @@ intel_sdvo_set_value(struct intel_sdvo *intel_sdvo, u8 cmd, const void *data,
 }
 
 bool
-intel_sdvo_get_value(struct intel_sdvo *intel_sdvo, u8 cmd, void *value,
-    int len)
+intel_sdvo_get_value(struct intel_sdvo *intel_sdvo, u8 cmd, void *value, int len)
 {
 	if (!intel_sdvo_write_cmd(intel_sdvo, cmd, NULL, 0))
 		return false;
@@ -718,12 +745,13 @@ intel_sdvo_set_target_input(struct intel_sdvo *intel_sdvo)
  * which should be checked against the docs.
  */
 bool
-intel_sdvo_get_trained_inputs(struct intel_sdvo *intel_sdvo, bool *input_1,
-    bool *input_2)
+intel_sdvo_get_trained_inputs(struct intel_sdvo *intel_sdvo, bool *input_1, bool *input_2)
 {
 	struct intel_sdvo_get_trained_inputs_response response;
 
-	CTASSERT(sizeof(response) == 1);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(response) != 1);
+#endif
 	if (!intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_TRAINED_INPUTS,
 				  &response, sizeof(response)))
 		return false;
@@ -734,7 +762,8 @@ intel_sdvo_get_trained_inputs(struct intel_sdvo *intel_sdvo, bool *input_1,
 }
 
 bool
-intel_sdvo_set_active_outputs(struct intel_sdvo *intel_sdvo, u16 outputs)
+intel_sdvo_set_active_outputs(struct intel_sdvo *intel_sdvo,
+					  u16 outputs)
 {
 	return intel_sdvo_set_value(intel_sdvo,
 				    SDVO_CMD_SET_ACTIVE_OUTPUTS,
@@ -742,7 +771,17 @@ intel_sdvo_set_active_outputs(struct intel_sdvo *intel_sdvo, u16 outputs)
 }
 
 bool
-intel_sdvo_set_encoder_power_state(struct intel_sdvo *intel_sdvo, int mode)
+intel_sdvo_get_active_outputs(struct intel_sdvo *intel_sdvo,
+					  u16 *outputs)
+{
+	return intel_sdvo_get_value(intel_sdvo,
+				    SDVO_CMD_GET_ACTIVE_OUTPUTS,
+				    outputs, sizeof(*outputs));
+}
+
+bool
+intel_sdvo_set_encoder_power_state(struct intel_sdvo *intel_sdvo,
+					       int mode)
 {
 	u8 state = SDVO_ENCODER_STATE_ON;
 
@@ -767,11 +806,14 @@ intel_sdvo_set_encoder_power_state(struct intel_sdvo *intel_sdvo, int mode)
 
 bool
 intel_sdvo_get_input_pixel_clock_range(struct intel_sdvo *intel_sdvo,
-    int *clock_min, int *clock_max)
+						   int *clock_min,
+						   int *clock_max)
 {
 	struct intel_sdvo_pixel_clock_range clocks;
 
-	CTASSERT(sizeof(clocks) == 4);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(clocks) != 4);
+#endif
 	if (!intel_sdvo_get_value(intel_sdvo,
 				  SDVO_CMD_GET_INPUT_PIXEL_CLOCK_RANGE,
 				  &clocks, sizeof(clocks)))
@@ -784,7 +826,8 @@ intel_sdvo_get_input_pixel_clock_range(struct intel_sdvo *intel_sdvo,
 }
 
 bool
-intel_sdvo_set_target_output(struct intel_sdvo *intel_sdvo, u16 outputs)
+intel_sdvo_set_target_output(struct intel_sdvo *intel_sdvo,
+					 u16 outputs)
 {
 	return intel_sdvo_set_value(intel_sdvo,
 				    SDVO_CMD_SET_TARGET_OUTPUT,
@@ -793,7 +836,7 @@ intel_sdvo_set_target_output(struct intel_sdvo *intel_sdvo, u16 outputs)
 
 bool
 intel_sdvo_set_timing(struct intel_sdvo *intel_sdvo, u8 cmd,
-    struct intel_sdvo_dtd *dtd)
+				  struct intel_sdvo_dtd *dtd)
 {
 	return intel_sdvo_set_value(intel_sdvo, cmd, &dtd->part1, sizeof(dtd->part1)) &&
 		intel_sdvo_set_value(intel_sdvo, cmd + 1, &dtd->part2, sizeof(dtd->part2));
@@ -801,7 +844,7 @@ intel_sdvo_set_timing(struct intel_sdvo *intel_sdvo, u8 cmd,
 
 bool
 intel_sdvo_set_input_timing(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_dtd *dtd)
+					 struct intel_sdvo_dtd *dtd)
 {
 	return intel_sdvo_set_timing(intel_sdvo,
 				     SDVO_CMD_SET_INPUT_TIMINGS_PART1, dtd);
@@ -809,7 +852,7 @@ intel_sdvo_set_input_timing(struct intel_sdvo *intel_sdvo,
 
 bool
 intel_sdvo_set_output_timing(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_dtd *dtd)
+					 struct intel_sdvo_dtd *dtd)
 {
 	return intel_sdvo_set_timing(intel_sdvo,
 				     SDVO_CMD_SET_OUTPUT_TIMINGS_PART1, dtd);
@@ -817,7 +860,9 @@ intel_sdvo_set_output_timing(struct intel_sdvo *intel_sdvo,
 
 bool
 intel_sdvo_create_preferred_input_timing(struct intel_sdvo *intel_sdvo,
-    uint16_t clock, uint16_t width, uint16_t height)
+					 uint16_t clock,
+					 uint16_t width,
+					 uint16_t height)
 {
 	struct intel_sdvo_preferred_input_timing_args args;
 
@@ -839,10 +884,12 @@ intel_sdvo_create_preferred_input_timing(struct intel_sdvo *intel_sdvo,
 
 bool
 intel_sdvo_get_preferred_input_timing(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_dtd *dtd)
+						  struct intel_sdvo_dtd *dtd)
 {
-	CTASSERT(sizeof(dtd->part1) == 8);
-	CTASSERT(sizeof(dtd->part2) == 8);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(dtd->part1) != 8);
+	BUILD_BUG_ON(sizeof(dtd->part2) != 8);
+#endif
 	return intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_PREFERRED_INPUT_TIMING_PART1,
 				    &dtd->part1, sizeof(dtd->part1)) &&
 		intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_PREFERRED_INPUT_TIMING_PART2,
@@ -857,25 +904,25 @@ intel_sdvo_set_clock_rate_mult(struct intel_sdvo *intel_sdvo, u8 val)
 
 void
 intel_sdvo_get_dtd_from_mode(struct intel_sdvo_dtd *dtd,
-    const struct drm_display_mode *mode)
+					 const struct drm_display_mode *mode)
 {
 	uint16_t width, height;
 	uint16_t h_blank_len, h_sync_len, v_blank_len, v_sync_len;
 	uint16_t h_sync_offset, v_sync_offset;
 	int mode_clock;
 
-	width = mode->crtc_hdisplay;
-	height = mode->crtc_vdisplay;
+	width = mode->hdisplay;
+	height = mode->vdisplay;
 
 	/* do some mode translations */
-	h_blank_len = mode->crtc_hblank_end - mode->crtc_hblank_start;
-	h_sync_len = mode->crtc_hsync_end - mode->crtc_hsync_start;
+	h_blank_len = mode->htotal - mode->hdisplay;
+	h_sync_len = mode->hsync_end - mode->hsync_start;
 
-	v_blank_len = mode->crtc_vblank_end - mode->crtc_vblank_start;
-	v_sync_len = mode->crtc_vsync_end - mode->crtc_vsync_start;
+	v_blank_len = mode->vtotal - mode->vdisplay;
+	v_sync_len = mode->vsync_end - mode->vsync_start;
 
-	h_sync_offset = mode->crtc_hsync_start - mode->crtc_hblank_start;
-	v_sync_offset = mode->crtc_vsync_start - mode->crtc_vblank_start;
+	h_sync_offset = mode->hsync_start - mode->hdisplay;
+	v_sync_offset = mode->vsync_start - mode->vdisplay;
 
 	mode_clock = mode->clock;
 	mode_clock /= intel_mode_get_pixel_multiplier(mode) ?: 1;
@@ -900,10 +947,12 @@ intel_sdvo_get_dtd_from_mode(struct intel_sdvo_dtd *dtd,
 		((v_sync_len & 0x30) >> 4);
 
 	dtd->part2.dtd_flags = 0x18;
+	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
+		dtd->part2.dtd_flags |= DTD_FLAG_INTERLACE;
 	if (mode->flags & DRM_MODE_FLAG_PHSYNC)
-		dtd->part2.dtd_flags |= 0x2;
+		dtd->part2.dtd_flags |= DTD_FLAG_HSYNC_POSITIVE;
 	if (mode->flags & DRM_MODE_FLAG_PVSYNC)
-		dtd->part2.dtd_flags |= 0x4;
+		dtd->part2.dtd_flags |= DTD_FLAG_VSYNC_POSITIVE;
 
 	dtd->part2.sdvo_flags = 0;
 	dtd->part2.v_sync_off_high = v_sync_offset & 0xc0;
@@ -912,7 +961,7 @@ intel_sdvo_get_dtd_from_mode(struct intel_sdvo_dtd *dtd,
 
 void
 intel_sdvo_get_mode_from_dtd(struct drm_display_mode * mode,
-    const struct intel_sdvo_dtd *dtd)
+					 const struct intel_sdvo_dtd *dtd)
 {
 	mode->hdisplay = dtd->part1.h_active;
 	mode->hdisplay += ((dtd->part1.h_high >> 4) & 0x0f) << 8;
@@ -938,9 +987,11 @@ intel_sdvo_get_mode_from_dtd(struct drm_display_mode * mode,
 	mode->clock = dtd->part1.clock * 10;
 
 	mode->flags &= ~(DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
-	if (dtd->part2.dtd_flags & 0x2)
+	if (dtd->part2.dtd_flags & DTD_FLAG_INTERLACE)
+		mode->flags |= DRM_MODE_FLAG_INTERLACE;
+	if (dtd->part2.dtd_flags & DTD_FLAG_HSYNC_POSITIVE)
 		mode->flags |= DRM_MODE_FLAG_PHSYNC;
-	if (dtd->part2.dtd_flags & 0x4)
+	if (dtd->part2.dtd_flags & DTD_FLAG_VSYNC_POSITIVE)
 		mode->flags |= DRM_MODE_FLAG_PVSYNC;
 }
 
@@ -949,20 +1000,24 @@ intel_sdvo_check_supp_encode(struct intel_sdvo *intel_sdvo)
 {
 	struct intel_sdvo_encode encode;
 
-	CTASSERT(sizeof(encode) == 2);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(encode) != 2);
+#endif
 	return intel_sdvo_get_value(intel_sdvo,
 				  SDVO_CMD_GET_SUPP_ENCODE,
 				  &encode, sizeof(encode));
 }
 
 bool
-intel_sdvo_set_encode(struct intel_sdvo *intel_sdvo, uint8_t mode)
+intel_sdvo_set_encode(struct intel_sdvo *intel_sdvo,
+				  uint8_t mode)
 {
 	return intel_sdvo_set_value(intel_sdvo, SDVO_CMD_SET_ENCODE, &mode, 1);
 }
 
 bool
-intel_sdvo_set_colorimetry(struct intel_sdvo *intel_sdvo, uint8_t mode)
+intel_sdvo_set_colorimetry(struct intel_sdvo *intel_sdvo,
+				       uint8_t mode)
 {
 	return intel_sdvo_set_value(intel_sdvo, SDVO_CMD_SET_COLORIMETRY, &mode, 1);
 }
@@ -999,6 +1054,48 @@ intel_sdvo_dump_hdmi_buf(struct intel_sdvo *intel_sdvo)
 #endif
 
 bool
+intel_sdvo_write_infoframe(struct intel_sdvo *intel_sdvo,
+				       unsigned if_index, uint8_t tx_rate,
+				       uint8_t *data, unsigned length)
+{
+	uint8_t set_buf_index[2] = { if_index, 0 };
+	uint8_t hbuf_size, tmp[8];
+	int i;
+
+	if (!intel_sdvo_set_value(intel_sdvo,
+				  SDVO_CMD_SET_HBUF_INDEX,
+				  set_buf_index, 2))
+		return false;
+
+	if (!intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_HBUF_INFO,
+				  &hbuf_size, 1))
+		return false;
+
+	/* Buffer size is 0 based, hooray! */
+	hbuf_size++;
+
+	DRM_DEBUG_KMS("writing sdvo hbuf: %i, hbuf_size %i, hbuf_size: %i\n",
+		      if_index, length, hbuf_size);
+
+	for (i = 0; i < hbuf_size; i += 8) {
+		memset(tmp, 0, 8);
+		if (i < length) {
+			unsigned min = 8 < length - i ? 8 : length - i;
+			memcpy(tmp, data + i, min);
+		}
+
+		if (!intel_sdvo_set_value(intel_sdvo,
+					  SDVO_CMD_SET_HBUF_DATA,
+					  tmp, 8))
+			return false;
+	}
+
+	return intel_sdvo_set_value(intel_sdvo,
+				    SDVO_CMD_SET_HBUF_TXRATE,
+				    &tx_rate, 1);
+}
+
+bool
 intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo)
 {
 	struct dip_infoframe avi_if = {
@@ -1006,29 +1103,19 @@ intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo)
 		.ver = DIP_VERSION_AVI,
 		.len = DIP_LEN_AVI,
 	};
-	uint8_t tx_rate = SDVO_HBUF_TX_VSYNC;
-	uint8_t set_buf_index[2] = { 1, 0 };
-	uint64_t *data = (uint64_t *)&avi_if;
-	unsigned i;
+	uint8_t sdvo_data[4 + sizeof(avi_if.body.avi)];
 
 	intel_dip_infoframe_csum(&avi_if);
 
-	if (!intel_sdvo_set_value(intel_sdvo,
-				  SDVO_CMD_SET_HBUF_INDEX,
-				  set_buf_index, 2))
-		return false;
+	/* sdvo spec says that the ecc is handled by the hw, and it looks like
+	 * we must not send the ecc field, either. */
+	memcpy(sdvo_data, &avi_if, 3);
+	sdvo_data[3] = avi_if.checksum;
+	memcpy(&sdvo_data[4], &avi_if.body, sizeof(avi_if.body.avi));
 
-	for (i = 0; i < sizeof(avi_if); i += 8) {
-		if (!intel_sdvo_set_value(intel_sdvo,
-					  SDVO_CMD_SET_HBUF_DATA,
-					  data, 8))
-			return false;
-		data++;
-	}
-
-	return intel_sdvo_set_value(intel_sdvo,
-				    SDVO_CMD_SET_HBUF_TXRATE,
-				    &tx_rate, 1);
+	return intel_sdvo_write_infoframe(intel_sdvo, SDVO_HBUF_INDEX_AVI_IF,
+					  SDVO_HBUF_TX_VSYNC,
+					  sdvo_data, sizeof(sdvo_data));
 }
 
 bool
@@ -1041,7 +1128,9 @@ intel_sdvo_set_tv_format(struct intel_sdvo *intel_sdvo)
 	memset(&format, 0, sizeof(format));
 	memcpy(&format, &format_map, min(sizeof(format), sizeof(format_map)));
 
-	CTASSERT(sizeof(format) == 6);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(format) != 6);
+#endif
 	return intel_sdvo_set_value(intel_sdvo,
 				    SDVO_CMD_SET_TV_FORMAT,
 				    &format, sizeof(format));
@@ -1049,7 +1138,7 @@ intel_sdvo_set_tv_format(struct intel_sdvo *intel_sdvo)
 
 bool
 intel_sdvo_set_output_timings_from_mode(struct intel_sdvo *intel_sdvo,
-    const struct drm_display_mode *mode)
+					const struct drm_display_mode *mode)
 {
 	struct intel_sdvo_dtd output_dtd;
 
@@ -1064,10 +1153,15 @@ intel_sdvo_set_output_timings_from_mode(struct intel_sdvo *intel_sdvo,
 	return true;
 }
 
+/* Asks the sdvo controller for the preferred input mode given the output mode.
+ * Unfortunately we have to set up the full output mode to do that. */
 bool
-intel_sdvo_set_input_timings_for_mode(struct intel_sdvo *intel_sdvo,
-    const struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
+intel_sdvo_get_preferred_input_mode(struct intel_sdvo *intel_sdvo,
+				    const struct drm_display_mode *mode,
+				    struct drm_display_mode *adjusted_mode)
 {
+	struct intel_sdvo_dtd input_dtd;
+
 	/* Reset the input timing to the screen. Assume always input 0. */
 	if (!intel_sdvo_set_target_input(intel_sdvo))
 		return false;
@@ -1079,17 +1173,19 @@ intel_sdvo_set_input_timings_for_mode(struct intel_sdvo *intel_sdvo,
 		return false;
 
 	if (!intel_sdvo_get_preferred_input_timing(intel_sdvo,
-						   &intel_sdvo->input_dtd))
+						   &input_dtd))
 		return false;
 
-	intel_sdvo_get_mode_from_dtd(adjusted_mode, &intel_sdvo->input_dtd);
+	intel_sdvo_get_mode_from_dtd(adjusted_mode, &input_dtd);
+	intel_sdvo->dtd_sdvo_flags = input_dtd.part2.sdvo_flags;
 
 	return true;
 }
 
 bool
 intel_sdvo_mode_fixup(struct drm_encoder *encoder,
-    const struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode)
+				  const struct drm_display_mode *mode,
+				  struct drm_display_mode *adjusted_mode)
 {
 	struct intel_sdvo *intel_sdvo = to_intel_sdvo(encoder);
 	int multiplier;
@@ -1103,17 +1199,17 @@ intel_sdvo_mode_fixup(struct drm_encoder *encoder,
 		if (!intel_sdvo_set_output_timings_from_mode(intel_sdvo, mode))
 			return false;
 
-		(void) intel_sdvo_set_input_timings_for_mode(intel_sdvo,
-							     mode,
-							     adjusted_mode);
+		(void) intel_sdvo_get_preferred_input_mode(intel_sdvo,
+							   mode,
+							   adjusted_mode);
 	} else if (intel_sdvo->is_lvds) {
 		if (!intel_sdvo_set_output_timings_from_mode(intel_sdvo,
 							     intel_sdvo->sdvo_lvds_fixed_mode))
 			return false;
 
-		(void) intel_sdvo_set_input_timings_for_mode(intel_sdvo,
-							     mode,
-							     adjusted_mode);
+		(void) intel_sdvo_get_preferred_input_mode(intel_sdvo,
+							   mode,
+							   adjusted_mode);
 	}
 
 	/* Make the CRTC code factor in the SDVO pixel multiplier.  The
@@ -1126,8 +1222,9 @@ intel_sdvo_mode_fixup(struct drm_encoder *encoder,
 }
 
 void
-intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
-    struct drm_display_mode *adjusted_mode)
+intel_sdvo_mode_set(struct drm_encoder *encoder,
+				struct drm_display_mode *mode,
+				struct drm_display_mode *adjusted_mode)
 {
 	struct drm_device *dev = encoder->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
@@ -1167,7 +1264,9 @@ intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 					     intel_sdvo->sdvo_lvds_fixed_mode);
 	else
 		intel_sdvo_get_dtd_from_mode(&output_dtd, mode);
-	(void) intel_sdvo_set_output_timing(intel_sdvo, &output_dtd);
+	if (!intel_sdvo_set_output_timing(intel_sdvo, &output_dtd))
+		DRM_INFO("Setting output timings on %s failed\n",
+			 SDVO_NAME(intel_sdvo));
 
 	/* Set the input timing to the screen. Assume always input 0. */
 	if (!intel_sdvo_set_target_input(intel_sdvo))
@@ -1189,7 +1288,11 @@ intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	 * adjusted_mode.
 	 */
 	intel_sdvo_get_dtd_from_mode(&input_dtd, adjusted_mode);
-	(void) intel_sdvo_set_input_timing(intel_sdvo, &input_dtd);
+	if (intel_sdvo->is_tv || intel_sdvo->is_lvds)
+		input_dtd.part2.sdvo_flags = intel_sdvo->dtd_sdvo_flags;
+	if (!intel_sdvo_set_input_timing(intel_sdvo, &input_dtd))
+		DRM_INFO("Setting input timings on %s failed\n",
+			 SDVO_NAME(intel_sdvo));
 
 	switch (pixel_multiplier) {
 	default:
@@ -1244,57 +1347,178 @@ intel_sdvo_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
 	intel_sdvo_write_sdvox(intel_sdvo, sdvox);
 }
 
-void
-intel_sdvo_dpms(struct drm_encoder *encoder, int mode)
+bool
+intel_sdvo_connector_get_hw_state(struct intel_connector *connector)
 {
-	struct drm_device *dev = encoder->dev;
+	struct intel_sdvo_connector *intel_sdvo_connector =
+		to_intel_sdvo_connector(&connector->base);
+	struct intel_sdvo *intel_sdvo = intel_attached_sdvo(&connector->base);
+	u16 active_outputs;
+
+	intel_sdvo_get_active_outputs(intel_sdvo, &active_outputs);
+
+	if (active_outputs & intel_sdvo_connector->output_flag)
+		return true;
+	else
+		return false;
+}
+
+bool
+intel_sdvo_get_hw_state(struct intel_encoder *encoder,
+				    enum pipe *pipe)
+{
+	struct drm_device *dev = encoder->base.dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	struct intel_sdvo *intel_sdvo = to_intel_sdvo(encoder);
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
+	struct intel_sdvo *intel_sdvo = to_intel_sdvo(&encoder->base);
+	u32 tmp;
+
+	tmp = I915_READ(intel_sdvo->sdvo_reg);
+
+	if (!(tmp & SDVO_ENABLE))
+		return false;
+
+	if (HAS_PCH_CPT(dev))
+		*pipe = PORT_TO_PIPE_CPT(tmp);
+	else
+		*pipe = PORT_TO_PIPE(tmp);
+
+	return true;
+}
+
+void
+intel_disable_sdvo(struct intel_encoder *encoder)
+{
+	struct inteldrm_softc *dev_priv = encoder->base.dev->dev_private;
+	struct intel_sdvo *intel_sdvo = to_intel_sdvo(&encoder->base);
 	u32 temp;
+
+	intel_sdvo_set_active_outputs(intel_sdvo, 0);
+	if (0)
+		intel_sdvo_set_encoder_power_state(intel_sdvo,
+						   DRM_MODE_DPMS_OFF);
+
+	temp = I915_READ(intel_sdvo->sdvo_reg);
+	if ((temp & SDVO_ENABLE) != 0) {
+		/* HW workaround for IBX, we need to move the port to
+		 * transcoder A before disabling it. */
+		if (HAS_PCH_IBX(encoder->base.dev)) {
+			struct drm_crtc *crtc = encoder->base.crtc;
+			int pipe = crtc ? to_intel_crtc(crtc)->pipe : -1;
+
+			if (temp & SDVO_PIPE_B_SELECT) {
+				temp &= ~SDVO_PIPE_B_SELECT;
+				I915_WRITE(intel_sdvo->sdvo_reg, temp);
+				POSTING_READ(intel_sdvo->sdvo_reg);
+
+				/* Again we need to write this twice. */
+				I915_WRITE(intel_sdvo->sdvo_reg, temp);
+				POSTING_READ(intel_sdvo->sdvo_reg);
+
+				/* Transcoder selection bits only update
+				 * effectively on vblank. */
+				if (crtc)
+					intel_wait_for_vblank(encoder->base.dev, pipe);
+				else
+					drm_msleep(50, "915dsd");
+			}
+		}
+
+		intel_sdvo_write_sdvox(intel_sdvo, temp & ~SDVO_ENABLE);
+	}
+}
+
+void
+intel_enable_sdvo(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct intel_sdvo *intel_sdvo = to_intel_sdvo(&encoder->base);
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	u32 temp;
+	bool input1, input2;
+	int i;
+	u8 status;
+
+	temp = I915_READ(intel_sdvo->sdvo_reg);
+	if ((temp & SDVO_ENABLE) == 0) {
+		/* HW workaround for IBX, we need to move the port
+		 * to transcoder A before disabling it. */
+		if (HAS_PCH_IBX(dev)) {
+			struct drm_crtc *crtc = encoder->base.crtc;
+			int pipe = crtc ? to_intel_crtc(crtc)->pipe : -1;
+
+			/* Restore the transcoder select bit. */
+			if (pipe == PIPE_B)
+				temp |= SDVO_PIPE_B_SELECT;
+		}
+
+		intel_sdvo_write_sdvox(intel_sdvo, temp | SDVO_ENABLE);
+	}
+	for (i = 0; i < 2; i++)
+		intel_wait_for_vblank(dev, intel_crtc->pipe);
+
+	status = intel_sdvo_get_trained_inputs(intel_sdvo, &input1, &input2);
+	/* Warn if the device reported failure to sync.
+	 * A lot of SDVO devices fail to notify of sync, but it's
+	 * a given it the status is a success, we succeeded.
+	 */
+	if (status == SDVO_CMD_STATUS_SUCCESS && !input1) {
+		DRM_DEBUG_KMS("First %s output reported failure to "
+				"sync\n", SDVO_NAME(intel_sdvo));
+	}
+
+	if (0)
+		intel_sdvo_set_encoder_power_state(intel_sdvo,
+						   DRM_MODE_DPMS_ON);
+	intel_sdvo_set_active_outputs(intel_sdvo, intel_sdvo->attached_output);
+}
+
+void
+intel_sdvo_dpms(struct drm_connector *connector, int mode)
+{
+	struct drm_crtc *crtc;
+	struct intel_sdvo *intel_sdvo = intel_attached_sdvo(connector);
+
+	/* dvo supports only 2 dpms states. */
+	if (mode != DRM_MODE_DPMS_ON)
+		mode = DRM_MODE_DPMS_OFF;
+
+	if (mode == connector->dpms)
+		return;
+
+	connector->dpms = mode;
+
+	/* Only need to change hw state when actually enabled */
+	crtc = intel_sdvo->base.base.crtc;
+	if (!crtc) {
+		intel_sdvo->base.connectors_active = false;
+		return;
+	}
 
 	if (mode != DRM_MODE_DPMS_ON) {
 		intel_sdvo_set_active_outputs(intel_sdvo, 0);
 		if (0)
 			intel_sdvo_set_encoder_power_state(intel_sdvo, mode);
 
-		if (mode == DRM_MODE_DPMS_OFF) {
-			temp = I915_READ(intel_sdvo->sdvo_reg);
-			if ((temp & SDVO_ENABLE) != 0) {
-				intel_sdvo_write_sdvox(intel_sdvo, temp & ~SDVO_ENABLE);
-			}
-		}
+		intel_sdvo->base.connectors_active = false;
+
+		intel_crtc_update_dpms(crtc);
 	} else {
-		bool input1, input2;
-		int i;
-		u8 status;
+		intel_sdvo->base.connectors_active = true;
 
-		temp = I915_READ(intel_sdvo->sdvo_reg);
-		if ((temp & SDVO_ENABLE) == 0)
-			intel_sdvo_write_sdvox(intel_sdvo, temp | SDVO_ENABLE);
-		for (i = 0; i < 2; i++)
-			intel_wait_for_vblank(dev, intel_crtc->pipe);
-
-		status = intel_sdvo_get_trained_inputs(intel_sdvo, &input1, &input2);
-		/* Warn if the device reported failure to sync.
-		 * A lot of SDVO devices fail to notify of sync, but it's
-		 * a given it the status is a success, we succeeded.
-		 */
-		if (status == SDVO_CMD_STATUS_SUCCESS && !input1) {
-			DRM_DEBUG_KMS("First %s output reported failure to "
-					"sync\n", SDVO_NAME(intel_sdvo));
-		}
+		intel_crtc_update_dpms(crtc);
 
 		if (0)
 			intel_sdvo_set_encoder_power_state(intel_sdvo, mode);
 		intel_sdvo_set_active_outputs(intel_sdvo, intel_sdvo->attached_output);
 	}
-	return;
+
+	intel_modeset_check_state(connector->dev);
 }
 
 int
 intel_sdvo_mode_valid(struct drm_connector *connector,
-    struct drm_display_mode *mode)
+				 struct drm_display_mode *mode)
 {
 	struct intel_sdvo *intel_sdvo = intel_attached_sdvo(connector);
 
@@ -1319,10 +1543,11 @@ intel_sdvo_mode_valid(struct drm_connector *connector,
 }
 
 bool
-intel_sdvo_get_capabilities(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_caps *caps)
+intel_sdvo_get_capabilities(struct intel_sdvo *intel_sdvo, struct intel_sdvo_caps *caps)
 {
-	CTASSERT(sizeof(*caps) == 8);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(*caps) != 8);
+#endif
 	if (!intel_sdvo_get_value(intel_sdvo,
 				  SDVO_CMD_GET_DEVICE_CAPS,
 				  caps, sizeof(*caps)))
@@ -1357,19 +1582,22 @@ intel_sdvo_get_capabilities(struct intel_sdvo *intel_sdvo,
 	return true;
 }
 
-int
-intel_sdvo_supports_hotplug(struct intel_sdvo *intel_sdvo)
+uint16_t
+intel_sdvo_get_hotplug_support(struct intel_sdvo *intel_sdvo)
 {
 	struct drm_device *dev = intel_sdvo->base.base.dev;
-	u8 response[2];
+	uint16_t hotplug;
 
 	/* HW Erratum: SDVO Hotplug is broken on all i945G chips, there's noise
 	 * on the line. */
 	if (IS_I945G(dev) || IS_I945GM(dev))
-		return false;
+		return 0;
 
-	return intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_HOT_PLUG_SUPPORT,
-				    &response, 2) && response[0];
+	if (!intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_HOT_PLUG_SUPPORT,
+					&hotplug, sizeof(hotplug)))
+		return 0;
+
+	return hotplug;
 }
 
 void
@@ -1378,7 +1606,7 @@ intel_sdvo_enable_hotplug(struct intel_encoder *encoder)
 	struct intel_sdvo *intel_sdvo = to_intel_sdvo(&encoder->base);
 
 	intel_sdvo_write_cmd(intel_sdvo, SDVO_CMD_SET_ACTIVE_HOT_PLUG,
-			     &intel_sdvo->hotplug_active, 2);
+			&intel_sdvo->hotplug_active, 2);
 }
 
 bool
@@ -1392,7 +1620,7 @@ struct edid *
 intel_sdvo_get_edid(struct drm_connector *connector)
 {
 	struct intel_sdvo *sdvo = intel_attached_sdvo(connector);
-	return drm_get_edid(connector, sdvo->ddc);
+	return drm_get_edid(connector, &sdvo->ddc);
 }
 
 /* Mac mini hack -- use the same DDC as the analog connector */
@@ -1485,16 +1713,9 @@ intel_sdvo_detect(struct drm_connector *connector, bool force)
 	struct intel_sdvo_connector *intel_sdvo_connector = to_intel_sdvo_connector(connector);
 	enum drm_connector_status ret;
 
-	if (!intel_sdvo_write_cmd(intel_sdvo,
-				  SDVO_CMD_GET_ATTACHED_DISPLAYS, NULL, 0))
-		return connector_status_unknown;
-
-	/* add 30ms delay when the output type might be TV */
-	if (intel_sdvo->caps.output_flags &
-	    (SDVO_OUTPUT_SVID0 | SDVO_OUTPUT_CVBS0))
-		drm_msleep(30, "915svo");
-
-	if (!intel_sdvo_read_response(intel_sdvo, &response, 2))
+	if (!intel_sdvo_get_value(intel_sdvo,
+				  SDVO_CMD_GET_ATTACHED_DISPLAYS,
+				  &response, 2))
 		return connector_status_unknown;
 
 	DRM_DEBUG_KMS("SDVO response %d %d [%x]\n",
@@ -1660,7 +1881,9 @@ intel_sdvo_get_tv_modes(struct drm_connector *connector)
 	if (!intel_sdvo_set_target_output(intel_sdvo, intel_sdvo->attached_output))
 		return;
 
-	CTASSERT(sizeof(tv_res) == 3);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(tv_res) != 3);
+#endif
 	if (!intel_sdvo_write_cmd(intel_sdvo,
 				  SDVO_CMD_GET_SDTV_RESOLUTION_SUPPORT,
 				  &tv_res, sizeof(tv_res)))
@@ -1668,7 +1891,7 @@ intel_sdvo_get_tv_modes(struct drm_connector *connector)
 	if (!intel_sdvo_read_response(intel_sdvo, &reply, 3))
 		return;
 
-	for (i = 0; i < nitems(sdvo_tv_modes); i++)
+	for (i = 0; i < ARRAY_SIZE(sdvo_tv_modes); i++)
 		if (reply & (1 << i)) {
 			struct drm_display_mode *nmode;
 			nmode = drm_mode_duplicate(connector->dev,
@@ -1711,9 +1934,6 @@ end:
 		if (newmode->type & DRM_MODE_TYPE_PREFERRED) {
 			intel_sdvo->sdvo_lvds_fixed_mode =
 				drm_mode_duplicate(connector->dev, newmode);
-
-			drm_mode_set_crtcinfo(intel_sdvo->sdvo_lvds_fixed_mode,
-					      0);
 
 			intel_sdvo->is_lvds = true;
 			break;
@@ -1793,7 +2013,7 @@ intel_sdvo_destroy(struct drm_connector *connector)
 	drm_sysfs_connector_remove(connector);
 #endif
 	drm_connector_cleanup(connector);
-	free(connector, M_DRM);
+	free(intel_sdvo_connector, M_DRM);
 }
 
 bool
@@ -1809,13 +2029,15 @@ intel_sdvo_detect_hdmi_audio(struct drm_connector *connector)
 	edid = intel_sdvo_get_edid(connector);
 	if (edid != NULL && edid->input & DRM_EDID_INPUT_DIGITAL)
 		has_audio = drm_detect_monitor_audio(edid);
+	free(edid, M_DRM);
 
 	return has_audio;
 }
 
 int
 intel_sdvo_set_property(struct drm_connector *connector,
-    struct drm_property *property, uint64_t val)
+			struct drm_property *property,
+			uint64_t val)
 {
 	struct intel_sdvo *intel_sdvo = intel_attached_sdvo(connector);
 	struct intel_sdvo_connector *intel_sdvo_connector = to_intel_sdvo_connector(connector);
@@ -1952,8 +2174,8 @@ set_value:
 done:
 	if (intel_sdvo->base.base.crtc) {
 		struct drm_crtc *crtc = intel_sdvo->base.base.crtc;
-		drm_crtc_helper_set_mode(crtc, &crtc->mode, crtc->x,
-					 crtc->y, crtc->fb);
+		intel_set_mode(crtc, &crtc->mode,
+			       crtc->x, crtc->y, crtc->fb);
 	}
 
 	return 0;
@@ -1961,15 +2183,13 @@ done:
 }
 
 static const struct drm_encoder_helper_funcs intel_sdvo_helper_funcs = {
-	.dpms = intel_sdvo_dpms,
 	.mode_fixup = intel_sdvo_mode_fixup,
-	.prepare = intel_encoder_prepare,
 	.mode_set = intel_sdvo_mode_set,
-	.commit = intel_encoder_commit,
+	.disable = intel_encoder_noop,
 };
 
 static const struct drm_connector_funcs intel_sdvo_connector_funcs = {
-	.dpms = drm_helper_connector_dpms,
+	.dpms = intel_sdvo_dpms,
 	.detect = intel_sdvo_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.set_property = intel_sdvo_set_property,
@@ -1992,10 +2212,7 @@ intel_sdvo_enc_destroy(struct drm_encoder *encoder)
 				 intel_sdvo->sdvo_lvds_fixed_mode);
 
 #ifdef notyet
-	device_delete_child(intel_sdvo->base.base.dev->device,
-	    intel_sdvo->ddc_iic_bus);
-#else
-	printf("%s todo teardown i2c\n", __func__);
+	i2c_del_adapter(&intel_sdvo->ddc);
 #endif
 	intel_encoder_destroy(encoder);
 }
@@ -2049,11 +2266,11 @@ intel_sdvo_guess_ddc_bus(struct intel_sdvo *sdvo)
  */
 void
 intel_sdvo_select_ddc_bus(struct inteldrm_softc *dev_priv,
-    struct intel_sdvo *sdvo, u32 reg)
+			  struct intel_sdvo *sdvo, u32 reg)
 {
 	struct sdvo_device_mapping *mapping;
 
-	if (IS_SDVOB(reg))
+	if (sdvo->is_sdvob)
 		mapping = &(dev_priv->sdvo_mappings[0]);
 	else
 		mapping = &(dev_priv->sdvo_mappings[1]);
@@ -2066,29 +2283,38 @@ intel_sdvo_select_ddc_bus(struct inteldrm_softc *dev_priv,
 
 void
 intel_sdvo_select_i2c_bus(struct inteldrm_softc *dev_priv,
-    struct intel_sdvo *sdvo, u32 reg)
+			  struct intel_sdvo *sdvo, u32 reg)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
 	struct sdvo_device_mapping *mapping;
 	u8 pin;
 
-	if (IS_SDVOB(reg))
+	if (sdvo->is_sdvob)
 		mapping = &dev_priv->sdvo_mappings[0];
 	else
 		mapping = &dev_priv->sdvo_mappings[1];
 
-	pin = GMBUS_PORT_DPB;
-	if (mapping->initialized)
+	if (mapping->initialized && intel_gmbus_is_port_valid(mapping->i2c_pin))
 		pin = mapping->i2c_pin;
+	else
+		pin = GMBUS_PORT_DPB;
 
-	if (pin < GMBUS_NUM_PORTS) {
-		sdvo->i2c = dev_priv->gmbus[pin];
-		intel_gmbus_set_speed(sdvo->i2c, GMBUS_RATE_1MHZ);
-		intel_gmbus_force_bit(sdvo->i2c, true);
-	} else {
-		sdvo->i2c = dev_priv->gmbus[GMBUS_PORT_DPB];
-	}
+	sdvo->i2c = intel_gmbus_get_adapter(dev_priv, pin);
+
+	/* With gmbus we should be able to drive sdvo i2c at 2MHz, but somehow
+	 * our code totally fails once we start using gmbus. Hence fall back to
+	 * bit banging for now. */
+	intel_gmbus_force_bit(sdvo->i2c, true);
+#endif
+}
+
+/* undo any changes intel_sdvo_select_i2c_bus() did to sdvo->i2c */
+void
+intel_sdvo_unselect_i2c_bus(struct intel_sdvo *sdvo)
+{
+#ifdef notyet
+	intel_gmbus_force_bit(sdvo->i2c, false);
 #endif
 }
 
@@ -2099,12 +2325,12 @@ intel_sdvo_is_hdmi_connector(struct intel_sdvo *intel_sdvo, int device)
 }
 
 u8
-intel_sdvo_get_slave_addr(struct drm_device *dev, int sdvo_reg)
+intel_sdvo_get_slave_addr(struct drm_device *dev, struct intel_sdvo *sdvo)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct sdvo_device_mapping *my_mapping, *other_mapping;
 
-	if (IS_SDVOB(sdvo_reg)) {
+	if (sdvo->is_sdvob) {
 		my_mapping = &dev_priv->sdvo_mappings[0];
 		other_mapping = &dev_priv->sdvo_mappings[1];
 	} else {
@@ -2129,7 +2355,7 @@ intel_sdvo_get_slave_addr(struct drm_device *dev, int sdvo_reg)
 	/* No SDVO device info is found for another DVO port,
 	 * so use mapping assumption we had before BIOS parsing.
 	 */
-	if (IS_SDVOB(sdvo_reg))
+	if (sdvo->is_sdvob)
 		return 0x70;
 	else
 		return 0x72;
@@ -2137,7 +2363,7 @@ intel_sdvo_get_slave_addr(struct drm_device *dev, int sdvo_reg)
 
 void
 intel_sdvo_connector_init(struct intel_sdvo_connector *connector,
-    struct intel_sdvo *encoder)
+			  struct intel_sdvo *encoder)
 {
 	drm_connector_init(encoder->base.base.dev,
 			   &connector->base.base,
@@ -2150,6 +2376,7 @@ intel_sdvo_connector_init(struct intel_sdvo_connector *connector,
 	connector->base.base.interlace_allowed = 1;
 	connector->base.base.doublescan_allowed = 0;
 	connector->base.base.display_info.subpixel_order = SubPixelHorizontalRGB;
+	connector->base.get_hw_state = intel_sdvo_connector_get_hw_state;
 
 	intel_connector_attach_encoder(&connector->base, &encoder->base);
 #if 0
@@ -2178,6 +2405,8 @@ intel_sdvo_dvi_init(struct intel_sdvo *intel_sdvo, int device)
 
 	intel_sdvo_connector = malloc(sizeof(struct intel_sdvo_connector),
 	    M_DRM, M_WAITOK | M_ZERO);
+	if (!intel_sdvo_connector)
+		return false;
 
 	if (device == 0) {
 		intel_sdvo->controlled_output |= SDVO_OUTPUT_TMDS0;
@@ -2189,17 +2418,18 @@ intel_sdvo_dvi_init(struct intel_sdvo *intel_sdvo, int device)
 
 	intel_connector = &intel_sdvo_connector->base;
 	connector = &intel_connector->base;
-	if (intel_sdvo_supports_hotplug(intel_sdvo) & (1 << device)) {
+	if (intel_sdvo_get_hotplug_support(intel_sdvo) &
+		intel_sdvo_connector->output_flag) {
 		connector->polled = DRM_CONNECTOR_POLL_HPD;
-		intel_sdvo->hotplug_active[0] |= 1 << device;
+		intel_sdvo->hotplug_active |= intel_sdvo_connector->output_flag;
 		/* Some SDVO devices have one-shot hotplug interrupts.
 		 * Ensure that they get re-enabled when an interrupt happens.
 		 */
 		intel_encoder->hot_plug = intel_sdvo_enable_hotplug;
 		intel_sdvo_enable_hotplug(intel_encoder);
-	}
-	else
+	} else {
 		connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
+	}
 	encoder->encoder_type = DRM_MODE_ENCODER_TMDS;
 	connector->connector_type = DRM_MODE_CONNECTOR_DVID;
 
@@ -2207,8 +2437,6 @@ intel_sdvo_dvi_init(struct intel_sdvo *intel_sdvo, int device)
 		connector->connector_type = DRM_MODE_CONNECTOR_HDMIA;
 		intel_sdvo->is_hdmi = true;
 	}
-	intel_sdvo->base.clone_mask = ((1 << INTEL_SDVO_NON_TV_CLONE_BIT) |
-				       (1 << INTEL_ANALOG_CLONE_BIT));
 
 	intel_sdvo_connector_init(intel_sdvo_connector, intel_sdvo);
 	if (intel_sdvo->is_hdmi)
@@ -2240,7 +2468,6 @@ intel_sdvo_tv_init(struct intel_sdvo *intel_sdvo, int type)
 
 	intel_sdvo->is_tv = true;
 	intel_sdvo->base.needs_tv_clock = true;
-	intel_sdvo->base.clone_mask = 1 << INTEL_SDVO_TV_CLONE_BIT;
 
 	intel_sdvo_connector_init(intel_sdvo_connector, intel_sdvo);
 
@@ -2267,6 +2494,8 @@ intel_sdvo_analog_init(struct intel_sdvo *intel_sdvo, int device)
 
 	intel_sdvo_connector = malloc(sizeof(struct intel_sdvo_connector),
 	    M_DRM, M_WAITOK | M_ZERO);
+	if (!intel_sdvo_connector)
+		return false;
 
 	intel_connector = &intel_sdvo_connector->base;
 	connector = &intel_connector->base;
@@ -2281,9 +2510,6 @@ intel_sdvo_analog_init(struct intel_sdvo *intel_sdvo, int device)
 		intel_sdvo->controlled_output |= SDVO_OUTPUT_RGB1;
 		intel_sdvo_connector->output_flag = SDVO_OUTPUT_RGB1;
 	}
-
-	intel_sdvo->base.clone_mask = ((1 << INTEL_SDVO_NON_TV_CLONE_BIT) |
-				       (1 << INTEL_ANALOG_CLONE_BIT));
 
 	intel_sdvo_connector_init(intel_sdvo_connector,
 				  intel_sdvo);
@@ -2300,6 +2526,8 @@ intel_sdvo_lvds_init(struct intel_sdvo *intel_sdvo, int device)
 
 	intel_sdvo_connector = malloc(sizeof(struct intel_sdvo_connector),
 	    M_DRM, M_WAITOK | M_ZERO);
+	if (!intel_sdvo_connector)
+		return false;
 
 	intel_connector = &intel_sdvo_connector->base;
 	connector = &intel_connector->base;
@@ -2313,9 +2541,6 @@ intel_sdvo_lvds_init(struct intel_sdvo *intel_sdvo, int device)
 		intel_sdvo->controlled_output |= SDVO_OUTPUT_LVDS1;
 		intel_sdvo_connector->output_flag = SDVO_OUTPUT_LVDS1;
 	}
-
-	intel_sdvo->base.clone_mask = ((1 << INTEL_ANALOG_CLONE_BIT) |
-				       (1 << INTEL_SDVO_LVDS_CLONE_BIT));
 
 	intel_sdvo_connector_init(intel_sdvo_connector, intel_sdvo);
 	if (!intel_sdvo_create_enhance_property(intel_sdvo, intel_sdvo_connector))
@@ -2354,6 +2579,10 @@ intel_sdvo_output_setup(struct intel_sdvo *intel_sdvo, uint16_t flags)
 		if (!intel_sdvo_tv_init(intel_sdvo, SDVO_OUTPUT_CVBS0))
 			return false;
 
+	if (flags & SDVO_OUTPUT_YPRPB0)
+		if (!intel_sdvo_tv_init(intel_sdvo, SDVO_OUTPUT_YPRPB0))
+			return false;
+
 	if (flags & SDVO_OUTPUT_RGB0)
 		if (!intel_sdvo_analog_init(intel_sdvo, 0))
 			return false;
@@ -2385,9 +2614,23 @@ intel_sdvo_output_setup(struct intel_sdvo *intel_sdvo, uint16_t flags)
 	return true;
 }
 
+void
+intel_sdvo_output_cleanup(struct intel_sdvo *intel_sdvo)
+{
+	struct drm_device *dev = intel_sdvo->base.base.dev;
+	struct drm_connector *connector, *tmp;
+
+	list_for_each_entry_safe(connector, tmp,
+				 &dev->mode_config.connector_list, head) {
+		if (intel_attached_encoder(connector) == &intel_sdvo->base)
+			intel_sdvo_destroy(connector);
+	}
+}
+
 bool
 intel_sdvo_tv_create_property(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_connector *intel_sdvo_connector, int type)
+					  struct intel_sdvo_connector *intel_sdvo_connector,
+					  int type)
 {
 	struct drm_device *dev = intel_sdvo->base.base.dev;
 	struct intel_sdvo_tv_format format;
@@ -2396,7 +2639,9 @@ intel_sdvo_tv_create_property(struct intel_sdvo *intel_sdvo,
 	if (!intel_sdvo_set_target_output(intel_sdvo, type))
 		return false;
 
-	CTASSERT(sizeof(format) == 6);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(format) != 6);
+#endif
 	if (!intel_sdvo_get_value(intel_sdvo,
 				  SDVO_CMD_GET_SUPPORTED_TV_FORMATS,
 				  &format, sizeof(format)))
@@ -2451,8 +2696,8 @@ intel_sdvo_tv_create_property(struct intel_sdvo *intel_sdvo,
 
 bool
 intel_sdvo_create_enhance_property_tv(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_connector *intel_sdvo_connector,
-    struct intel_sdvo_enhancements_reply enhancements)
+				      struct intel_sdvo_connector *intel_sdvo_connector,
+				      struct intel_sdvo_enhancements_reply enhancements)
 {
 	struct drm_device *dev = intel_sdvo->base.base.dev;
 	struct drm_connector *connector = &intel_sdvo_connector->base.base;
@@ -2568,8 +2813,8 @@ intel_sdvo_create_enhance_property_tv(struct intel_sdvo *intel_sdvo,
 
 bool
 intel_sdvo_create_enhance_property_lvds(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_connector *intel_sdvo_connector,
-    struct intel_sdvo_enhancements_reply enhancements)
+					struct intel_sdvo_connector *intel_sdvo_connector,
+					struct intel_sdvo_enhancements_reply enhancements)
 {
 	struct drm_device *dev = intel_sdvo->base.base.dev;
 	struct drm_connector *connector = &intel_sdvo_connector->base.base;
@@ -2583,14 +2828,16 @@ intel_sdvo_create_enhance_property_lvds(struct intel_sdvo *intel_sdvo,
 
 bool
 intel_sdvo_create_enhance_property(struct intel_sdvo *intel_sdvo,
-    struct intel_sdvo_connector *intel_sdvo_connector)
+					       struct intel_sdvo_connector *intel_sdvo_connector)
 {
 	union {
 		struct intel_sdvo_enhancements_reply reply;
 		uint16_t response;
 	} enhancements;
 
-	CTASSERT(sizeof(enhancements) == 2);
+#ifdef notyet
+	BUILD_BUG_ON(sizeof(enhancements) != 2);
+#endif
 
 	enhancements.response = 0;
 	intel_sdvo_get_value(intel_sdvo,
@@ -2609,147 +2856,71 @@ intel_sdvo_create_enhance_property(struct intel_sdvo *intel_sdvo,
 		return true;
 }
 
-struct intel_sdvo_ddc_proxy_sc {
-	struct intel_sdvo *intel_sdvo;
-	int port_num;
-};
-
 #ifdef notyet
 int
-intel_sdvo_ddc_proxy_probe(device_t idev)
+intel_sdvo_ddc_proxy_xfer(struct i2c_adapter *adapter,
+				     struct i2c_msg *msgs,
+				     int num)
 {
-
-	return (BUS_PROBE_DEFAULT);
-}
-
-int
-intel_sdvo_ddc_proxy_attach(device_t idev)
-{
-	struct intel_sdvo_ddc_proxy_sc *sc;
-
-	sc = device_get_softc(idev);
-	sc->port = device_add_child(idev, "iicbus", -1);
-	if (sc->port == NULL)
-		return (ENXIO);
-	device_quiet(sc->port);
-	bus_generic_attach(idev);
-	return (0);
-}
-
-int
-intel_sdvo_ddc_proxy_detach(device_t idev)
-{
-	struct intel_sdvo_ddc_proxy_sc *sc;
-	device_t port;
-
-	sc = device_get_softc(idev);
-	port = sc->port;
-	bus_generic_detach(idev);
-	if (port != NULL)
-		device_delete_child(idev, port);
-	return (0);
-}
-
-int
-intel_sdvo_ddc_proxy_reset(device_t idev, u_char speed, u_char addr,
-    u_char *oldaddr)
-{
-	struct intel_sdvo_ddc_proxy_sc *sc;
-	struct intel_sdvo *sdvo;
-	
-	sc = device_get_softc(idev);
-	sdvo = sc->intel_sdvo;
-
-	return (IICBUS_RESET(device_get_parent(sdvo->i2c), speed, addr,
-	    oldaddr));
-}
-
-int
-intel_sdvo_ddc_proxy_transfer(device_t idev, struct iic_msg *msgs, uint32_t num)
-{
-	struct intel_sdvo_ddc_proxy_sc *sc;
-	struct intel_sdvo *sdvo;
-	
-	sc = device_get_softc(idev);
-	sdvo = sc->intel_sdvo;
+	struct intel_sdvo *sdvo = adapter->algo_data;
 
 	if (!intel_sdvo_set_control_bus_switch(sdvo, sdvo->ddc_bus))
-		return (EIO);
+		return -EIO;
 
-	return (iicbus_transfer(sdvo->i2c, msgs, num));
+	return sdvo->i2c->algo->master_xfer(sdvo->i2c, msgs, num);
 }
+
+u32
+intel_sdvo_ddc_proxy_func(struct i2c_adapter *adapter)
+{
+	struct intel_sdvo *sdvo = adapter->algo_data;
+	return sdvo->i2c->algo->functionality(sdvo->i2c);
+}
+
+static const struct i2c_algorithm intel_sdvo_ddc_proxy = {
+	.master_xfer	= intel_sdvo_ddc_proxy_xfer,
+	.functionality	= intel_sdvo_ddc_proxy_func
+};
 #endif
 
 bool
-intel_sdvo_init_ddc_proxy(struct intel_sdvo *sdvo, struct drm_device *dev,
-    int sdvo_reg)
+intel_sdvo_init_ddc_proxy(struct intel_sdvo *sdvo,
+			  struct drm_device *dev)
 {
 	printf("%s stub\n", __func__);
 	return false;
 #ifdef notyet
-	struct intel_sdvo_ddc_proxy_sc *sc;
-	int ret;
+	sdvo->ddc.owner = THIS_MODULE;
+	sdvo->ddc.class = I2C_CLASS_DDC;
+	snprintf(sdvo->ddc.name, I2C_NAME_SIZE, "SDVO DDC proxy");
+	sdvo->ddc.dev.parent = &dev->pdev->dev;
+	sdvo->ddc.algo_data = sdvo;
+	sdvo->ddc.algo = &intel_sdvo_ddc_proxy;
 
-	sdvo->ddc_iic_bus = device_add_child(dev->device,
-	    "intel_sdvo_ddc_proxy", sdvo_reg);
-	if (sdvo->ddc_iic_bus == NULL) {
-		DRM_ERROR("cannot create ddc proxy bus %d\n", sdvo_reg);
-		return (false);
-	}
-	device_quiet(sdvo->ddc_iic_bus);
-	ret = device_probe_and_attach(sdvo->ddc_iic_bus);
-	if (ret != 0) {
-		DRM_ERROR("cannot attach proxy bus %d error %d\n",
-		    sdvo_reg, ret);
-		device_delete_child(dev->device, sdvo->ddc_iic_bus);
-		return (false);
-	}
-	sc = device_get_softc(sdvo->ddc_iic_bus);
-	sc->intel_sdvo = sdvo;
-
-	sdvo->ddc = sc->port;
-	return (true);
+	return i2c_add_adapter(&sdvo->ddc) == 0;
 #endif
 }
 
-#ifdef notyet
-static device_method_t intel_sdvo_ddc_proxy_methods[] = {
-	DEVMETHOD(device_probe,		intel_sdvo_ddc_proxy_probe),
-	DEVMETHOD(device_attach,	intel_sdvo_ddc_proxy_attach),
-	DEVMETHOD(device_detach,	intel_sdvo_ddc_proxy_detach),
-	DEVMETHOD(iicbus_reset,		intel_sdvo_ddc_proxy_reset),
-	DEVMETHOD(iicbus_transfer,	intel_sdvo_ddc_proxy_transfer),
-	DEVMETHOD_END
-};
-static driver_t intel_sdvo_ddc_proxy_driver = {
-	"intel_sdvo_ddc_proxy",
-	intel_sdvo_ddc_proxy_methods,
-	sizeof(struct intel_sdvo_ddc_proxy_sc)
-};
-static devclass_t intel_sdvo_devclass;
-DRIVER_MODULE_ORDERED(intel_sdvo_ddc_proxy, drmn, intel_sdvo_ddc_proxy_driver,
-    intel_sdvo_devclass, 0, 0, SI_ORDER_FIRST);
-#endif
-
-
 bool
-intel_sdvo_init(struct drm_device *dev, int sdvo_reg)
+intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	struct intel_encoder *intel_encoder;
 	struct intel_sdvo *intel_sdvo;
+	u32 hotplug_mask;
 	int i;
 
 	intel_sdvo = malloc(sizeof(struct intel_sdvo), M_DRM,
 	    M_WAITOK | M_ZERO);
+	if (!intel_sdvo)
+		return false;
 
 	intel_sdvo->sdvo_reg = sdvo_reg;
-	intel_sdvo->slave_addr = intel_sdvo_get_slave_addr(dev, sdvo_reg) >> 1;
+	intel_sdvo->is_sdvob = is_sdvob;
+	intel_sdvo->slave_addr = intel_sdvo_get_slave_addr(dev, intel_sdvo) >> 1;
 	intel_sdvo_select_i2c_bus(dev_priv, intel_sdvo, sdvo_reg);
-	if (!intel_sdvo_init_ddc_proxy(intel_sdvo, dev, sdvo_reg)) {
-		free(intel_sdvo, M_DRM);
-		return false;
-	}
+	if (!intel_sdvo_init_ddc_proxy(intel_sdvo, dev))
+		goto err_i2c_bus;
 
 	/* encoder type will be decided later */
 	intel_encoder = &intel_sdvo->base;
@@ -2761,48 +2932,68 @@ intel_sdvo_init(struct drm_device *dev, int sdvo_reg)
 		u8 byte;
 
 		if (!intel_sdvo_read_byte(intel_sdvo, i, &byte)) {
-			DRM_DEBUG_KMS("No SDVO device found on SDVO%c\n",
-				      IS_SDVOB(sdvo_reg) ? 'B' : 'C');
+			DRM_DEBUG_KMS("No SDVO device found on %s\n",
+				      SDVO_NAME(intel_sdvo));
 			goto err;
 		}
 	}
 
-	if (IS_SDVOB(sdvo_reg))
-		dev_priv->hotplug_supported_mask |= SDVOB_HOTPLUG_INT_STATUS_I915;
-	else
-		dev_priv->hotplug_supported_mask |= SDVOC_HOTPLUG_INT_STATUS_I915;
+	hotplug_mask = 0;
+	if (IS_G4X(dev)) {
+		hotplug_mask = intel_sdvo->is_sdvob ?
+			SDVOB_HOTPLUG_INT_STATUS_G4X : SDVOC_HOTPLUG_INT_STATUS_G4X;
+	} else if (IS_GEN4(dev)) {
+		hotplug_mask = intel_sdvo->is_sdvob ?
+			SDVOB_HOTPLUG_INT_STATUS_I965 : SDVOC_HOTPLUG_INT_STATUS_I965;
+	} else {
+		hotplug_mask = intel_sdvo->is_sdvob ?
+			SDVOB_HOTPLUG_INT_STATUS_I915 : SDVOC_HOTPLUG_INT_STATUS_I915;
+	}
 
 	drm_encoder_helper_add(&intel_encoder->base, &intel_sdvo_helper_funcs);
+
+	intel_encoder->disable = intel_disable_sdvo;
+	intel_encoder->enable = intel_enable_sdvo;
+	intel_encoder->get_hw_state = intel_sdvo_get_hw_state;
 
 	/* In default case sdvo lvds is false */
 	if (!intel_sdvo_get_capabilities(intel_sdvo, &intel_sdvo->caps))
 		goto err;
 
-	/* Set up hotplug command - note paranoia about contents of reply.
-	 * We assume that the hardware is in a sane state, and only touch
-	 * the bits we think we understand.
-	 */
-	intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_ACTIVE_HOT_PLUG,
-			     &intel_sdvo->hotplug_active, 2);
-	intel_sdvo->hotplug_active[0] &= ~0x3;
-
-	if (!intel_sdvo_output_setup(intel_sdvo,
-	    intel_sdvo->caps.output_flags)) {
-		DRM_DEBUG_KMS("SDVO output failed to setup on SDVO%c\n",
-			      IS_SDVOB(sdvo_reg) ? 'B' : 'C');
-		goto err;
+	if (intel_sdvo_output_setup(intel_sdvo,
+				    intel_sdvo->caps.output_flags) != true) {
+		DRM_DEBUG_KMS("SDVO output failed to setup on %s\n",
+			      SDVO_NAME(intel_sdvo));
+		/* Output_setup can leave behind connectors! */
+		goto err_output;
 	}
+
+	/*
+	 * Cloning SDVO with anything is often impossible, since the SDVO
+	 * encoder can request a special input timing mode. And even if that's
+	 * not the case we have evidence that cloning a plain unscaled mode with
+	 * VGA doesn't really work. Furthermore the cloning flags are way too
+	 * simplistic anyway to express such constraints, so just give up on
+	 * cloning for SDVO encoders.
+	 */
+	intel_sdvo->base.cloneable = false;
+
+	/* Only enable the hotplug irq if we need it, to work around noisy
+	 * hotplug lines.
+	 */
+	if (intel_sdvo->hotplug_active)
+		dev_priv->hotplug_supported_mask |= hotplug_mask;
 
 	intel_sdvo_select_ddc_bus(dev_priv, intel_sdvo, sdvo_reg);
 
 	/* Set the input timing to the screen. Assume always input 0. */
 	if (!intel_sdvo_set_target_input(intel_sdvo))
-		goto err;
+		goto err_output;
 
 	if (!intel_sdvo_get_input_pixel_clock_range(intel_sdvo,
 						    &intel_sdvo->pixel_clock_min,
 						    &intel_sdvo->pixel_clock_max))
-		goto err;
+		goto err_output;
 
 	DRM_DEBUG_KMS("%s device VID/DID: %02X:%02X.%02X, "
 			"clock range %dMHz - %dMHz, "
@@ -2822,8 +3013,16 @@ intel_sdvo_init(struct drm_device *dev, int sdvo_reg)
 			(SDVO_OUTPUT_TMDS1 | SDVO_OUTPUT_RGB1) ? 'Y' : 'N');
 	return true;
 
+err_output:
+	intel_sdvo_output_cleanup(intel_sdvo);
+
 err:
 	drm_encoder_cleanup(&intel_encoder->base);
+#ifdef notyet
+	i2c_del_adapter(&intel_sdvo->ddc);
+#endif
+err_i2c_bus:
+	intel_sdvo_unselect_i2c_bus(intel_sdvo);
 	free(intel_sdvo, M_DRM);
 
 	return false;

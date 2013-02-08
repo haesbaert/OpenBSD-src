@@ -60,6 +60,30 @@
 #	define WATCH_INACTIVE
 #endif
 
+/*
+ * Override lid status (0=autodetect, 1=autodetect disabled [default],
+ * -1=force lid closed, -2=force lid open)
+ */
+int i915_panel_ignore_lid = 1;
+
+/* Enable powersavings, fbc, downclocking, etc. (default: true) */
+unsigned int i915_powersave = 1;
+
+/*
+ * Enable frame buffer compression for power savings
+ * (default: -1 (use per-chip default))
+ */
+int i915_enable_fbc = -1;
+
+/*
+ * Enable power-saving render C-state 6.
+ * Different stages can be selected via bitmask values
+ * (0 = disable; 1 = enable rc6; 2 = enable deep rc6; 4 = enable deepest rc6).
+ * For example, 3 would enable rc6 and deep rc6, and 7 would enable everything.
+ * default: -1 (use per-chip default)
+ */
+int i915_enable_rc6 = -1;
+
 const struct intel_device_info *
 	i915_get_device_id(int);
 int	inteldrm_probe(struct device *, void *, void *);
@@ -482,9 +506,6 @@ i915_drm_thaw(struct inteldrm_softc *dev_priv)
 		/* Resume the modeset for every activated CRTC */
 		drm_helper_resume_force_mode(dev);
 		mtx_leave(&dev->mode_config.mutex);
-
-		if (IS_IRONLAKE_M(dev))
-			ironlake_enable_rc6(dev);
 	}
 
 	intel_opregion_init(dev);
@@ -689,7 +710,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->list_lock, IPL_NONE);
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
-	mtx_init(&dev_priv->gt_lock, IPL_NONE);
+	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
 
 	if (IS_IVYBRIDGE(dev))
 		dev_priv->num_pipe = 3;
@@ -699,6 +720,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		dev_priv->num_pipe = 1;
 
 	intel_detect_pch(dev_priv);
+
+	intel_gt_init(dev);
 
 	intel_opregion_setup(dev);
 	intel_setup_bios(dev);
@@ -3526,10 +3549,14 @@ void
 intel_detect_pch(struct inteldrm_softc *dev_priv)
 {
 	struct pci_attach_args	pa;
+	unsigned short id;
 	if (pci_find_device(&pa, intel_pch_match) == 0) {
 		DRM_DEBUG_KMS("No Intel PCI-ISA bridge found\n");
 	}
-	switch (PCI_PRODUCT(pa.pa_id) & INTEL_PCH_DEVICE_ID_MASK) {
+	id = PCI_PRODUCT(pa.pa_id) & INTEL_PCH_DEVICE_ID_MASK;
+	dev_priv->pch_id = id;
+
+	switch (id) {
 	case INTEL_PCH_IBX_DEVICE_ID_TYPE:
 		dev_priv->pch_type = PCH_IBX;
 		dev_priv->num_pch_pll = 2;
@@ -3553,112 +3580,5 @@ intel_detect_pch(struct inteldrm_softc *dev_priv)
 	default:
 		DRM_DEBUG_KMS("No PCH detected\n");
 	}
-}
-
-void
-__gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
-{
-	int count;
-
-	count = 0;
-	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_ACK) & 1))
-		DELAY(10000);
-
-	I915_WRITE_NOTRACE(FORCEWAKE, 1);
-	POSTING_READ(FORCEWAKE);
-
-	count = 0;
-	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_ACK) & 1) == 0)
-		DELAY(10000);
-}
-
-void
-__gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv)
-{
-	int count;
-
-	count = 0;
-	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_MT_ACK) & 1))
-		DELAY(10000);
-
-	I915_WRITE_NOTRACE(FORCEWAKE_MT, (1<<16) | 1);
-	POSTING_READ(FORCEWAKE_MT);
-
-	count = 0;
-	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_MT_ACK) & 1) == 0)
-		DELAY(10000);
-}
-
-void
-gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
-{
-
-	mtx_enter(&dev_priv->gt_lock);
-	if (dev_priv->forcewake_count++ == 0)
-		dev_priv->display.force_wake_get(dev_priv);
-	mtx_leave(&dev_priv->gt_lock);
-}
-
-static void
-gen6_gt_check_fifodbg(struct inteldrm_softc *dev_priv)
-{
-	u32 gtfifodbg;
-
-	gtfifodbg = I915_READ_NOTRACE(GTFIFODBG);
-	if ((gtfifodbg & GT_FIFO_CPU_ERROR_MASK) != 0) {
-		printf("MMIO read or write has been dropped %x\n", gtfifodbg);
-		I915_WRITE_NOTRACE(GTFIFODBG, GT_FIFO_CPU_ERROR_MASK);
-	}
-}
-
-void
-__gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv)
-{
-
-	I915_WRITE_NOTRACE(FORCEWAKE, 0);
-	/* The below doubles as a POSTING_READ */
-	gen6_gt_check_fifodbg(dev_priv);
-}
-
-void
-__gen6_gt_force_wake_mt_put(struct inteldrm_softc *dev_priv)
-{
-
-	I915_WRITE_NOTRACE(FORCEWAKE_MT, (1<<16) | 0);
-	/* The below doubles as a POSTING_READ */
-	gen6_gt_check_fifodbg(dev_priv);
-}
-
-void
-gen6_gt_force_wake_put(struct inteldrm_softc *dev_priv)
-{
-
-	mtx_enter(&dev_priv->gt_lock);
-	if (--dev_priv->forcewake_count == 0)
- 		dev_priv->display.force_wake_put(dev_priv);
-	mtx_leave(&dev_priv->gt_lock);
-}
-
-int
-__gen6_gt_wait_for_fifo(struct inteldrm_softc *dev_priv)
-{
-	int ret = 0;
-
-	if (dev_priv->gt_fifo_count < GT_FIFO_NUM_RESERVED_ENTRIES) {
-		int loop = 500;
-		u32 fifo = I915_READ_NOTRACE(GT_FIFO_FREE_ENTRIES);
-		while (fifo <= GT_FIFO_NUM_RESERVED_ENTRIES && loop--) {
-			DELAY(10000);
-			fifo = I915_READ_NOTRACE(GT_FIFO_FREE_ENTRIES);
-		}
-		if (loop < 0 && fifo <= GT_FIFO_NUM_RESERVED_ENTRIES) {
-			printf("%s loop\n", __func__);
-			++ret;
-		}
-		dev_priv->gt_fifo_count = fifo;
-	}
-	dev_priv->gt_fifo_count--;
-
-	return (ret);
 }
 

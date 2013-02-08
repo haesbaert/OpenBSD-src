@@ -136,6 +136,28 @@ typedef uint16_t __le16;
 #define EXPORT_SYMBOL(x)
 #define ARRAY_SIZE nitems
 
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+
+#define IS_ERR_VALUE(x) unlikely((x) >= (unsigned long)-ELAST)
+
+static inline void *
+ERR_PTR(long error)
+{
+	return (void *) error;
+}
+
+static inline long
+IS_ERR(const void *ptr)
+{
+        return IS_ERR_VALUE((unsigned long)ptr);
+}
+
+static inline long
+IS_ERR_OR_NULL(const void *ptr)
+{
+        return !ptr || IS_ERR_VALUE((unsigned long)ptr);
+}
+
 #define container_of(ptr, type, member) ({                      \
 	__typeof( ((type *)0)->member ) *__mptr = (ptr);        \
 	(type *)( (char *)__mptr - offsetof(type,member) );})
@@ -144,7 +166,6 @@ typedef uint16_t __le16;
 #define __DECONST(type, var)    ((type)(__uintptr_t)(const void *)(var))
 #endif
 
-#define unlikely(x)	__builtin_expect(!!(x), 0)
 
 /* DRM_READMEMORYBARRIER() prevents reordering of reads.
  * DRM_WRITEMEMORYBARRIER() prevents reordering of writes.
