@@ -258,7 +258,7 @@ intel_overlay_map_regs(struct intel_overlay *overlay)
 		regs = io_mapping_map_wc(dev_priv->mm.gtt_mapping,
 					 overlay->reg_bo->gtt_offset);
 #else
-		printf("%s partial stub %s\n", __func__);
+		printf("%s partial stub\n", __func__);
 		return (NULL);
 #endif
 	}
