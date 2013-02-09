@@ -329,6 +329,7 @@ EXPORT_SYMBOL(drm_fb_helper_panic);
 static struct notifier_block paniced = {
 	.notifier_call = drm_fb_helper_panic,
 };
+#endif
 
 /**
  * drm_fb_helper_restore - restore the framebuffer console (kernel) config
@@ -345,6 +346,7 @@ drm_fb_helper_restore(void)
 }
 EXPORT_SYMBOL(drm_fb_helper_restore);
 
+#if 0
 #ifdef CONFIG_MAGIC_SYSRQ
 void
 drm_fb_helper_restore_work_fn(struct work_struct *ignored)
@@ -911,9 +913,9 @@ drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 					       &paniced);
 		register_sysrq_key('v', &sysrq_drm_fb_helper_restore_op);
 	}
+#endif
 	if (new_fb)
 		list_add(&fb_helper->kernel_fb_list, &kernel_fb_helper_list);
-#endif
 
 	return 0;
 }
