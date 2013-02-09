@@ -3564,13 +3564,6 @@ i915_ringbuffer_info(int kdev)
 
 #endif
 
-#define PCI_VENDOR_INTEL		0x8086
-#define INTEL_PCH_DEVICE_ID_MASK	0xff00
-#define INTEL_PCH_IBX_DEVICE_ID_TYPE	0x3b00
-#define INTEL_PCH_CPT_DEVICE_ID_TYPE	0x1c00
-#define INTEL_PCH_PPT_DEVICE_ID_TYPE	0x1e00
-#define INTEL_PCH_LPT_DEVICE_ID_TYPE	0x8c00
-
 static int
 intel_pch_match(struct pci_attach_args *pa)
 {
