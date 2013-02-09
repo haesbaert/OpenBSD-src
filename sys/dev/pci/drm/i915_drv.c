@@ -634,12 +634,12 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	/* Unmask the interrupts that we always want on. */
 	if (HAS_PCH_SPLIT(dev)) {
-		dev_priv->irq_mask_reg = ~PCH_SPLIT_DISPLAY_INTR_FIX;
+		dev_priv->irq_mask = ~PCH_SPLIT_DISPLAY_INTR_FIX;
 		/* masked for now, turned on on demand */
-		dev_priv->gt_irq_mask_reg = ~PCH_SPLIT_RENDER_INTR_FIX;
-		dev_priv->pch_irq_mask_reg = ~PCH_SPLIT_HOTPLUG_INTR_FIX;
+		dev_priv->gt_irq_mask = ~PCH_SPLIT_RENDER_INTR_FIX;
+		dev_priv->pch_irq_mask = ~PCH_SPLIT_HOTPLUG_INTR_FIX;
 	} else {
-		dev_priv->irq_mask_reg = ~I915_INTERRUPT_ENABLE_FIX;
+		dev_priv->irq_mask = ~I915_INTERRUPT_ENABLE_FIX;
 	}
 
 	dev_priv->workq = workq_create("intelrel", 1, IPL_TTY);
@@ -742,7 +742,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	printf(": %s\n", pci_intr_string(pa->pa_pc, dev_priv->ih));
 
-	mtx_init(&dev_priv->user_irq_lock, IPL_TTY);
+	mtx_init(&dev_priv->irq_lock, IPL_TTY);
 	mtx_init(&dev_priv->list_lock, IPL_NONE);
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
@@ -1030,7 +1030,7 @@ inteldrm_intr(void *arg)
 	/*
 	 * lock is to protect from writes to PIPESTAT and IMR from other cores.
 	 */
-	mtx_enter(&dev_priv->user_irq_lock);
+	mtx_enter(&dev_priv->irq_lock);
 	/*
 	 * Clear the PIPE(A|B)STAT regs before the IIR
 	 */
@@ -1054,7 +1054,7 @@ inteldrm_intr(void *arg)
 		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 	}
 
-	mtx_leave(&dev_priv->user_irq_lock);
+	mtx_leave(&dev_priv->irq_lock);
 
 	if (pipea_stats & PIPE_VBLANK_INTERRUPT_STATUS)
 		drm_handle_vblank(dev, 0);

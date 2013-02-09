@@ -377,18 +377,18 @@ struct inteldrm_softc {
 	size_t			 max_gem_obj_size; /* XXX */
 
 	/* Protects user_irq_refcount and irq_mask reg */
-	struct mutex		 user_irq_lock;
+	struct mutex		 irq_lock;
 	/* Refcount for user irq, only enabled when needed */
 	int			 user_irq_refcount;
-	u_int32_t		 irq_mask_reg;
+	u_int32_t		 irq_mask;
 
 	/* DPIO indirect register protection */
 	struct mutex		 dpio_lock;
 	/* Cached value of IMR to avoid reads in updating the bitfield */
 	u_int32_t		 pipestat[2];
 	/* these two  ironlake only, we should union this with pipestat XXX */
-	u_int32_t		 gt_irq_mask_reg;
-	u_int32_t		 pch_irq_mask_reg;
+	u_int32_t		 gt_irq_mask;
+	u_int32_t		 pch_irq_mask;
 
 	u_int32_t		 hotplug_supported_mask;
 

@@ -43,9 +43,9 @@ int	ironlake_irq_install(struct inteldrm_softc *);
 void
 i915_enable_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
-	if ((dev_priv->irq_mask_reg & mask) != 0) {
-		dev_priv->irq_mask_reg &= ~mask;
-		I915_WRITE(IMR, dev_priv->irq_mask_reg);
+	if ((dev_priv->irq_mask & mask) != 0) {
+		dev_priv->irq_mask &= ~mask;
+		I915_WRITE(IMR, dev_priv->irq_mask);
 		(void)I915_READ(IMR);
 	}
 }
@@ -53,9 +53,9 @@ i915_enable_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 void
 i915_disable_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
-	if ((dev_priv->irq_mask_reg & mask) != mask) {
-		dev_priv->irq_mask_reg |= mask;
-		I915_WRITE(IMR, dev_priv->irq_mask_reg);
+	if ((dev_priv->irq_mask & mask) != mask) {
+		dev_priv->irq_mask |= mask;
+		I915_WRITE(IMR, dev_priv->irq_mask);
 		(void)I915_READ(IMR);
 	}
 }
@@ -65,14 +65,14 @@ ironlake_enable_graphics_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 
-	if ((dev_priv->gt_irq_mask_reg & mask) != 0) {
+	if ((dev_priv->gt_irq_mask & mask) != 0) {
 		/* XXX imr bullshit */
-		dev_priv->gt_irq_mask_reg &= ~mask;
+		dev_priv->gt_irq_mask &= ~mask;
 		if (IS_GEN6(dev) || IS_GEN7(dev)) {
-			I915_WRITE(0x20a8, dev_priv->gt_irq_mask_reg);
+			I915_WRITE(0x20a8, dev_priv->gt_irq_mask);
 			(void)I915_READ(0x20a8);
 		} else {
-			I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+			I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 			(void)I915_READ(GTIMR);
 		}
 	}
@@ -83,13 +83,13 @@ ironlake_disable_graphics_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 
-	if ((dev_priv->gt_irq_mask_reg & mask) != mask) {
-		dev_priv->gt_irq_mask_reg |= mask;
+	if ((dev_priv->gt_irq_mask & mask) != mask) {
+		dev_priv->gt_irq_mask |= mask;
 		if (IS_GEN6(dev) || IS_GEN7(dev)) {
-			I915_WRITE(0x20a8, dev_priv->gt_irq_mask_reg);
+			I915_WRITE(0x20a8, dev_priv->gt_irq_mask);
 			(void)I915_READ(0x20a8);
 		} else {
-			I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+			I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 			(void)I915_READ(GTIMR);
 		}
 	}
@@ -99,9 +99,9 @@ ironlake_disable_graphics_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 inline void
 ironlake_enable_display_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
-	if ((dev_priv->irq_mask_reg & mask) != 0) {
-		dev_priv->irq_mask_reg &= ~mask;
-		I915_WRITE(DEIMR, dev_priv->irq_mask_reg);
+	if ((dev_priv->irq_mask & mask) != 0) {
+		dev_priv->irq_mask &= ~mask;
+		I915_WRITE(DEIMR, dev_priv->irq_mask);
 		(void)I915_READ(DEIMR);
 	}
 }
@@ -109,9 +109,9 @@ ironlake_enable_display_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 inline void
 ironlake_disable_display_irq(struct inteldrm_softc *dev_priv, u_int32_t mask)
 {
-	if ((dev_priv->irq_mask_reg & mask) != mask) {
-		dev_priv->irq_mask_reg |= mask;
-		I915_WRITE(DEIMR, dev_priv->irq_mask_reg);
+	if ((dev_priv->irq_mask & mask) != mask) {
+		dev_priv->irq_mask |= mask;
+		I915_WRITE(DEIMR, dev_priv->irq_mask);
 		(void)I915_READ(DEIMR);
 	}
 }
@@ -231,7 +231,7 @@ i915_enable_vblank(struct drm_device *dev, int pipe)
 	if (inteldrm_pipe_enabled(dev_priv, pipe) == 0)
 		return (EINVAL);
 
-	mtx_enter(&dev_priv->user_irq_lock);
+	mtx_enter(&dev_priv->irq_lock);
 	if (IS_GEN7(dev))
 		ironlake_enable_display_irq(dev_priv,
 		    DE_PIPEA_VBLANK_IVB << (5 * pipe));
@@ -243,7 +243,7 @@ i915_enable_vblank(struct drm_device *dev, int pipe)
 		    (INTEL_INFO(dev)->gen >= 4 ?
 		    PIPE_START_VBLANK_INTERRUPT_ENABLE :
 		    PIPE_VBLANK_INTERRUPT_ENABLE));
-	mtx_leave(&dev_priv->user_irq_lock);
+	mtx_leave(&dev_priv->irq_lock);
 
 	return (0);
 }
@@ -253,7 +253,7 @@ i915_disable_vblank(struct drm_device *dev, int pipe)
 {
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 
-	mtx_enter(&dev_priv->user_irq_lock);
+	mtx_enter(&dev_priv->irq_lock);
 	if (IS_GEN7(dev))
 		ironlake_disable_display_irq(dev_priv,
 		    DE_PIPEA_VBLANK_IVB << (pipe * 5));
@@ -264,7 +264,7 @@ i915_disable_vblank(struct drm_device *dev, int pipe)
 		i915_disable_pipestat(dev_priv, pipe,
 		    PIPE_START_VBLANK_INTERRUPT_ENABLE |
 		    PIPE_VBLANK_INTERRUPT_ENABLE);
-	mtx_leave(&dev_priv->user_irq_lock);
+	mtx_leave(&dev_priv->irq_lock);
 }
 
 /* drm_dma.h hooks
@@ -314,7 +314,7 @@ i915_driver_irq_install(struct drm_device *dev)
 	I915_WRITE(IIR, I915_READ(IIR));
 
 	I915_WRITE(IER, I915_INTERRUPT_ENABLE_MASK);
-	I915_WRITE(IMR, dev_priv->irq_mask_reg);
+	I915_WRITE(IMR, dev_priv->irq_mask);
 	(void)I915_READ(IER);
 
 	return (0);
@@ -343,16 +343,16 @@ ironlake_irq_install(struct inteldrm_softc *dev_priv)
 	 */
 
 	I915_WRITE(DEIIR, I915_READ(DEIIR));
-	I915_WRITE(DEIMR, dev_priv->irq_mask_reg);
+	I915_WRITE(DEIMR, dev_priv->irq_mask);
 	I915_WRITE(DEIER, PCH_SPLIT_DISPLAY_ENABLE_MASK);
 
 	I915_WRITE(GTIIR, I915_READ(GTIIR));
-	I915_WRITE(GTIMR, dev_priv->gt_irq_mask_reg);
+	I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 	I915_WRITE(GTIER, PCH_SPLIT_RENDER_ENABLE_MASK);
 
 	/* south display irq -- hotplug off for now */
 	I915_WRITE(SDEIIR, I915_READ(SDEIIR));
-	I915_WRITE(SDEIMR, dev_priv->pch_irq_mask_reg);
+	I915_WRITE(SDEIMR, dev_priv->pch_irq_mask);
 	I915_WRITE(SDEIER, PCH_SPLIT_HOTPLUG_ENABLE_MASK);
 	(void)I915_READ(SDEIER);
 
