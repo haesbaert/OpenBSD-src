@@ -48,7 +48,7 @@ intelfb_create(struct intel_fbdev *ifbdev,
 	struct fb_info *info;
 #endif
 	struct drm_framebuffer *fb;
-	struct drm_mode_fb_cmd2 mode_cmd;
+	struct drm_mode_fb_cmd2 mode_cmd = {};
 	struct drm_i915_gem_object *obj;
 	int size, ret;
 
