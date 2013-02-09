@@ -2459,6 +2459,7 @@ err_unref:
 #endif
 }
 
+struct mutex mchdev_lock;
 static struct inteldrm_softc *i915_mch_dev;
 
 bool

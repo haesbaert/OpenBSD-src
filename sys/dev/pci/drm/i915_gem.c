@@ -1657,7 +1657,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 
 	if (!i915_seqno_passed(i915_get_gem_seqno(dev_priv), seqno)) {
 		mtx_enter(&dev_priv->irq_lock);
-		i915_user_irq_get(dev_priv);
+		ring->irq_get(ring);
 		while (ret == 0) {
 			if (i915_seqno_passed(i915_get_gem_seqno(dev_priv),
 			    seqno) || dev_priv->mm.wedged)
@@ -1665,7 +1665,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			ret = msleep(dev_priv, &dev_priv->irq_lock,
 			    PZERO | (interruptible ? PCATCH : 0), "gemwt", 0);
 		}
-		i915_user_irq_put(dev_priv);
+		ring->irq_put(ring);
 		mtx_leave(&dev_priv->irq_lock);
 	}
 	if (dev_priv->mm.wedged)

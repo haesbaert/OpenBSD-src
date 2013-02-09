@@ -95,7 +95,7 @@ int	 drm_getcap(struct drm_device *, void *, struct drm_file *);
  * drm_attach_args.
  */
 struct device *
-drm_attach_pci(const struct drm_driver_info *driver, struct pci_attach_args *pa,
+drm_attach_pci(struct drm_driver_info *driver, struct pci_attach_args *pa,
     int is_agp, struct device *dev)
 {
 	struct drm_attach_args arg;

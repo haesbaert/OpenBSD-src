@@ -131,7 +131,7 @@ struct  intel_ring_buffer {
 	u32 outstanding_lazy_request;
 	bool gpu_caches_dirty;
 
-//	wait_queue_head_t irq_queue;
+	int irq_queue;
 
 	/**
 	 * Do an explicit TLB flush before MI_SET_CONTEXT

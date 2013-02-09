@@ -686,7 +686,7 @@ const static struct drm_pcidev radeondrm_pciidlist[] = {
         {0, 0, 0}
 };
 
-static const struct drm_driver_info radeondrm_driver = {
+static struct drm_driver_info radeondrm_driver = {
 	.buf_priv_size		= sizeof(drm_radeon_buf_priv_t),
 	.file_priv_size		= sizeof(struct drm_radeon_file),
 	.firstopen		= radeon_driver_firstopen,

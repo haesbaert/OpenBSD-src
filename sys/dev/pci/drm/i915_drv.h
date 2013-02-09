@@ -966,6 +966,7 @@ extern void i915_user_irq_get(struct inteldrm_softc *);
 extern void i915_user_irq_put(struct inteldrm_softc *);
 void	i915_enable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 void	i915_disable_pipestat(struct inteldrm_softc *, int, u_int32_t);
+void	intel_irq_init(struct drm_device *dev);
 
 extern void intel_gt_init(struct drm_device *dev);
 extern void intel_gt_reset(struct drm_device *dev);

@@ -60,6 +60,8 @@
 #	define WATCH_INACTIVE
 #endif
 
+extern struct mutex mchdev_lock;
+
 /*
  * Override lid status (0=autodetect, 1=autodetect disabled [default],
  * -1=force lid closed, -2=force lid open)
@@ -92,9 +94,7 @@ int	inteldrm_detach(struct device *, int);
 int	inteldrm_activate(struct device *, int);
 int	inteldrm_ioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
 int	inteldrm_doioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
-int	inteldrm_intr(void *);
 void	inteldrm_error(struct inteldrm_softc *);
-int	inteldrm_ironlake_intr(void *);
 void	inteldrm_lastclose(struct drm_device *);
 
 void	intel_wrap_ring_buffer(struct intel_ring_buffer *);
@@ -423,7 +423,7 @@ static const struct intel_gfx_device_id {
 	{0, 0, NULL}
 };
 
-static const struct drm_driver_info inteldrm_driver = {
+static struct drm_driver_info inteldrm_driver = {
 	.buf_priv_size		= 1,	/* No dev_priv */
 	.file_priv_size		= sizeof(struct inteldrm_file),
 	.ioctl			= inteldrm_ioctl,
@@ -432,8 +432,6 @@ static const struct drm_driver_info inteldrm_driver = {
 	.get_vblank_counter	= i915_get_vblank_counter,
 	.enable_vblank		= i915_enable_vblank,
 	.disable_vblank		= i915_disable_vblank,
-	.irq_install		= i915_driver_irq_install,
-	.irq_uninstall		= i915_driver_irq_uninstall,
 
 	.gem_init_object	= i915_gem_init_object,
 	.gem_free_object	= i915_gem_free_object,
@@ -620,12 +618,14 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
+	intel_irq_init(dev);
+
 	/*
 	 * set up interrupt handler, note that we don't switch the interrupt
 	 * on until the X server talks to us, kms will change this.
 	 */
 	dev_priv->irqh = pci_intr_establish(dev_priv->pc, dev_priv->ih, IPL_TTY,
-	    (HAS_PCH_SPLIT(dev) ? inteldrm_ironlake_intr : inteldrm_intr),
+	    inteldrm_driver.irq_handler,
 	    dev_priv, dev_priv->dev.dv_xname);
 	if (dev_priv->irqh == NULL) {
 		printf(": couldn't  establish interrupt\n");
@@ -747,6 +747,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->fence_lock, IPL_NONE);
 	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
+	mtx_init(&mchdev_lock, IPL_NONE);
 
 	if (IS_IVYBRIDGE(dev))
 		dev_priv->num_pipe = 3;
@@ -951,118 +952,6 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 		}
 	}
 	return (EINVAL);
-}
-
-int
-inteldrm_ironlake_intr(void *arg)
-{
-	struct inteldrm_softc	*dev_priv = arg;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	u_int32_t		 de_iir, gt_iir, de_ier, pch_iir, pm_iir;
-	int			 ret = 0, i;
-
-	/* disable master interrupt before clearing iir  */
-	de_ier = I915_READ(DEIER);
-	I915_WRITE(DEIER, de_ier & ~DE_MASTER_IRQ_CONTROL);
-	(void)I915_READ(DEIER);
-
-	de_iir = I915_READ(DEIIR);
-	gt_iir = I915_READ(GTIIR);
-	pch_iir = I915_READ(SDEIIR);
-	pm_iir = I915_READ(GEN6_PMIIR);
-
-	if (de_iir == 0 && gt_iir == 0 && pch_iir == 0 &&
-	    (!IS_GEN6(dev) || pm_iir == 0))
-		goto done;
-	ret = 1;
-
-	if (gt_iir & GT_USER_INTERRUPT) {
-		wakeup(dev_priv);
-		dev_priv->mm.hang_cnt = 0;
-		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
-	}
-	if (gt_iir & GT_RENDER_CS_ERROR_INTERRUPT)
-		inteldrm_error(dev_priv);
-
-	if (IS_GEN7(dev)) {
-		for (i = 0; i < 3; i++) {
-			if (de_iir & (DE_PIPEA_VBLANK_IVB << (5 * i)))
-				drm_handle_vblank(dev, i);
-		}
-	} else {
-		if (de_iir & DE_PIPEA_VBLANK)
-			drm_handle_vblank(dev, 0);
-		if (de_iir & DE_PIPEB_VBLANK)
-			drm_handle_vblank(dev, 1);
-	}
-
-	/* should clear PCH hotplug event before clearing CPU irq */
-	I915_WRITE(SDEIIR, pch_iir);
-	I915_WRITE(GTIIR, gt_iir);
-	I915_WRITE(DEIIR, de_iir);
-	I915_WRITE(GEN6_PMIIR, pm_iir);
-
-done:
-	I915_WRITE(DEIER, de_ier);
-	(void)I915_READ(DEIER);
-
-	return (ret);
-}
-
-int
-inteldrm_intr(void *arg)
-{
-	struct inteldrm_softc	*dev_priv = arg;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	u_int32_t		 iir, pipea_stats = 0, pipeb_stats = 0;
-
-	/*
-	 * we're not set up, don't poke the hw  and if we're vt switched
-	 * then nothing will be enabled
-	 */
-	if (dev_priv->hw_status_page == NULL || dev_priv->mm.suspended)
-		return (0);
-
-	iir = I915_READ(IIR);
-	if (iir == 0)
-		return (0);
-
-	/*
-	 * lock is to protect from writes to PIPESTAT and IMR from other cores.
-	 */
-	mtx_enter(&dev_priv->irq_lock);
-	/*
-	 * Clear the PIPE(A|B)STAT regs before the IIR
-	 */
-	if (iir & I915_DISPLAY_PIPE_A_EVENT_INTERRUPT) {
-		pipea_stats = I915_READ(_PIPEASTAT);
-		I915_WRITE(_PIPEASTAT, pipea_stats);
-	}
-	if (iir & I915_DISPLAY_PIPE_B_EVENT_INTERRUPT) {
-		pipeb_stats = I915_READ(_PIPEBSTAT);
-		I915_WRITE(_PIPEBSTAT, pipeb_stats);
-	}
-	if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-		inteldrm_error(dev_priv);
-
-	I915_WRITE(IIR, iir);
-	(void)I915_READ(IIR); /* Flush posted writes */
-
-	if (iir & I915_USER_INTERRUPT) {
-		wakeup(dev_priv);
-		dev_priv->mm.hang_cnt = 0;
-		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
-	}
-
-	mtx_leave(&dev_priv->irq_lock);
-
-	if (pipea_stats & PIPE_VBLANK_INTERRUPT_STATUS)
-		drm_handle_vblank(dev, 0);
-
-	if (pipeb_stats & PIPE_VBLANK_INTERRUPT_STATUS)
-		drm_handle_vblank(dev, 1);
-
-	return (1);
 }
 
 u_int32_t

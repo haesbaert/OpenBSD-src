@@ -507,6 +507,21 @@ struct drm_mode_handle {
 	uint32_t		 handle;
 };
 
+/* Size of ringbuffer for vblank timestamps. Just double-buffer
+ * in initial implementation.
+ */
+#define DRM_VBLANKTIME_RBSIZE 2
+
+/* Flags and return codes for get_vblank_timestamp() driver function. */
+#define DRM_CALLED_FROM_VBLIRQ 1
+#define DRM_VBLANKTIME_SCANOUTPOS_METHOD (1 << 0)
+#define DRM_VBLANKTIME_INVBL             (1 << 1)
+
+/* get_scanout_position() return flags */
+#define DRM_SCANOUTPOS_VALID        (1 << 0)
+#define DRM_SCANOUTPOS_INVBL        (1 << 1)
+#define DRM_SCANOUTPOS_ACCURATE     (1 << 2)
+
 struct drm_driver_info {
 	int	(*firstopen)(struct drm_device *);
 	int	(*open)(struct drm_device *, struct drm_file *);
@@ -516,12 +531,16 @@ struct drm_driver_info {
 	void	(*lastclose)(struct drm_device *);
 	int	(*dma_ioctl)(struct drm_device *, struct drm_dma *,
 		    struct drm_file *);
+	int	(*irq_handler)(void *);
+	void	(*irq_preinstall) (struct drm_device *);
 	int	(*irq_install)(struct drm_device *);
+	int	(*irq_postinstall) (struct drm_device *);
 	void	(*irq_uninstall)(struct drm_device *);
 	int	vblank_pipes;
 	u_int32_t (*get_vblank_counter)(struct drm_device *, int);
 	int	(*enable_vblank)(struct drm_device *, int);
 	void	(*disable_vblank)(struct drm_device *, int);
+
 	/*
 	 * driver-specific constructor for gem objects to set up private data.
 	 * returns 0 on success.
@@ -585,7 +604,7 @@ struct drm_cmdline_mode {
 struct drm_device {
 	struct device	  device; /* softc is an extension of struct device */
 
-	const struct drm_driver_info *driver;
+	struct drm_driver_info *driver;
 
 	u_int16_t	 pci_device;
 	u_int16_t	 pci_vendor;
@@ -660,7 +679,7 @@ struct drm_device {
 };
 
 struct drm_attach_args {
-	const struct drm_driver_info	*driver;
+	struct drm_driver_info		*driver;
 	char				*busid;
 	bus_dma_tag_t			 dmat;
 	bus_space_tag_t			 bst;
@@ -714,7 +733,7 @@ bool dmi_check_system(const struct dmi_system_id *);
 
 /* Device setup support (drm_drv.c) */
 int	drm_pciprobe(struct pci_attach_args *, const struct drm_pcidev * );
-struct device	*drm_attach_pci(const struct drm_driver_info *, 
+struct device	*drm_attach_pci(struct drm_driver_info *, 
 		     struct pci_attach_args *, int, struct device *);
 dev_type_ioctl(drmioctl);
 dev_type_read(drmread);
@@ -796,8 +815,10 @@ void	drm_vblank_off(struct drm_device *, int);
 void	drm_vblank_pre_modeset(struct drm_device *, int);
 void	drm_vblank_post_modeset(struct drm_device *, int);
 int	drm_modeset_ctl(struct drm_device *, void *, struct drm_file *);
-void	drm_handle_vblank(struct drm_device *, int);
+bool	drm_handle_vblank(struct drm_device *, int);
 void	drm_calc_timestamping_constants(struct drm_crtc *);
+int	drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *,
+	    int, int *, struct timeval *, unsigned, struct drm_crtc *);
 
 /* AGP/PCI Express/GART support (drm_agpsupport.c) */
 struct drm_agp_head *drm_agp_init(void);
