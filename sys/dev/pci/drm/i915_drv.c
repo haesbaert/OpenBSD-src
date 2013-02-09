@@ -3606,6 +3606,12 @@ intel_detect_pch(struct inteldrm_softc *dev_priv)
 		dev_priv->pch_type = PCH_LPT;
 		dev_priv->num_pch_pll = 0;
 		DRM_DEBUG_KMS("Found LynxPoint PCH\n");
+		break;
+	case INTEL_PCH_LPT_LP_DEVICE_ID_TYPE:
+		dev_priv->pch_type = PCH_LPT;
+		dev_priv->num_pch_pll = 0;
+		DRM_DEBUG_KMS("Found LynxPoint LP PCH\n");
+		break;
 	default:
 		DRM_DEBUG_KMS("No PCH detected\n");
 	}
