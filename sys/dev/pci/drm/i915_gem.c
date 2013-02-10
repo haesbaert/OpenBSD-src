@@ -908,7 +908,8 @@ int
 i915_gem_check_wedge(struct inteldrm_softc *dev_priv,
 		     bool interruptible)
 {
-	printf("%s stub\n", __func__);
+	if (dev_priv->mm.wedged)
+		return (EIO);
 	return 0;
 }
 
