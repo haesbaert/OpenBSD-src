@@ -94,13 +94,11 @@ int	inteldrm_detach(struct device *, int);
 int	inteldrm_activate(struct device *, int);
 int	inteldrm_ioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
 int	inteldrm_doioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
-void	inteldrm_error(struct inteldrm_softc *);
 void	inteldrm_lastclose(struct drm_device *);
 
 void	intel_wrap_ring_buffer(struct intel_ring_buffer *);
 int	inteldrm_gmch_match(struct pci_attach_args *);
 void	inteldrm_timeout(void *);
-void	inteldrm_hangcheck(void *);
 void	inteldrm_hung(void *, void *);
 void	inteldrm_965_reset(struct inteldrm_softc *, u_int8_t);
 int	inteldrm_fault(struct drm_obj *, struct uvm_faultinfo *, off_t,
@@ -653,10 +651,11 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	TAILQ_INIT(&dev_priv->mm.flushing_list);
 	TAILQ_INIT(&dev_priv->mm.inactive_list);
 	TAILQ_INIT(&dev_priv->mm.gpu_write_list);
-	TAILQ_INIT(&dev_priv->mm.request_list);
 	TAILQ_INIT(&dev_priv->mm.fence_list);
+	for (i = 0; i < I915_NUM_RINGS; i++)
+		init_ring_lists(&dev_priv->rings[i]);
 	timeout_set(&dev_priv->mm.retire_timer, inteldrm_timeout, dev_priv);
-	timeout_set(&dev_priv->mm.hang_timer, inteldrm_hangcheck, dev_priv);
+	timeout_set(&dev_priv->hangcheck_timer, i915_hangcheck_elapsed, dev_priv);
 	dev_priv->next_seqno = 1;
 	dev_priv->mm.suspended = 1;
 
@@ -1511,9 +1510,16 @@ void
 i915_gem_retire_work_handler(void *arg1, void *unused)
 {
 	struct inteldrm_softc	*dev_priv = arg1;
+	struct intel_ring_buffer *ring;
+	bool			 idle;
+	int			 i;
 
 	i915_gem_retire_requests(dev_priv);
-	if (!TAILQ_EMPTY(&dev_priv->mm.request_list))
+	idle = true;
+	for_each_ring(ring, dev_priv, i) {
+		idle &= list_empty(&ring->request_list);
+	}
+	if (!dev_priv->mm.suspended && !idle)
 		timeout_add_sec(&dev_priv->mm.retire_timer, 1);
 }
 
@@ -2630,66 +2636,6 @@ inteldrm_hung(void *arg, void *reset_type)
 	if (HAS_RESET(dev))
 		dev_priv->mm.wedged = 0;
 	DRM_UNLOCK();
-}
-
-void
-inteldrm_hangcheck(void *arg)
-{
-	struct inteldrm_softc	*dev_priv = arg;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	u_int32_t		 acthd, instdone, instdone1;
-
-	/* are we idle? no requests, or ring is empty */
-	if (TAILQ_EMPTY(&dev_priv->mm.request_list) ||
-	    (I915_READ(PRB0_HEAD) & HEAD_ADDR) ==
-	    (I915_READ(PRB0_TAIL) & TAIL_ADDR)) {
-		dev_priv->mm.hang_cnt = 0;
-		return;
-	}
-
-	if (INTEL_INFO(dev)->gen >= 4) {
-		acthd = I915_READ(ACTHD_I965);
-		instdone = I915_READ(INSTDONE_I965);
-		instdone1 = I915_READ(INSTDONE1);
-	} else {
-		acthd = I915_READ(ACTHD);
-		instdone = I915_READ(INSTDONE);
-		instdone1 = 0;
-	}
-
-	/* if we've hit ourselves before and the hardware hasn't moved, hung. */
-	if (dev_priv->mm.last_acthd == acthd &&
-	    dev_priv->mm.last_instdone == instdone &&
-	    dev_priv->mm.last_instdone1 == instdone1) {
-		/* if that's twice we didn't hit it, then we're hung */
-		if (++dev_priv->mm.hang_cnt >= 2) {
-			if (!IS_GEN2(dev)) {
-				u_int32_t tmp = I915_READ(PRB0_CTL);
-				if (tmp & RING_WAIT) {
-					I915_WRITE(PRB0_CTL, tmp);
-					(void)I915_READ(PRB0_CTL);
-					goto out;
-				}
-			}
-			dev_priv->mm.hang_cnt = 0;
-			/* XXX atomic */
-			dev_priv->mm.wedged = 1; 
-			DRM_INFO("gpu hung!\n");
-			/* XXX locking */
-			wakeup(dev_priv);
-			inteldrm_error(dev_priv);
-			return;
-		}
-	} else {
-		dev_priv->mm.hang_cnt = 0;
-
-		dev_priv->mm.last_acthd = acthd;
-		dev_priv->mm.last_instdone = instdone;
-		dev_priv->mm.last_instdone1 = instdone1;
-	}
-out:
-	/* Set ourselves up again, in case we haven't added another batch */
-	timeout_add_msec(&dev_priv->mm.hang_timer, 750);
 }
 
 void

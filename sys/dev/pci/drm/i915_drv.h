@@ -678,12 +678,6 @@ struct inteldrm_softc {
 		TAILQ_HEAD(i915_fence, drm_i915_fence_reg)	fence_list;
 
 		/**
-		 * List of breadcrumbs associated with GPU requests currently
-		 * outstanding.
-		 */
-		TAILQ_HEAD(i915_request , drm_i915_gem_request) request_list;
-
-		/**
 		 * We leave the user IRQ off as much as possible,
 		 * but this means that requests will finish and never
 		 * be retired once the system goes idle. Set a timer to
@@ -691,12 +685,6 @@ struct inteldrm_softc {
 		 * fires, go retire requests in a workq.
 		 */
 		struct timeout retire_timer;
-		struct timeout hang_timer;
-		/* for hangcheck */
-		int		hang_cnt;
-		u_int32_t	last_acthd;
-		u_int32_t	last_instdone;
-		u_int32_t	last_instdone1;
 
 		/**
 		 * Are we in a non-interruptible section of code like
@@ -731,6 +719,12 @@ struct inteldrm_softc {
 		/* storage for physical objects */
 		struct drm_i915_gem_phys_object *phys_objs[I915_MAX_PHYS_OBJECT];
 	} mm;
+
+	/* for hangcheck */
+	struct timeout hangcheck_timer;
+	int hangcheck_count;
+	uint32_t last_acthd[I915_NUM_RINGS];
+	uint32_t prev_instdone[I915_NUM_INSTDONE_REG];
 
 	const struct intel_device_info *info;
 
@@ -927,7 +921,7 @@ struct drm_i915_gem_object {
  * an emission time with seqnos for tracking how far ahead of the GPU we are.
  */
 struct drm_i915_gem_request {
-	TAILQ_ENTRY(drm_i915_gem_request)	list;
+	struct list_head			list;
 	/** On Which ring this request was generated */
 	struct intel_ring_buffer	*ring;
 	/** GEM sequence number associated with this request. */
@@ -967,6 +961,7 @@ extern void i915_user_irq_put(struct inteldrm_softc *);
 void	i915_enable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 void	i915_disable_pipestat(struct inteldrm_softc *, int, u_int32_t);
 void	intel_irq_init(struct drm_device *dev);
+void	i915_hangcheck_elapsed(void *);
 
 extern void intel_gt_init(struct drm_device *dev);
 extern void intel_gt_reset(struct drm_device *dev);
@@ -1113,6 +1108,7 @@ void	inteldrm_wipe_mappings(struct drm_obj *);
 void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
 void	inteldrm_purge_obj(struct drm_obj *);
 void	inteldrm_chipset_flush(struct inteldrm_softc *);
+void	inteldrm_error(struct inteldrm_softc *);
 
 /* i915_gem_evict.c */
 int i915_gem_evict_everything(struct inteldrm_softc *);
@@ -1137,6 +1133,7 @@ static inline bool intel_gmbus_is_port_valid(unsigned port)
 /* i915_gem.c */
 int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,
     uint32_t *);
+void init_ring_lists(struct intel_ring_buffer *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

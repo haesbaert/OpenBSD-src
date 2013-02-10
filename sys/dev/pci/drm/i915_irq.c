@@ -414,8 +414,8 @@ notify_ring(struct drm_device *dev,
 //	trace_i915_gem_request_complete(ring, ring->get_seqno(ring, false));
 
 	wakeup(dev_priv);
-	dev_priv->mm.hang_cnt = 0;
-	timeout_add_msec(&dev_priv->mm.hang_timer, 750);
+	dev_priv->hangcheck_count = 0;
+	timeout_add_msec(&dev_priv->hangcheck_timer, 750);
 
 #ifdef notyet
 	wakeup(&ring->irq_queue);
@@ -1770,34 +1770,33 @@ valleyview_disable_vblank(struct drm_device *dev, int pipe)
 u32
 ring_last_seqno(struct intel_ring_buffer *ring)
 {
-	printf("%s stub\n", __func__);
-	return 0;
-#ifdef notyet
 	return list_entry(ring->request_list.prev,
 			  struct drm_i915_gem_request, list)->seqno;
-#endif
 }
 
 bool
 i915_hangcheck_ring_idle(struct intel_ring_buffer *ring, bool *err)
 {
-	printf("%s stub\n", __func__);
-	return false;
-#ifdef notyet
+	struct drm_device *dev = ring->dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+
 	if (list_empty(&ring->request_list) ||
 	    i915_seqno_passed(ring->get_seqno(ring, false),
 			      ring_last_seqno(ring))) {
 		/* Issue a wake-up to catch stuck h/w. */
+#ifdef notyet
 		if (waitqueue_active(&ring->irq_queue)) {
 			DRM_ERROR("Hangcheck timer elapsed... %s idle\n",
 				  ring->name);
 			wake_up_all(&ring->irq_queue);
 			*err = true;
 		}
+#else
+		wakeup(dev_priv);
+#endif
 		return true;
 	}
 	return false;
-#endif
 }
 
 bool
@@ -1815,7 +1814,6 @@ kick_ring(struct intel_ring_buffer *ring)
 	return false;
 }
 
-#ifdef notyet
 bool
 i915_hangcheck_hung(struct drm_device *dev)
 {
@@ -1853,17 +1851,19 @@ i915_hangcheck_hung(struct drm_device *dev)
  * again, we assume the chip is wedged and try to fix it.
  */
 void
-i915_hangcheck_elapsed(unsigned long data)
+i915_hangcheck_elapsed(void *arg)
 {
-	struct drm_device *dev = (struct drm_device *)data;
-	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct inteldrm_softc *dev_priv = arg;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	uint32_t acthd[I915_NUM_RINGS], instdone[I915_NUM_INSTDONE_REG];
 	struct intel_ring_buffer *ring;
 	bool err = false, idle;
 	int i;
 
+#ifdef notyet
 	if (!i915_enable_hangcheck)
 		return;
+#endif
 
 	memset(acthd, 0, sizeof(acthd));
 	idle = true;
@@ -1899,10 +1899,8 @@ i915_hangcheck_elapsed(unsigned long data)
 
 repeat:
 	/* Reset timer case chip hangs without another request being added */
-	mod_timer(&dev_priv->hangcheck_timer,
-		  round_jiffies_up(jiffies + DRM_I915_HANGCHECK_JIFFIES));
+	timeout_add_msec(&dev_priv->hangcheck_timer, 750);
 }
-#endif
 
 /* drm_dma.h hooks
 */

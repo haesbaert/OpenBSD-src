@@ -94,7 +94,13 @@ i915_gem_free_object(struct drm_obj *gem_obj)
 	/* XXX dmatag went away? */
 }
 
-// init_ring_lists
+void
+init_ring_lists(struct intel_ring_buffer *ring)
+{
+	INIT_LIST_HEAD(&ring->active_list);
+	INIT_LIST_HEAD(&ring->request_list);
+}
+
 // i915_gem_load
 // i915_gem_do_init
 
@@ -176,7 +182,7 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 	 */
 	dev_priv->mm.suspended = 1;
 	/* if we hung then the timer alredy fired. */
-	timeout_del(&dev_priv->mm.hang_timer);
+	timeout_del(&dev_priv->hangcheck_timer);
 
 	inteldrm_update_ring(&dev_priv->rings[RCS]);
 	i915_gem_cleanup_ringbuffer(dev);
@@ -626,7 +632,8 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 		       struct drm_file *file_priv)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-	int ret;
+	struct intel_ring_buffer *ring;
+	int ret, i;
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		return (0);
@@ -653,7 +660,8 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 	/* gtt mapping means that the inactive list may not be empty */
 	KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
 	KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.request_list));
+	for_each_ring(ring, dev_priv, i)
+		KASSERT(list_empty(&ring->request_list));
 	DRM_UNLOCK();
 
 	drm_irq_install(dev);
@@ -1736,14 +1744,14 @@ i915_add_request(struct intel_ring_buffer *ring)
 	/* XXX request timing for throttle */
 	request->seqno = seqno;
 	request->ring = ring;
-	was_empty = TAILQ_EMPTY(&dev_priv->mm.request_list);
-	TAILQ_INSERT_TAIL(&dev_priv->mm.request_list, request, list);
+	was_empty = list_empty(&ring->request_list);
+	list_add_tail(&request->list, &ring->request_list);
 
 	if (dev_priv->mm.suspended == 0) {
 		if (was_empty)
 			timeout_add_sec(&dev_priv->mm.retire_timer, 1);
 		/* XXX was_empty? */
-		timeout_add_msec(&dev_priv->mm.hang_timer, 750);
+		timeout_add_msec(&dev_priv->hangcheck_timer, 750);
 	}
 	return seqno;
 }
@@ -1754,18 +1762,14 @@ i915_add_request(struct intel_ring_buffer *ring)
 // i915_gem_reset_fences
 // i915_gem_reset
 
-void
-i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
-{
-	printf("%s stub\n", __func__);
-}
-
 /**
  * This function clears the request list as sequence numbers are passed.
  */
 void
-i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
+i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 {
+	struct drm_device		*dev = ring->dev;
+	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
 
@@ -1775,10 +1779,13 @@ i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
 	seqno = i915_get_gem_seqno(dev_priv);
 
 	mtx_enter(&dev_priv->request_lock);
-	while ((request = TAILQ_FIRST(&dev_priv->mm.request_list)) != NULL) {
+	while (!list_empty(&ring->request_list)) {
+		request = list_first_entry(&ring->request_list,
+		    struct drm_i915_gem_request, list);
+
 		if (i915_seqno_passed(seqno, request->seqno) ||
 		    dev_priv->mm.wedged) {
-			TAILQ_REMOVE(&dev_priv->mm.request_list, request, list);
+			list_del(&request->list);
 			i915_gem_retire_request(dev_priv, request);
 			mtx_leave(&dev_priv->request_lock);
 
@@ -1788,6 +1795,16 @@ i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
 			break;
 	}
 	mtx_leave(&dev_priv->request_lock);
+}
+
+void
+i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
+{
+	struct intel_ring_buffer *ring;
+	int i;
+
+	for_each_ring(ring, dev_priv, i)
+		i915_gem_retire_requests_ring(ring);
 }
 
 void

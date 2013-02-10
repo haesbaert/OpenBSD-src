@@ -61,8 +61,9 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 	struct drm_obj		*obj;
 	struct drm_i915_gem_request *request;
 	struct drm_i915_gem_object *obj_priv;
+	struct intel_ring_buffer *ring;
 	u_int32_t		 seqno;
-	int			 ret = 0, write_domain = 0;
+	int			 ret = 0, write_domain = 0, i;
 
 	for (;;) {
 		i915_gem_retire_requests(dev_priv);
@@ -91,16 +92,19 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		 * leave us a buffer to evict.
 		 */
 		mtx_enter(&dev_priv->request_lock);
-		if ((request = TAILQ_FIRST(&dev_priv->mm.request_list))
-		    != NULL) {
-			seqno = request->seqno;
-			mtx_leave(&dev_priv->request_lock);
+		for_each_ring(ring, dev_priv, i) {
+			request = list_first_entry(&ring->request_list,
+			    struct drm_i915_gem_request, list);
+			if (request != NULL) {
+				seqno = request->seqno;
+				mtx_leave(&dev_priv->request_lock);
 
-			ret = i915_wait_seqno(request->ring, seqno);
-			if (ret)
-				return (ret);
+				ret = i915_wait_seqno(request->ring, seqno);
+				if (ret)
+					return (ret);
 
-			continue;
+				continue;
+			}
 		}
 		mtx_leave(&dev_priv->request_lock);
 
