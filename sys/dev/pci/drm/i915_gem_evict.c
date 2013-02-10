@@ -64,6 +64,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 	struct intel_ring_buffer *ring;
 	u_int32_t		 seqno;
 	int			 ret = 0, write_domain = 0, i;
+	int			 found;
 
 	for (;;) {
 		i915_gem_retire_requests(dev_priv);
@@ -91,6 +92,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		 * things, wait for one of those things to finish and hopefully
 		 * leave us a buffer to evict.
 		 */
+		found = 0;
 		mtx_enter(&dev_priv->request_lock);
 		for_each_ring(ring, dev_priv, i) {
 			request = list_first_entry(&ring->request_list,
@@ -103,9 +105,12 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 				if (ret)
 					return (ret);
 
-				continue;
+				found = 1;
+				break;
 			}
 		}
+		if (found)
+			continue;
 		mtx_leave(&dev_priv->request_lock);
 
 		/* If we didn't have anything on the request list but there
