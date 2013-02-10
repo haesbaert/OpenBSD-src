@@ -501,6 +501,7 @@ out:
 }
 #endif
 
+#if 0
 int
 init_pipe_control(struct intel_ring_buffer *ring)
 {
@@ -549,6 +550,7 @@ err:
 	return ret;
 #endif
 }
+#endif
 
 void
 cleanup_pipe_control(struct intel_ring_buffer *ring)

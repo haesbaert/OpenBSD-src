@@ -2257,12 +2257,20 @@ inteldrm_quiesce(struct inteldrm_softc *dev_priv)
 	(void)i915_gem_evict_inactive(dev_priv);
 }
 
+struct pipe_control {
+	struct drm_i915_gem_object *obj;
+	volatile u32 *cpu_page;
+	u32 gtt_offset;
+};
+
 int
-i915_gem_init_hws(struct inteldrm_softc *dev_priv)
+init_pipe_control(struct intel_ring_buffer *ring)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+        struct drm_device	*dev = ring->dev;
+        drm_i915_private_t	*dev_priv = dev->dev_private;
 	struct drm_obj		*obj;
 	struct drm_i915_gem_object *obj_priv;
+	struct pipe_control	*pc;
 	int			 ret;
 
 	/* If we need a physical address for the status page, it's already
@@ -2270,6 +2278,13 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	 */
 	if (!I915_NEED_GFX_HWS(dev))
 		return 0;
+
+	if (ring->private)
+		return 0;
+
+	pc = malloc(sizeof(*pc), M_DRM, M_WAITOK | M_ZERO);
+	if (!pc)
+		return ENOMEM;
 
 	obj = drm_gem_object_alloc(dev, 4096);
 	if (obj == NULL) {
@@ -2292,6 +2307,7 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	}
 
 	dev_priv->hw_status_page = (void *)vm_map_min(kernel_map);
+	pc->cpu_page = (volatile u_int32_t *)dev_priv->hw_status_page;
 	obj->uao->pgops->pgo_reference(obj->uao);
 	if ((ret = uvm_map(kernel_map, (vaddr_t *)&dev_priv->hw_status_page,
 	    PAGE_SIZE, obj->uao, 0, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
@@ -2305,6 +2321,9 @@ i915_gem_init_hws(struct inteldrm_softc *dev_priv)
 	}
 	drm_unhold_object(obj);
 	dev_priv->hws_obj = obj;
+	pc->obj = obj_priv;
+	pc->gtt_offset = obj_priv->gtt_offset;
+	ring->private = pc;
 	memset(dev_priv->hw_status_page, 0, PAGE_SIZE);
 	I915_WRITE(HWS_PGA, obj_priv->gtt_offset);
 	I915_READ(HWS_PGA); /* posting read */
@@ -2350,7 +2369,7 @@ intel_init_ring_buffer(struct drm_device *dev,
 
 	ring->dev = dev;
 
-	ret = i915_gem_init_hws(dev_priv);
+	ret = init_pipe_control(ring);
 	if (ret != 0)
 		return ret;
 
