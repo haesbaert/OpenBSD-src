@@ -1238,8 +1238,10 @@ inteldrm_lastclose(struct drm_device *dev)
 	struct vm_page		*p;
 	int			 ret;
 
-	if (drm_core_check_feature(dev, DRIVER_MODESET))
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		intel_fb_restore_mode(dev);
 		return;
+	}
 
 	ret = i915_gem_idle(dev_priv);
 	if (ret)
