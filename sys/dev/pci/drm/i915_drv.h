@@ -228,7 +228,6 @@ struct intel_opregion {
 struct drm_i915_fence_reg {
 	TAILQ_ENTRY(drm_i915_fence_reg)	 list;
 	struct drm_obj			*obj;
-	u_int32_t			 last_rendering_seqno;
 };
 
 struct sdvo_device_mapping {
@@ -874,6 +873,8 @@ struct drm_i915_gem_object {
 	/** Breadcrumb of last rendering to the buffer. */
 	u_int32_t				 last_rendering_seqno;
 	u_int32_t				 last_write_seqno;
+	/** Breadcrumb of last fenced GPU access to the buffer. */
+	u_int32_t				 last_fenced_seqno;
 	/** Current tiling mode for the object. */
 	u_int32_t				 tiling_mode;
 	u_int32_t				 stride;

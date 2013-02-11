@@ -1480,7 +1480,6 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 {
 	struct drm_device		*dev = obj->base.dev;
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	struct drm_i915_fence_reg	*reg;
 	u_int32_t			 seqno = dev_priv->next_seqno;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
@@ -1494,8 +1493,7 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 	}
 
 	if (inteldrm_needs_fence(obj)) {
-		reg = &dev_priv->fence_regs[obj->fence_reg];
-		reg->last_rendering_seqno = seqno;
+		obj->last_fenced_seqno = seqno;
 	}
 	if (obj->base.write_domain)
 		obj->last_write_seqno = seqno;
@@ -1510,17 +1508,12 @@ i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 {
 	struct drm_device		*dev = obj->base.dev;
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	struct drm_i915_fence_reg	*reg;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
 
 	obj->last_rendering_seqno = 0;
-	/* if we have a fence register, then reset the seqno */
-	if (obj->fence_reg != I915_FENCE_REG_NONE) {
-		reg = &dev_priv->fence_regs[obj->fence_reg];
-		reg->last_rendering_seqno = 0;
-	}
+	obj->last_fenced_seqno = 0;
 	if (obj->base.write_domain == 0)
 		obj->last_write_seqno = 0;
 }
@@ -1960,8 +1953,8 @@ i915_gem_object_put_fence_reg(struct drm_obj *obj)
 
 	/* if rendering is queued up that depends on the fence, wait for it */
 	reg = &dev_priv->fence_regs[obj_priv->fence_reg];
-	if (reg->last_rendering_seqno != 0) {
-		ret = i915_wait_seqno(obj_priv->ring, reg->last_rendering_seqno);
+	if (obj_priv->last_fenced_seqno) {
+		ret = i915_wait_seqno(obj_priv->ring, obj_priv->last_fenced_seqno);
 		if (ret != 0)
 			return (ret);
 	}
