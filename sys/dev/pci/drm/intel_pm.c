@@ -2627,9 +2627,9 @@ gen6_set_rps(struct drm_device *dev, u8 val)
 
 #ifdef notyet
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+#endif
 	WARN_ON(val > dev_priv->rps.max_delay);
 	WARN_ON(val < dev_priv->rps.min_delay);
-#endif
 
 	if (val == dev_priv->rps.cur_delay)
 		return;
@@ -2823,9 +2823,7 @@ gen6_enable_rps(struct drm_device *dev)
 	/* requires MSI enabled */
 	I915_WRITE(GEN6_PMIER, GEN6_PM_DEFERRED_EVENTS);
 	mtx_enter(&dev_priv->rps.lock);
-#ifdef notyet
 	WARN_ON(dev_priv->rps.pm_iir != 0);
-#endif
 	I915_WRITE(GEN6_PMIMR, 0);
 	mtx_leave(&dev_priv->rps.lock);
 	/* enable all PM interrupts */
@@ -4569,10 +4567,9 @@ gen6_gt_check_fifodbg(struct inteldrm_softc *dev_priv)
 {
 	u32 gtfifodbg;
 	gtfifodbg = I915_READ_NOTRACE(GTFIFODBG);
-	if ((gtfifodbg & GT_FIFO_CPU_ERROR_MASK) != 0) {
-		printf("MMIO read or write has been dropped %x\n", gtfifodbg);
+	if (WARN(gtfifodbg & GT_FIFO_CPU_ERROR_MASK,
+	     "MMIO read or write has been dropped %x\n", gtfifodbg))
 		I915_WRITE_NOTRACE(GTFIFODBG, GT_FIFO_CPU_ERROR_MASK);
-	}
 }
 
 void
@@ -4617,7 +4614,7 @@ __gen6_gt_wait_for_fifo(struct inteldrm_softc *dev_priv)
 			DELAY(10);
 			fifo = I915_READ_NOTRACE(GT_FIFO_FREE_ENTRIES);
 		}
-		if (loop < 0 && fifo <= GT_FIFO_NUM_RESERVED_ENTRIES)
+		if (WARN_ON(loop < 0 && fifo <= GT_FIFO_NUM_RESERVED_ENTRIES))
 			++ret;
 		dev_priv->gt_fifo_count = fifo;
 	}

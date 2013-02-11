@@ -138,6 +138,28 @@ typedef uint16_t __le16;
 
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
+#define BUG()								\
+do {									\
+	panic("BUG at %s:%d", __FILE__, __LINE__);			\
+} while (0)
+
+#define BUG_ON(x) KASSERT(!(x))
+
+#define WARN(condition, fmt...) ({ 					\
+	if (condition)							\
+		printf(fmt);						\
+	(condition);							\
+})
+
+#define _WARN_STR(x) #x
+
+#define WARN_ON(condition) ({						\
+	if (condition)							\
+		printf("WARNING %s failed at %s:%d\n",			\
+		    _WARN_STR(condition), __FILE__, __LINE__);		\
+	(condition);							\
+})
+
 #define IS_ERR_VALUE(x) unlikely((x) >= (unsigned long)-ELAST)
 
 static inline void *

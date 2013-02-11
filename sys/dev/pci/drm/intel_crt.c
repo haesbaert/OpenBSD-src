@@ -495,7 +495,7 @@ intel_crt_detect_ddc(struct drm_connector *connector)
 	struct inteldrm_softc *dev_priv = crt->base.base.dev->dev_private;
 	struct edid *edid;
 
-	KASSERT(crt->base.type == INTEL_OUTPUT_ANALOG);
+	BUG_ON(crt->base.type != INTEL_OUTPUT_ANALOG);
 
 	intel_gmbus_set_port(dev_priv, dev_priv->crt_ddc_pin);
 	edid = intel_crt_get_edid(connector, &dev_priv->ddc);

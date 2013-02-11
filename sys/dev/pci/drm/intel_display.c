@@ -403,9 +403,7 @@ intel_pch_rawclk(struct drm_device *dev)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
-#if 0
 	WARN_ON(!HAS_PCH_SPLIT(dev));
-#endif
 
 	return I915_READ(PCH_RAWCLK_FREQ) & RAWCLK_FREQ_MASK;
 }
@@ -1399,7 +1397,7 @@ intel_wait_for_pipe_off(struct drm_device *dev, int pipe)
 			DELAY(1000);
 		}
 		if (retries == 0)
-			DRM_DEBUG_KMS("pipe_off wait timed out\n");
+			WARN(1, "pipe_off wait timed out\n");
 	} else {
 		u32 last_line, line_mask;
 		int reg = PIPEDSL(pipe);
@@ -1417,7 +1415,7 @@ intel_wait_for_pipe_off(struct drm_device *dev, int pipe)
 				break;
 		}
 		if (retries == 0)
-			DRM_DEBUG_KMS("pipe_off wait timed out\n");
+			WARN(1, "pipe_off wait timed out\n");
 	}
 }
 
@@ -1439,9 +1437,9 @@ assert_pll(struct inteldrm_softc *dev_priv,
 	reg = DPLL(pipe);
 	val = I915_READ(reg);
 	cur_state = !!(val & DPLL_VCO_ENABLE);
-	if (cur_state != state)
-		printf("PLL state assertion failure (expected %s, current %s)\n",
-		    state_string(state), state_string(cur_state));
+	WARN(cur_state != state,
+	     "PLL state assertion failure (expected %s, current %s)\n",
+	     state_string(state), state_string(cur_state));
 }
 #define assert_pll_enabled(d, p) assert_pll(d, p, true)
 #define assert_pll_disabled(d, p) assert_pll(d, p, false)
@@ -1462,16 +1460,15 @@ assert_pch_pll(struct inteldrm_softc *dev_priv,
 		return;
 	}
 
-	if (!pll) {
-		printf("asserting PCH PLL %s with no PLL\n", state_string(state));
+	if (WARN (!pll,
+		  "asserting PCH PLL %s with no PLL\n", state_string(state)))
 		return;
-	}
 
 	val = I915_READ(pll->pll_reg);
 	cur_state = !!(val & DPLL_VCO_ENABLE);
-	if (cur_state != state)
-		printf("PCH PLL state for reg %x assertion failure (expected %s, current %s), val=%08x\n",
-		    pll->pll_reg, state_string(state), state_string(cur_state), val);
+	WARN(cur_state != state,
+	     "PCH PLL state for reg %x assertion failure (expected %s, current %s), val=%08x\n",
+	     pll->pll_reg, state_string(state), state_string(cur_state), val);
 
 	/* Make sure the selected PLL is correctly attached to the transcoder */
 	if (crtc && HAS_PCH_CPT(dev)) {
@@ -1479,7 +1476,6 @@ assert_pch_pll(struct inteldrm_softc *dev_priv,
 
 		pch_dpll = I915_READ(PCH_DPLL_SEL);
 		cur_state = pll->pll_reg == _PCH_DPLL_B;
-#ifdef notyet
 		if (!WARN(((pch_dpll >> (4 * crtc->pipe)) & 1) != cur_state,
 			  "PLL[%d] not attached to this transcoder %d: %08x\n",
 			  cur_state, crtc->pipe, pch_dpll)) {
@@ -1491,7 +1487,6 @@ assert_pch_pll(struct inteldrm_softc *dev_priv,
 			     crtc->pipe,
 			     val);
 		}
-#endif
 	}
 }
 #define assert_pch_pll_enabled(d, p, c) assert_pch_pll(d, p, c, true)
@@ -1518,9 +1513,9 @@ assert_fdi_tx(struct inteldrm_softc *dev_priv,
 		val = I915_READ(reg);
 		cur_state = !!(val & FDI_TX_ENABLE);
 	}
-	if (cur_state != state)
-		printf("FDI TX state assertion failure (expected %s, current %s)\n",
-		    state_string(state), state_string(cur_state));
+	WARN(cur_state != state,
+	     "FDI TX state assertion failure (expected %s, current %s)\n",
+	     state_string(state), state_string(cur_state));
 }
 #define assert_fdi_tx_enabled(d, p) assert_fdi_tx(d, p, true)
 #define assert_fdi_tx_disabled(d, p) assert_fdi_tx(d, p, false)
@@ -1536,9 +1531,9 @@ assert_fdi_rx(struct inteldrm_softc *dev_priv,
 	reg = FDI_RX_CTL(pipe);
 	val = I915_READ(reg);
 	cur_state = !!(val & FDI_RX_ENABLE);
-	if (cur_state != state)
-		printf("FDI RX state assertion failure (expected %s, current %s)\n",
-		    state_string(state), state_string(cur_state));
+	WARN(cur_state != state,
+	     "FDI RX state assertion failure (expected %s, current %s)\n",
+	     state_string(state), state_string(cur_state));
 }
 #define assert_fdi_rx_enabled(d, p) assert_fdi_rx(d, p, true)
 #define assert_fdi_rx_disabled(d, p) assert_fdi_rx(d, p, false)
@@ -1561,8 +1556,7 @@ assert_fdi_tx_pll_enabled(struct inteldrm_softc *dev_priv,
 
 	reg = FDI_TX_CTL(pipe);
 	val = I915_READ(reg);
-	if (!(val & FDI_TX_PLL_ENABLE))
-		printf("FDI TX PLL assertion failure, should be active but is disabled\n");
+	WARN(!(val & FDI_TX_PLL_ENABLE), "FDI TX PLL assertion failure, should be active but is disabled\n");
 }
 
 void
@@ -1574,8 +1568,7 @@ assert_fdi_rx_pll_enabled(struct inteldrm_softc *dev_priv,
 
 	reg = FDI_RX_CTL(pipe);
 	val = I915_READ(reg);
-	if (!(val & FDI_RX_PLL_ENABLE))
-		printf("FDI RX PLL assertion failure, should be active but is disabled\n");
+	WARN(!(val & FDI_RX_PLL_ENABLE), "FDI RX PLL assertion failure, should be active but is disabled\n");
 }
 
 void
@@ -1604,9 +1597,9 @@ assert_panel_unlocked(struct inteldrm_softc *dev_priv,
 	if (I915_READ(lvds_reg) & LVDS_PIPEB_SELECT)
 		panel_pipe = PIPE_B;
 
-	if (panel_pipe == pipe && locked)
-		printf("panel assertion failure, pipe %c regs locked\n",
-		    pipe_name(pipe));
+	WARN(panel_pipe == pipe && locked,
+	     "panel assertion failure, pipe %c regs locked\n",
+	     pipe_name(pipe));
 }
 
 void
@@ -1626,9 +1619,9 @@ assert_pipe(struct inteldrm_softc *dev_priv,
 	reg = PIPECONF(cpu_transcoder);
 	val = I915_READ(reg);
 	cur_state = !!(val & PIPECONF_ENABLE);
-	if (cur_state != state)
-		printf("pipe %c assertion failure (expected %s, current %s)\n",
-		    pipe_name(pipe), state_string(state), state_string(cur_state));
+	WARN(cur_state != state,
+	     "pipe %c assertion failure (expected %s, current %s)\n",
+	     pipe_name(pipe), state_string(state), state_string(cur_state));
 }
 
 void
@@ -1642,9 +1635,9 @@ assert_plane(struct inteldrm_softc *dev_priv,
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
 	cur_state = !!(val & DISPLAY_PLANE_ENABLE);
-	if (cur_state != state)
-		printf("plane %c assertion failure (expected %s, current %s)\n",
-		    plane_name(plane), state_string(state), state_string(cur_state));
+	WARN(cur_state != state,
+	     "plane %c assertion failure (expected %s, current %s)\n",
+	     plane_name(plane), state_string(state), state_string(cur_state));
 }
 
 #define assert_plane_enabled(d, p) assert_plane(d, p, true)
@@ -1663,9 +1656,9 @@ assert_planes_disabled(struct inteldrm_softc *dev_priv,
 	if (HAS_PCH_SPLIT(dev)) {
 		reg = DSPCNTR(pipe);
 		val = I915_READ(reg);
-		if (val & DISPLAY_PLANE_ENABLE)
-			printf("plane %c assertion failure, should be disabled but not\n",
-			    plane_name(pipe));
+		WARN((val & DISPLAY_PLANE_ENABLE),
+		     "plane %c assertion failure, should be disabled but not\n",
+		     plane_name(pipe));
 		return;
 	}
 
@@ -1675,9 +1668,9 @@ assert_planes_disabled(struct inteldrm_softc *dev_priv,
 		val = I915_READ(reg);
 		cur_pipe = (val & DISPPLANE_SEL_PIPE_MASK) >>
 			DISPPLANE_SEL_PIPE_SHIFT;
-		if ((val & DISPLAY_PLANE_ENABLE) && pipe == cur_pipe)
-			printf("plane %c assertion failure, should be off on pipe %c but is still active\n",
-			    plane_name(i), pipe_name(pipe));
+		WARN((val & DISPLAY_PLANE_ENABLE) && pipe == cur_pipe,
+		     "plane %c assertion failure, should be off on pipe %c but is still active\n",
+		     plane_name(i), pipe_name(pipe));
 	}
 }
 
@@ -1696,8 +1689,7 @@ assert_pch_refclk_enabled(struct inteldrm_softc *dev_priv)
 	val = I915_READ(PCH_DREF_CONTROL);
 	enabled = !!(val & (DREF_SSC_SOURCE_MASK | DREF_NONSPREAD_SOURCE_MASK |
 			    DREF_SUPERSPREAD_SOURCE_MASK));
-	if (!enabled)
-		printf("PCH refclk assertion failure, should be active but is disabled\n");
+	WARN(!enabled, "PCH refclk assertion failure, should be active but is disabled\n");
 }
 
 void
@@ -1711,9 +1703,9 @@ assert_transcoder_disabled(struct inteldrm_softc *dev_priv,
 	reg = TRANSCONF(pipe);
 	val = I915_READ(reg);
 	enabled = !!(val & TRANS_ENABLE);
-	if (enabled)
-		printf("transcoder assertion failed, should be off on pipe %c but is still active\n",
-		    pipe_name(pipe));
+	WARN(enabled,
+	     "transcoder assertion failed, should be off on pipe %c but is still active\n",
+	     pipe_name(pipe));
 }
 
 bool
@@ -1799,13 +1791,13 @@ assert_pch_dp_disabled(struct inteldrm_softc *dev_priv,
 {
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	u32 val = I915_READ(reg);
-	if (dp_pipe_enabled(dev_priv, pipe, port_sel, val))
-		printf("PCH DP (0x%08x) enabled on transcoder %c, should be disabled\n",
-		    reg, pipe_name(pipe));
+	WARN(dp_pipe_enabled(dev_priv, pipe, port_sel, val),
+	     "PCH DP (0x%08x) enabled on transcoder %c, should be disabled\n",
+	     reg, pipe_name(pipe));
 
-	if (HAS_PCH_IBX(dev) && (val & DP_PORT_EN) == 0
-	     && (val & DP_PIPEB_SELECT))
-		printf("IBX PCH dp port still using transcoder B\n");
+	WARN(HAS_PCH_IBX(dev) && (val & DP_PORT_EN) == 0
+	     && (val & DP_PIPEB_SELECT),
+	     "IBX PCH dp port still using transcoder B\n");
 }
 
 void
@@ -1814,13 +1806,13 @@ assert_pch_hdmi_disabled(struct inteldrm_softc *dev_priv,
 {
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	u32 val = I915_READ(reg);
-	if (hdmi_pipe_enabled(dev_priv, pipe, val))
-		printf("PCH HDMI (0x%08x) enabled on transcoder %c, should be disabled\n",
-		    reg, pipe_name(pipe));
+	WARN(hdmi_pipe_enabled(dev_priv, pipe, val),
+	     "PCH HDMI (0x%08x) enabled on transcoder %c, should be disabled\n",
+	     reg, pipe_name(pipe));
 
-	if (HAS_PCH_IBX(dev) && (val & PORT_ENABLE) == 0
-	     && (val & SDVO_PIPE_B_SELECT))
-		printf("IBX PCH hdmi port still using transcoder B\n");
+	WARN(HAS_PCH_IBX(dev) && (val & PORT_ENABLE) == 0
+	     && (val & SDVO_PIPE_B_SELECT),
+	     "IBX PCH hdmi port still using transcoder B\n");
 }
 
 void
@@ -1836,15 +1828,15 @@ assert_pch_ports_disabled(struct inteldrm_softc *dev_priv,
 
 	reg = PCH_ADPA;
 	val = I915_READ(reg);
-	if (adpa_pipe_enabled(dev_priv, pipe, val))
-		printf("PCH VGA enabled on transcoder %c, should be disabled\n",
-		    pipe_name(pipe));
+	WARN(adpa_pipe_enabled(dev_priv, pipe, val),
+	     "PCH VGA enabled on transcoder %c, should be disabled\n",
+	     pipe_name(pipe));
 
 	reg = PCH_LVDS;
 	val = I915_READ(reg);
-	if (lvds_pipe_enabled(dev_priv, pipe, val))
-		printf("PCH LVDS enabled on transcoder %c, should be disabled\n",
-		    pipe_name(pipe));
+	WARN(lvds_pipe_enabled(dev_priv, pipe, val),
+	     "PCH LVDS enabled on transcoder %c, should be disabled\n",
+	     pipe_name(pipe));
 
 	assert_pch_hdmi_disabled(dev_priv, pipe, HDMIB);
 	assert_pch_hdmi_disabled(dev_priv, pipe, HDMIC);
@@ -1872,7 +1864,7 @@ intel_enable_pll(struct inteldrm_softc *dev_priv, enum pipe pipe)
 	u32 val;
 
 	/* No really, not for ILK+ */
-	KASSERT(!IS_VALLEYVIEW(dev) && dev_priv->info->gen < 5);
+	BUG_ON(!IS_VALLEYVIEW(dev) && dev_priv->info->gen >= 5);
 
 	/* PLL is protected by panel, make sure we can write it */
 	if (IS_MOBILE(dev) && !IS_I830(dev))
@@ -2025,15 +2017,13 @@ ironlake_enable_pch_pll(struct intel_crtc *intel_crtc)
 	u32 val;
 
 	/* PCH PLLs only available on ILK, SNB and IVB */
-	KASSERT(dev_priv->info->gen >= 5);
+	BUG_ON(dev_priv->info->gen < 5);
 	pll = intel_crtc->pch_pll;
 	if (pll == NULL)
 		return;
 
-#ifdef notyet
 	if (WARN_ON(pll->refcount == 0))
 		return;
-#endif
 
 	DRM_DEBUG_KMS("enable PCH PLL %x (active %d, on? %d)for crtc %d\n",
 		      pll->pll_reg, pll->active, pll->on,
@@ -2068,25 +2058,21 @@ intel_disable_pch_pll(struct intel_crtc *intel_crtc)
 	u32 val;
 
 	/* PCH only available on ILK+ */
-	KASSERT(dev_priv->info->gen >= 5);
+	BUG_ON(dev_priv->info->gen < 5);
 	if (pll == NULL)
 	       return;
 
-#ifdef notyet
 	if (WARN_ON(pll->refcount == 0))
 		return;
-#endif
 
 	DRM_DEBUG_KMS("disable PCH PLL %x (active %d, on? %d) for crtc %d\n",
 		      pll->pll_reg, pll->active, pll->on,
 		      intel_crtc->base.base.id);
 
-#ifdef notyet
 	if (WARN_ON(pll->active == 0)) {
 		assert_pch_pll_disabled(dev_priv, pll, NULL);
 		return;
 	}
-#endif
 
 	if (--pll->active) {
 		assert_pch_pll_enabled(dev_priv, pll, NULL);
@@ -2118,7 +2104,7 @@ ironlake_enable_pch_transcoder(struct inteldrm_softc *dev_priv,
 	int retries;
 
 	/* PCH only available on ILK+ */
-	KASSERT(dev_priv->info->gen >= 5);
+	BUG_ON(dev_priv->info->gen < 5);
 
 	/* Make sure PCH DPLL is enabled */
 	assert_pch_pll_enabled(dev_priv,
@@ -2179,7 +2165,7 @@ lpt_enable_pch_transcoder(struct inteldrm_softc *dev_priv,
 	int retries;
 
 	/* PCH only available on ILK+ */
-	KASSERT(dev_priv->info->gen >= 5);
+	BUG_ON(dev_priv->info->gen < 5);
 
 	/* FDI must be feeding us bits for PCH ports */
 	assert_fdi_tx_enabled(dev_priv, cpu_transcoder);
@@ -2462,7 +2448,7 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		DRM_ERROR("Y tiled not allowed for scan out buffers\n");
 		return -EINVAL;
 	default:
-		panic("Wrong tiling for fb obj");
+		BUG();
 	}
 
 	dev_priv->mm.interruptible = false;
@@ -2939,10 +2925,8 @@ ivb_modeset_global_resources(struct drm_device *dev)
 	 * with all lanes. XXX: This misses the case where a pipe is not using
 	 * any pch resources and so doesn't need any fdi lanes. */
 	if (!pipe_B_crtc->base.enabled && !pipe_C_crtc->base.enabled) {
-#ifdef notyet
 		WARN_ON(I915_READ(FDI_RX_CTL(PIPE_B)) & FDI_RX_ENABLE);
 		WARN_ON(I915_READ(FDI_RX_CTL(PIPE_C)) & FDI_RX_ENABLE);
-#endif
 
 		temp = I915_READ(SOUTH_CHICKEN1);
 		temp &= ~FDI_BC_BIFURCATION_SELECT;
@@ -3541,13 +3525,11 @@ lpt_program_iclkip(struct drm_crtc *crtc)
 		phaseinc = pi_value;
 	}
 
-#ifdef notyet
 	/* This should not happen with any sane values */
 	WARN_ON(SBI_SSCDIVINTPHASE_DIVSEL(divsel) &
 		~SBI_SSCDIVINTPHASE_DIVSEL_MASK);
 	WARN_ON(SBI_SSCDIVINTPHASE_DIR(phasedir) &
 		~SBI_SSCDIVINTPHASE_INCVAL_MASK);
-#endif
 
 	DRM_DEBUG_KMS("iCLKIP clock: found settings for %dKHz refresh rate: auxdiv=%x, divsel=%x, phasedir=%x, phaseinc=%x\n",
 			crtc->mode.clock,
@@ -3688,7 +3670,7 @@ ironlake_pch_enable(struct drm_crtc *crtc)
 			temp |= TRANS_DP_PORT_SEL_D;
 			break;
 		default:
-			DRM_DEBUG_KMS("Wrong PCH DP port return.\n");
+			BUG();
 		}
 
 		I915_WRITE(reg, temp);
@@ -3731,9 +3713,7 @@ intel_put_pch_pll(struct intel_crtc *intel_crtc)
 		return;
 
 	if (pll->refcount == 0) {
-#ifdef notyet
 		WARN(1, "bad PCH PLL refcount\n");
-#endif
 		return;
 	}
 
@@ -3846,9 +3826,7 @@ ironlake_crtc_enable(struct drm_crtc *crtc)
 	u32 temp;
 	bool is_pch_port;
 
-#ifdef notyet
 	WARN_ON(!crtc->enabled);
-#endif
 
 	if (intel_crtc->active)
 		return;
@@ -3941,9 +3919,7 @@ haswell_crtc_enable(struct drm_crtc *crtc)
 	int plane = intel_crtc->plane;
 	bool is_pch_port;
 
-#ifdef notyet
 	WARN_ON(!crtc->enabled);
-#endif
 
 	if (intel_crtc->active)
 		return;
@@ -4072,10 +4048,8 @@ ironlake_crtc_disable(struct drm_crtc *crtc)
 			/* C shares PLL A or B */
 			temp &= ~(TRANSC_DPLL_ENABLE | TRANSC_DPLLB_SEL);
 			break;
-#ifdef notyet
 		default:
 			BUG(); /* wtf */
-#endif
 		}
 		I915_WRITE(PCH_DPLL_SEL, temp);
 	}
@@ -4197,9 +4171,7 @@ i9xx_crtc_enable(struct drm_crtc *crtc)
 	int pipe = intel_crtc->pipe;
 	int plane = intel_crtc->plane;
 
-#ifdef notyet
 	WARN_ON(!crtc->enabled);
-#endif
 
 	if (intel_crtc->active)
 		return;
@@ -4330,9 +4302,7 @@ intel_crtc_disable(struct drm_crtc *crtc)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	/* crtc should still be enabled when we disable it. */
-#ifdef notyet
 	WARN_ON(!crtc->enabled);
-#endif
 
 	dev_priv->display.crtc_disable(crtc);
 	intel_crtc_update_sarea(crtc, false);
@@ -4418,29 +4388,24 @@ intel_connector_check_state(struct intel_connector *connector)
 			      connector->base.base.id,
 			      drm_get_connector_name(&connector->base));
 
-		if (connector->base.dpms == DRM_MODE_DPMS_OFF)
-			printf("wrong connector dpms state\n");
-		if (connector->base.encoder != &encoder->base)
-			printf("active connector not linked to encoder\n");
-		if (!encoder->connectors_active)
-			printf("encoder->connectors_active not set\n");
+		WARN(connector->base.dpms == DRM_MODE_DPMS_OFF,
+		     "wrong connector dpms state\n");
+		WARN(connector->base.encoder != &encoder->base,
+		     "active connector not linked to encoder\n");
+		WARN(!encoder->connectors_active,
+		     "encoder->connectors_active not set\n");
 
 		encoder_enabled = encoder->get_hw_state(encoder, &pipe);
-		if (!encoder_enabled)
-			printf("encoder not enabled\n");
-#ifdef notyet
+		WARN(!encoder_enabled, "encoder not enabled\n");
 		if (WARN_ON(!encoder->base.crtc))
 			return;
-#endif
 
 		crtc = encoder->base.crtc;
 
-		if (!crtc->enabled)
-			printf("crtc not enabled\n");
-		if (!to_intel_crtc(crtc)->active)
-			printf("crtc not active\n");
-		if (pipe != to_intel_crtc(crtc)->pipe)
-			printf("encoder active on the wrong pipe\n");
+		WARN(!crtc->enabled, "crtc not enabled\n");
+		WARN(!to_intel_crtc(crtc)->active, "crtc not active\n");
+		WARN(pipe != to_intel_crtc(crtc)->pipe,
+		     "encoder active on the wrong pipe\n");
 	}
 }
 
@@ -4463,10 +4428,8 @@ intel_connector_dpms(struct drm_connector *connector, int mode)
 	/* Only need to change hw state when actually enabled */
 	if (encoder->base.crtc)
 		intel_encoder_dpms(encoder, mode);
-#ifdef notyet
 	else
 		WARN_ON(encoder->connectors_active != false);
-#endif
 
 	intel_modeset_check_state(connector->dev);
 }
@@ -5792,11 +5755,9 @@ ironlake_set_pipeconf(struct drm_crtc *crtc,
 	case 36:
 		val |= PIPE_12BPC;
 		break;
-#ifdef notyet
 	default:
 		/* Case prevented by intel_choose_pipe_bpp_dither. */
 		BUG();
-#endif
 	}
 
 	val &= ~(PIPECONF_DITHER_EN | PIPECONF_DITHER_TYPE_MASK);
@@ -5913,10 +5874,8 @@ cpt_enable_fdi_bc_bifurcation(struct drm_device *dev)
 	if (temp & FDI_BC_BIFURCATION_SELECT)
 		return;
 
-#ifdef notyet
 	WARN_ON(I915_READ(FDI_RX_CTL(PIPE_B)) & FDI_RX_ENABLE);
 	WARN_ON(I915_READ(FDI_RX_CTL(PIPE_C)) & FDI_RX_ENABLE);
-#endif
 
 	temp |= FDI_BC_BIFURCATION_SELECT;
 	DRM_DEBUG_KMS("enabling fdi C rx\n");
@@ -5961,11 +5920,7 @@ ironlake_check_fdi_lanes(struct intel_crtc *intel_crtc)
 		}
 
 		if (intel_crtc->fdi_lanes > 2)
-#ifdef notyet
 			WARN_ON(I915_READ(SOUTH_CHICKEN1) & FDI_BC_BIFURCATION_SELECT);
-#else
-			;
-#endif
 		else
 			cpt_enable_fdi_bc_bifurcation(dev);
 
@@ -5989,11 +5944,7 @@ ironlake_check_fdi_lanes(struct intel_crtc *intel_crtc)
 
 		return true;
 	default:
-#ifdef notyet
 		BUG();
-#else
-		return false;
-#endif
 	}
 }
 
@@ -6224,8 +6175,8 @@ ironlake_crtc_mode_set(struct drm_crtc *crtc,
 		num_connectors++;
 	}
 
-	if (!(HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev)))
-		printf("Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev));
+	WARN(!(HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev)),
+	     "Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev));
 
 	ok = ironlake_compute_clocks(crtc, adjusted_mode, &clock,
 				     &has_reduced_clock, &reduced_clock);
@@ -6414,19 +6365,16 @@ haswell_crtc_mode_set(struct drm_crtc *crtc,
 		intel_crtc->cpu_transcoder = pipe;
 
 	/* We are not sure yet this won't happen. */
-	if (!HAS_PCH_LPT(dev))
-		printf("Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev));
+	WARN(!HAS_PCH_LPT(dev), "Unexpected PCH type %d\n",
+	     INTEL_PCH_TYPE(dev));
 
-	if (num_connectors != 1)
-		printf("%d connectors attached to pipe %c\n",
-		    num_connectors, pipe_name(pipe));
+	WARN(num_connectors != 1, "%d connectors attached to pipe %c\n",
+	     num_connectors, pipe_name(pipe));
 
-#ifdef notyet
 	WARN_ON(I915_READ(PIPECONF(intel_crtc->cpu_transcoder)) &
 		(PIPECONF_ENABLE | I965_PIPECONF_ACTIVE));
 
 	WARN_ON(I915_READ(DSPCNTR(plane)) & DISPLAY_PLANE_ENABLE);
-#endif
 
 	if (!intel_ddi_pll_mode_set(crtc, adjusted_mode->clock))
 		return -EINVAL;
@@ -8193,10 +8141,8 @@ intel_encoder_check_is_cloned(struct intel_encoder *encoder)
 	struct intel_encoder *other_encoder;
 	struct drm_crtc *crtc = &encoder->new_crtc->base;
 
-#ifdef notyet
 	if (WARN_ON(!crtc))
 		return false;
-#endif
 
 	list_for_each_entry(other_encoder,
 			    &crtc->dev->mode_config.encoder_list,
@@ -8220,9 +8166,7 @@ intel_encoder_crtc_ok(struct drm_encoder *encoder,
 	struct drm_crtc *tmp;
 	int crtc_mask = 1;
 
-#ifdef notyet
 	WARN(!crtc, "checking null crtc?\n");
-#endif
 
 	dev = crtc->dev;
 
@@ -8498,8 +8442,8 @@ intel_modeset_check_state(struct drm_device *dev)
 		 * ->get_hw_state callbacks. */
 		intel_connector_check_state(connector);
 
-		if (&connector->new_encoder->base != connector->base.encoder)
-			printf("connector's staged encoder doesn't match current encoder\n");
+		WARN(&connector->new_encoder->base != connector->base.encoder,
+		     "connector's staged encoder doesn't match current encoder\n");
 	}
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list,
@@ -8512,10 +8456,10 @@ intel_modeset_check_state(struct drm_device *dev)
 			      encoder->base.base.id,
 			      drm_get_encoder_name(&encoder->base));
 
-		if (&encoder->new_crtc->base != encoder->base.crtc)
-			printf("encoder's stage crtc doesn't match current crtc\n");
-		if (encoder->connectors_active && !encoder->base.crtc)
-			printf("encoder's active_connectors set, but no crtc\n");
+		WARN(&encoder->new_crtc->base != encoder->base.crtc,
+		     "encoder's stage crtc doesn't match current crtc\n");
+		WARN(encoder->connectors_active && !encoder->base.crtc,
+		     "encoder's active_connectors set, but no crtc\n");
 
 		list_for_each_entry(connector, &dev->mode_config.connector_list,
 				    base.head) {
@@ -8525,31 +8469,31 @@ intel_modeset_check_state(struct drm_device *dev)
 			if (connector->base.dpms != DRM_MODE_DPMS_OFF)
 				active = true;
 		}
-		if (!!encoder->base.crtc != enabled)
-			printf("encoder's enabled state mismatch "
-			    "(expected %i, found %i)\n",
-			    !!encoder->base.crtc, enabled);
-		if (active && !encoder->base.crtc)
-			printf("active encoder with no crtc\n");
+		WARN(!!encoder->base.crtc != enabled,
+		     "encoder's enabled state mismatch "
+		     "(expected %i, found %i)\n",
+		     !!encoder->base.crtc, enabled);
+		WARN(active && !encoder->base.crtc,
+		     "active encoder with no crtc\n");
 
-		if (encoder->connectors_active != active)
-			printf("encoder's computed active state doesn't match tracked active state "
-			    "(expected %i, found %i)\n", active, encoder->connectors_active);
+		WARN(encoder->connectors_active != active,
+		     "encoder's computed active state doesn't match tracked active state "
+		     "(expected %i, found %i)\n", active, encoder->connectors_active);
 
 		active = encoder->get_hw_state(encoder, &pipe);
-		if (active != encoder->connectors_active)
-			printf("encoder's hw state doesn't match sw tracking "
-			    "(expected %i, found %i)\n",
-			    encoder->connectors_active, active);
+		WARN(active != encoder->connectors_active,
+		     "encoder's hw state doesn't match sw tracking "
+		     "(expected %i, found %i)\n",
+		     encoder->connectors_active, active);
 
 		if (!encoder->base.crtc)
 			continue;
 
 		tracked_pipe = to_intel_crtc(encoder->base.crtc)->pipe;
-		if (active && pipe != tracked_pipe)
-			printf("active encoder's pipe doesn't match"
-			    "(expected %i, found %i)\n",
-			    tracked_pipe, pipe);
+		WARN(active && pipe != tracked_pipe,
+		     "active encoder's pipe doesn't match"
+		     "(expected %i, found %i)\n",
+		     tracked_pipe, pipe);
 
 	}
 
@@ -8561,8 +8505,8 @@ intel_modeset_check_state(struct drm_device *dev)
 		DRM_DEBUG_KMS("[CRTC:%d]\n",
 			      crtc->base.base.id);
 
-		if (crtc->active && !crtc->base.enabled)
-			printf("active crtc, but not enabled in sw tracking\n");
+		WARN(crtc->active && !crtc->base.enabled,
+		     "active crtc, but not enabled in sw tracking\n");
 
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
 				    base.head) {
@@ -8572,12 +8516,12 @@ intel_modeset_check_state(struct drm_device *dev)
 			if (encoder->connectors_active)
 				active = true;
 		}
-		if (active != crtc->active)
-			printf("crtc's computed active state doesn't match tracked active state "
-			    "(expected %i, found %i)\n", active, crtc->active);
-		if (enabled != crtc->base.enabled)
-			printf("crtc's computed enabled state doesn't match tracked enabled state "
-			    "(expected %i, found %i)\n", enabled, crtc->base.enabled);
+		WARN(active != crtc->active,
+		     "crtc's computed active state doesn't match tracked active state "
+		     "(expected %i, found %i)\n", active, crtc->active);
+		WARN(enabled != crtc->base.enabled,
+		     "crtc's computed enabled state doesn't match tracked enabled state "
+		     "(expected %i, found %i)\n", enabled, crtc->base.enabled);
 
 		assert_pipe(dev->dev_private, crtc->pipe, crtc->active);
 	}
@@ -8794,10 +8738,8 @@ intel_modeset_stage_output_state(struct drm_device *dev,
 
 	/* The upper layers ensure that we either disabl a crtc or have a list
 	 * of connectors. For paranoia, double-check this. */
-#ifdef notyet
 	WARN_ON(!set->fb && (set->num_connectors != 0));
 	WARN_ON(set->fb && (set->num_connectors == 0));
-#endif
 
 	count = 0;
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
@@ -8866,9 +8808,7 @@ intel_modeset_stage_output_state(struct drm_device *dev,
 				    &dev->mode_config.connector_list,
 				    base.head) {
 			if (connector->new_encoder == encoder) {
-#ifdef notyet
 				WARN_ON(!connector->new_encoder->new_crtc);
-#endif
 
 				goto next_encoder;
 			}
@@ -8895,11 +8835,9 @@ intel_crtc_set_config(struct drm_mode_set *set)
 	struct intel_set_config *config;
 	int ret;
 
-#ifdef notyet
 	BUG_ON(!set);
 	BUG_ON(!set->crtc);
 	BUG_ON(!set->crtc->helper_private);
-#endif
 
 	if (!set->mode)
 		set->fb = NULL;
@@ -9047,10 +8985,8 @@ intel_crtc_init(struct drm_device *dev, int pipe)
 		intel_crtc->plane = !pipe;
 	}
 
-#ifdef notyet
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||
 	       dev_priv->plane_to_crtc_mapping[intel_crtc->plane] != NULL);
-#endif
 	dev_priv->plane_to_crtc_mapping[intel_crtc->plane] = &intel_crtc->base;
 	dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe] = &intel_crtc->base;
 
@@ -9797,9 +9733,7 @@ intel_sanitize_crtc(struct intel_crtc *crtc)
 			intel_connector_break_all_links(connector);
 		}
 
-#ifdef notyet
 		WARN_ON(crtc->active);
-#endif
 		crtc->base.enabled = false;
 	}
 
@@ -9834,14 +9768,10 @@ intel_sanitize_crtc(struct intel_crtc *crtc)
 		 * crtc is now deactivated. Break the links. connector
 		 * -> encoder links are only establish when things are
 		 *  actually up, hence no need to break them. */
-#ifdef notyet
 		WARN_ON(crtc->active);
-#endif
 
 		for_each_encoder_on_crtc(dev, &crtc->base, encoder) {
-#ifdef notyet
 			WARN_ON(encoder->connectors_active);
-#endif
 			encoder->base.crtc = NULL;
 		}
 	}

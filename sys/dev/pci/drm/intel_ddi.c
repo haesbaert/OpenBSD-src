@@ -117,9 +117,9 @@ intel_prepare_ddi_buffers(struct drm_device *dev, enum port port, bool use_fdi_m
 			port_name(port),
 			use_fdi_mode ? "FDI" : "DP");
 
-	if (use_fdi_mode && (port != PORT_E))
-		printf("Programming port %c in FDI mode, this probably will not work.\n",
-		    port_name(port));
+	WARN((use_fdi_mode && (port != PORT_E)),
+		"Programming port %c in FDI mode, this probably will not work.\n",
+		port_name(port));
 
 	for (i=0, reg=DDI_BUF_TRANS(port); i < ARRAY_SIZE(hsw_ddi_translations_fdi); i++) {
 		I915_WRITE(reg, ddi_translations[i]);
@@ -715,7 +715,7 @@ intel_ddi_mode_set(struct drm_encoder *encoder,
 			break;
 		default:
 			intel_dp->DP |= DDI_PORT_WIDTH_X4;
-			printf("Unexpected DP lane count %d\n",
+			WARN(1, "Unexpected DP lane count %d\n",
 			     intel_dp->lane_count);
 			break;
 		}
@@ -765,12 +765,10 @@ intel_ddi_get_crtc_encoder(struct drm_crtc *crtc)
 	}
 
 	if (num_encoders != 1)
-		printf("%d encoders on crtc for pipe %d\n", num_encoders,
+		WARN(1, "%d encoders on crtc for pipe %d\n", num_encoders,
 		     intel_crtc->pipe);
 
-#ifdef notyet
 	BUG_ON(ret == NULL);
-#endif
 	return ret;
 }
 
@@ -788,9 +786,7 @@ intel_ddi_put_crtc_pll(struct drm_crtc *crtc)
 		if (plls->spll_refcount == 0) {
 			DRM_DEBUG_KMS("Disabling SPLL\n");
 			val = I915_READ(SPLL_CTL);
-#ifdef notyet
 			WARN_ON(!(val & SPLL_PLL_ENABLE));
-#endif
 			I915_WRITE(SPLL_CTL, val & ~SPLL_PLL_ENABLE);
 			POSTING_READ(SPLL_CTL);
 		}
@@ -800,9 +796,7 @@ intel_ddi_put_crtc_pll(struct drm_crtc *crtc)
 		if (plls->wrpll1_refcount == 0) {
 			DRM_DEBUG_KMS("Disabling WRPLL 1\n");
 			val = I915_READ(WRPLL_CTL1);
-#ifdef notyet
 			WARN_ON(!(val & WRPLL_PLL_ENABLE));
-#endif
 			I915_WRITE(WRPLL_CTL1, val & ~WRPLL_PLL_ENABLE);
 			POSTING_READ(WRPLL_CTL1);
 		}
@@ -812,21 +806,16 @@ intel_ddi_put_crtc_pll(struct drm_crtc *crtc)
 		if (plls->wrpll2_refcount == 0) {
 			DRM_DEBUG_KMS("Disabling WRPLL 2\n");
 			val = I915_READ(WRPLL_CTL2);
-#ifdef notyet
 			WARN_ON(!(val & WRPLL_PLL_ENABLE));
-#endif
 			I915_WRITE(WRPLL_CTL2, val & ~WRPLL_PLL_ENABLE);
 			POSTING_READ(WRPLL_CTL2);
 		}
 		break;
 	}
 
-	if (plls->spll_refcount < 0)
-		printf("Invalid SPLL refcount\n");
-	if (plls->wrpll1_refcount < 0)
-		printf("Invalid WRPLL1 refcount\n");
-	if (plls->wrpll2_refcount < 0)
-		printf("Invalid WRPLL2 refcount\n");
+	WARN(plls->spll_refcount < 0, "Invalid SPLL refcount\n");
+	WARN(plls->wrpll1_refcount < 0, "Invalid WRPLL1 refcount\n");
+	WARN(plls->wrpll2_refcount < 0, "Invalid WRPLL2 refcount\n");
 
 	intel_crtc->ddi_pll_sel = PORT_CLK_SEL_NONE;
 }
@@ -913,8 +902,8 @@ intel_ddi_pll_mode_set(struct drm_crtc *crtc, int clock)
 			return false;
 		}
 
-		if (I915_READ(reg) & WRPLL_PLL_ENABLE)
-			printf("WRPLL already enabled\n");
+		WARN(I915_READ(reg) & WRPLL_PLL_ENABLE,
+		     "WRPLL already enabled\n");
 
 		intel_ddi_calculate_wrpll(clock, &p, &n2, &r2);
 
@@ -931,13 +920,13 @@ intel_ddi_pll_mode_set(struct drm_crtc *crtc, int clock)
 			intel_crtc->ddi_pll_sel = PORT_CLK_SEL_SPLL;
 		}
 
-		if (I915_READ(reg) & SPLL_PLL_ENABLE)
-			printf("SPLL already enabled\n");
+		WARN(I915_READ(reg) & SPLL_PLL_ENABLE,
+		     "SPLL already enabled\n");
 
 		val = SPLL_PLL_ENABLE | SPLL_PLL_FREQ_1350MHz | SPLL_PLL_SSC;
 
 	} else {
-		printf("Invalid DDI encoder type %d\n", type);
+		WARN(1, "Invalid DDI encoder type %d\n", type);
 		return false;
 	}
 
@@ -975,7 +964,7 @@ intel_ddi_set_pipe_settings(struct drm_crtc *crtc)
 			break;
 		default:
 			temp |= TRANS_MSA_8_BPC;
-			printf("%d bpp unsupported by DDI function\n",
+			WARN(1, "%d bpp unsupported by DDI function\n",
 			     intel_crtc->bpp);
 		}
 		I915_WRITE(TRANS_MSA_MISC(cpu_transcoder), temp);
@@ -1013,7 +1002,7 @@ intel_ddi_enable_pipe_func(struct drm_crtc *crtc)
 		temp |= TRANS_DDI_BPC_12;
 		break;
 	default:
-		printf("%d bpp unsupported by transcoder DDI function\n",
+		WARN(1, "%d bpp unsupported by transcoder DDI function\n",
 		     intel_crtc->bpp);
 	}
 
@@ -1034,9 +1023,7 @@ intel_ddi_enable_pipe_func(struct drm_crtc *crtc)
 			temp |= TRANS_DDI_EDP_INPUT_C_ONOFF;
 			break;
 		default:
-#ifdef notyet
 			BUG();
-#endif
 			break;
 		}
 	}
@@ -1071,12 +1058,12 @@ intel_ddi_enable_pipe_func(struct drm_crtc *crtc)
 			break;
 		default:
 			temp |= TRANS_DDI_PORT_WIDTH_X4;
-			printf("Unsupported lane count %d\n",
+			WARN(1, "Unsupported lane count %d\n",
 			     intel_dp->lane_count);
 		}
 
 	} else {
-		printf("Invalid encoder type %d for pipe %d\n",
+		WARN(1, "Invalid encoder type %d for pipe %d\n",
 		     intel_encoder->type, pipe);
 	}
 
@@ -1287,9 +1274,7 @@ intel_ddi_pre_enable(struct intel_encoder *intel_encoder)
 		ironlake_edp_panel_vdd_off(intel_dp, true);
 	}
 
-#ifdef notyet
 	WARN_ON(intel_crtc->ddi_pll_sel == PORT_CLK_SEL_NONE);
-#endif
 	I915_WRITE(PORT_CLK_SEL(port), intel_crtc->ddi_pll_sel);
 
 	if (type == INTEL_OUTPUT_DISPLAYPORT || type == INTEL_OUTPUT_EDP) {
@@ -1501,8 +1486,7 @@ intel_ddi_mode_fixup(struct drm_encoder *encoder,
 	struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
 	int type = intel_encoder->type;
 
-	if (type == INTEL_OUTPUT_UNKNOWN)
-		printf("mode_fixup() on unknown output!\n");
+	WARN(type == INTEL_OUTPUT_UNKNOWN, "mode_fixup() on unknown output!\n");
 
 	if (type == INTEL_OUTPUT_HDMI)
 		return intel_hdmi_mode_fixup(encoder, mode, adjusted_mode);

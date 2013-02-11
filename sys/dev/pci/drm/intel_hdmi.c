@@ -95,8 +95,8 @@ assert_hdmi_port_disabled(struct intel_hdmi *intel_hdmi)
 
 	enabled_bits = IS_HASWELL(dev) ? DDI_BUF_CTL_ENABLE : SDVO_ENABLE;
 
-	if (I915_READ(intel_hdmi->sdvox_reg) & enabled_bits)
-		printf("HDMI port enabled, expecting disabled\n");
+	WARN(I915_READ(intel_hdmi->sdvox_reg) & enabled_bits,
+	     "HDMI port enabled, expecting disabled\n");
 }
 
 struct intel_hdmi *
@@ -195,8 +195,7 @@ g4x_write_infoframe(struct drm_encoder *encoder,
 	u32 val = I915_READ(VIDEO_DIP_CTL);
 	unsigned i, len = DIP_HEADER_SIZE + frame->len;
 
-	if (!(val & VIDEO_DIP_ENABLE))
-		printf("Writing DIP with CTL reg disabled\n");
+	WARN(!(val & VIDEO_DIP_ENABLE), "Writing DIP with CTL reg disabled\n");
 
 	val &= ~(VIDEO_DIP_SELECT_MASK | 0xf); /* clear DIP data offset */
 	val |= g4x_infoframe_index(frame);
@@ -235,8 +234,7 @@ ibx_write_infoframe(struct drm_encoder *encoder,
 	unsigned i, len = DIP_HEADER_SIZE + frame->len;
 	u32 val = I915_READ(reg);
 
-	if (!(val & VIDEO_DIP_ENABLE))
-		printf("Writing DIP with CTL reg disabled\n");
+	WARN(!(val & VIDEO_DIP_ENABLE), "Writing DIP with CTL reg disabled\n");
 
 	val &= ~(VIDEO_DIP_SELECT_MASK | 0xf); /* clear DIP data offset */
 	val |= g4x_infoframe_index(frame);
@@ -275,8 +273,7 @@ cpt_write_infoframe(struct drm_encoder *encoder,
 	unsigned i, len = DIP_HEADER_SIZE + frame->len;
 	u32 val = I915_READ(reg);
 
-	if (!(val & VIDEO_DIP_ENABLE))
-		printf("Writing DIP with CTL reg disabled\n");
+	WARN(!(val & VIDEO_DIP_ENABLE), "Writing DIP with CTL reg disabled\n");
 
 	val &= ~(VIDEO_DIP_SELECT_MASK | 0xf); /* clear DIP data offset */
 	val |= g4x_infoframe_index(frame);
@@ -318,8 +315,7 @@ vlv_write_infoframe(struct drm_encoder *encoder,
 	unsigned i, len = DIP_HEADER_SIZE + frame->len;
 	u32 val = I915_READ(reg);
 
-	if (!(val & VIDEO_DIP_ENABLE))
-		printf("Writing DIP with CTL reg disabled\n");
+	WARN(!(val & VIDEO_DIP_ENABLE), "Writing DIP with CTL reg disabled\n");
 
 	val &= ~(VIDEO_DIP_SELECT_MASK | 0xf); /* clear DIP data offset */
 	val |= g4x_infoframe_index(frame);
@@ -464,9 +460,7 @@ g4x_set_infoframes(struct drm_encoder *encoder,
 		port = VIDEO_DIP_PORT_C;
 		break;
 	default:
-#ifdef notyet
 		BUG();
-#endif
 		return;
 	}
 
@@ -526,9 +520,7 @@ ibx_set_infoframes(struct drm_encoder *encoder,
 		port = VIDEO_DIP_PORT_D;
 		break;
 	default:
-#ifdef notyet
 		BUG();
-#endif
 		return;
 	}
 
@@ -1075,11 +1067,7 @@ intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	case PORT_A:
 		/* Internal port only for eDP. */
 	default:
-#if 0
 		BUG();
-#else
-		printf("invalid port %d\n", port);
-#endif
 	}
 
 	if (!HAS_PCH_SPLIT(dev)) {

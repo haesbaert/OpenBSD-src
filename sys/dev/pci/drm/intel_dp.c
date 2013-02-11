@@ -443,7 +443,7 @@ intel_dp_check_edp(struct intel_dp *intel_dp)
 	if (!is_edp(intel_dp))
 		return;
 	if (!ironlake_edp_have_panel_power(intel_dp) && !ironlake_edp_have_panel_vdd(intel_dp)) {
-		printf("eDP powered off while attempting aux channel communication.\n");
+		WARN(1, "eDP powered off while attempting aux channel communication.\n");
 		DRM_DEBUG_KMS("Status 0x%08x Control 0x%08x\n",
 			      I915_READ(PCH_PP_STATUS),
 			      I915_READ(PCH_PP_CONTROL));
@@ -486,11 +486,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 			ch_data = PCH_DPD_AUX_CH_DATA1;
 			break;
 		default:
-#if 0
 			BUG();
-#else
-			panic("invalid dp port");
-#endif
 		}
 	}
 
@@ -530,7 +526,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 	}
 
 	if (try == 3) {
-		printf("dp_aux_ch not started status 0x%08x\n",
+		WARN(1, "dp_aux_ch not started status 0x%08x\n",
 		     I915_READ(ch_ctl));
 		return -EBUSY;
 	}
@@ -1155,8 +1151,8 @@ ironlake_edp_panel_vdd_on(struct intel_dp *intel_dp)
 		return;
 	DRM_DEBUG_KMS("Turn eDP VDD on\n");
 
-	if (intel_dp->want_panel_vdd)
-		printf("eDP VDD already requested on\n");
+	WARN(intel_dp->want_panel_vdd,
+	     "eDP VDD already requested on\n");
 
 	intel_dp->want_panel_vdd = true;
 
@@ -1226,8 +1222,7 @@ ironlake_edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
 		return;
 
 	DRM_DEBUG_KMS("Turn eDP VDD off %d\n", intel_dp->want_panel_vdd);
-	if (!intel_dp->want_panel_vdd)
-		printf("eDP VDD not forced on\n");
+	WARN(!intel_dp->want_panel_vdd, "eDP VDD not forced on");
 
 	intel_dp->want_panel_vdd = false;
 
@@ -1303,8 +1298,7 @@ ironlake_edp_panel_off(struct intel_dp *intel_dp)
 
 	DRM_DEBUG_KMS("Turn eDP power off\n");
 
-	if (!intel_dp->want_panel_vdd)
-		printf("Need VDD to turn off panel\n");
+	WARN(!intel_dp->want_panel_vdd, "Need VDD to turn off panel\n");
 
 	pp = ironlake_get_pp_control(dev_priv);
 	/* We need to switch off panel power _and_ force vdd, for otherwise some
@@ -1380,10 +1374,8 @@ ironlake_edp_pll_on(struct intel_dp *intel_dp)
 
 	DRM_DEBUG_KMS("\n");
 	dpa_ctl = I915_READ(DP_A);
-	if (dpa_ctl & DP_PLL_ENABLE)
-		printf("dp pll on, should be off\n");
-	if (dpa_ctl & DP_PORT_EN)
-		printf("dp port still on, should be off\n");
+	WARN(dpa_ctl & DP_PLL_ENABLE, "dp pll on, should be off\n");
+	WARN(dpa_ctl & DP_PORT_EN, "dp port still on, should be off\n");
 
 	/* We don't adjust intel_dp->DP while tearing down the link, to
 	 * facilitate link retraining (e.g. after hotplug). Hence clear all
@@ -1408,10 +1400,9 @@ ironlake_edp_pll_off(struct intel_dp *intel_dp)
 			     to_intel_crtc(crtc)->pipe);
 
 	dpa_ctl = I915_READ(DP_A);
-	if ((dpa_ctl & DP_PLL_ENABLE) == 0)
-		printf("dp pll off, should be on\n");
-	if (dpa_ctl & DP_PORT_EN)
-		printf("dp port still on, should be off\n");
+	WARN((dpa_ctl & DP_PLL_ENABLE) == 0,
+	     "dp pll off, should be on\n");
+	WARN(dpa_ctl & DP_PORT_EN, "dp port still on, should be off\n");
 
 	/* We can't rely on the value tracked for the DP register in
 	 * intel_dp->DP because link_down must not change that (otherwise link
@@ -2151,10 +2142,8 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 	if (IS_HASWELL(dev))
 		return;
 
-#ifdef notyet
 	if (WARN_ON((I915_READ(intel_dp->output_reg) & DP_PORT_EN) == 0))
 		return;
-#endif
 
 	DRM_DEBUG_KMS("\n");
 
@@ -2294,10 +2283,8 @@ intel_dp_check_link_status(struct intel_dp *intel_dp)
 	if (!intel_encoder->connectors_active)
 		return;
 
-#ifdef notyet
 	if (WARN_ON(!intel_encoder->base.crtc))
 		return;
-#endif
 
 	/* Try to read receiver status if the link appears to be up */
 	if (!intel_dp_get_link_status(intel_dp, link_status)) {
@@ -2967,7 +2954,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 		name = "DPDDC-D";
 		break;
 	default:
-		printf("Invalid port %c\n", port_name(port));
+		WARN(1, "Invalid port %c\n", port_name(port));
 		break;
 	}
 

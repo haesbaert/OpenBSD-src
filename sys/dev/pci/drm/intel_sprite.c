@@ -111,11 +111,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_VYUY;
 		break;
 	default:
-#ifdef notyet
 		BUG();
-#else
-		;
-#endif
 	}
 
 	if (obj->tiling_mode != I915_TILING_NONE)
@@ -296,11 +292,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_VYUY;
 		break;
 	default:
-#ifdef notyet
 		BUG();
-#else
-		;
-#endif
 	}
 
 	if (obj->tiling_mode != I915_TILING_NONE)

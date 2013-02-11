@@ -286,9 +286,7 @@ intel_overlay_do_wait_request(struct intel_overlay *overlay,
 	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
-#ifdef notyet
 	BUG_ON(overlay->last_flip_req);
-#endif
 //	ret = i915_add_request(ring, NULL, &overlay->last_flip_req);
 	ret = i915_add_request(ring);
 	if (ret)
@@ -315,14 +313,10 @@ intel_overlay_on(struct intel_overlay *overlay)
 	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
 
-#ifdef notyet
 	BUG_ON(overlay->active);
-#endif
 	overlay->active = 1;
 
-#ifdef notyet
 	WARN_ON(IS_I830(dev) && !(dev_priv->quirks & QUIRK_PIPEA_FORCE));
-#endif
 
 	ret = intel_ring_begin(ring, 4);
 	if (ret)
@@ -349,9 +343,7 @@ intel_overlay_continue(struct intel_overlay *overlay,
 	u32 tmp;
 	int ret;
 
-#ifdef notyet
 	BUG_ON(!overlay->active);
-#endif
 
 	if (load_polyphase_filter)
 		flip_addr |= OFC_UPDATE;
@@ -390,9 +382,7 @@ intel_overlay_off_tail(struct intel_overlay *overlay)
 	struct drm_i915_gem_object *obj = overlay->vid_bo;
 
 	/* never have the overlay hw on without showing a frame */
-#ifdef notyet
 	BUG_ON(!overlay->vid_bo);
-#endif
 
 	i915_gem_object_unpin(obj);
 	drm_gem_object_unreference(&obj->base);
@@ -413,9 +403,7 @@ intel_overlay_off(struct intel_overlay *overlay)
 	u32 flip_addr = overlay->flip_addr;
 	int ret;
 
-#ifdef notyet
 	BUG_ON(!overlay->active);
-#endif
 
 	/* According to intel docs the overlay hw may hang (when switching
 	 * off) without loading the filter coeffs. It is however unclear whether
@@ -778,8 +766,8 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 #ifdef notyet
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
 	BUG_ON(!mutex_is_locked(&dev->mode_config.mutex));
-	BUG_ON(!overlay);
 #endif
+	BUG_ON(!overlay);
 
 	ret = intel_overlay_release_old_vid(overlay);
 	if (ret != 0)
@@ -1435,10 +1423,8 @@ intel_setup_overlay(struct drm_device *dev)
 		return;
 
 	DRM_LOCK();
-#ifdef notyet
 	if (WARN_ON(dev_priv->overlay))
 		goto out_free;
-#endif
 
 	overlay->dev = dev;
 
@@ -1515,9 +1501,7 @@ intel_cleanup_overlay(struct drm_device *dev)
 	/* The bo's should be free'd by the generic code already.
 	 * Furthermore modesetting teardown happens beforehand so the
 	 * hardware should be off already */
-#ifdef notyet
 	BUG_ON(dev_priv->overlay->active);
-#endif
 
 	drm_gem_object_unreference_unlocked(&dev_priv->overlay->reg_bo->base);
 	free(dev_priv->overlay, M_DRM);

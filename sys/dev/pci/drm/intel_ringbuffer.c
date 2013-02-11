@@ -715,10 +715,8 @@ gen6_ring_sync(struct intel_ring_buffer *waiter,
 	 */
 	seqno -= 1;
 
-#ifdef notyet
 	WARN_ON(signaller->semaphore_register[waiter->id] ==
 		MI_SEMAPHORE_SYNC_INVALID);
-#endif
 
 	ret = intel_ring_begin(waiter, 4);
 	if (ret)
@@ -1254,7 +1252,7 @@ intel_init_ring_buffer(struct drm_device *dev,
 		if (ret)
 			return ret;
 	} else {
-		KASSERT(ring->id == RCS);
+		BUG_ON(ring->id != RCS);
 		ret = init_phys_hws_pga(ring);
 		if (ret)
 			return ret;
@@ -1406,18 +1404,14 @@ intel_ring_wait_request(struct intel_ring_buffer *ring, int n)
 	if (ret)
 		return ret;
 
-#ifdef notyet
 	if (WARN_ON(ring->last_retired_head == -1))
 		return -ENOSPC;
-#endif
 
 	ring->head = ring->last_retired_head;
 	ring->last_retired_head = -1;
 	ring->space = ring_space(ring);
-#ifdef notyet
 	if (WARN_ON(ring->space < n))
 		return -ENOSPC;
-#endif
 
 	return 0;
 #endif

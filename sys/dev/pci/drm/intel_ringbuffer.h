@@ -237,7 +237,7 @@ static inline u32 intel_ring_get_tail(struct intel_ring_buffer *ring)
 
 static inline u32 intel_ring_get_seqno(struct intel_ring_buffer *ring)
 {
-	KASSERT(ring->outstanding_lazy_request != 0);
+	BUG_ON(ring->outstanding_lazy_request == 0);
 	return ring->outstanding_lazy_request;
 }
 
