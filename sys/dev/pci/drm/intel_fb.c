@@ -43,8 +43,8 @@ intelfb_create(struct intel_fbdev *ifbdev,
     struct drm_fb_helper_surface_size *sizes)
 {
 	struct drm_device *dev = ifbdev->helper.dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 #if 0
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct fb_info *info;
 #endif
 	struct drm_framebuffer *fb;
@@ -138,6 +138,35 @@ intelfb_create(struct intel_fbdev *ifbdev,
 	drm_fb_helper_fill_var(info, &ifbdev->helper, sizes->fb_width, sizes->fb_height);
 
 	/* Use default scratch pixmap (info->pixmap.flags = FB_PIXMAP_SYSTEM) */
+#else
+{
+	struct rasops_info *ri = &dev_priv->ro;
+	bus_space_handle_t bsh;
+	int err;
+
+	err = agp_map_subregion(dev_priv->agph, obj->gtt_offset, size, &bsh);
+	if (err) {
+		ret = -err;
+		goto out_unpin;
+	}
+
+	ri->ri_bits = bus_space_vaddr(dev->bst, bsh);
+	ri->ri_depth = fb->bits_per_pixel;
+	ri->ri_stride = fb->pitches[0];
+	ri->ri_width = sizes->fb_width;
+	ri->ri_height = sizes->fb_height;
+
+	switch (fb->pixel_format) {
+	case DRM_FORMAT_XRGB8888:
+		ri->ri_rnum = 8;
+		ri->ri_rpos = 16;
+		ri->ri_gnum = 8;
+		ri->ri_gpos = 8;
+		ri->ri_bnum = 8;
+		ri->ri_bpos = 0;
+		break;
+	}
+}
 #endif
 
 	DRM_DEBUG_KMS("allocated %dx%d fb: 0x%08x, bo %p\n",

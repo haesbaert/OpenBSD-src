@@ -36,6 +36,10 @@
 #include "intel_bios.h"
 #include "intel_ringbuffer.h"
 
+#include <dev/wscons/wsconsio.h>
+#include <dev/wscons/wsdisplayvar.h>
+#include <dev/rasops/rasops.h>
+
 /* General customization:
  */
 
@@ -338,6 +342,8 @@ struct inteldrm_softc {
 	void			*irqh;
 
 	struct vga_pci_bar	*regs;
+
+	struct rasops_info	 ro;
 
 	uint32_t		 gpio_mmio_base;
 
