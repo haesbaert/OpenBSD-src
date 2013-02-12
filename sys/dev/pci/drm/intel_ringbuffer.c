@@ -1174,17 +1174,30 @@ init_status_page(struct intel_ring_buffer *ring)
 
 	i915_gem_object_set_cache_level(obj, I915_CACHE_LLC);
 
+	/*
+	 * snooped gtt mapping please .
+	 * Normally this flag is only to dmamem_map, but it's been overloaded
+	 * for the agp mapping
+	 */
+	obj->dma_flags = BUS_DMA_COHERENT | BUS_DMA_READ;
+
 	ret = i915_gem_object_pin(obj, 4096, true);
 	if (ret != 0) {
 		goto err_unref;
 	}
 
 	ring->status_page.gfx_addr = obj->gtt_offset;
-	ring->status_page.page_addr = (u32 *)ring->status_page.hws_dmamem->kva;
-	if (ring->status_page.page_addr == NULL) {
+	ring->status_page.page_addr = (u_int32_t *)vm_map_min(kernel_map);
+	obj->base.uao->pgops->pgo_reference(obj->base.uao);
+	if ((ret = uvm_map(kernel_map, (vaddr_t *)&ring->status_page.page_addr,
+	    PAGE_SIZE, obj->base.uao, 0, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
+	    UVM_INH_SHARE, UVM_ADV_RANDOM, 0))) != 0)
+	if (ret != 0) {
+		obj->base.uao->pgops->pgo_detach(obj->base.uao);
 		ret = -ENOMEM;
 		goto err_unpin;
 	}
+
 	ring->status_page.hws_obj = obj;
 	memset(ring->status_page.page_addr, 0, PAGE_SIZE);
 
