@@ -1308,14 +1308,12 @@ intel_init_ring_buffer(struct drm_device *dev,
 	if (ret)
 		goto err_unref;
 
-	ret = i915_gem_object_set_to_gtt_domain(obj, true, 1);
+	ret = i915_gem_object_set_to_gtt_domain(obj, true);
 	if (ret)
 		goto err_unpin;
 
-	ring->virtual_start =
-		ioremap_wc(dev_priv->mm.gtt->gma_bus_addr + obj->gtt_offset,
-			   ring->size);
-	if (ring->virtual_start == NULL) {
+	if ((ret = agp_map_subregion(dev_priv->agph, obj->gtt_offset,
+	    ring->size, &ring->bsh)) != 0) {
 		DRM_ERROR("Failed to map ringbuffer.\n");
 		ret = -EINVAL;
 		goto err_unpin;
@@ -1336,7 +1334,7 @@ intel_init_ring_buffer(struct drm_device *dev,
 	return 0;
 
 err_unmap:
-	iounmap(ring->virtual_start);
+	agp_unmap_subregion(dev_priv->agph, ring->bsh, ring->size);
 err_unpin:
 	i915_gem_object_unpin(obj);
 err_unref:
@@ -1367,7 +1365,7 @@ intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 
 	I915_WRITE_CTL(ring, 0);
 
-	iounmap(ring->virtual_start);
+	agp_unmap_subregion(dev_priv->agph, ring->bsh, ring->size);
 
 	i915_gem_object_unpin(ring->obj);
 	drm_gem_object_unreference(&ring->obj->base);
@@ -1460,42 +1458,45 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 {
 	struct drm_device *dev = ring->dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
-	unsigned long end;
-	int ret;
+//	unsigned long end;
+	int ret, i;
 
 	ret = intel_ring_wait_request(ring, n);
 	if (ret != -ENOSPC)
 		return ret;
 
-	trace_i915_ring_wait_begin(ring);
+//	trace_i915_ring_wait_begin(ring);
 	/* With GEM the hangcheck timer should kick us out of the loop,
 	 * leaving it early runs the risk of corrupting GEM state (due
 	 * to running on almost untested codepaths). But on resume
 	 * timers don't work yet, so prevent a complete hang in that
 	 * case by choosing an insanely large timeout. */
-	end = jiffies + 60 * HZ;
+//	end = jiffies + 60 * HZ;
 
-	do {
+	/* ugh. Could really do with a proper, resettable timer here. */
+	for (i = 0; i < 100000; i++) {
 		ring->head = I915_READ_HEAD(ring);
 		ring->space = ring_space(ring);
 		if (ring->space >= n) {
-			trace_i915_ring_wait_end(ring);
+//			trace_i915_ring_wait_end(ring);
 			return 0;
 		}
 
+#if 0
 		if (dev->primary->master) {
 			struct drm_i915_master_private *master_priv = dev->primary->master->driver_priv;
 			if (master_priv->sarea_priv)
 				master_priv->sarea_priv->perf_boxes |= I915_BOX_WAIT;
 		}
+#endif
 
-		msleep(1);
+		drm_msleep(1, "915wfs");
 
 		ret = i915_gem_check_wedge(dev_priv, dev_priv->mm.interruptible);
 		if (ret)
 			return ret;
-	} while (!time_after(jiffies, end));
-	trace_i915_ring_wait_end(ring);
+	}
+//	trace_i915_ring_wait_end(ring);
 	return -EBUSY;
 }
 #endif
