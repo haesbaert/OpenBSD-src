@@ -56,7 +56,6 @@ struct  intel_ring_buffer {
 	} id;
 #define I915_NUM_RINGS 3
 	u32		mmio_base;
-	void		*virtual_start;
 	struct		drm_device *dev;
 	struct		drm_i915_gem_object *obj;
 
