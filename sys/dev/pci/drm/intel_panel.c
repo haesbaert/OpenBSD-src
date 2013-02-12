@@ -150,25 +150,25 @@ i915_read_blc_pwm_ctl(struct drm_device *dev)
 
 	if (HAS_PCH_SPLIT(dev)) {
 		val = I915_READ(BLC_PWM_PCH_CTL2);
-		if (dev_priv->saveBLC_PWM_CTL2 == 0) {
-			dev_priv->saveBLC_PWM_CTL2 = val;
+		if (dev_priv->regfile.saveBLC_PWM_CTL2 == 0) {
+			dev_priv->regfile.saveBLC_PWM_CTL2 = val;
 		} else if (val == 0) {
-			val = dev_priv->saveBLC_PWM_CTL2;
+			val = dev_priv->regfile.saveBLC_PWM_CTL2;
 			I915_WRITE(BLC_PWM_PCH_CTL2, val);
 		}
 	} else {
 		val = I915_READ(BLC_PWM_CTL);
-		if (dev_priv->saveBLC_PWM_CTL == 0) {
-			dev_priv->saveBLC_PWM_CTL = val;
+		if (dev_priv->regfile.saveBLC_PWM_CTL == 0) {
+			dev_priv->regfile.saveBLC_PWM_CTL = val;
 			if (INTEL_INFO(dev)->gen >= 4)
-				dev_priv->saveBLC_PWM_CTL2 =
+				dev_priv->regfile.saveBLC_PWM_CTL2 =
 					I915_READ(BLC_PWM_CTL2);
 		} else if (val == 0) {
-			val = dev_priv->saveBLC_PWM_CTL;
+			val = dev_priv->regfile.saveBLC_PWM_CTL;
 			I915_WRITE(BLC_PWM_CTL, val);
 			if (INTEL_INFO(dev)->gen >= 4)
 				I915_WRITE(BLC_PWM_CTL2,
-					   dev_priv->saveBLC_PWM_CTL2);
+					   dev_priv->regfile.saveBLC_PWM_CTL2);
 		}
 	}
 
