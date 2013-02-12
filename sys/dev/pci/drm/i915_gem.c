@@ -184,7 +184,7 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 	/* if we hung then the timer alredy fired. */
 	timeout_del(&dev_priv->hangcheck_timer);
 
-	inteldrm_update_ring(&dev_priv->rings[RCS]);
+//	inteldrm_update_ring(&dev_priv->rings[RCS]);
 	i915_gem_cleanup_ringbuffer(dev);
 	DRM_UNLOCK();
 
@@ -594,26 +594,6 @@ out:
 	drm_unhold_and_unref(&obj->base);
 
 	return (ret);
-}
-
-void
-intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
-{
-	struct inteldrm_softc	*dev_priv;
-
-	if (ring->obj == NULL)
-		return;
-
-	dev_priv = ring->dev->dev_private;
-
-	agp_unmap_subregion(dev_priv->agph, ring->bsh,
-	    ring->obj->base.size);
-	drm_hold_object(&ring->obj->base);
-	i915_gem_object_unpin(ring->obj);
-	drm_unhold_and_unref(&ring->obj->base);
-	ring->obj = NULL;
-	cleanup_status_page(ring);
-	memset(ring, 0, sizeof(*ring));
 }
 
 void
@@ -1650,9 +1630,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 		return (EIO);
 
 	if (seqno == dev_priv->next_seqno) {
-		mtx_enter(&dev_priv->request_lock);
 		seqno = i915_add_request(ring);
-		mtx_leave(&dev_priv->request_lock);
 		if (seqno == 0)
 			return (ENOMEM);
 	}
@@ -1692,8 +1670,6 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
  * plus an interrupt, which will trigger and interrupt if they are currently
  * enabled.
  *
- * Must be called with struct_lock held.
- *
  * Returned sequence numbers are nonzero on success.
  */
 uint32_t
@@ -1705,7 +1681,7 @@ i915_add_request(struct intel_ring_buffer *ring)
 	uint32_t			 seqno;
 	int				 was_empty;
 
-	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
+	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
 
 	request = drm_calloc(1, sizeof(*request));
 	if (request == NULL) {
@@ -1735,10 +1711,12 @@ i915_add_request(struct intel_ring_buffer *ring)
 	DRM_DEBUG("%d\n", seqno);
 
 	/* XXX request timing for throttle */
+	mtx_enter(&dev_priv->request_lock);
 	request->seqno = seqno;
 	request->ring = ring;
 	was_empty = list_empty(&ring->request_list);
 	list_add_tail(&request->list, &ring->request_list);
+	mtx_leave(&dev_priv->request_lock);
 
 	if (dev_priv->mm.suspended == 0) {
 		if (was_empty)
@@ -1770,6 +1748,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 	if (dev_priv->hw_status_page == NULL)
 		return;
 #endif
+	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
 
 	seqno = ring->get_seqno(ring, true);
 

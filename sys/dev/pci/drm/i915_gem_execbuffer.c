@@ -490,13 +490,13 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	mtx_leave(&dev_priv->list_lock);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
+	mtx_leave(&dev_priv->request_lock);
 
 	/* Exec the batchbuffer */
 	/*
 	 * XXX make sure that this may never fail by preallocating the request.
 	 */
 	i915_dispatch_gem_execbuffer(ring, args, batch_obj_priv->gtt_offset);
-	mtx_leave(&dev_priv->request_lock);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 

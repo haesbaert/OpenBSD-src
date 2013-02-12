@@ -924,6 +924,8 @@ struct drm_i915_gem_request {
 	struct intel_ring_buffer	*ring;
 	/** GEM sequence number associated with this request. */
 	uint32_t			seqno;
+	/** Postion in the ringbuffer of the end of the request */
+	uint32_t			tail;
 };
 
 u_int32_t	inteldrm_read_hws(struct inteldrm_softc *, int);
