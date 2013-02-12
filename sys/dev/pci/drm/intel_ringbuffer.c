@@ -37,7 +37,7 @@
  * over cache flushing.
  */
 struct pipe_control {
-	struct drm_i915_gem_object *obj;
+	union hws hws;
 	volatile u32 *cpu_page;
 	u32 gtt_offset;
 };
@@ -501,13 +501,11 @@ out:
 }
 #endif
 
-#if 0
 int
 init_pipe_control(struct intel_ring_buffer *ring)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#ifdef notyet
+	struct drm_device *dev = ring->dev;
+//	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct pipe_control *pc;
 	struct drm_i915_gem_object *obj;
 	int ret;
@@ -519,7 +517,7 @@ init_pipe_control(struct intel_ring_buffer *ring)
 	if (!pc)
 		return -ENOMEM;
 
-	obj = to_intel_bo(drm_gem_object_alloc(dev, 4096);
+	obj = to_intel_bo(drm_gem_object_alloc(dev, 4096));
 	if (obj == NULL) {
 		DRM_ERROR("Failed to allocate seqno page\n");
 		ret = -ENOMEM;
@@ -528,16 +526,30 @@ init_pipe_control(struct intel_ring_buffer *ring)
 
 	i915_gem_object_set_cache_level(obj, I915_CACHE_LLC);
 
-	ret = i915_gem_object_pin(obj, 4096, true, false);
+	/*
+	 * snooped gtt mapping please .
+	 * Normally this flag is only to dmamem_map, but it's been overloaded
+	 * for the agp mapping
+	 */
+        obj->dma_flags = BUS_DMA_COHERENT | BUS_DMA_READ;
+
+	ret = i915_gem_object_pin(obj, 4096, true);
 	if (ret)
 		goto err_unref;
 
 	pc->gtt_offset = obj->gtt_offset;
-	pc->cpu_page =  kmap(sg_page(obj->pages->sgl));
-	if (pc->cpu_page == NULL)
+	pc->cpu_page = (volatile u_int32_t *)vm_map_min(kernel_map);
+        obj->base.uao->pgops->pgo_reference(obj->base.uao);
+        if ((ret = uvm_map(kernel_map, (vaddr_t *)&pc->cpu_page,
+            PAGE_SIZE, obj->base.uao, 0, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
+            UVM_INH_SHARE, UVM_ADV_RANDOM, 0))) != 0)
+        if (ret != 0) {
+                DRM_ERROR("Failed to map status page.\n");
+                obj->base.uao->pgops->pgo_detach(obj->base.uao);
 		goto err_unpin;
+        }
 
-	pc->obj = obj;
+	pc->hws_obj = obj;
 	ring->private = pc;
 	return 0;
 
@@ -546,11 +558,9 @@ err_unpin:
 err_unref:
 	drm_gem_object_unreference(&obj->base);
 err:
-	kfree(pc);
+	free(pc, M_DRM);
 	return ret;
-#endif
 }
-#endif
 
 void
 cleanup_pipe_control(struct intel_ring_buffer *ring)
@@ -923,7 +933,7 @@ void
 intel_ring_setup_status_page(struct intel_ring_buffer *ring)
 {
 	struct drm_device *dev = ring->dev;
-//	drm_i915_private_t *dev_priv = ring->dev->dev_private;
+	drm_i915_private_t *dev_priv = ring->dev->dev_private;
 	u32 mmio = 0;
 
 	/* The ring status page addresses are no longer next to the rest of
@@ -947,12 +957,8 @@ intel_ring_setup_status_page(struct intel_ring_buffer *ring)
 		mmio = RING_HWS_PGA(ring->mmio_base);
 	}
 
-#ifdef notyet
 	I915_WRITE(mmio, (u32)ring->status_page.gfx_addr);
 	POSTING_READ(mmio);
-#else
-	printf("%s todo write mmio addr\n", __func__);
-#endif
 }
 
 int
@@ -1134,32 +1140,27 @@ i915_dispatch_execbuffer(struct intel_ring_buffer *ring,
 	return 0;
 }
 
-#ifdef notyet
 void
 cleanup_status_page(struct intel_ring_buffer *ring)
 {
-	struct inteldrm_softc *dev_priv = ring->dev->dev_private;
+//	struct inteldrm_softc *dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_object *obj;
 
-	obj = ring->status_page.obj;
+	obj = ring->status_page.hws_obj;
 	if (obj == NULL)
 		return;
 
-	uvm_unmap(kernel_map, (vaddr_t)dev_priv->hw_status_page,
-	    (vaddr_t)dev_priv->hw_status_page + PAGE_SIZE);
-	dev_priv->hw_status_page = NULL;
+	uvm_unmap(kernel_map, (vaddr_t)ring->status_page.page_addr,
+	    (vaddr_t)ring->status_page.page_addr + PAGE_SIZE);
 	i915_gem_object_unpin(obj);
 	drm_gem_object_unreference(&obj->base);
-	ring->status_page.obj = NULL;
+	ring->status_page.hws_obj = NULL;
 }
-#endif
 
 int
 init_status_page(struct intel_ring_buffer *ring)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#if 0
+//	struct inteldrm_softc *dev_priv = ring->dev->dev_private;
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_gem_object *obj;
 	int ret;
@@ -1179,12 +1180,12 @@ init_status_page(struct intel_ring_buffer *ring)
 	}
 
 	ring->status_page.gfx_addr = obj->gtt_offset;
-	ring->status_page.page_addr = dev_priv->hws_dmamem->kva;
+	ring->status_page.page_addr = (u32 *)ring->status_page.hws_dmamem->kva;
 	if (ring->status_page.page_addr == NULL) {
 		ret = -ENOMEM;
 		goto err_unpin;
 	}
-	ring->status_page.obj = obj;
+	ring->status_page.hws_obj = obj;
 	memset(ring->status_page.page_addr, 0, PAGE_SIZE);
 
 	intel_ring_setup_status_page(ring);
@@ -1199,35 +1200,58 @@ err_unref:
 	drm_gem_object_unreference(&obj->base);
 err:
 	return ret;
-#endif
 }
 
 int
 init_phys_hws_pga(struct intel_ring_buffer *ring)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#if 0
 	drm_i915_private_t *dev_priv = ring->dev->dev_private;
 	u32 addr;
 
-	if (!dev_priv->status_page_dmah) {
-		dev_priv->status_page_dmah =
-			drm_pci_alloc(ring->dev, PAGE_SIZE, PAGE_SIZE);
-		if (!dev_priv->status_page_dmah)
+	if (ring->status_page.hws_dmamem == NULL) {
+		ring->status_page.hws_dmamem = drm_dmamem_alloc(dev_priv->dmat,
+		    PAGE_SIZE, PAGE_SIZE, 1, PAGE_SIZE, 0, BUS_DMA_READ);
+		if (ring->status_page.hws_dmamem == NULL)
 			return -ENOMEM;
 	}
 
-	addr = dev_priv->status_page_dmah->busaddr;
+	addr = ring->status_page.hws_dmamem->map->dm_segs[0].ds_addr;
 	if (INTEL_INFO(ring->dev)->gen >= 4)
-		addr |= (dev_priv->status_page_dmah->busaddr >> 28) & 0xf0;
+		addr |= (ring->status_page.hws_dmamem->map->dm_segs[0].ds_addr >> 28) & 0xf0;
+	bus_dmamap_sync(dev_priv->dmat, ring->status_page.hws_dmamem->map, 0,
+	    PAGE_SIZE, BUS_DMASYNC_PREREAD);
 	I915_WRITE(HWS_PGA, addr);
 
-	ring->status_page.page_addr = dev_priv->status_page_dmah->vaddr;
+	ring->status_page.page_addr = (u32 *)ring->status_page.hws_dmamem->kva;
 	memset(ring->status_page.page_addr, 0, PAGE_SIZE);
 
 	return 0;
-#endif
+}
+
+u32
+intel_read_status_page(struct intel_ring_buffer *ring, int reg)
+{
+	struct inteldrm_softc	*dev_priv = ring->dev->dev_private;
+	struct drm_device	*dev = ring->dev;
+	struct drm_i915_gem_object *obj_priv;
+	bus_dma_tag_t		 tag;
+	bus_dmamap_t		 map;
+	u32			 val;
+
+	if (I915_NEED_GFX_HWS(dev)) {
+		obj_priv = ring->status_page.hws_obj;
+		map = obj_priv->dmamap;
+		tag = dev_priv->agpdmat;
+	} else {
+		map = ring->status_page.hws_dmamem->map;
+		tag = dev->dmat;
+	}
+	/* Ensure that the compiler doesn't optimize away the load. */
+	bus_dmamap_sync(tag, map, 0, PAGE_SIZE, BUS_DMASYNC_POSTREAD);
+	val = ((volatile u_int32_t *)(ring->status_page.page_addr))[reg];
+	bus_dmamap_sync(tag, map, 0, PAGE_SIZE, BUS_DMASYNC_PREREAD);
+
+	return (val);
 }
 
 #ifdef notyet

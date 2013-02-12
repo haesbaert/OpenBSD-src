@@ -1657,11 +1657,11 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			return (ENOMEM);
 	}
 
-	if (!i915_seqno_passed(i915_get_gem_seqno(dev_priv), seqno)) {
+	if (!i915_seqno_passed(ring->get_seqno(ring, true), seqno)) {
 		mtx_enter(&dev_priv->irq_lock);
 		ring->irq_get(ring);
 		while (ret == 0) {
-			if (i915_seqno_passed(i915_get_gem_seqno(dev_priv),
+			if (i915_seqno_passed(ring->get_seqno(ring, false),
 			    seqno) || dev_priv->mm.wedged)
 				break;
 			ret = msleep(dev_priv, &dev_priv->irq_lock,
@@ -1766,10 +1766,12 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
 
+#if 0
 	if (dev_priv->hw_status_page == NULL)
 		return;
+#endif
 
-	seqno = i915_get_gem_seqno(dev_priv);
+	seqno = ring->get_seqno(ring, true);
 
 	mtx_enter(&dev_priv->request_lock);
 	while (!list_empty(&ring->request_list)) {

@@ -731,14 +731,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	dev_priv->mm.interruptible = true;
 
-	/* Init HWS */
-	if (!I915_NEED_GFX_HWS(dev)) {
-		if (i915_init_phys_hws(dev_priv, pa->pa_dmat) != 0) {
-			printf(": couldn't alloc HWS page\n");
-			return;
-		}
-	}
-
 	printf(": %s\n", pci_intr_string(pa->pa_pc, dev_priv->ih));
 
 	mtx_init(&dev_priv->irq_lock, IPL_TTY);
@@ -801,13 +793,15 @@ inteldrm_detach(struct device *self, int flags)
 		dev_priv->drmdev = NULL;
 	}
 
+#if 0
 	if (!I915_NEED_GFX_HWS(dev) && dev_priv->hws_dmamem) {
 		drm_dmamem_free(dev_priv->dmat, dev_priv->hws_dmamem);
 		dev_priv->hws_dmamem = NULL;
 		/* Need to rewrite hardware status page */
 		I915_WRITE(HWS_PGA, 0x1ffff000);
-		dev_priv->hw_status_page = NULL;
+//		dev_priv->hw_status_page = NULL;
 	}
+#endif
 
 	if (IS_I9XX(dev) && dev_priv->ifp.i9xx.bsh != 0) {
 		bus_space_unmap(dev_priv->ifp.i9xx.bst, dev_priv->ifp.i9xx.bsh,
@@ -953,43 +947,6 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 	return (EINVAL);
 }
 
-u_int32_t
-inteldrm_read_hws(struct inteldrm_softc *dev_priv, int reg)
-{
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	struct drm_i915_gem_object *obj_priv;
-	bus_dma_tag_t		 tag;
-	bus_dmamap_t		 map;
-	u_int32_t		 val;
-
-	if (I915_NEED_GFX_HWS(dev)) {
-		obj_priv = (struct drm_i915_gem_object *)dev_priv->hws_obj;
-		map = obj_priv->dmamap;
-		tag = dev_priv->agpdmat;
-	} else {
-		map = dev_priv->hws_dmamem->map;
-		tag = dev->dmat;
-	}
-
-	bus_dmamap_sync(tag, map, 0, PAGE_SIZE, BUS_DMASYNC_POSTREAD);
-
-	val = ((volatile u_int32_t *)(dev_priv->hw_status_page))[reg];
-	bus_dmamap_sync(tag, map, 0, PAGE_SIZE, BUS_DMASYNC_PREREAD);
-
-	return (val);
-}
-
-uint32_t
-intel_read_status_page(struct intel_ring_buffer *ring, int reg)
-{
-#ifdef notyet
-        return (atomic_load_acq_32(ring->status_page.page_addr + reg));
-#else
-	// XXX
-        return (inteldrm_read_hws(ring->dev->dev_private, reg));
-#endif
-}
-
 /*
  * These five ring manipulation functions are protected by dev->dev_lock.
  */
@@ -1109,30 +1066,6 @@ inteldrm_update_ring(struct intel_ring_buffer *ring)
 		ring->space += ring->size;
 	INTELDRM_VPRINTF("%s: head: %x tail: %x space: %x\n", __func__,
 		ring->head, ring->tail, ring->space);
-}
-
-/*
- * Sets up the hardware status page for devices that need a physical address
- * in the register.
- */
-int
-i915_init_phys_hws(struct inteldrm_softc *dev_priv, bus_dma_tag_t dmat)
-{
-	/* Program Hardware Status Page */
-	if ((dev_priv->hws_dmamem = drm_dmamem_alloc(dmat, PAGE_SIZE,
-	    PAGE_SIZE, 1, PAGE_SIZE, 0, BUS_DMA_READ)) == NULL) {
-		return (ENOMEM);
-	}
-
-	dev_priv->hw_status_page = dev_priv->hws_dmamem->kva;
-
-	memset(dev_priv->hw_status_page, 0, PAGE_SIZE);
-
-	bus_dmamap_sync(dmat, dev_priv->hws_dmamem->map, 0, PAGE_SIZE,
-	    BUS_DMASYNC_PREREAD);
-	I915_WRITE(HWS_PGA, dev_priv->hws_dmamem->map->dm_segs[0].ds_addr);
-	DRM_DEBUG("Enabled hardware status page\n");
-	return (0);
 }
 
 void
@@ -2265,100 +2198,8 @@ struct pipe_control {
 	u32 gtt_offset;
 };
 
-int
-init_pipe_control(struct intel_ring_buffer *ring)
-{
-        struct drm_device	*dev = ring->dev;
-        drm_i915_private_t	*dev_priv = dev->dev_private;
-	struct drm_obj		*obj;
-	struct drm_i915_gem_object *obj_priv;
-	struct pipe_control	*pc;
-	int			 ret;
-
-	/* If we need a physical address for the status page, it's already
-	 * initialized at driver load time.
-	 */
-	if (!I915_NEED_GFX_HWS(dev))
-		return 0;
-
-	if (ring->private)
-		return 0;
-
-	pc = malloc(sizeof(*pc), M_DRM, M_WAITOK | M_ZERO);
-	if (!pc)
-		return ENOMEM;
-
-	obj = drm_gem_object_alloc(dev, 4096);
-	if (obj == NULL) {
-		DRM_ERROR("Failed to allocate status page\n");
-		return (ENOMEM);
-	}
-	obj_priv = (struct drm_i915_gem_object *)obj;
-	drm_hold_object(obj);
-	/*
-	 * snooped gtt mapping please .
-	 * Normally this flag is only to dmamem_map, but it's been overloaded
-	 * for the agp mapping
-	 */
-	obj_priv->dma_flags = BUS_DMA_COHERENT | BUS_DMA_READ;
-
-	ret = i915_gem_object_pin(obj_priv, 4096, 0);
-	if (ret != 0) {
-		drm_unhold_and_unref(obj);
-		return ret;
-	}
-
-	dev_priv->hw_status_page = (void *)vm_map_min(kernel_map);
-	pc->cpu_page = (volatile u_int32_t *)dev_priv->hw_status_page;
-	obj->uao->pgops->pgo_reference(obj->uao);
-	if ((ret = uvm_map(kernel_map, (vaddr_t *)&dev_priv->hw_status_page,
-	    PAGE_SIZE, obj->uao, 0, 0, UVM_MAPFLAG(UVM_PROT_RW, UVM_PROT_RW,
-	    UVM_INH_SHARE, UVM_ADV_RANDOM, 0))) != 0)
-	if (ret != 0) {
-		DRM_ERROR("Failed to map status page.\n");
-		obj->uao->pgops->pgo_detach(obj->uao);
-		i915_gem_object_unpin(obj_priv);
-		drm_unhold_and_unref(obj);
-		return (EINVAL);
-	}
-	drm_unhold_object(obj);
-	dev_priv->hws_obj = obj;
-	pc->obj = obj_priv;
-	pc->gtt_offset = obj_priv->gtt_offset;
-	ring->private = pc;
-	memset(dev_priv->hw_status_page, 0, PAGE_SIZE);
-	I915_WRITE(HWS_PGA, obj_priv->gtt_offset);
-	I915_READ(HWS_PGA); /* posting read */
-	DRM_DEBUG("hws offset: 0x%08x\n", obj_priv->gtt_offset);
-
-	return 0;
-}
-
-void
-cleanup_status_page(struct intel_ring_buffer *ring)
-{
-	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
-	struct drm_device	*dev = ring->dev;
-	struct drm_obj		*obj;
-	struct drm_i915_gem_object *obj_priv;
-
-	if (!I915_NEED_GFX_HWS(dev) || dev_priv->hws_obj == NULL)
-		return;
-
-	obj = dev_priv->hws_obj;
-
-	uvm_unmap(kernel_map, (vaddr_t)dev_priv->hw_status_page,
-	    (vaddr_t)dev_priv->hw_status_page + PAGE_SIZE);
-	dev_priv->hw_status_page = NULL;
-	drm_hold_object(obj);
-	obj_priv = (struct drm_i915_gem_object *)obj;
-	i915_gem_object_unpin(obj_priv);
-	drm_unhold_and_unref(obj);
-	dev_priv->hws_obj = NULL;
-
-	/* Write high address into HWS_PGA when disabling. */
-	I915_WRITE(HWS_PGA, 0x1ffff000);
-}
+int init_status_page(struct intel_ring_buffer *);
+int init_phys_hws_pga(struct intel_ring_buffer *);
 
 int
 intel_init_ring_buffer(struct drm_device *dev,
@@ -2371,9 +2212,22 @@ intel_init_ring_buffer(struct drm_device *dev,
 
 	ring->dev = dev;
 
-	ret = init_pipe_control(ring);
-	if (ret != 0)
-		return ret;
+        if (INTEL_INFO(dev)->gen >= 5) {
+                ret = init_pipe_control(ring);   
+                if (ret)
+                        return ret;
+        }
+
+	/* Init HWS */
+	if (I915_NEED_GFX_HWS(dev)) {
+		ret = init_status_page(ring);
+		if (ret)
+			return (ret);
+	} else {
+		ret = init_phys_hws_pga(ring);
+		if (ret)
+			return (ret);
+	}
 
 	obj = drm_gem_object_alloc(dev, 128 * 1024);
 	if (obj == NULL) {
@@ -3182,6 +3036,7 @@ inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 		if (init_ring_common(&dev_priv->rings[RCS]) != 0)
 			panic("can't restart ring, we're fucked");
 
+#if 0
 		/* put the hardware status page back */
 		if (I915_NEED_GFX_HWS(dev)) {
 			I915_WRITE(HWS_PGA, ((struct drm_i915_gem_object *)
@@ -3191,6 +3046,7 @@ inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
 			    dev_priv->hws_dmamem->map->dm_segs[0].ds_addr);
 		}
 		I915_READ(HWS_PGA); /* posting read */
+#endif
 
 		/* so we remove the handler and can put it back in */
 		DRM_UNLOCK();

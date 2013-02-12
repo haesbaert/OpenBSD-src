@@ -372,13 +372,6 @@ struct inteldrm_softc {
 	}			 ifp;
 	struct workq		*workq;
 	struct vm_page		*pgs;
-	union hws {
-		struct drm_obj		*obj;
-		struct drm_dmamem	*dmamem;
-	}	hws;
-#define				 hws_obj	hws.obj
-#define				 hws_dmamem	hws.dmamem
-	void			*hw_status_page;
 	size_t			 max_gem_obj_size; /* XXX */
 
 	/* Protects user_irq_refcount and irq_mask reg */
@@ -1475,15 +1468,6 @@ static __inline int
 i915_seqno_passed(uint32_t seq1, uint32_t seq2)
 {
 	return ((int32_t)(seq1 - seq2) >= 0);
-}
-
-/*
- * Read seqence number from the Hardware status page.
- */
-static __inline u_int32_t
-i915_get_gem_seqno(struct inteldrm_softc *dev_priv)
-{
-	return (READ_HWSP(dev_priv, I915_GEM_HWS_INDEX));
 }
 
 #if 0
