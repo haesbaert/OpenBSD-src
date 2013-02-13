@@ -421,7 +421,7 @@ static struct drm_driver_info inteldrm_driver = {
 
 	.gem_init_object	= i915_gem_init_object,
 	.gem_free_object	= i915_gem_free_object,
-	.gem_fault		= inteldrm_fault,
+	.gem_fault		= i915_gem_fault,
 	.gem_size		= sizeof(struct drm_i915_gem_object),
 
 	.dumb_create		= i915_gem_dumb_create,

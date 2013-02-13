@@ -1145,7 +1145,7 @@ static inline bool intel_gmbus_is_port_valid(unsigned port)
 int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,
     uint32_t *);
 void init_ring_lists(struct intel_ring_buffer *);
-int inteldrm_fault(struct drm_obj *, struct uvm_faultinfo *, off_t,
+int i915_gem_fault(struct drm_obj *, struct uvm_faultinfo *, off_t,
     vaddr_t, vm_page_t *, int, int, vm_prot_t, int );
 
 /* intel_opregion.c */

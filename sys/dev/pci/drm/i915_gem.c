@@ -494,9 +494,8 @@ i915_gem_set_domain_ioctl(struct drm_device *dev, void *data,
 // i915_gem_sw_finish_ioctl
 // i915_gem_mmap_ioctl
 
-// i915_gem_fault
 int
-inteldrm_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
+i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
     vaddr_t vaddr, vm_page_t *pps, int npages, int centeridx,
     vm_prot_t access_type, int flags)
 {
