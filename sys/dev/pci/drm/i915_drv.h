@@ -968,8 +968,6 @@ extern void intel_gt_reset(struct drm_device *dev);
 
 /* gem */
 /* Ioctls */
-int	inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data);
-int	inteldrm_setparam(struct inteldrm_softc *dev_priv, void *data);
 int	i915_gem_init_ioctl(struct drm_device *, void *, struct drm_file *);
 int	i915_gem_create_ioctl(struct drm_device *, void *, struct drm_file *);
 int	i915_gem_pread_ioctl(struct drm_device *, void *, struct drm_file *);
@@ -1099,7 +1097,13 @@ int i915_gem_dumb_destroy(struct drm_file *, struct drm_device *,
     uint32_t);
 
 /* i915_dma.c */
-void	inteldrm_lastclose(struct drm_device *);
+void	i915_driver_lastclose(struct drm_device *);
+int	intel_setup_mchbar(struct inteldrm_softc *,
+	    struct pci_attach_args *);
+void	intel_teardown_mchbar(struct inteldrm_softc *,
+	    struct pci_attach_args *, int);
+int	i915_getparam(struct inteldrm_softc *dev_priv, void *data);
+int	i915_setparam(struct inteldrm_softc *dev_priv, void *data);
 
 /* i915_drv.c */
 void	inteldrm_wipe_mappings(struct drm_obj *);
@@ -1107,10 +1111,6 @@ void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
 void	inteldrm_purge_obj(struct drm_obj *);
 void	inteldrm_chipset_flush(struct inteldrm_softc *);
 void	inteldrm_error(struct inteldrm_softc *);
-int	inteldrm_setup_mchbar(struct inteldrm_softc *,
-	    struct pci_attach_args *);
-void	inteldrm_teardown_mchbar(struct inteldrm_softc *,
-	    struct pci_attach_args *, int);
 
 /* i915_gem_evict.c */
 int i915_gem_evict_everything(struct inteldrm_softc *);

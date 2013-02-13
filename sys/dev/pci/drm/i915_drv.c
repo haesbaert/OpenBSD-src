@@ -94,7 +94,6 @@ int	inteldrm_detach(struct device *, int);
 int	inteldrm_activate(struct device *, int);
 int	inteldrm_ioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
 int	inteldrm_doioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
-void	inteldrm_lastclose(struct drm_device *);
 
 int	inteldrm_gmch_match(struct pci_attach_args *);
 void	inteldrm_timeout(void *);
@@ -416,7 +415,7 @@ static struct drm_driver_info inteldrm_driver = {
 	.buf_priv_size		= 1,	/* No dev_priv */
 	.file_priv_size		= sizeof(struct inteldrm_file),
 	.ioctl			= inteldrm_ioctl,
-	.lastclose		= inteldrm_lastclose,
+	.lastclose		= i915_driver_lastclose,
 	.vblank_pipes		= 2,
 	.get_vblank_counter	= i915_get_vblank_counter,
 	.enable_vblank		= i915_enable_vblank,
@@ -875,7 +874,7 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 	if (file_priv->authenticated == 1) {
 		switch (cmd) {
 		case DRM_IOCTL_I915_GETPARAM:
-			return (inteldrm_getparam(dev_priv, data));
+			return (i915_getparam(dev_priv, data));
 		case DRM_IOCTL_I915_GEM_EXECBUFFER2:
 			return (i915_gem_execbuffer2(dev, data, file_priv));
 		case DRM_IOCTL_I915_GEM_BUSY:
@@ -914,7 +913,7 @@ inteldrm_doioctl(struct drm_device *dev, u_long cmd, caddr_t data,
 	if (file_priv->master == 1) {
 		switch (cmd) {
 		case DRM_IOCTL_I915_SETPARAM:
-			return (inteldrm_setparam(dev_priv, data));
+			return (i915_setparam(dev_priv, data));
 		case DRM_IOCTL_I915_GEM_INIT:
 			return (i915_gem_init_ioctl(dev, data, file_priv));
 		case DRM_IOCTL_I915_GEM_ENTERVT:

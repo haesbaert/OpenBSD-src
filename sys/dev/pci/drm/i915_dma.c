@@ -34,7 +34,7 @@
 #include "drm_crtc_helper.h"
 
 int
-inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
+i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 {
 	drm_i915_getparam_t	*param = data;
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
@@ -83,7 +83,7 @@ inteldrm_getparam(struct inteldrm_softc *dev_priv, void *data)
 }
 
 int
-inteldrm_setparam(struct inteldrm_softc *dev_priv, void *data)
+i915_setparam(struct inteldrm_softc *dev_priv, void *data)
 {
 	drm_i915_setparam_t	*param = data;
 
@@ -122,7 +122,7 @@ inteldrm_setparam(struct inteldrm_softc *dev_priv, void *data)
  * 2 = enabled, needs disable and free.
  */
 int
-inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
+intel_setup_mchbar(struct inteldrm_softc *dev_priv,
     struct pci_attach_args *bpa)
 {
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
@@ -188,11 +188,11 @@ inteldrm_setup_mchbar(struct inteldrm_softc *dev_priv,
 }
 
 /*
- * we take the trinary returned from inteldrm_setup_mchbar and clean up after
+ * we take the trinary returned from intel_setup_mchbar and clean up after
  * it.
  */
 void
-inteldrm_teardown_mchbar(struct inteldrm_softc *dev_priv,
+intel_teardown_mchbar(struct inteldrm_softc *dev_priv,
     struct pci_attach_args *bpa, int disable)
 {
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
@@ -280,7 +280,7 @@ cleanup_gem:
 }
 
 void
-inteldrm_lastclose(struct drm_device *dev)
+i915_driver_lastclose(struct drm_device *dev)
 {
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct vm_page		*p;

@@ -134,7 +134,7 @@ i915_gem_detect_bit_6_swizzle(struct inteldrm_softc *dev_priv,
 		uint32_t dcc;
 
 		/* try to enable MCHBAR, a lot of biosen disable it */
-		need_disable = inteldrm_setup_mchbar(dev_priv, bpa);
+		need_disable = intel_setup_mchbar(dev_priv, bpa);
 
 		/* On 915-945 and GM965, channel interleave by the CPU is
 		 * determined by DCC.  The CPU will alternate based on bit 6
@@ -175,7 +175,7 @@ i915_gem_detect_bit_6_swizzle(struct inteldrm_softc *dev_priv,
 			swizzle_y = I915_BIT_6_SWIZZLE_UNKNOWN;
 		}
 
-		inteldrm_teardown_mchbar(dev_priv, bpa, need_disable);
+		intel_teardown_mchbar(dev_priv, bpa, need_disable);
 	} else {
 		/* The 965, G33, and newer, have a very flexible memory
 		 * configuration. It will enable dual-channel mode
