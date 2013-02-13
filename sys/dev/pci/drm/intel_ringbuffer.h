@@ -93,7 +93,7 @@ struct  intel_ring_buffer {
 	int		(*flush)(struct intel_ring_buffer *ring,
 				  u32	invalidate_domains,
 				  u32	flush_domains);
-	int		(*add_request)(struct intel_ring_buffer *ring);
+	int		(*add_request)(struct intel_ring_buffer *ring, u32 seqno);
 	/* Some chipsets are not quite as coherent as advertised and need
 	 * an expensive kick to force a true read of the up-to-date seqno.
 	 * However, the up-to-date seqno is not always required and the last
@@ -135,7 +135,9 @@ struct  intel_ring_buffer {
 	/**
 	 * Do we have some not yet emitted requests outstanding?
 	 */
+#ifdef notyet
 	u32 outstanding_lazy_request;
+#endif
 	bool gpu_caches_dirty;
 
 	int irq_queue;
@@ -231,11 +233,13 @@ static inline u32 intel_ring_get_tail(struct intel_ring_buffer *ring)
 	return ring->tail;
 }
 
+#ifdef notyet
 static inline u32 intel_ring_get_seqno(struct intel_ring_buffer *ring)
 {
 	BUG_ON(ring->outstanding_lazy_request == 0);
 	return ring->outstanding_lazy_request;
 }
+#endif
 
 static inline void i915_trace_irq_get(struct intel_ring_buffer *ring, u32 seqno)
 {

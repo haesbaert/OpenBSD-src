@@ -913,10 +913,9 @@ uint32_t
 i915_add_request(struct intel_ring_buffer *ring)
 {
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
-	int				 was_empty;
+	int				 was_empty, ret;
 
 	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
 
@@ -934,16 +933,11 @@ i915_add_request(struct intel_ring_buffer *ring)
 	if (dev_priv->next_seqno == 0)
 		dev_priv->next_seqno++;
 
-	if (IS_GEN6(dev) || IS_GEN7(dev))
-		intel_ring_begin(ring, 10);
-	else 
-		intel_ring_begin(ring, 4);
-
-	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
-	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, seqno);
-	intel_ring_emit(ring, MI_USER_INTERRUPT);
-	intel_ring_advance(ring);
+	ret = ring->add_request(ring, seqno);
+	if (ret) {
+		drm_free(request);
+		return ret;
+	}
 
 	DRM_DEBUG("%d\n", seqno);
 

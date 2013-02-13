@@ -53,11 +53,11 @@ int	 init_pipe_control(struct intel_ring_buffer *);
 void	 cleanup_pipe_control(struct intel_ring_buffer *);
 int	 init_render_ring(struct intel_ring_buffer *);
 void	 render_ring_cleanup(struct intel_ring_buffer *);
-void	 update_mboxes(struct intel_ring_buffer *, u32);
-int	 gen6_add_request(struct intel_ring_buffer *);
+void	 update_mboxes(struct intel_ring_buffer *, u32, u32);
+int	 gen6_add_request(struct intel_ring_buffer *, u32);
 int	 gen6_ring_sync(struct intel_ring_buffer *, struct intel_ring_buffer *,
 	     u32);
-int	 pc_render_add_request(struct intel_ring_buffer *);
+int	 pc_render_add_request(struct intel_ring_buffer *, u32);
 u32	 gen6_ring_get_seqno(struct intel_ring_buffer *, bool);
 u32	 ring_get_seqno(struct intel_ring_buffer *, bool);
 u32	 pc_render_get_seqno(struct intel_ring_buffer *, bool);
@@ -68,7 +68,7 @@ void	 i9xx_ring_put_irq(struct intel_ring_buffer *);
 bool	 i8xx_ring_get_irq(struct intel_ring_buffer *);
 void	 i8xx_ring_put_irq(struct intel_ring_buffer *);
 int	 bsd_ring_flush(struct intel_ring_buffer *, u32, u32);
-int	 i9xx_add_request(struct intel_ring_buffer *);
+int	 i9xx_add_request(struct intel_ring_buffer *, u32);
 bool	 gen6_ring_get_irq(struct intel_ring_buffer *);
 void	 gen6_ring_put_irq(struct intel_ring_buffer *);
 int	 i830_dispatch_execbuffer(struct intel_ring_buffer *, u32, u32,
@@ -659,11 +659,11 @@ render_ring_cleanup(struct intel_ring_buffer *ring)
 
 void
 update_mboxes(struct intel_ring_buffer *ring,
-	      u32 mmio_offset)
+	      u32 mmio_offset, u32 seqno)
 {
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, mmio_offset);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 }
 
 /**
@@ -676,7 +676,7 @@ update_mboxes(struct intel_ring_buffer *ring,
  * This acts like a signal in the canonical semaphore.
  */
 int
-gen6_add_request(struct intel_ring_buffer *ring)
+gen6_add_request(struct intel_ring_buffer *ring, u32 seqno)
 {
 	u32 mbox1_reg;
 	u32 mbox2_reg;
@@ -689,11 +689,11 @@ gen6_add_request(struct intel_ring_buffer *ring)
 	mbox1_reg = ring->signal_mbox[0];
 	mbox2_reg = ring->signal_mbox[1];
 
-	update_mboxes(ring, mbox1_reg);
-	update_mboxes(ring, mbox2_reg);
+	update_mboxes(ring, mbox1_reg, seqno);
+	update_mboxes(ring, mbox2_reg, seqno);
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 	intel_ring_emit(ring, MI_USER_INTERRUPT);
 	intel_ring_advance(ring);
 
@@ -750,7 +750,7 @@ do {									\
 } while (0)
 
 int
-pc_render_add_request(struct intel_ring_buffer *ring)
+pc_render_add_request(struct intel_ring_buffer *ring, u32 seqno)
 {
 	struct pipe_control *pc = ring->private;
 	u32 scratch_addr = pc->gtt_offset + 128;
@@ -772,7 +772,7 @@ pc_render_add_request(struct intel_ring_buffer *ring)
 			PIPE_CONTROL_WRITE_FLUSH |
 			PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE);
 	intel_ring_emit(ring, pc->gtt_offset | PIPE_CONTROL_GLOBAL_GTT);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 	intel_ring_emit(ring, 0);
 	PIPE_CONTROL_FLUSH(ring, scratch_addr);
 	scratch_addr += 128; /* write to separate cachelines */
@@ -791,7 +791,7 @@ pc_render_add_request(struct intel_ring_buffer *ring)
 			PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE |
 			PIPE_CONTROL_NOTIFY);
 	intel_ring_emit(ring, pc->gtt_offset | PIPE_CONTROL_GLOBAL_GTT);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 	intel_ring_emit(ring, 0);
 	intel_ring_advance(ring);
 
@@ -977,7 +977,7 @@ bsd_ring_flush(struct intel_ring_buffer *ring,
 }
 
 int
-i9xx_add_request(struct intel_ring_buffer *ring)
+i9xx_add_request(struct intel_ring_buffer *ring, u32 seqno)
 {
 	int ret;
 
@@ -987,7 +987,7 @@ i9xx_add_request(struct intel_ring_buffer *ring)
 
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, ring->outstanding_lazy_request);
+	intel_ring_emit(ring, seqno);
 	intel_ring_emit(ring, MI_USER_INTERRUPT);
 	intel_ring_advance(ring);
 
