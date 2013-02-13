@@ -1098,6 +1098,9 @@ int i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
 int i915_gem_dumb_destroy(struct drm_file *, struct drm_device *,
     uint32_t);
 
+/* i915_dma.c */
+void	inteldrm_lastclose(struct drm_device *);
+
 /* i915_drv.c */
 void	inteldrm_wipe_mappings(struct drm_obj *);
 void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
