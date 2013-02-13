@@ -56,6 +56,9 @@ i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 	case I915_PARAM_HAS_OVERLAY:
 		value = dev_priv->overlay ? 1 : 0;
 		break;
+	case I915_PARAM_HAS_PAGEFLIPPING:
+		value = 1;
+		break;
 	case I915_PARAM_HAS_BSD:
 #ifdef notyet
 		// XXX support BSD ring
