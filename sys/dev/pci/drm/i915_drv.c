@@ -728,7 +728,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
 	mtx_init(&mchdev_lock, IPL_NONE);
 
-	if (IS_IVYBRIDGE(dev))
+	if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev))
 		dev_priv->num_pipe = 3;
 	else if (IS_MOBILE(dev) || !IS_GEN2(dev))
 		dev_priv->num_pipe = 2;
