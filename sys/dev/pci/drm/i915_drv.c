@@ -1233,60 +1233,14 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
     uint32_t flush_domains)
 {
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
-	struct drm_device	*dev = ring->dev;
-	uint32_t		 cmd;
 	int			 ret = 0;
 
 	if (flush_domains & I915_GEM_DOMAIN_CPU)
 		inteldrm_chipset_flush(dev_priv);
 	if (((invalidate_domains | flush_domains) & I915_GEM_GPU_DOMAINS) == 0) 
 		return (0);
-	/*
-	 * read/write caches:
-	 *
-	 * I915_GEM_DOMAIN_RENDER is always invalidated, but is
-	 * only flushed if MI_NO_WRITE_FLUSH is unset.  On 965, it is
-	 * also flushed at 2d versus 3d pipeline switches.
-	 *
-	 * read-only caches:
-	 *
-	 * I915_GEM_DOMAIN_SAMPLER is flushed on pre-965 if
-	 * MI_READ_FLUSH is set, and is always flushed on 965.
-	 *
-	 * I915_GEM_DOMAIN_COMMAND may not exist?
-	 *
-	 * I915_GEM_DOMAIN_INSTRUCTION, which exists on 965, is
-	 * invalidated when MI_EXE_FLUSH is set.
-	 *
-	 * I915_GEM_DOMAIN_VERTEX, which exists on 965, is
-	 * invalidated with every MI_FLUSH.
-	 *
-	 * TLBs:
-	 *
-	 * On 965, TLBs associated with I915_GEM_DOMAIN_COMMAND
-	 * and I915_GEM_DOMAIN_CPU in are invalidated at PTE write and
-	 * I915_GEM_DOMAIN_RENDER and I915_GEM_DOMAIN_SAMPLER
-	 * are flushed at any MI_FLUSH.
-	 */
 
-	cmd = MI_FLUSH | MI_NO_WRITE_FLUSH;
-	if ((invalidate_domains | flush_domains) &
-	    I915_GEM_DOMAIN_RENDER)
-		cmd &= ~MI_NO_WRITE_FLUSH;
-	/*
-	 * On the 965, the sampler cache always gets flushed
-	 * and this bit is reserved.
-	 */
-	if (INTEL_INFO(dev)->gen < 4 &&
-	    invalidate_domains & I915_GEM_DOMAIN_SAMPLER)
-		cmd |= MI_READ_FLUSH;
-	if (invalidate_domains & I915_GEM_DOMAIN_INSTRUCTION)
-		cmd |= MI_EXE_FLUSH;
-
-	intel_ring_begin(ring, 2);
-	intel_ring_emit(ring, cmd);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
+	ring->flush(ring, invalidate_domains, flush_domains);
 
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
