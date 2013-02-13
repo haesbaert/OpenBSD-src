@@ -347,7 +347,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 	if (obj->dmamap != NULL &&
 	    ((alignment && obj->gtt_offset & (alignment - 1)) ||
 	    obj->gtt_offset & (i915_gem_get_gtt_alignment(&obj->base) - 1) ||
-	    !i915_gem_object_fence_offset_ok(&obj->base, obj->tiling_mode))) {
+	    !i915_gem_object_fence_ok(&obj->base, obj->tiling_mode))) {
 		/* if it is already pinned we sanitised the alignment then */
 		KASSERT(obj->pin_count == 0);
 		if ((ret = i915_gem_object_unbind(obj)))
@@ -1341,7 +1341,7 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 			goto error;
 		goto search_free;
 	}
-	i915_gem_bit_17_swizzle(obj);
+	i915_gem_object_save_bit_17_swizzle(obj);
 
 	obj->gtt_offset = obj->dmamap->dm_segs[0].ds_addr - dev->agp->base;
 
@@ -1411,7 +1411,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	/*
 	 * unload the map, then unwire the backing object.
 	 */
-	i915_gem_save_bit_17_swizzle(obj);
+	i915_gem_object_save_bit_17_swizzle(obj);
 	bus_dmamap_unload(dev_priv->agpdmat, obj->dmamap);
 	uvm_objunwire(obj->base.uao, 0, obj->base.size);
 	/* XXX persistent dmamap worth the memory? */

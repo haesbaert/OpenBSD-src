@@ -718,7 +718,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		}
 	}
 
-	inteldrm_detect_bit_6_swizzle(dev_priv, &bpa);
+	i915_gem_detect_bit_6_swizzle(dev_priv, &bpa);
 
 	dev_priv->mm.interruptible = true;
 
@@ -1655,7 +1655,7 @@ inteldrm_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 
 	if (obj_priv->dmamap != NULL &&
 	    (obj_priv->gtt_offset & (i915_gem_get_gtt_alignment(obj) - 1) ||
-	    (!i915_gem_object_fence_offset_ok(obj, obj_priv->tiling_mode)))) {
+	    (!i915_gem_object_fence_ok(obj, obj_priv->tiling_mode)))) {
 		/*
 		 * pinned objects are defined to have a sane alignment which can
 		 * not change.

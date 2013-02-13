@@ -55,13 +55,12 @@
 #include <sys/queue.h>
 #include <sys/workq.h>
 
-// i915_gem_detect_bit_6_swizzle
 /**
  * Detects bit 6 swizzling of address lookup between IGD access and CPU
  * access through main memory.
  */
 void
-inteldrm_detect_bit_6_swizzle(struct inteldrm_softc *dev_priv,
+i915_gem_detect_bit_6_swizzle(struct inteldrm_softc *dev_priv,
     struct pci_attach_args *bpa)
 {
 	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
@@ -206,9 +205,8 @@ i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 	return (1);
 }
 
-// i915_gem_object_fence_ok
 int
-i915_gem_object_fence_offset_ok(struct drm_obj *obj, int tiling_mode)
+i915_gem_object_fence_ok(struct drm_obj *obj, int tiling_mode)
 {
 	struct drm_device	*dev = obj->dev;
 	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
@@ -337,9 +335,8 @@ i915_gem_get_tiling(struct drm_device *dev, void *data,
 	return 0;
 }
 
-// i915_gem_swizzle_page
 int
-inteldrm_swizzle_page(struct vm_page *pg)
+i915_gem_swizzle_page(struct vm_page *pg)
 {
 	vaddr_t	 va;
 	int	 i;
@@ -372,9 +369,8 @@ inteldrm_swizzle_page(struct vm_page *pg)
 	return (0);
 }
 
-// i915_gem_object_do_bit_17_swizzle
 void
-i915_gem_bit_17_swizzle(struct drm_i915_gem_object *obj)
+i915_gem_object_do_bit_17_swizzle(struct drm_i915_gem_object *obj)
 {
 	struct drm_device	*dev = obj->base.dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
@@ -398,7 +394,7 @@ i915_gem_bit_17_swizzle(struct drm_i915_gem_object *obj)
 			/* XXX move this to somewhere where we already have pg */
 			pg = PHYS_TO_VM_PAGE(segp->ds_addr + n);
 			KASSERT(pg != NULL);
-			ret = inteldrm_swizzle_page(pg);
+			ret = i915_gem_swizzle_page(pg);
 			if (ret)
 				return;
 			atomic_clearbits_int(&pg->pg_flags, PG_CLEAN);
@@ -413,9 +409,8 @@ i915_gem_bit_17_swizzle(struct drm_i915_gem_object *obj)
 
 }
 
-// i915_gem_object_save_bit_17_swizzle
 void
-i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *obj)
+i915_gem_object_save_bit_17_swizzle(struct drm_i915_gem_object *obj)
 {
 	struct drm_device	*dev = obj->base.dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;

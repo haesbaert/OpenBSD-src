@@ -1058,15 +1058,10 @@ int	i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
 int	i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 	    enum i915_cache_level cache_level);
 
-int	i915_tiling_ok(struct drm_device *, int, int, int);
-int	i915_gem_object_fence_offset_ok(struct drm_obj *, int);
 void	sandybridge_write_fence_reg(struct drm_i915_fence_reg *);
 void	i965_write_fence_reg(struct drm_i915_fence_reg *);
 void	i915_write_fence_reg(struct drm_i915_fence_reg *);
 void	i830_write_fence_reg(struct drm_i915_fence_reg *);
-void	i915_gem_bit_17_swizzle(struct drm_i915_gem_object *);
-void	i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *);
-int	inteldrm_swizzle_page(struct vm_page *page);
 
 int	i915_gem_init_hw(struct drm_device *);
 
@@ -1120,8 +1115,13 @@ int i915_gem_evict_something(struct inteldrm_softc *, size_t);
 int i915_gem_evict_inactive(struct inteldrm_softc *);
 
 /* i915_gem_tiling.c */
-void inteldrm_detect_bit_6_swizzle(struct inteldrm_softc *, 
-    struct pci_attach_args *);
+void	i915_gem_detect_bit_6_swizzle(struct inteldrm_softc *, 
+	    struct pci_attach_args *);
+void	i915_gem_object_do_bit_17_swizzle(struct drm_i915_gem_object *);
+void	i915_gem_object_save_bit_17_swizzle(struct drm_i915_gem_object *);
+int	i915_gem_swizzle_page(struct vm_page *page);
+int	i915_tiling_ok(struct drm_device *, int, int, int);
+int	i915_gem_object_fence_ok(struct drm_obj *, int);
 
 /* i915_suspend.c */
 
