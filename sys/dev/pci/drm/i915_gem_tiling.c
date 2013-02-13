@@ -56,6 +56,112 @@
 #include <sys/workq.h>
 
 // i915_gem_detect_bit_6_swizzle
+/**
+ * Detects bit 6 swizzling of address lookup between IGD access and CPU
+ * access through main memory.
+ */
+void
+inteldrm_detect_bit_6_swizzle(struct inteldrm_softc *dev_priv,
+    struct pci_attach_args *bpa)
+{
+	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	uint32_t		 swizzle_x = I915_BIT_6_SWIZZLE_UNKNOWN;
+	uint32_t		 swizzle_y = I915_BIT_6_SWIZZLE_UNKNOWN;
+	int			 need_disable;
+
+	if (!IS_I9XX(dev)) {
+		/* As far as we know, the 865 doesn't have these bit 6
+		 * swizzling issues.
+		 */
+		swizzle_x = I915_BIT_6_SWIZZLE_NONE;
+		swizzle_y = I915_BIT_6_SWIZZLE_NONE;
+	} else if (HAS_PCH_SPLIT(dev)) {
+		/*
+		 * On ironlake and sandybridge the swizzling is the same
+		 * no matter what the DRAM config
+		 */
+		swizzle_x = I915_BIT_6_SWIZZLE_9_10;
+		swizzle_y = I915_BIT_6_SWIZZLE_9;
+	} else if (IS_MOBILE(dev)) {
+		uint32_t dcc;
+
+		/* try to enable MCHBAR, a lot of biosen disable it */
+		need_disable = inteldrm_setup_mchbar(dev_priv, bpa);
+
+		/* On 915-945 and GM965, channel interleave by the CPU is
+		 * determined by DCC.  The CPU will alternate based on bit 6
+		 * in interleaved mode, and the GPU will then also alternate
+		 * on bit 6, 9, and 10 for X, but the CPU may also optionally
+		 * alternate based on bit 17 (XOR not disabled and XOR
+		 * bit == 17).
+		 */
+		dcc = I915_READ(DCC);
+		switch (dcc & DCC_ADDRESSING_MODE_MASK) {
+		case DCC_ADDRESSING_MODE_SINGLE_CHANNEL:
+		case DCC_ADDRESSING_MODE_DUAL_CHANNEL_ASYMMETRIC:
+			swizzle_x = I915_BIT_6_SWIZZLE_NONE;
+			swizzle_y = I915_BIT_6_SWIZZLE_NONE;
+			break;
+		case DCC_ADDRESSING_MODE_DUAL_CHANNEL_INTERLEAVED:
+			if (dcc & DCC_CHANNEL_XOR_DISABLE) {
+				/* This is the base swizzling by the GPU for
+				 * tiled buffers.
+				 */
+				swizzle_x = I915_BIT_6_SWIZZLE_9_10;
+				swizzle_y = I915_BIT_6_SWIZZLE_9;
+			} else if ((dcc & DCC_CHANNEL_XOR_BIT_17) == 0) {
+				/* Bit 11 swizzling by the CPU in addition. */
+				swizzle_x = I915_BIT_6_SWIZZLE_9_10_11;
+				swizzle_y = I915_BIT_6_SWIZZLE_9_11;
+			} else {
+				/* Bit 17 swizzling by the CPU in addition. */
+				swizzle_x = I915_BIT_6_SWIZZLE_9_10_17;
+				swizzle_y = I915_BIT_6_SWIZZLE_9_17;
+			}
+			break;
+		}
+		if (dcc == 0xffffffff) {
+			DRM_ERROR("Couldn't read from MCHBAR.  "
+				  "Disabling tiling.\n");
+			swizzle_x = I915_BIT_6_SWIZZLE_UNKNOWN;
+			swizzle_y = I915_BIT_6_SWIZZLE_UNKNOWN;
+		}
+
+		inteldrm_teardown_mchbar(dev_priv, bpa, need_disable);
+	} else {
+		/* The 965, G33, and newer, have a very flexible memory
+		 * configuration. It will enable dual-channel mode
+		 * (interleaving) on as much memory as it can, and the GPU
+		 * will additionally sometimes enable different bit 6
+		 * swizzling for tiled objects from the CPU.
+		 *
+		 * Here's what I found on G965:
+		 *
+		 *    slot fill			memory size	swizzling
+		 * 0A   0B	1A	1B	1-ch	2-ch
+		 * 512	0	0	0	512	0	O
+		 * 512	0	512	0	16	1008	X
+		 * 512	0	0	512	16	1008	X
+		 * 0	512	0	512	16	1008	X
+		 * 1024	1024	1024	0	2048	1024	O
+		 *
+		 * We could probably detect this based on either the DRB
+		 * matching, which was the case for the swizzling required in
+		 * the table above, or from the 1-ch value being less than
+		 * the minimum size of a rank.
+		 */
+		if (I915_READ16(C0DRB3) != I915_READ16(C1DRB3)) {
+			swizzle_x = I915_BIT_6_SWIZZLE_NONE;
+			swizzle_y = I915_BIT_6_SWIZZLE_NONE;
+		} else {
+			swizzle_x = I915_BIT_6_SWIZZLE_9_10;
+			swizzle_y = I915_BIT_6_SWIZZLE_9;
+		}
+	}
+
+	dev_priv->mm.bit_6_swizzle_x = swizzle_x;
+	dev_priv->mm.bit_6_swizzle_y = swizzle_y;
+}
 
 int
 i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
@@ -101,6 +207,28 @@ i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 }
 
 // i915_gem_object_fence_ok
+int
+i915_gem_object_fence_offset_ok(struct drm_obj *obj, int tiling_mode)
+{
+	struct drm_device	*dev = obj->dev;
+	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
+
+	if (obj_priv->dmamap == NULL || tiling_mode == I915_TILING_NONE)
+		return (1);
+
+	if (INTEL_INFO(dev)->gen < 4) {
+		if (obj_priv->gtt_offset & (obj->size -1))
+			return (0);
+		if (IS_I9XX(dev)) {
+			if (obj_priv->gtt_offset & ~I915_FENCE_START_MASK)
+				return (0);
+		} else {
+			if (obj_priv->gtt_offset & ~I830_FENCE_START_MASK)
+				return (0);
+		}
+	}
+	return (1);
+}
 
 /**
  * Sets the tiling mode of an object, returning the required swizzling of
@@ -210,6 +338,119 @@ i915_gem_get_tiling(struct drm_device *dev, void *data,
 }
 
 // i915_gem_swizzle_page
-// i915_gem_object_do_bit_17_swizzle
-// i915_gem_object_save_bit_17_swizzle
+int
+inteldrm_swizzle_page(struct vm_page *pg)
+{
+	vaddr_t	 va;
+	int	 i;
+	u_int8_t temp[64], *vaddr;
 
+#if defined (__HAVE_PMAP_DIRECT)
+	va = pmap_map_direct(pg);
+#else
+	va = uvm_km_valloc(kernel_map, PAGE_SIZE);
+	if (va == 0)
+		return (ENOMEM);
+	pmap_kenter_pa(va, VM_PAGE_TO_PHYS(pg), UVM_PROT_RW);
+	pmap_update(pmap_kernel());
+#endif
+	vaddr = (u_int8_t *)va;
+
+	for (i = 0; i < PAGE_SIZE; i += 128) {
+		memcpy(temp, &vaddr[i], 64);
+		memcpy(&vaddr[i], &vaddr[i + 64], 64);
+		memcpy(&vaddr[i + 64], temp, 64);
+	}
+
+#if defined (__HAVE_PMAP_DIRECT)
+	pmap_unmap_direct(va);
+#else
+	pmap_kremove(va, PAGE_SIZE);
+	pmap_update(pmap_kernel());
+	uvm_km_free(kernel_map, va, PAGE_SIZE);
+#endif
+	return (0);
+}
+
+// i915_gem_object_do_bit_17_swizzle
+void
+i915_gem_bit_17_swizzle(struct drm_i915_gem_object *obj)
+{
+	struct drm_device	*dev = obj->base.dev;
+	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	struct vm_page		*pg;
+	bus_dma_segment_t	*segp;
+	int			 page_count = obj->base.size >> PAGE_SHIFT;
+	int                      i, n, ret;
+
+	if (dev_priv->mm.bit_6_swizzle_x != I915_BIT_6_SWIZZLE_9_10_17 ||
+	    obj->bit_17 == NULL)
+		return;
+
+	segp = &obj->dma_segs[0];
+	n = 0;
+	for (i = 0; i < page_count; i++) {
+		/* compare bit 17 with previous one (in case we swapped).
+		 * if they don't match we'll have to swizzle the page
+		 */
+		if ((((segp->ds_addr + n) >> 17) & 0x1) !=
+		    test_bit(i, obj->bit_17)) {
+			/* XXX move this to somewhere where we already have pg */
+			pg = PHYS_TO_VM_PAGE(segp->ds_addr + n);
+			KASSERT(pg != NULL);
+			ret = inteldrm_swizzle_page(pg);
+			if (ret)
+				return;
+			atomic_clearbits_int(&pg->pg_flags, PG_CLEAN);
+		}
+
+		n += PAGE_SIZE;
+		if (n >= segp->ds_len) {
+			n = 0;
+			segp++;
+		}
+	}
+
+}
+
+// i915_gem_object_save_bit_17_swizzle
+void
+i915_gem_save_bit_17_swizzle(struct drm_i915_gem_object *obj)
+{
+	struct drm_device	*dev = obj->base.dev;
+	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	bus_dma_segment_t	*segp;
+	int			 page_count = obj->base.size >> PAGE_SHIFT;
+	int			 i, n;
+
+	if (dev_priv->mm.bit_6_swizzle_x != I915_BIT_6_SWIZZLE_9_10_17)
+		return;
+
+	if (obj->bit_17 == NULL) {
+		/* round up number of pages to a multiple of 32 so we know what
+		 * size to make the bitmask. XXX this is wasteful with malloc
+		 * and a better way should be done
+		 */
+		size_t nb17 = ((page_count + 31) & ~31)/32;
+		obj->bit_17 = drm_alloc(nb17 * sizeof(u_int32_t));
+		if (obj-> bit_17 == NULL) {
+			return;
+		}
+
+	}
+
+	segp = &obj->dma_segs[0];
+	n = 0;
+	for (i = 0; i < page_count; i++) {
+		if ((segp->ds_addr + n) & (1 << 17))
+			set_bit(i, obj->bit_17);
+		else
+			clear_bit(i, obj->bit_17);
+
+		n += PAGE_SIZE;
+		if (n >= segp->ds_len) {
+			n = 0;
+			segp++;
+		}
+	}
+}

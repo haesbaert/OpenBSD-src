@@ -1109,11 +1109,19 @@ void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
 void	inteldrm_purge_obj(struct drm_obj *);
 void	inteldrm_chipset_flush(struct inteldrm_softc *);
 void	inteldrm_error(struct inteldrm_softc *);
+int	inteldrm_setup_mchbar(struct inteldrm_softc *,
+	    struct pci_attach_args *);
+void	inteldrm_teardown_mchbar(struct inteldrm_softc *,
+	    struct pci_attach_args *, int);
 
 /* i915_gem_evict.c */
 int i915_gem_evict_everything(struct inteldrm_softc *);
 int i915_gem_evict_something(struct inteldrm_softc *, size_t);
 int i915_gem_evict_inactive(struct inteldrm_softc *);
+
+/* i915_gem_tiling.c */
+void inteldrm_detect_bit_6_swizzle(struct inteldrm_softc *, 
+    struct pci_attach_args *);
 
 /* i915_suspend.c */
 
