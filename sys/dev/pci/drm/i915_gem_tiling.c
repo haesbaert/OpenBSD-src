@@ -55,6 +55,55 @@
 #include <sys/queue.h>
 #include <sys/workq.h>
 
+/** @file i915_gem_tiling.c
+ *
+ * Support for managing tiling state of buffer objects.
+ *
+ * The idea behind tiling is to increase cache hit rates by rearranging
+ * pixel data so that a group of pixel accesses are in the same cacheline.
+ * Performance improvement from doing this on the back/depth buffer are on
+ * the order of 30%.
+ *
+ * Intel architectures make this somewhat more complicated, though, by
+ * adjustments made to addressing of data when the memory is in interleaved
+ * mode (matched pairs of DIMMS) to improve memory bandwidth.
+ * For interleaved memory, the CPU sends every sequential 64 bytes
+ * to an alternate memory channel so it can get the bandwidth from both.
+ *
+ * The GPU also rearranges its accesses for increased bandwidth to interleaved
+ * memory, and it matches what the CPU does for non-tiled.  However, when tiled
+ * it does it a little differently, since one walks addresses not just in the
+ * X direction but also Y.  So, along with alternating channels when bit
+ * 6 of the address flips, it also alternates when other bits flip --  Bits 9
+ * (every 512 bytes, an X tile scanline) and 10 (every two X tile scanlines)
+ * are common to both the 915 and 965-class hardware.
+ *
+ * The CPU also sometimes XORs in higher bits as well, to improve
+ * bandwidth doing strided access like we do so frequently in graphics.  This
+ * is called "Channel XOR Randomization" in the MCH documentation.  The result
+ * is that the CPU is XORing in either bit 11 or bit 17 to bit 6 of its address
+ * decode.
+ *
+ * All of this bit 6 XORing has an effect on our memory management,
+ * as we need to make sure that the 3d driver can correctly address object
+ * contents.
+ *
+ * If we don't have interleaved memory, all tiling is safe and no swizzling is
+ * required.
+ *
+ * When bit 17 is XORed in, we simply refuse to tile at all.  Bit
+ * 17 is not just a page offset, so as we page an objet out and back in,
+ * individual pages in it will have different bit 17 addresses, resulting in
+ * each 64 bytes being swapped with its neighbor!
+ *
+ * Otherwise, if interleaved, we have to tell the 3d driver what the address
+ * swizzling it needs to do is, since it's writing with the CPU to the pages
+ * (bit 6 and potentially bit 11 XORed in), and the GPU is reading from the
+ * pages (bit 6, 9, and 10 XORed in), resulting in a cumulative bit swizzling
+ * required by the CPU of XORing in bit 6, 9, 10, and potentially 11, in order
+ * to match what the GPU expects.
+ */
+
 /**
  * Detects bit 6 swizzling of address lookup between IGD access and CPU
  * access through main memory.
