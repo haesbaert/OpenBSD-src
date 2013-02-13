@@ -403,9 +403,9 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 		return (EIO);
 
 	if (seqno == dev_priv->next_seqno) {
-		seqno = i915_add_request(ring);
-		if (seqno == 0)
-			return (ENOMEM);
+		ret = i915_add_request(ring, NULL, &seqno);
+		if (ret)
+			return (ret);
 	}
 
 	if (!i915_seqno_passed(ring->get_seqno(ring, true), seqno)) {
@@ -909,8 +909,10 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
  *
  * Returned sequence numbers are nonzero on success.
  */
-uint32_t
-i915_add_request(struct intel_ring_buffer *ring)
+int
+i915_add_request(struct intel_ring_buffer *ring,
+		 struct drm_file *file,
+		 u32 *out_seqno)
 {
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_request	*request;
@@ -922,7 +924,7 @@ i915_add_request(struct intel_ring_buffer *ring)
 	request = drm_calloc(1, sizeof(*request));
 	if (request == NULL) {
 		printf("%s: failed to allocate request\n", __func__);
-		return 0;
+		return -ENOMEM;
 	}
 
 	/* Grab the seqno we're going to make this request be, and bump the
@@ -955,7 +957,10 @@ i915_add_request(struct intel_ring_buffer *ring)
 		/* XXX was_empty? */
 		timeout_add_msec(&dev_priv->hangcheck_timer, 750);
 	}
-	return seqno;
+
+	if (out_seqno)
+		*out_seqno = request->seqno;
+	return 0;
 }
 
 // i915_gem_request_remove_from_client

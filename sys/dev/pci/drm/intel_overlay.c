@@ -287,8 +287,7 @@ intel_overlay_do_wait_request(struct intel_overlay *overlay,
 	int ret;
 
 	BUG_ON(overlay->last_flip_req);
-//	ret = i915_add_request(ring, NULL, &overlay->last_flip_req);
-	ret = i915_add_request(ring);
+	ret = i915_add_request(ring, NULL, &overlay->last_flip_req);
 	if (ret)
 		return ret;
 
@@ -361,8 +360,7 @@ intel_overlay_continue(struct intel_overlay *overlay,
 	intel_ring_emit(ring, flip_addr);
 	intel_ring_advance(ring);
 
-//	return i915_add_request(ring, NULL, &overlay->last_flip_req);
-	return i915_add_request(ring);
+	return i915_add_request(ring, NULL, &overlay->last_flip_req);
 }
 
 void

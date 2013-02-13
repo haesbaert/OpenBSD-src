@@ -1233,7 +1233,8 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
     uint32_t flush_domains)
 {
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
-	int			 ret = 0;
+	int			 err = 0;
+	u32			 seqno;
 
 	if (flush_domains & I915_GEM_DOMAIN_CPU)
 		inteldrm_chipset_flush(dev_priv);
@@ -1247,10 +1248,13 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
 		mtx_enter(&dev_priv->request_lock);
 		inteldrm_process_flushing(dev_priv, flush_domains);
 		mtx_leave(&dev_priv->request_lock);
-		ret = i915_add_request(ring);
+		err = i915_add_request(ring, NULL, &seqno);
 	}
 
-	return (ret);
+	if (err)
+		return (0);
+	else
+		return (seqno);
 }
 
 struct drm_obj *
@@ -1652,7 +1656,7 @@ i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
 	 * that this call will emit. so we don't need the return. If it fails
 	 * then the next seqno will take care of it.
 	 */
-	(void)i915_add_request(ring);
+	(void)i915_add_request(ring, NULL, NULL);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 }
