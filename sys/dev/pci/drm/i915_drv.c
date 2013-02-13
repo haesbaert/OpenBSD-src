@@ -1672,34 +1672,16 @@ void
 i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
     struct drm_i915_gem_execbuffer2 *exec, uint64_t exec_offset)
 {
-	struct drm_device	*dev = ring->dev;
 //	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	uint32_t		 exec_start, exec_len;
+	int			 ret;
 
 	exec_start = (uint32_t)exec_offset + exec->batch_start_offset;
 	exec_len = (uint32_t)exec->batch_len;
 
-	if (IS_I830(dev) || IS_845G(dev)) {
-		intel_ring_begin(ring, 6);
-		intel_ring_emit(ring, MI_BATCH_BUFFER);
-		intel_ring_emit(ring, exec_start | MI_BATCH_NON_SECURE);
-		intel_ring_emit(ring, exec_start + exec_len - 4);
-		intel_ring_emit(ring, MI_NOOP);
-	} else {
-		intel_ring_begin(ring, 4);
-		if (INTEL_INFO(dev)->gen >= 4) {
-			if (IS_GEN6(dev) || IS_GEN7(dev))
-				intel_ring_emit(ring, MI_BATCH_BUFFER_START |
-				    MI_BATCH_NON_SECURE_I965);
-			else
-				intel_ring_emit(ring, MI_BATCH_BUFFER_START | (2 << 6) |
-				    MI_BATCH_NON_SECURE_I965);
-			intel_ring_emit(ring, exec_start);
-		} else {
-			intel_ring_emit(ring, MI_BATCH_BUFFER_START | (2 << 6));
-			intel_ring_emit(ring, exec_start | MI_BATCH_NON_SECURE);
-		}
-	}
+	ret = ring->dispatch_execbuffer(ring, exec_start, exec_len, 0);
+	if (ret)
+		return;
 
 	/*
 	 * Ensure that the commands in the batch buffer are
@@ -1710,9 +1692,7 @@ i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
 	 * (so that we have *some* interrupts representing completion of
 	 * buffers that we can wait on when trying to clear up gtt space).
 	 */
-	intel_ring_emit(ring, MI_FLUSH | MI_NO_WRITE_FLUSH);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
+	intel_ring_flush_all_caches(ring);
 	/*
 	 * move to active associated all previous buffers with the seqno
 	 * that this call will emit. so we don't need the return. If it fails
