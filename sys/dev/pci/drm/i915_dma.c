@@ -265,7 +265,7 @@ i915_load_modeset_init(struct drm_device *dev)
 
 	ret = intel_fbdev_init(dev);
 	if (ret)
-		goto cleanup_gem;
+		goto cleanup_irq;
 
 	drm_kms_helper_poll_init(dev);
 
@@ -274,6 +274,8 @@ i915_load_modeset_init(struct drm_device *dev)
 
 	return (0);
 
+cleanup_irq:
+	drm_irq_uninstall(dev);
 cleanup_gem:
 	DRM_LOCK();
 	i915_gem_cleanup_ringbuffer(dev);
