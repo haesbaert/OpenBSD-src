@@ -55,6 +55,9 @@
 #include <sys/queue.h>
 #include <sys/workq.h>
 
+int	i915_reset_gen7_sol_offsets(struct drm_device *,
+	    struct intel_ring_buffer *);
+
 /*
  * Set the next domain for the specified object. This
  * may not actually perform the necessary flushing/invaliding though,
@@ -254,6 +257,32 @@ i915_gem_object_set_to_gpu_domain(struct drm_obj *obj)
 // i915_gem_execbuffer_retire_commands
 // i915_gem_fix_mi_batchbuffer_end
 // i915_reset_gen7_sol_offsets
+
+int
+i915_reset_gen7_sol_offsets(struct drm_device *dev,
+			    struct intel_ring_buffer *ring)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	int ret, i;
+
+	if (!IS_GEN7(dev) || ring != &dev_priv->rings[RCS])
+		return 0;
+
+	ret = intel_ring_begin(ring, 4 * 3);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < 4; i++) {
+		intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+		intel_ring_emit(ring, GEN7_SO_WRITE_OFFSET(i));
+		intel_ring_emit(ring, 0);
+	}
+
+	intel_ring_advance(ring);
+
+	return 0;
+}
+
 // i915_gem_do_execbuffer
 // i915_gem_execbuffer
 
@@ -491,6 +520,12 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	mtx_leave(&dev_priv->request_lock);
+
+	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
+		ret = i915_reset_gen7_sol_offsets(dev, ring);
+		if (ret)
+			goto err;
+	}
 
 	/* Exec the batchbuffer */
 	/*
