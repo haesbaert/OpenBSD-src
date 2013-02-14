@@ -1012,6 +1012,7 @@ void	i915_move_to_tail(struct drm_i915_gem_object *, struct i915_gem_list *);
 void	i915_list_remove(struct drm_i915_gem_object *);
 int	init_pipe_control(struct intel_ring_buffer *);
 void	cleanup_status_page(struct intel_ring_buffer *);
+void	i915_gem_init_swizzling(struct drm_device *);
 void	i915_gem_cleanup_ringbuffer(struct drm_device *);
 int	i915_gem_ring_throttle(struct drm_device *, struct drm_file *);
 int	i915_gem_get_relocs_from_user(struct drm_i915_gem_exec_object2 *,

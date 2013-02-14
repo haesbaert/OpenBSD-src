@@ -1968,7 +1968,28 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 }
 
 // i915_gem_l3_remap
-// i915_gem_init_swizzling
+
+void
+i915_gem_init_swizzling(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	if (INTEL_INFO(dev)->gen < 5 ||
+	    dev_priv->mm.bit_6_swizzle_x == I915_BIT_6_SWIZZLE_NONE)
+		return;
+
+	I915_WRITE(DISP_ARB_CTL, I915_READ(DISP_ARB_CTL) |
+				 DISP_TILE_SURFACE_SWIZZLING);
+
+	if (IS_GEN5(dev))
+		return;
+
+	I915_WRITE(TILECTL, I915_READ(TILECTL) | TILECTL_SWZCTL);
+	if (IS_GEN6(dev))
+		I915_WRITE(ARB_MODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_SNB));
+	else
+		I915_WRITE(ARB_MODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_IVB));
+}
 
 bool
 intel_enable_blt(struct drm_device *dev)
@@ -2003,8 +2024,8 @@ i915_gem_init_hw(struct drm_device *dev)
 
 	i915_gem_l3_remap(dev);
 
-	i915_gem_init_swizzling(dev);
 #endif
+	i915_gem_init_swizzling(dev);
 
 	ret = intel_init_render_ring_buffer(dev);
 	if (ret)
