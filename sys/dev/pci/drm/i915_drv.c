@@ -563,6 +563,85 @@ inteldrm_gmch_match(struct pci_attach_args *pa)
 	return (0);
 }
 
+
+int inteldrm_wsioctl(void *, u_long, caddr_t, int, struct proc *);
+paddr_t inteldrm_wsmmap(void *, off_t, int);
+int inteldrm_alloc_screen(void *, const struct wsscreen_descr *,
+    void **, int *, int *, long *);
+void inteldrm_free_screen(void *, void *);
+int inteldrm_show_screen(void *, void *, int,
+    void (*)(void *, int, int), void *);
+
+struct wsscreen_descr inteldrm_stdscreen = {
+	"std",
+	0, 0,
+	0,
+	0, 0,
+	WSSCREEN_UNDERLINE | WSSCREEN_HILIT |
+	WSSCREEN_REVERSE | WSSCREEN_WSCOLORS
+};
+
+const struct wsscreen_descr *inteldrm_scrlist[] = {
+	&inteldrm_stdscreen,
+};
+
+struct wsscreen_list inteldrm_screenlist = {
+	nitems(inteldrm_scrlist), inteldrm_scrlist
+};
+
+struct wsdisplay_accessops inteldrm_accessops = {
+	inteldrm_wsioctl,
+	inteldrm_wsmmap,
+	inteldrm_alloc_screen,
+	inteldrm_free_screen,
+	inteldrm_show_screen
+};
+
+int
+inteldrm_wsioctl(void *v, u_long cmd, caddr_t data, int flag, struct proc *p)
+{
+	return (-1);
+}
+
+paddr_t
+inteldrm_wsmmap(void *v, off_t off, int prot)
+{
+	return (-1);
+}
+
+int
+inteldrm_alloc_screen(void *v, const struct wsscreen_descr *type,
+    void **cookiep, int *curxp, int *curyp, long *attrp)
+{
+	struct inteldrm_softc *dev_priv = v;
+	struct rasops_info *ri = &dev_priv->ro;
+
+	if (dev_priv->nscreens > 0)
+		return (ENOMEM);
+
+	*cookiep = ri;
+	*curxp = 0;
+	*curyp =0;
+	ri->ri_ops.alloc_attr(ri, 0, 0, 0, attrp);
+	dev_priv->nscreens++;
+	return (0);
+}
+
+void
+inteldrm_free_screen(void *v, void *cookie)
+{
+	struct inteldrm_softc *dev_priv = v;
+
+	dev_priv->nscreens--;
+}
+
+int
+inteldrm_show_screen(void *v, void *cookie, int waitok,
+    void (*cb)(void *, int, int), void *cbarg)
+{
+	return (0);
+}
+
 void
 inteldrm_attach(struct device *parent, struct device *self, void *aux)
 {
@@ -780,6 +859,46 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_load_modeset_init(dev);
 	intel_opregion_init(dev);
+
+#if 0
+{
+	extern int wsdisplay_console_initted;
+	struct wsemuldisplaydev_attach_args aa;
+	struct rasops_info *ri = &dev_priv->ro;
+
+	if (ri->ri_bits == NULL)
+		return;
+
+	intel_fb_restore_mode(dev);
+
+	ri->ri_flg = RI_CENTER;
+	rasops_init(ri, 96, 132);
+
+	inteldrm_stdscreen.capabilities = ri->ri_caps;
+	inteldrm_stdscreen.nrows = ri->ri_rows;
+	inteldrm_stdscreen.ncols = ri->ri_cols;
+	inteldrm_stdscreen.textops = &ri->ri_ops;
+	inteldrm_stdscreen.fontwidth = ri->ri_font->fontwidth;
+	inteldrm_stdscreen.fontheight = ri->ri_font->fontheight;
+
+	aa.console = 0;
+	aa.scrdata = &inteldrm_screenlist;
+	aa.accessops = &inteldrm_accessops;
+	aa.accesscookie = dev_priv;
+	aa.defaultscreens = 1;
+
+	if (wsdisplay_console_initted) {
+		long defattr;
+
+		wsdisplay_console_initted = 0;
+		ri->ri_ops.alloc_attr(ri, 0, 0, 0, &defattr);
+		wsdisplay_cnattach(&inteldrm_stdscreen, ri, 0, 0, defattr);
+		aa.console = 1;
+	}
+
+	config_found(parent, &aa, wsemuldisplaydevprint);
+}
+#endif
 }
 
 int

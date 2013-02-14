@@ -496,6 +496,7 @@ struct inteldrm_softc {
 
 	struct vga_pci_bar	*regs;
 
+	int			 nscreens;
 	struct rasops_info	 ro;
 
 	uint32_t		 gpio_mmio_base;
