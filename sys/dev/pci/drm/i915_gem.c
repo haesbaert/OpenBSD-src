@@ -1509,11 +1509,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	if (ret != 0)
 		return (ret);
 
-#ifdef notyet
 	if (pipelined != obj->ring) {
-#else
-	if (1) {
-#endif
 		ret = i915_gem_object_wait_rendering(obj);
 		if (ret == -ERESTART || ret == -EINTR)
 			return (ret);
