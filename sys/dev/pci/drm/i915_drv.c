@@ -2088,17 +2088,19 @@ inteldrm_verify_inactive(struct inteldrm_softc *dev_priv, char *file,
 
 #if (INTELDRM_DEBUG > 1)
 
-static const char *get_pin_flag(struct drm_i915_gem_object *obj_priv)
+static const char *get_pin_flag(struct drm_i915_gem_object *obj)
 {
-	if (obj_priv->pin_count > 0)
+	if (obj->user_pin_count > 0)
+		return "P";
+	if (obj->pin_count > 0)
 		return "p";
 	else
 		return " ";
 }
 
-static const char *get_tiling_flag(struct drm_i915_gem_object *obj_priv)
+static const char *get_tiling_flag(struct drm_i915_gem_object *obj)
 {
-    switch (obj_priv->tiling_mode) {
+    switch (obj->tiling_mode) {
     default:
     case I915_TILING_NONE: return " ";
     case I915_TILING_X: return "X";
@@ -2106,17 +2108,24 @@ static const char *get_tiling_flag(struct drm_i915_gem_object *obj_priv)
     }
 }
 
+static void i915_ring_seqno_info(struct intel_ring_buffer *ring)
+{
+	if (ring->get_seqno) {
+		printf("Current sequence (%s): %d\n",
+		       ring->name, ring->get_seqno(ring, false));
+	}
+}
+
 void
 i915_gem_seqno_info(int kdev)
 {
 	struct drm_device	*dev = drm_get_device_from_kdev(kdev);
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int			 i;
 
-	if (dev_priv->hw_status_page != NULL) {
-		printf("Current sequence: %d\n", i915_get_gem_seqno(dev_priv));
-	} else {
-		printf("Current sequence: hws uninitialized\n");
-	}
+	for_each_ring(ring, dev_priv, i)
+		i915_ring_seqno_info(ring);
 }
 
 void
@@ -2124,23 +2133,89 @@ i915_interrupt_info(int kdev)
 {
 	struct drm_device	*dev = drm_get_device_from_kdev(kdev);
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int			 i, pipe;
 
-	printf("Interrupt enable:    %08x\n",
-		   I915_READ(IER));
-	printf("Interrupt identity:  %08x\n",
-		   I915_READ(IIR));
-	printf("Interrupt mask:      %08x\n",
-		   I915_READ(IMR));
-	printf("Pipe A stat:         %08x\n",
-		   I915_READ(_PIPEASTAT));
-	printf("Pipe B stat:         %08x\n",
-		   I915_READ(_PIPEBSTAT));
-	printf("Interrupts received: 0\n");
-	if (dev_priv->hw_status_page != NULL) {
-		printf("Current sequence:    %d\n",
-			   i915_get_gem_seqno(dev_priv));
+	if (IS_VALLEYVIEW(dev)) {
+		printf("Display IER:\t%08x\n",
+			   I915_READ(VLV_IER));
+		printf("Display IIR:\t%08x\n",
+			   I915_READ(VLV_IIR));
+		printf("Display IIR_RW:\t%08x\n",
+			   I915_READ(VLV_IIR_RW));
+		printf("Display IMR:\t%08x\n",
+			   I915_READ(VLV_IMR));
+		for_each_pipe(pipe)
+			printf("Pipe %c stat:\t%08x\n",
+				   pipe_name(pipe),
+				   I915_READ(PIPESTAT(pipe)));
+
+		printf("Master IER:\t%08x\n",
+			   I915_READ(VLV_MASTER_IER));
+
+		printf("Render IER:\t%08x\n",
+			   I915_READ(GTIER));
+		printf("Render IIR:\t%08x\n",
+			   I915_READ(GTIIR));
+		printf("Render IMR:\t%08x\n",
+			   I915_READ(GTIMR));
+
+		printf("PM IER:\t\t%08x\n",
+			   I915_READ(GEN6_PMIER));
+		printf("PM IIR:\t\t%08x\n",
+			   I915_READ(GEN6_PMIIR));
+		printf("PM IMR:\t\t%08x\n",
+			   I915_READ(GEN6_PMIMR));
+
+		printf("Port hotplug:\t%08x\n",
+			   I915_READ(PORT_HOTPLUG_EN));
+		printf("DPFLIPSTAT:\t%08x\n",
+			   I915_READ(VLV_DPFLIPSTAT));
+		printf("DPINVGTT:\t%08x\n",
+			   I915_READ(DPINVGTT));
+
+	} else if (!HAS_PCH_SPLIT(dev)) {
+		printf("Interrupt enable:    %08x\n",
+			   I915_READ(IER));
+		printf("Interrupt identity:  %08x\n",
+			   I915_READ(IIR));
+		printf("Interrupt mask:      %08x\n",
+			   I915_READ(IMR));
+		for_each_pipe(pipe)
+			printf("Pipe %c stat:         %08x\n",
+				   pipe_name(pipe),
+				   I915_READ(PIPESTAT(pipe)));
 	} else {
-		printf("Current sequence:    hws uninitialized\n");
+		printf("North Display Interrupt enable:		%08x\n",
+			   I915_READ(DEIER));
+		printf("North Display Interrupt identity:	%08x\n",
+			   I915_READ(DEIIR));
+		printf("North Display Interrupt mask:		%08x\n",
+			   I915_READ(DEIMR));
+		printf("South Display Interrupt enable:		%08x\n",
+			   I915_READ(SDEIER));
+		printf("South Display Interrupt identity:	%08x\n",
+			   I915_READ(SDEIIR));
+		printf("South Display Interrupt mask:		%08x\n",
+			   I915_READ(SDEIMR));
+		printf("Graphics Interrupt enable:		%08x\n",
+			   I915_READ(GTIER));
+		printf("Graphics Interrupt identity:		%08x\n",
+			   I915_READ(GTIIR));
+		printf("Graphics Interrupt mask:		%08x\n",
+			   I915_READ(GTIMR));
+	}
+#if 0
+	printf("Interrupts received: %d\n",
+		   atomic_read(&dev_priv->irq_received));
+#endif
+	for_each_ring(ring, dev_priv, i) {
+		if (IS_GEN6(dev) || IS_GEN7(dev)) {
+			printf(
+				   "Graphics Interrupt mask (%s):	%08x\n",
+				   ring->name, I915_READ_IMR(ring));
+		}
+		i915_ring_seqno_info(ring);
 	}
 }
 
@@ -2182,10 +2257,11 @@ i915_hws_info(int kdev)
 {
 	struct drm_device	*dev = drm_get_device_from_kdev(kdev);
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int i;
 	volatile u32 *hws;
 
-	hws = (volatile u32 *)dev_priv->hw_status_page;
+	hws = (volatile u32 *)ring->status_page.page_addr;
 	if (hws == NULL)
 		return;
 
@@ -2226,7 +2302,7 @@ i915_batchbuffer_info(int kdev)
 	int			 ret;
 
 	TAILQ_FOREACH(obj_priv, &dev_priv->mm.active_list, list) {
-		obj = &obj_priv->obj;
+		obj = &obj_priv->base;
 		if (obj->read_domains & I915_GEM_DOMAIN_COMMAND) {
 			if ((ret = agp_map_subregion(dev_priv->agph,
 			    obj_priv->gtt_offset, obj->size, &bsh)) != 0) {
@@ -2236,8 +2312,8 @@ i915_batchbuffer_info(int kdev)
 			printf("--- gtt_offset = 0x%08x\n",
 			    obj_priv->gtt_offset);
 			i915_dump_pages(dev_priv->bst, bsh, obj->size);
-			agp_unmap_subregion(dev_priv->agph, dev_priv->ring.bsh,
-			    obj->size);
+			agp_unmap_subregion(dev_priv->agph,
+			    dev_priv->rings[RCS].bsh, obj->size);
 		}
 	}
 }
@@ -2249,14 +2325,14 @@ i915_ringbuffer_data(int kdev)
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	bus_size_t		 off;
 
-	if (!dev_priv->ring.ring_obj) {
+	if (!dev_priv->rings[RCS].obj) {
 		printf("No ringbuffer setup\n");
 		return;
 	}
 
-	for (off = 0; off < dev_priv->ring.size; off += 4)
+	for (off = 0; off < dev_priv->rings[RCS].size; off += 4)
 		printf("%08x :  %08x\n", off, bus_space_read_4(dev_priv->bst,
-		    dev_priv->ring.bsh, off));
+		    dev_priv->rings[RCS].bsh, off));
 }
 
 void
@@ -2271,8 +2347,8 @@ i915_ringbuffer_info(int kdev)
 
 	printf("RingHead :  %08x\n", head);
 	printf("RingTail :  %08x\n", tail);
-	printf("RingMask :  %08x\n", dev_priv->ring.size - 1);
-	printf("RingSize :  %08lx\n", dev_priv->ring.size);
+	printf("RingMask :  %08x\n", dev_priv->rings[RCS].size - 1);
+	printf("RingSize :  %08lx\n", dev_priv->rings[RCS].size);
 	printf("Acthd :  %08x\n", I915_READ(INTEL_INFO(dev)->gen >= 4 ?
 	    ACTHD_I965 : ACTHD));
 }
