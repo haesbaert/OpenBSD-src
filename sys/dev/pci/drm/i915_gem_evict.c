@@ -74,7 +74,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		 */
 		obj = i915_gem_find_inactive_object(dev_priv, min_size);
 		if (obj != NULL) {
-			obj_priv = (struct drm_i915_gem_object *)obj;
+			obj_priv = to_intel_bo(obj);
 			/* find inactive object returns the object with a
 			 * reference for us, and held
 			 */

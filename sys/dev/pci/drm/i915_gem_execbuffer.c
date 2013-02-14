@@ -443,7 +443,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	 * command.
 	 */
 	batch_obj = object_list[args->buffer_count - 1];
-	batch_obj_priv = (struct drm_i915_gem_object *)batch_obj;
+	batch_obj_priv = to_intel_bo(batch_obj);
 	if (args->batch_start_offset + args->batch_len > batch_obj->size ||
 	    batch_obj->pending_write_domain) {
 		ret = EINVAL;
@@ -482,7 +482,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	mtx_enter(&dev_priv->list_lock);
 	for (i = 0; i < args->buffer_count; i++) {
 		obj = object_list[i];
-		obj_priv = (struct drm_i915_gem_object *)obj;
+		obj_priv = to_intel_bo(obj);
 		drm_lock_obj(obj);
 
 		obj->write_domain = obj->pending_write_domain;

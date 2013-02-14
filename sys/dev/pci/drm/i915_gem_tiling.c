@@ -315,7 +315,7 @@ i915_gem_set_tiling(struct drm_device *dev, void *data,
 	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
 	if (obj == NULL)
 		return (EBADF);
-	obj_priv = (struct drm_i915_gem_object *)obj;
+	obj_priv = to_intel_bo(obj);
 	drm_hold_object(obj);
 
 	if (obj_priv->pin_count != 0) {
@@ -383,7 +383,7 @@ i915_gem_get_tiling(struct drm_device *dev, void *data,
 	if (obj == NULL)
 		return (EBADF);
 	drm_hold_object(obj);
-	obj_priv = (struct drm_i915_gem_object *)obj;
+	obj_priv = to_intel_bo(obj);
 
 	args->tiling_mode = obj_priv->tiling_mode;
 	switch (obj_priv->tiling_mode) {

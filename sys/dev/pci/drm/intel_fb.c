@@ -220,7 +220,6 @@ intel_fbdev_destroy(struct drm_device *dev, struct intel_fbdev *ifbdev)
 	struct fb_info *info;
 #endif
 	struct intel_framebuffer *ifb = &ifbdev->ifb;
-	struct drm_obj *obj;
 
 #if 0
 	if (ifbdev->helper.fbdev) {
@@ -237,8 +236,7 @@ intel_fbdev_destroy(struct drm_device *dev, struct intel_fbdev *ifbdev)
 
 	drm_framebuffer_cleanup(&ifb->base);
 	if (ifb->obj) {
-		obj = (struct drm_obj *)ifb->obj;
-		drm_gem_object_unreference(obj);
+		drm_gem_object_unreference(&ifb->obj->base);
 		ifb->obj = NULL;
 	}
 }

@@ -1064,7 +1064,7 @@ i915_gem_gtt_map_ioctl(struct drm_device *dev, void *data,
 	/* Since we are doing purely uvm-related operations here we do
 	 * not need to hold the object, a reference alone is sufficient
 	 */
-	obj_priv = (struct drm_i915_gem_object *)obj;
+	obj_priv = to_intel_bo(obj);
 
 	/* Check size. Also ensure that the object is not purgeable */
 	if (args->size == 0 || args->offset > obj->size || args->size >
@@ -1364,7 +1364,7 @@ again:
 		if (reg->obj == NULL)
 			break;
 
-		old_obj_priv = (struct drm_i915_gem_object *)reg->obj;
+		old_obj_priv = to_intel_bo(reg->obj);
 		if (old_obj_priv->pin_count == 0)
 			avail++;
 	}
@@ -1379,7 +1379,7 @@ again:
 		TAILQ_FOREACH(reg, &dev_priv->mm.fence_list,
 		    list) {
 			old_obj = reg->obj;
-			old_obj_priv = (struct drm_i915_gem_object *)old_obj;
+			old_obj_priv = to_intel_bo(old_obj);
 
 			if (old_obj_priv->pin_count)
 				continue;
@@ -1517,7 +1517,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 			goto err;
 		}
 
-		target_obj_priv = (struct drm_i915_gem_object *)target_obj;
+		target_obj_priv = to_intel_bo(target_obj);
 
 		/* The target buffer should have appeared before us in the
 		 * exec_object list, so it should have a GTT space bound by now.
@@ -2076,7 +2076,7 @@ inteldrm_verify_inactive(struct inteldrm_softc *dev_priv, char *file,
 	struct drm_i915_gem_object *obj_priv;
 
 	TAILQ_FOREACH(obj_priv, &dev_priv->mm.inactive_list, list) {
-		obj = (struct drm_obj *)obj_priv;
+		obj = &obj_priv->base;
 		if (obj_priv->pin_count || obj_priv->active ||
 		    obj->write_domain & I915_GEM_GPU_DOMAINS)
 			DRM_ERROR("inactive %p (p $d a $d w $x) %s:%d\n",
@@ -2236,7 +2236,7 @@ i915_gem_fence_regs_info(int kdev)
 		} else {
 			struct drm_i915_gem_object *obj_priv;
 
-			obj_priv = (struct drm_i915_gem_object *)obj;
+			obj_priv = to_intel_bo(obj);
 			printf("Fenced object[%2d] = %p: %s "
 				   "%08x %08zx %08x %s %08x %08x %d",
 				   i, obj, get_pin_flag(obj_priv),
