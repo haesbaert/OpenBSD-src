@@ -1546,7 +1546,22 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	return (0);
 }
 
-// i915_gem_object_finish_gpu
+int
+i915_gem_object_finish_gpu(struct drm_i915_gem_object *obj)
+{
+	int ret;
+
+	if ((obj->base.read_domains & I915_GEM_GPU_DOMAINS) == 0)
+		return 0;
+
+	ret = i915_gem_object_wait_rendering(obj);
+	if (ret)
+		return ret;
+
+	/* Ensure that we invalidate the GPU's caches and TLBs. */
+	obj->base.read_domains &= ~I915_GEM_GPU_DOMAINS;
+	return 0;
+}
 
 /*
  * Moves a single object to the CPU read and possibly write domain.

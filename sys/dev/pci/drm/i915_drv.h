@@ -1062,6 +1062,7 @@ void	i965_write_fence_reg(struct drm_i915_fence_reg *);
 void	i915_write_fence_reg(struct drm_i915_fence_reg *);
 void	i830_write_fence_reg(struct drm_i915_fence_reg *);
 
+int	i915_gem_object_finish_gpu(struct drm_i915_gem_object *);
 int	i915_gem_init_hw(struct drm_device *);
 
 /* Debug functions, mostly called from ddb */
