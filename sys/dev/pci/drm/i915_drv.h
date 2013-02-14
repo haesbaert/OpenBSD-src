@@ -1159,6 +1159,7 @@ extern void opregion_enable_asle(struct drm_device *dev);
 
 /* i915_gem_gtt.c */
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
+void i915_gem_restore_gtt_mappings(struct drm_device *dev);
 
 /* modesetting */
 extern void intel_modeset_init_hw(struct drm_device *dev);

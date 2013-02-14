@@ -106,8 +106,9 @@ void	inteldrm_quiesce(struct inteldrm_softc *);
 void	i915_alloc_ifp(struct inteldrm_softc *, struct pci_attach_args *);
 void	i965_alloc_ifp(struct inteldrm_softc *, struct pci_attach_args *);
 
-int	i915_drm_thaw(struct inteldrm_softc *);
-int	i915_drm_freeze(struct inteldrm_softc *);
+int	i915_drm_freeze(struct drm_device *);
+int	__i915_drm_thaw(struct drm_device *);
+int	i915_drm_thaw(struct drm_device *);
 
 static const struct intel_device_info intel_i830_info = {
 	.gen = 2, .is_mobile = 1, .cursor_needs_physical = 1,
@@ -461,12 +462,10 @@ inteldrm_probe(struct device *parent, void *match, void *aux)
 }
 
 int
-i915_drm_freeze(struct inteldrm_softc *dev_priv)
+i915_drm_freeze(struct drm_device *dev)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	int			 error = 0;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
 
-	dev_priv = dev->dev_private;
 	drm_kms_helper_poll_disable(dev);
 
 #if 0
@@ -475,11 +474,18 @@ i915_drm_freeze(struct inteldrm_softc *dev_priv)
 
 	/* If KMS is active, we do the leavevt stuff here */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		error = -i915_gem_idle(dev_priv);
+		int error = i915_gem_idle(dev_priv);
 		if (error) {
 			printf("GEM idle failed, resume might fail\n");
 			return (error);
 		}
+
+#ifdef notyet
+		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
+#endif
+
+		intel_modeset_disable(dev);
+
 		drm_irq_uninstall(dev);
 	}
 
@@ -494,43 +500,50 @@ i915_drm_freeze(struct inteldrm_softc *dev_priv)
 }
 
 int
-i915_drm_thaw(struct inteldrm_softc *dev_priv)
+__i915_drm_thaw(struct drm_device *dev)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	int			 error = 0;
-
-#ifdef notyet
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		i915_gem_restore_gtt_mappings(dev);
-	}
-#endif
+	struct inteldrm_softc *dev_priv = dev->dev_private;
+	int error = 0;
 
 	i915_restore_state(dev);
 	intel_opregion_setup(dev);
 
 	/* KMS EnterVT equivalent */
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		intel_init_pch_refclk(dev);
 
-		if (HAS_PCH_SPLIT(dev))
-			ironlake_init_pch_refclk(dev);
-
-		mtx_enter(&dev->mode_config.mutex);
+		DRM_LOCK();
 		dev_priv->mm.suspended = 0;
 
 		error = i915_gem_init_hw(dev);
-		drm_mode_config_reset(dev);
-		mtx_leave(&dev->mode_config.mutex);
-		drm_irq_install(dev);
+		DRM_UNLOCK();
 
-		mtx_enter(&dev->mode_config.mutex);
-		/* Resume the modeset for every activated CRTC */
-		drm_helper_resume_force_mode(dev);
-		mtx_leave(&dev->mode_config.mutex);
+		intel_modeset_init_hw(dev);
+		intel_modeset_setup_hw_state(dev, false);
+		drm_irq_install(dev);
 	}
 
 	intel_opregion_init(dev);
 
 	dev_priv->modeset_on_lid = 0;
+
+	return error;
+}
+
+int
+i915_drm_thaw(struct drm_device *dev)
+{
+	int error = 0;
+
+	intel_gt_reset(dev);
+
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		DRM_LOCK();
+		i915_gem_restore_gtt_mappings(dev);
+		DRM_UNLOCK();
+	}
+
+	__i915_drm_thaw(dev);
 
 	return error;
 }
@@ -817,16 +830,19 @@ inteldrm_activate(struct device *arg, int act)
 
 	switch (act) {
 	case DVACT_QUIESCE:
-		inteldrm_quiesce(dev_priv);
+//		inteldrm_quiesce(dev_priv);
+		i915_drm_freeze(dev);
 		break;
 	case DVACT_SUSPEND:
-		i915_save_state(dev);
+//		i915_save_state(dev);
 		break;
 	case DVACT_RESUME:
-		i915_restore_state(dev);
-		/* entrypoints can stop sleeping now */
-		atomic_clearbits_int(&dev_priv->sc_flags, INTELDRM_QUIET);
-		wakeup(&dev_priv->flags);
+//		i915_restore_state(dev);
+//		/* entrypoints can stop sleeping now */
+//		atomic_clearbits_int(&dev_priv->sc_flags, INTELDRM_QUIET);
+//		wakeup(&dev_priv->flags);
+		i915_drm_thaw(dev);
+		intel_fb_restore_mode(dev);
 		break;
 	}
 
