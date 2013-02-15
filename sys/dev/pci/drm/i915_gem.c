@@ -980,10 +980,9 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
 
-#if 0
-	if (dev_priv->hw_status_page == NULL)
+	if (list_empty(&ring->request_list))
 		return;
-#endif
+
 	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
 
 	seqno = ring->get_seqno(ring, true);
