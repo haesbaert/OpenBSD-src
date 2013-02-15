@@ -996,6 +996,13 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		    dev_priv->mm.wedged))
 			break;
 
+		/* We know the GPU must have read the request to have
+		 * sent us the seqno + interrupt, so use the position
+		 * of tail of the request to update the last known position
+		 * of the GPU head.
+		 */
+		ring->last_retired_head = request->tail;
+
 		list_del(&request->list);
 		i915_gem_retire_request(dev_priv, request);
 		mtx_leave(&dev_priv->request_lock);
