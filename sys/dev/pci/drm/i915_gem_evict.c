@@ -95,9 +95,10 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		found = 0;
 		mtx_enter(&dev_priv->request_lock);
 		for_each_ring(ring, dev_priv, i) {
-			request = list_first_entry(&ring->request_list,
-			    struct drm_i915_gem_request, list);
-			if (request != NULL) {
+			if (!list_empty(&ring->request_list)) {
+				request = list_first_entry(&ring->request_list,
+				    struct drm_i915_gem_request, list);
+
 				seqno = request->seqno;
 				mtx_leave(&dev_priv->request_lock);
 
@@ -168,9 +169,7 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 		    I915_GEM_GPU_DOMAINS);
 		if (seqno == 0)
 			return (ENOMEM);
-        }
 
-	for_each_ring(ring, dev_priv, i) {
 		if ((ret = i915_wait_seqno(ring, seqno)) != 0 ||
 		    (ret = i915_gem_evict_inactive(dev_priv)) != 0)
 			return (ret);
