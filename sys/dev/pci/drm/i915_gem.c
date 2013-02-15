@@ -788,6 +788,7 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 
 	/* Move from whatever list we were on to the tail of execution. */
 	i915_move_to_tail(obj, &dev_priv->mm.active_list);
+	list_move_tail(&obj->ring_list, &ring->active_list);
 	obj->last_rendering_seqno = seqno;
 }
 
@@ -821,6 +822,8 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 		i915_list_remove(obj);
 	else
 		i915_move_to_tail(obj, &dev_priv->mm.inactive_list);
+
+	list_del_init(&obj->ring_list);
 
 	i915_gem_object_move_off_active(obj);
 	atomic_clearbits_int(&obj->base.do_flags, I915_FENCED_EXEC);
@@ -995,7 +998,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		if (i915_seqno_passed(seqno, request->seqno) ||
 		    dev_priv->mm.wedged) {
 			list_del(&request->list);
-			i915_gem_retire_request(dev_priv, request);
+			i915_gem_retire_request(ring, request);
 			mtx_leave(&dev_priv->request_lock);
 
 			drm_free(request);
@@ -1891,6 +1894,7 @@ out:
 void
 i915_gem_object_init(struct drm_i915_gem_object *obj)
 {
+	INIT_LIST_HEAD(&obj->ring_list);
 }
 
 struct drm_i915_gem_object *

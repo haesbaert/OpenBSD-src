@@ -852,6 +852,7 @@ struct drm_i915_gem_object {
 	TAILQ_ENTRY(drm_i915_gem_object)	 list;
 	TAILQ_ENTRY(drm_i915_gem_object)	 write_list;
 	struct i915_gem_list			*current_list;
+	struct list_head			 ring_list;
 	/* GTT binding. */
 	bus_dmamap_t				 dmamap;
 	bus_dma_segment_t			*dma_segs;
@@ -994,7 +995,7 @@ int	i915_gem_init_object(struct drm_obj *);
 void	i915_gem_free_object(struct drm_obj *);
 int	i915_gem_object_pin(struct drm_i915_gem_object *, uint32_t, int);
 void	i915_gem_object_unpin(struct drm_i915_gem_object *);
-void	i915_gem_retire_request(struct inteldrm_softc *,
+void	i915_gem_retire_request(struct intel_ring_buffer *,
 	    struct drm_i915_gem_request *);
 void	i915_gem_retire_requests_ring(struct intel_ring_buffer *);
 int	i915_gem_check_wedge(struct inteldrm_softc *,
