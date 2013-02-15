@@ -992,16 +992,16 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		request = list_first_entry(&ring->request_list,
 		    struct drm_i915_gem_request, list);
 
-		if (i915_seqno_passed(seqno, request->seqno) ||
-		    dev_priv->mm.wedged) {
-			list_del(&request->list);
-			i915_gem_retire_request(dev_priv, request);
-			mtx_leave(&dev_priv->request_lock);
-
-			drm_free(request);
-			mtx_enter(&dev_priv->request_lock);
-		} else
+		if (!(i915_seqno_passed(seqno, request->seqno) ||
+		    dev_priv->mm.wedged))
 			break;
+
+		list_del(&request->list);
+		i915_gem_retire_request(dev_priv, request);
+		mtx_leave(&dev_priv->request_lock);
+
+		drm_free(request);
+		mtx_enter(&dev_priv->request_lock);
 	}
 	mtx_leave(&dev_priv->request_lock);
 }
