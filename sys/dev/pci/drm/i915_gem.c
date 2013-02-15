@@ -803,7 +803,8 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 		obj->last_write_seqno = seqno;
 
 	/* Move from whatever list we were on to the tail of execution. */
-	i915_move_to_tail(obj, &dev_priv->mm.active_list);
+	list_move_tail(&obj->mm_list, &dev_priv->mm.active_list);
+	list_move_tail(&obj->ring_list, &ring->active_list);
 	obj->last_rendering_seqno = seqno;
 }
 
@@ -822,6 +823,18 @@ i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 		obj->last_write_seqno = 0;
 }
 
+void
+i915_gem_object_move_to_flushing(struct drm_i915_gem_object *obj)
+{
+	struct drm_device *dev = obj->base.dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	BUG_ON(!obj->active);
+	list_move_tail(&obj->mm_list, &dev_priv->mm.flushing_list);
+
+	i915_gem_object_move_off_active(obj);
+}
+
 /* called locked */
 void
 i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
@@ -834,10 +847,11 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	if (obj->pin_count != 0)
-		i915_list_remove(obj);
+		list_del_init(&obj->mm_list);
 	else
-		i915_move_to_tail(obj, &dev_priv->mm.inactive_list);
+		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
+	list_del_init(&obj->ring_list);
 	obj->ring = NULL;
 
 	i915_gem_object_move_off_active(obj);
@@ -1021,12 +1035,41 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		ring->last_retired_head = request->tail;
 
 		list_del(&request->list);
-		i915_gem_retire_request(dev_priv, request);
 		mtx_leave(&dev_priv->request_lock);
 
 		drm_free(request);
 		mtx_enter(&dev_priv->request_lock);
 	}
+
+	/* Move any buffers on the active list that are no longer referenced
+	 * by the ringbuffer to the flushing/inactive lists as appropriate.
+	 */
+	mtx_enter(&dev_priv->list_lock);
+	while (!list_empty(&ring->active_list)) {
+		struct drm_i915_gem_object *obj;
+
+		obj = list_first_entry(&ring->active_list,
+				      struct drm_i915_gem_object,
+				      ring_list);
+
+		if (!i915_seqno_passed(seqno, obj->last_rendering_seqno))
+			break;
+
+		drm_lock_obj(&obj->base);
+		if (obj->base.write_domain != 0) {
+			KASSERT(obj->active);
+			list_move_tail(&obj->mm_list,
+			    &dev_priv->mm.flushing_list);
+			list_del_init(&obj->ring_list);
+			i915_gem_object_move_off_active(obj);
+			drm_unlock_obj(&obj->base);
+		} else {
+			/* unlocks object for us and drops ref */
+			i915_gem_object_move_to_inactive_locked(obj);
+			mtx_enter(&dev_priv->list_lock);
+		}
+	}
+	mtx_leave(&dev_priv->list_lock);
 	mtx_leave(&dev_priv->request_lock);
 }
 
@@ -1107,7 +1150,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	atomic_sub(obj->base.size, &dev->gtt_memory);
 
 	/* Remove ourselves from any LRU list if present. */
-	i915_list_remove(obj);
+	list_del_init(&obj->mm_list);
 
 	if (i915_gem_object_is_purgeable(obj))
 		inteldrm_purge_obj(&obj->base);
@@ -1389,9 +1432,9 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 		/* If the gtt is empty and we're still having trouble
 		 * fitting our object in, we're out of memory.
 		 */
-		if (TAILQ_EMPTY(&dev_priv->mm.inactive_list) &&
-		    TAILQ_EMPTY(&dev_priv->mm.flushing_list) &&
-		    TAILQ_EMPTY(&dev_priv->mm.active_list)) {
+		if (list_empty(&dev_priv->mm.inactive_list) &&
+		    list_empty(&dev_priv->mm.flushing_list) &&
+		    list_empty(&dev_priv->mm.active_list)) {
 			DRM_ERROR("GTT full, but LRU list empty\n");
 			goto error;
 		}
@@ -1738,7 +1781,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 		atomic_inc(&dev->pin_count);
 		atomic_add(obj->base.size, &dev->pin_memory);
 		if (!obj->active)
-			i915_list_remove(obj);
+			list_del(&obj->mm_list);
 	}
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
@@ -1931,6 +1974,9 @@ out:
 void
 i915_gem_object_init(struct drm_i915_gem_object *obj)
 {
+	INIT_LIST_HEAD(&obj->mm_list);
+	INIT_LIST_HEAD(&obj->ring_list);
+	INIT_LIST_HEAD(&obj->gpu_write_list);
 }
 
 struct drm_i915_gem_object *
@@ -2002,8 +2048,8 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 
 	DRM_LOCK();
 	if (dev_priv->mm.suspended || dev_priv->rings[RCS].obj == NULL) {
-		KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
-		KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
+		KASSERT(list_empty(&dev_priv->mm.flushing_list));
+		KASSERT(list_empty(&dev_priv->mm.active_list));
 		(void)i915_gem_evict_inactive(dev_priv);
 		DRM_UNLOCK();
 		return (0);
@@ -2219,8 +2265,8 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 	}
 
 	/* gtt mapping means that the inactive list may not be empty */
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
+	KASSERT(list_empty(&dev_priv->mm.active_list));
+	KASSERT(list_empty(&dev_priv->mm.flushing_list));
 	for_each_ring(ring, dev_priv, i)
 		KASSERT(list_empty(&ring->request_list));
 	DRM_UNLOCK();

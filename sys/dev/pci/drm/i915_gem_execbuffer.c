@@ -491,11 +491,10 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		 * else we can remove the bit because it has been flushed.
 		 */
 		if (obj->do_flags & I915_GPU_WRITE)
-			TAILQ_REMOVE(&dev_priv->mm.gpu_write_list, obj_priv,
-			     write_list);
+			list_del_init(&obj_priv->gpu_write_list);
 		if (obj->write_domain) {
-			TAILQ_INSERT_TAIL(&dev_priv->mm.gpu_write_list,
-			    obj_priv, write_list);
+			list_move_tail(&obj_priv->gpu_write_list,
+				       &ring->gpu_write_list);
 			atomic_setbits_int(&obj->do_flags, I915_GPU_WRITE);
 		} else {
 			atomic_clearbits_int(&obj->do_flags,

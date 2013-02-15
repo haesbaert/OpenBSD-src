@@ -636,7 +636,7 @@ struct inteldrm_softc {
 		 *
 		 * A reference is held on the buffer while on this list.
 		 */
-		TAILQ_HEAD(i915_gem_list, drm_i915_gem_object) active_list;
+		struct list_head active_list;
 
 		/**
 		 * List of objects which are not in the ringbuffer but which
@@ -647,7 +647,7 @@ struct inteldrm_softc {
 		 *
 		 * A reference is held on the buffer while on this list.
 		 */
-		struct i915_gem_list flushing_list;
+		struct list_head flushing_list;
 
 		/*
 		 * list of objects currently pending a GPU write flush.
@@ -656,7 +656,7 @@ struct inteldrm_softc {
 		 * or flushing list, last rendiering_seqno differentiates the
 		 * two.
 		 */
-		struct i915_gem_list gpu_write_list;
+		struct list_head gpu_write_list;
 		/**
 		 * LRU list of objects which are not in the ringbuffer and
 		 * are ready to unbind, but are still in the GTT.
@@ -667,7 +667,7 @@ struct inteldrm_softc {
 		 * as merely being GTT-bound shouldn't prevent its being
 		 * freed, and we'll pull it off the list in the free path.
 		 */
-		struct i915_gem_list inactive_list;
+		struct list_head inactive_list;
 
 		/* Fence LRU */
 		TAILQ_HEAD(i915_fence, drm_i915_fence_reg)	fence_list;
@@ -849,9 +849,9 @@ struct drm_i915_gem_object {
 	struct drm_obj				 base;
 
 	/** This object's place on the active/flushing/inactive lists */
-	TAILQ_ENTRY(drm_i915_gem_object)	 list;
-	TAILQ_ENTRY(drm_i915_gem_object)	 write_list;
-	struct i915_gem_list			*current_list;
+	struct list_head			 ring_list;
+	struct list_head			 mm_list;
+	struct list_head			 gpu_write_list;
 	/* GTT binding. */
 	bus_dmamap_t				 dmamap;
 	bus_dma_segment_t			*dma_segs;
@@ -1008,9 +1008,7 @@ void	i915_gem_object_move_off_active(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *);
 int	i915_add_request(struct intel_ring_buffer *, struct drm_file *, u32 *);
-void	inteldrm_process_flushing(struct inteldrm_softc *, u_int32_t);
-void	i915_move_to_tail(struct drm_i915_gem_object *, struct i915_gem_list *);
-void	i915_list_remove(struct drm_i915_gem_object *);
+void	i915_gem_process_flushing(struct intel_ring_buffer *, u_int32_t);
 int	init_pipe_control(struct intel_ring_buffer *);
 void	cleanup_status_page(struct intel_ring_buffer *);
 void	i915_gem_init_swizzling(struct drm_device *);
@@ -1154,6 +1152,7 @@ void i915_gem_object_init(struct drm_i915_gem_object *);
 struct drm_i915_gem_object *
     i915_gem_alloc_object(struct drm_device *, size_t);
 int i915_gpu_idle(struct drm_device *);
+void i915_gem_object_move_to_flushing(struct drm_i915_gem_object *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

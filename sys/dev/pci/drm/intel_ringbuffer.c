@@ -1275,6 +1275,7 @@ intel_init_ring_buffer(struct drm_device *dev,
 	ring->dev = dev;
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
+	INIT_LIST_HEAD(&ring->gpu_write_list);
 	ring->size = 32 * PAGE_SIZE;
 	memset(ring->sync_seqno, 0, sizeof(ring->sync_seqno));
 

@@ -120,7 +120,8 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		 * will get moved to inactive.
 		 */
 		mtx_enter(&dev_priv->list_lock);
-		TAILQ_FOREACH(obj_priv, &dev_priv->mm.flushing_list, list) {
+		list_for_each_entry(obj_priv, &dev_priv->mm.flushing_list,
+		    mm_list) {
 			obj = &obj_priv->base;
 			if (obj->size >= min_size) {
 				write_domain = obj->write_domain;
@@ -142,7 +143,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		 * large enough to swap out for the new one, so just evict
 		 * everything and start again. (This should be rare.)
 		 */
-		if (!TAILQ_EMPTY(&dev_priv->mm.inactive_list))
+		if (!list_empty(&dev_priv->mm.inactive_list))
 			return (i915_gem_evict_inactive(dev_priv));
 		else
 			return (i915_gem_evict_everything(dev_priv));
@@ -156,9 +157,9 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	int		ret;
 
-	if (TAILQ_EMPTY(&dev_priv->mm.inactive_list) &&
-	    TAILQ_EMPTY(&dev_priv->mm.flushing_list) &&
-	    TAILQ_EMPTY(&dev_priv->mm.active_list))
+	if (list_empty(&dev_priv->mm.inactive_list) &&
+	    list_empty(&dev_priv->mm.flushing_list) &&
+	    list_empty(&dev_priv->mm.active_list))
 		return (ENOSPC);
 
 	/* The gpu_idle will flush everything in the write domain to the
@@ -177,9 +178,9 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 	 * All lists should be empty because we flushed the whole queue, then
 	 * we evicted the whole shebang, only pinned objects are still bound.
 	 */
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.inactive_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
+	KASSERT(list_empty(&dev_priv->mm.inactive_list));
+	KASSERT(list_empty(&dev_priv->mm.flushing_list));
+	KASSERT(list_empty(&dev_priv->mm.active_list));
 
 	return (0);
 }
@@ -192,7 +193,7 @@ i915_gem_evict_inactive(struct inteldrm_softc *dev_priv)
 	int			 ret = 0;
 
 	mtx_enter(&dev_priv->list_lock);
-	while ((obj_priv = TAILQ_FIRST(&dev_priv->mm.inactive_list)) != NULL) {
+	list_for_each_entry(obj_priv, &dev_priv->mm.inactive_list, mm_list) {
 		if (obj_priv->pin_count != 0) {
 			ret = EINVAL;
 			DRM_ERROR("Pinned object in unbind list\n");

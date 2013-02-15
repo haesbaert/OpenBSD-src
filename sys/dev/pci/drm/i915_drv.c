@@ -727,10 +727,10 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	}
 
 	/* GEM init */
-	TAILQ_INIT(&dev_priv->mm.active_list);
-	TAILQ_INIT(&dev_priv->mm.flushing_list);
-	TAILQ_INIT(&dev_priv->mm.inactive_list);
-	TAILQ_INIT(&dev_priv->mm.gpu_write_list);
+	INIT_LIST_HEAD(&dev_priv->mm.active_list);
+	INIT_LIST_HEAD(&dev_priv->mm.flushing_list);
+	INIT_LIST_HEAD(&dev_priv->mm.inactive_list);
+	INIT_LIST_HEAD(&dev_priv->mm.gpu_write_list);
 	TAILQ_INIT(&dev_priv->mm.fence_list);
 	for (i = 0; i < I915_NUM_RINGS; i++)
 		init_ring_lists(&dev_priv->rings[i]);
@@ -1257,26 +1257,25 @@ inteldrm_purge_obj(struct drm_obj *obj)
 }
 
 void
-inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
+i915_gem_process_flushing(struct intel_ring_buffer *ring,
     u_int32_t flush_domains)
 {
+	struct inteldrm_softc		*dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_object	*obj_priv, *next;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	mtx_enter(&dev_priv->list_lock);
-	for (obj_priv = TAILQ_FIRST(&dev_priv->mm.gpu_write_list);
-	    obj_priv != TAILQ_END(&dev_priv->mm.gpu_write_list);
-	    obj_priv = next) {
+
+	list_for_each_entry_safe(obj_priv, next,
+				 &ring->gpu_write_list,
+				 gpu_write_list) {
 		struct drm_obj *obj = &(obj_priv->base);
 
-		next = TAILQ_NEXT(obj_priv, write_list);
-
 		if ((obj->write_domain & flush_domains)) {
-			TAILQ_REMOVE(&dev_priv->mm.gpu_write_list,
-			    obj_priv, write_list);
 			atomic_clearbits_int(&obj->do_flags,
 			     I915_GPU_WRITE);
-			i915_gem_object_move_to_active(obj_priv, obj_priv->ring);
+			list_del_init(&obj_priv->gpu_write_list);
+			i915_gem_object_move_to_active(obj_priv, ring);
 			obj->write_domain = 0;
 			/* if we still need the fence, update LRU */
 			if (inteldrm_needs_fence(obj_priv)) {
@@ -1294,6 +1293,7 @@ inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
 	mtx_leave(&dev_priv->list_lock);
 }
 
+#if 0
 /**
  * Moves buffers associated only with the given active seqno from the active
  * to inactive list, potentially freeing them.
@@ -1340,6 +1340,7 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 	}
 	mtx_leave(&dev_priv->list_lock);
 }
+#endif
 
 void
 i915_gem_retire_work_handler(void *arg1, void *unused)
@@ -1381,7 +1382,7 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
 		mtx_enter(&dev_priv->request_lock);
-		inteldrm_process_flushing(dev_priv, flush_domains);
+		i915_gem_process_flushing(ring, flush_domains);
 		mtx_leave(&dev_priv->request_lock);
 		err = i915_add_request(ring, NULL, &seqno);
 	}
@@ -1404,7 +1405,7 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 	 * lock, they won't disappear until we release the lock.
 	 */
 	mtx_enter(&dev_priv->list_lock);
-	TAILQ_FOREACH(obj_priv, &dev_priv->mm.inactive_list, list) {
+	list_for_each_entry(obj_priv, &dev_priv->mm.inactive_list, mm_list) {
 		obj = &obj_priv->base;
 		if (obj->size >= min_size) {
 			if ((!obj_priv->dirty ||
@@ -1872,8 +1873,8 @@ inteldrm_quiesce(struct inteldrm_softc *dev_priv)
 	 * for gtt mapping. Nothing should be pinned over vt switch, if it
 	 * is then rendering corruption will occur due to api misuse, shame.
 	 */
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.flushing_list));
-	KASSERT(TAILQ_EMPTY(&dev_priv->mm.active_list));
+	KASSERT(list_empty(&dev_priv->mm.flushing_list));
+	KASSERT(list_empty(&dev_priv->mm.active_list));
 	/* Disabled because root could panic the kernel if this was enabled */
 	/* KASSERT(dev->pin_count == 0); */
 
@@ -2048,11 +2049,14 @@ inteldrm_hung(void *arg, void *reset_type)
 	 * they're now irrelavent.
 	 */
 	mtx_enter(&dev_priv->list_lock);
-	while ((obj_priv = TAILQ_FIRST(&dev_priv->mm.flushing_list)) != NULL) {
+	while (!list_empty(&dev_priv->mm.flushing_list)) {
+		obj_priv = list_first_entry(&dev_priv->mm.flushing_list,
+					   struct drm_i915_gem_object,
+					   mm_list);
+
 		drm_lock_obj(&obj_priv->base);
 		if (obj_priv->base.write_domain & I915_GEM_GPU_DOMAINS) {
-			TAILQ_REMOVE(&dev_priv->mm.gpu_write_list,
-			    obj_priv, write_list);
+			list_del_init(&obj_priv->gpu_write_list);
 			atomic_clearbits_int(&obj_priv->base.do_flags,
 			    I915_GPU_WRITE);
 			obj_priv->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
@@ -2069,23 +2073,6 @@ inteldrm_hung(void *arg, void *reset_type)
 	if (HAS_RESET(dev))
 		dev_priv->mm.wedged = 0;
 	DRM_UNLOCK();
-}
-
-void
-i915_move_to_tail(struct drm_i915_gem_object *obj_priv,
-    struct i915_gem_list *head)
-{
-	i915_list_remove(obj_priv);
-	TAILQ_INSERT_TAIL(head, obj_priv, list);
-	obj_priv->current_list = head;
-}
-
-void
-i915_list_remove(struct drm_i915_gem_object *obj_priv)
-{
-	if (obj_priv->current_list != NULL)
-		TAILQ_REMOVE(obj_priv->current_list, obj_priv, list);
-	obj_priv->current_list = NULL;
 }
 
 bus_size_t
