@@ -824,6 +824,7 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 		i915_move_to_tail(obj, &dev_priv->mm.inactive_list);
 
 	list_del_init(&obj->ring_list);
+	obj->ring = NULL;
 
 	i915_gem_object_move_off_active(obj);
 	atomic_clearbits_int(&obj->base.do_flags, I915_FENCED_EXEC);
