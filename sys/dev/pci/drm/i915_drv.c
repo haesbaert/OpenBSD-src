@@ -684,6 +684,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
+	intel_detect_pch(dev_priv);
+
 	/*
 	 * i945G/GM report MSI capability despite not actually supporting it.
 	 * so explicitly disable it.
@@ -826,8 +828,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		dev_priv->num_pipe = 2;
 	else
 		dev_priv->num_pipe = 1;
-
-	intel_detect_pch(dev_priv);
 
 	intel_gt_init(dev);
 
