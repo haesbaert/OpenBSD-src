@@ -1301,44 +1301,40 @@ inteldrm_process_flushing(struct inteldrm_softc *dev_priv,
  * called with and sleeps with the drm_lock.
  */
 void
-i915_gem_retire_request(struct intel_ring_buffer *ring,
+i915_gem_retire_request(struct inteldrm_softc *dev_priv,
     struct drm_i915_gem_request *request)
 {
-	struct inteldrm_softc		*dev_priv = ring->dev->dev_private;
+	struct drm_i915_gem_object	*obj_priv;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	mtx_enter(&dev_priv->list_lock);
 	/* Move any buffers on the active list that are no longer referenced
 	 * by the ringbuffer to the flushing/inactive lists as appropriate.  */
-	while (!list_empty(&ring->active_list)) {
-		struct drm_i915_gem_object *obj;
-
-		obj = list_first_entry(&ring->active_list,
-				       struct drm_i915_gem_object,
-				       ring_list);
+	while ((obj_priv  = TAILQ_FIRST(&dev_priv->mm.active_list)) != NULL) {
+		struct drm_obj *obj = &obj_priv->base;
 
 		/* If the seqno being retired doesn't match the oldest in the
 		 * list, then the oldest in the list must still be newer than
 		 * this seqno.
 		 */
-		if (obj->last_rendering_seqno != request->seqno)
+		if (obj_priv->last_rendering_seqno != request->seqno)
 			break;
 
-		drm_lock_obj(&obj->base);
+		drm_lock_obj(obj);
 		/*
 		 * If we're now clean and can be read from, move inactive,
 		 * else put on the flushing list to signify that we're not
 		 * available quite yet.
 		 */
-		if (obj->base.write_domain != 0) {
-			KASSERT(obj->active);
-			i915_move_to_tail(obj,
+		if (obj->write_domain != 0) {
+			KASSERT(obj_priv->active);
+			i915_move_to_tail(obj_priv,
 			    &dev_priv->mm.flushing_list);
-			i915_gem_object_move_off_active(obj);
-			drm_unlock_obj(&obj->base);
+			i915_gem_object_move_off_active(obj_priv);
+			drm_unlock_obj(obj);
 		} else {
 			/* unlocks object for us and drops ref */
-			i915_gem_object_move_to_inactive_locked(obj);
+			i915_gem_object_move_to_inactive_locked(obj_priv);
 			mtx_enter(&dev_priv->list_lock);
 		}
 	}
