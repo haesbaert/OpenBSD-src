@@ -1096,7 +1096,23 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 int
 i915_gpu_idle(struct drm_device *dev)
 {
-	printf("%s stub\n", __func__);
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_ring_buffer *ring;
+	int ret, i;
+
+	/* Flush everything onto the inactive list. */
+	for_each_ring(ring, dev_priv, i) {
+#ifdef notyet
+		ret = i915_switch_context(ring, NULL, DEFAULT_CONTEXT_ID);
+		if (ret)
+			return ret;
+#endif
+
+		ret = intel_ring_idle(ring);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
