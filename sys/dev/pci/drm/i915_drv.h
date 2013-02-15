@@ -1153,6 +1153,7 @@ int i915_gem_fault(struct drm_obj *, struct uvm_faultinfo *, off_t,
 void i915_gem_object_init(struct drm_i915_gem_object *);
 struct drm_i915_gem_object *
     i915_gem_alloc_object(struct drm_device *, size_t);
+int i915_gpu_idle(struct drm_device *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

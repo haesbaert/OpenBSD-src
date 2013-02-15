@@ -153,27 +153,25 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 int
 i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 {
-	struct intel_ring_buffer *ring;
-	u_int32_t	seqno;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	int		ret;
-	int		i;
 
 	if (TAILQ_EMPTY(&dev_priv->mm.inactive_list) &&
 	    TAILQ_EMPTY(&dev_priv->mm.flushing_list) &&
 	    TAILQ_EMPTY(&dev_priv->mm.active_list))
 		return (ENOSPC);
 
-	/* Flush everything onto the inactive list. */
-	for_each_ring(ring, dev_priv, i) {
-		seqno = i915_gem_flush(ring, I915_GEM_GPU_DOMAINS,
-		    I915_GEM_GPU_DOMAINS);
-		if (seqno == 0)
-			return (ENOMEM);
+	/* The gpu_idle will flush everything in the write domain to the
+	 * active list. Then we must move everything off the active list
+	 * with retire requests.
+	 */
+	ret = i915_gpu_idle(dev);
+	if (ret)
+		return ret;
 
-		if ((ret = i915_wait_seqno(ring, seqno)) != 0 ||
-		    (ret = i915_gem_evict_inactive(dev_priv)) != 0)
-			return (ret);
-	}
+	i915_gem_retire_requests(dev_priv);
+
+	i915_gem_evict_inactive(dev_priv);
 
 	/*
 	 * All lists should be empty because we flushed the whole queue, then

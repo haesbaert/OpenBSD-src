@@ -66,7 +66,6 @@ int i915_gem_init_phys_object(struct drm_device *, int, int, int);
 int i915_gem_phys_pwrite(struct drm_device *, struct drm_i915_gem_object *,
 			 struct drm_i915_gem_pwrite *, struct drm_file *);
 bool intel_enable_blt(struct drm_device *);
-int i915_gpu_idle(struct drm_device *);
 int i915_gem_handle_seqno_wrap(struct drm_device *);
 
 // i915_gem_object_fence_lost
