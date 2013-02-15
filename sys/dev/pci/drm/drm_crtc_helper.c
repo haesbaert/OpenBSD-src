@@ -1105,7 +1105,7 @@ drm_helper_hpd_irq_event(struct drm_device *dev)
 	if (!dev->mode_config.poll_enabled)
 		return;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
 
 		/* Only handle HPD capable connectors. */
@@ -1123,7 +1123,7 @@ drm_helper_hpd_irq_event(struct drm_device *dev)
 			changed = true;
 	}
 
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	if (changed)
 		drm_kms_helper_hotplug_event(dev);

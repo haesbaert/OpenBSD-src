@@ -627,7 +627,7 @@ intel_sprite_set_colorkey(struct drm_device *dev, void *data,
 	if ((set->flags & (I915_SET_COLORKEY_DESTINATION | I915_SET_COLORKEY_SOURCE)) == (I915_SET_COLORKEY_DESTINATION | I915_SET_COLORKEY_SOURCE))
 		return -EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, set->plane_id, DRM_MODE_OBJECT_PLANE);
 	if (!obj) {
@@ -640,7 +640,7 @@ intel_sprite_set_colorkey(struct drm_device *dev, void *data,
 	ret = intel_plane->update_colorkey(plane, set);
 
 out_unlock:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -657,7 +657,7 @@ intel_sprite_get_colorkey(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -ENODEV;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, get->plane_id, DRM_MODE_OBJECT_PLANE);
 	if (!obj) {
@@ -670,7 +670,7 @@ intel_sprite_get_colorkey(struct drm_device *dev, void *data,
 	intel_plane->get_colorkey(plane, get);
 
 out_unlock:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 

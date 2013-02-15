@@ -1127,13 +1127,13 @@ intel_overlay_put_image(struct drm_device *dev, void *data,
 	}
 
 	if (!(put_image_rec->flags & I915_OVERLAY_ENABLE)) {
-		mtx_enter(&dev->mode_config.mutex);
+		rw_enter_write(&dev->mode_config.rwl);
 		DRM_LOCK();
 
 		ret = intel_overlay_switch_off(overlay);
 
 		DRM_UNLOCK();
-		mtx_leave(&dev->mode_config.mutex);
+		rw_exit_write(&dev->mode_config.rwl);
 
 		return ret;
 	}
@@ -1158,7 +1158,7 @@ intel_overlay_put_image(struct drm_device *dev, void *data,
 		goto out_free;
 	}
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	DRM_LOCK();
 
 	if (new_bo->tiling_mode) {
@@ -1240,7 +1240,7 @@ intel_overlay_put_image(struct drm_device *dev, void *data,
 		goto out_unlock;
 
 	DRM_UNLOCK();
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	free(params, M_DRM);
 
@@ -1248,7 +1248,7 @@ intel_overlay_put_image(struct drm_device *dev, void *data,
 
 out_unlock:
 	DRM_UNLOCK();
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	drm_gem_object_unreference_unlocked(&new_bo->base);
 out_free:
 	free(params, M_DRM);
@@ -1328,7 +1328,7 @@ intel_overlay_attrs(struct drm_device *dev, void *data,
 		return -ENODEV;
 	}
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	DRM_LOCK();
 
 	ret = -EINVAL;
@@ -1394,7 +1394,7 @@ intel_overlay_attrs(struct drm_device *dev, void *data,
 	ret = 0;
 out_unlock:
 	DRM_UNLOCK();
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return ret;
 }

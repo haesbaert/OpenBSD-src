@@ -258,7 +258,7 @@ drm_mode_object_get(struct drm_device *dev,
 	if ((han = drm_calloc(1, sizeof(*han))) == NULL)
 		return ENOMEM;
 	han->obj = obj;
-	mtx_enter(&dev->mode_config.idr_mutex);
+	rw_enter_write(&dev->mode_config.idr_rwl);
 	
 again:
 	new_id = han->handle = ++dev->mode_config.mode_obj_id;
@@ -271,7 +271,7 @@ again:
 	if (han->handle == 0 || SPLAY_INSERT(drm_mode_tree,
 		&dev->mode_config.mode_tree, han))
 		goto again;
-	mtx_leave(&dev->mode_config.idr_mutex);
+	rw_exit_write(&dev->mode_config.idr_rwl);
 	return 0;
 }
 
@@ -293,9 +293,9 @@ drm_mode_object_put(struct drm_device *dev,
 	han.obj = object;
 	han.handle = object->id;
 
-	mtx_enter(&dev->mode_config.idr_mutex);
+	rw_enter_write(&dev->mode_config.idr_rwl);
 	SPLAY_REMOVE(drm_mode_tree, &dev->mode_config.mode_tree, &han);
-	mtx_leave(&dev->mode_config.idr_mutex);
+	rw_exit_write(&dev->mode_config.idr_rwl);
 }
 
 struct drm_mode_object *
@@ -305,11 +305,11 @@ drm_mode_object_find(struct drm_device *dev,
 	struct drm_mode_object *obj = NULL;
 	struct drm_mode_handle *han, search;
 
-	mtx_enter(&dev->mode_config.idr_mutex);
+	rw_enter_write(&dev->mode_config.idr_rwl);
 	search.handle = id;
 	han = SPLAY_FIND(drm_mode_tree, &dev->mode_config.mode_tree, &search);
 	if (han == NULL) {
-		mtx_leave(&dev->mode_config.idr_mutex);
+		rw_exit_write(&dev->mode_config.idr_rwl);
 		return NULL;
 	}
 	
@@ -317,7 +317,7 @@ drm_mode_object_find(struct drm_device *dev,
 	if (obj->type != type) {
 		return NULL;
 	}
-	mtx_leave(&dev->mode_config.idr_mutex);
+	rw_exit_write(&dev->mode_config.idr_rwl);
 
 	return obj;
 }
@@ -499,7 +499,7 @@ drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
 	crtc->funcs = funcs;
 	crtc->invert_dimensions = false;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	ret = drm_mode_object_get(dev, &crtc->base, DRM_MODE_OBJECT_CRTC);
 	if (ret)
@@ -511,7 +511,7 @@ drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
 	dev->mode_config.num_crtc++;
 
  out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return ret;
 }
@@ -604,7 +604,7 @@ drm_connector_init(struct drm_device *dev,
 {
 	int ret;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	ret = drm_mode_object_get(dev, &connector->base, DRM_MODE_OBJECT_CONNECTOR);
 	if (ret)
@@ -634,7 +634,7 @@ drm_connector_init(struct drm_device *dev,
 				      dev->mode_config.dpms_property, 0);
 
  out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return ret;
 }
@@ -664,11 +664,11 @@ drm_connector_cleanup(struct drm_connector *connector)
 	list_for_each_entry_safe(mode, t, &connector->user_modes, head)
 		drm_mode_remove(connector, mode);
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	drm_mode_object_put(dev, &connector->base);
 	list_del(&connector->head);
 	dev->mode_config.num_connector--;
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 }
 EXPORT_SYMBOL(drm_connector_cleanup);
 
@@ -693,7 +693,7 @@ drm_encoder_init(struct drm_device *dev,
 {
 	int ret;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	ret = drm_mode_object_get(dev, &encoder->base, DRM_MODE_OBJECT_ENCODER);
 	if (ret)
@@ -707,7 +707,7 @@ drm_encoder_init(struct drm_device *dev,
 	dev->mode_config.num_encoder++;
 
  out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return ret;
 }
@@ -717,11 +717,11 @@ void
 drm_encoder_cleanup(struct drm_encoder *encoder)
 {
 	struct drm_device *dev = encoder->dev;
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	drm_mode_object_put(dev, &encoder->base);
 	list_del(&encoder->head);
 	dev->mode_config.num_encoder--;
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 }
 EXPORT_SYMBOL(drm_encoder_cleanup);
 
@@ -734,7 +734,7 @@ drm_plane_init(struct drm_device *dev, struct drm_plane *plane,
 {
 	int ret;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	ret = drm_mode_object_get(dev, &plane->base, DRM_MODE_OBJECT_PLANE);
 	if (ret)
@@ -769,7 +769,7 @@ drm_plane_init(struct drm_device *dev, struct drm_plane *plane,
 	}
 
  out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return ret;
 }
@@ -780,7 +780,7 @@ drm_plane_cleanup(struct drm_plane *plane)
 {
 	struct drm_device *dev = plane->dev;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	free(plane->format_types, M_DRM);
 	drm_mode_object_put(dev, &plane->base);
 	/* if not added to a list, it must be a private plane */
@@ -788,7 +788,7 @@ drm_plane_cleanup(struct drm_plane *plane)
 		list_del(&plane->head);
 		dev->mode_config.num_plane--;
 	}
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 }
 EXPORT_SYMBOL(drm_plane_cleanup);
 
@@ -1070,8 +1070,8 @@ EXPORT_SYMBOL(drm_mode_create_dirty_info_property);
 void
 drm_mode_config_init(struct drm_device *dev)
 {
-	mtx_init(&dev->mode_config.mutex, IPL_TTY);
-	mtx_init(&dev->mode_config.idr_mutex, IPL_TTY);
+	rw_init(&dev->mode_config.rwl, "mcrwl");
+	rw_init(&dev->mode_config.idr_rwl, "idrwl");
 	INIT_LIST_HEAD(&dev->mode_config.fb_list);
 	INIT_LIST_HEAD(&dev->mode_config.crtc_list);
 	INIT_LIST_HEAD(&dev->mode_config.connector_list);
@@ -1081,9 +1081,9 @@ drm_mode_config_init(struct drm_device *dev)
 	INIT_LIST_HEAD(&dev->mode_config.plane_list);
 	SPLAY_INIT(&dev->mode_config.mode_tree);
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	drm_mode_create_standard_connector_properties(dev);
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	/* Just to be sure */
 	dev->mode_config.num_fb = 0;
@@ -1325,7 +1325,7 @@ drm_mode_getresources(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	/*
 	 * For the non-control nodes we need to limit the list of resources
@@ -1484,7 +1484,7 @@ drm_mode_getresources(struct drm_device *dev, void *data,
 		  card_res->count_connectors, card_res->count_encoders);
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -1517,7 +1517,7 @@ drm_mode_getcrtc(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, crtc_resp->crtc_id,
 				   DRM_MODE_OBJECT_CRTC);
@@ -1545,7 +1545,7 @@ drm_mode_getcrtc(struct drm_device *dev,
 	}
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -1593,7 +1593,7 @@ drm_mode_getconnector(struct drm_device *dev, void *data,
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:?]\n", out_resp->connector_id);
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, out_resp->connector_id,
 				   DRM_MODE_OBJECT_CONNECTOR);
@@ -1693,7 +1693,7 @@ drm_mode_getconnector(struct drm_device *dev, void *data,
 	out_resp->count_encoders = encoders_count;
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -1709,7 +1709,7 @@ drm_mode_getencoder(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, enc_resp->encoder_id,
 				   DRM_MODE_OBJECT_ENCODER);
 	if (!obj) {
@@ -1728,7 +1728,7 @@ drm_mode_getencoder(struct drm_device *dev, void *data,
 	enc_resp->possible_clones = encoder->possible_clones;
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -1756,7 +1756,7 @@ drm_mode_getplane_res(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	config = &dev->mode_config;
 
 	/*
@@ -1779,7 +1779,7 @@ drm_mode_getplane_res(struct drm_device *dev, void *data,
 	plane_resp->count_planes = config->num_plane;
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -1808,7 +1808,7 @@ drm_mode_getplane(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, plane_resp->plane_id,
 				   DRM_MODE_OBJECT_PLANE);
 	if (!obj) {
@@ -1848,7 +1848,7 @@ drm_mode_getplane(struct drm_device *dev, void *data,
 	plane_resp->count_format_types = plane->format_count;
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -1880,7 +1880,7 @@ drm_mode_setplane(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	/*
 	 * First, find the plane, crtc, and fb objects.  If not available,
@@ -1979,7 +1979,7 @@ drm_mode_setplane(struct drm_device *dev, void *data,
 	}
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return ret;
 }
@@ -2024,7 +2024,7 @@ drm_mode_setcrtc(struct drm_device *dev, void *data,
 	if (crtc_req->x > INT_MAX || crtc_req->y > INT_MAX)
 		return ERANGE;
 
-//	mtx_enter(&dev->mode_config.mutex);
+//	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, crtc_req->crtc_id,
 				   DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
@@ -2162,7 +2162,7 @@ out:
 	if (connector_set != NULL)
 		free(connector_set, M_DRM);
 	drm_mode_destroy(dev, mode);
-//	mtx_leave(&dev->mode_config.mutex);
+//	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2181,7 +2181,7 @@ drm_mode_cursor_ioctl(struct drm_device *dev,
 	if (!req->flags || (~DRM_MODE_CURSOR_FLAGS & req->flags))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, req->crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		DRM_DEBUG_KMS("Unknown CRTC ID %d\n", req->crtc_id);
@@ -2209,7 +2209,7 @@ drm_mode_cursor_ioctl(struct drm_device *dev,
 		}
 	}
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2294,7 +2294,7 @@ drm_mode_addfb(struct drm_device *dev,
 	if ((config->min_height > r.height) || (r.height > config->max_height))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	/* TODO check buffer is sufficiently large */
 	/* TODO setup destructor callback */
@@ -2310,7 +2310,7 @@ drm_mode_addfb(struct drm_device *dev,
 	DRM_DEBUG_KMS("[FB:%d]\n", fb->base.id);
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2485,7 +2485,7 @@ drm_mode_addfb2(struct drm_device *dev,
 	if (ret)
 		return ret;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	fb = dev->mode_config.funcs->fb_create(dev, file_priv, r);
 	if (fb == NULL) {
@@ -2498,7 +2498,7 @@ drm_mode_addfb2(struct drm_device *dev,
 	DRM_DEBUG_KMS("[FB:%d]\n", fb->base.id);
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2533,7 +2533,7 @@ drm_mode_rmfb(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, *id, DRM_MODE_OBJECT_FB);
 	/* TODO check that we really get a framebuffer back. */
 	if (!obj) {
@@ -2554,7 +2554,7 @@ drm_mode_rmfb(struct drm_device *dev,
 	drm_framebuffer_remove(fb);
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2587,7 +2587,7 @@ drm_mode_getfb(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, r->fb_id, DRM_MODE_OBJECT_FB);
 	if (!obj) {
 		ret = EINVAL;
@@ -2603,7 +2603,7 @@ drm_mode_getfb(struct drm_device *dev,
 	fb->funcs->create_handle(fb, file_priv, &r->handle);
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2623,7 +2623,7 @@ drm_mode_dirtyfb_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, r->fb_id, DRM_MODE_OBJECT_FB);
 	if (!obj) {
 		ret = EINVAL;
@@ -2679,7 +2679,7 @@ drm_mode_dirtyfb_ioctl(struct drm_device *dev,
 out_err2:
 	free(clips, M_DRM);
 out_err1:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2704,11 +2704,11 @@ drm_fb_release(struct drm_file *priv)
 //	struct drm_device *dev = priv->minor->dev;
 	struct drm_framebuffer *fb, *tfb;
 
-	// XXX mtx_enter(&dev->mode_config.mutex);
+	// XXX rw_enter_write(&dev->mode_config.rwl);
 	list_for_each_entry_safe(fb, tfb, &priv->fbs, filp_head) {
 		drm_framebuffer_remove(fb);
 	}
-	// XXX mtx_leave(&dev->mode_config.mutex);
+	// XXX rw_exit_write(&dev->mode_config.rwl);
 }
 
 /**
@@ -2829,7 +2829,7 @@ drm_mode_attachmode_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, mode_cmd->connector_id, DRM_MODE_OBJECT_CONNECTOR);
 	if (!obj) {
@@ -2853,7 +2853,7 @@ drm_mode_attachmode_ioctl(struct drm_device *dev,
 
 	drm_mode_attachmode(dev, connector, mode);
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -2884,7 +2884,7 @@ drm_mode_detachmode_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, mode_cmd->connector_id, DRM_MODE_OBJECT_CONNECTOR);
 	if (!obj) {
@@ -2901,7 +2901,7 @@ drm_mode_detachmode_ioctl(struct drm_device *dev,
 
 	ret = drm_mode_detachmode(dev, connector, &mode);
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -3159,7 +3159,7 @@ drm_mode_getproperty_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, out_resp->prop_id, DRM_MODE_OBJECT_PROPERTY);
 	if (!obj) {
 		ret = EINVAL;
@@ -3244,7 +3244,7 @@ drm_mode_getproperty_ioctl(struct drm_device *dev,
 		out_resp->count_enum_blobs = blob_count;
 	}
 done:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -3299,7 +3299,7 @@ drm_mode_getblob_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, out_resp->blob_id, DRM_MODE_OBJECT_BLOB);
 	if (!obj) {
 		ret = EINVAL;
@@ -3317,7 +3317,7 @@ drm_mode_getblob_ioctl(struct drm_device *dev,
 	out_resp->length = blob->length;
 
 done:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -3466,7 +3466,7 @@ drm_mode_obj_get_properties_ioctl(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	obj = drm_mode_object_find(dev, arg->obj_id, arg->obj_type);
 	if (!obj) {
@@ -3505,7 +3505,7 @@ drm_mode_obj_get_properties_ioctl(struct drm_device *dev, void *data,
 	}
 	arg->count_props = props_count;
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -3523,7 +3523,7 @@ drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 
 	arg_obj = drm_mode_object_find(dev, arg->obj_id, arg->obj_type);
 	if (!arg_obj)
@@ -3561,7 +3561,7 @@ drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 	}
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -3628,7 +3628,7 @@ drm_mode_gamma_set_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, crtc_lut->crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		ret = EINVAL;
@@ -3672,7 +3672,7 @@ drm_mode_gamma_set_ioctl(struct drm_device *dev,
 	crtc->funcs->gamma_set(crtc, r_base, g_base, b_base, 0, crtc->gamma_size);
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 
 }
@@ -3691,7 +3691,7 @@ drm_mode_gamma_get_ioctl(struct drm_device *dev,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, crtc_lut->crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		ret = EINVAL;
@@ -3727,7 +3727,7 @@ drm_mode_gamma_get_ioctl(struct drm_device *dev,
 		goto out;
 	}
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
@@ -3747,7 +3747,7 @@ drm_mode_page_flip_ioctl(struct drm_device *dev,
 	    page_flip->reserved != 0)
 		return EINVAL;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, page_flip->crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj)
 		goto out;
@@ -3828,7 +3828,7 @@ drm_mode_page_flip_ioctl(struct drm_device *dev,
 	}
 
 out:
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 

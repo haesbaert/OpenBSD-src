@@ -766,8 +766,8 @@ struct drm_mode_group {
  * global restrictions are also here, e.g. dimension restrictions.
  */
 struct drm_mode_config {
-	struct mutex mutex; /* protects configuration (mode lists etc.) */
-	struct mutex idr_mutex; /* for IDR management */
+	struct rwlock rwl; /* protects configuration (mode lists etc.) */
+	struct rwlock idr_rwl; /* for IDR management */
 	SPLAY_HEAD(drm_mode_tree, drm_mode_handle) mode_tree; /* use this idr for all IDs, fb, crtc, connector, modes - just makes life easier */
 	uint32_t		 mode_obj_id;
 	/* this is limited to one for now */

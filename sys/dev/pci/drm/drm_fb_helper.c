@@ -1478,7 +1478,7 @@ drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 	if (!fb_helper->fb)
 		return 0;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (crtc->fb)
 			crtcs_bound++;
@@ -1488,7 +1488,7 @@ drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 
 	if (bound < crtcs_bound) {
 		fb_helper->delayed_hotplug = true;
-		mtx_leave(&dev->mode_config.mutex);
+		rw_exit_write(&dev->mode_config.rwl);
 		return 0;
 	}
 	DRM_DEBUG_KMS("\n");
@@ -1500,7 +1500,7 @@ drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 	count = drm_fb_helper_probe_connector_modes(fb_helper, max_width,
 						    max_height);
 	drm_setup_crtcs(fb_helper);
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return drm_fb_helper_single_fb_probe(fb_helper, bpp_sel);
 }
