@@ -1150,6 +1150,9 @@ int i915_gem_create(struct drm_file *, struct drm_device *, uint64_t,
 void init_ring_lists(struct intel_ring_buffer *);
 int i915_gem_fault(struct drm_obj *, struct uvm_faultinfo *, off_t,
     vaddr_t, vm_page_t *, int, int, vm_prot_t, int );
+void i915_gem_object_init(struct drm_i915_gem_object *);
+struct drm_i915_gem_object *
+    i915_gem_alloc_object(struct drm_device *, size_t);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

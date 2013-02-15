@@ -7218,9 +7218,8 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
 	struct drm_i915_gem_object *obj;
 	struct drm_mode_fb_cmd2 mode_cmd = { 0 };
 
-	obj = to_intel_bo(drm_gem_object_alloc(dev,
-	    intel_framebuffer_size_for_mode(mode, bpp)));
-
+	obj = i915_gem_alloc_object(dev,
+				    intel_framebuffer_size_for_mode(mode, bpp));
 	if (obj == NULL)
 		return ERR_PTR(-ENOMEM);
 

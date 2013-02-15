@@ -139,7 +139,7 @@ int
 i915_gem_create(struct drm_file *file, struct drm_device *dev, uint64_t size,
     uint32_t *handle_p)
 {
-	struct drm_obj *obj;
+	struct drm_i915_gem_object *obj;
 	uint32_t handle;
 	int ret;
 
@@ -147,14 +147,14 @@ i915_gem_create(struct drm_file *file, struct drm_device *dev, uint64_t size,
 	if (size == 0)
 		return (-EINVAL);
 
-	obj = drm_gem_object_alloc(dev, size);
+	obj = i915_gem_alloc_object(dev, size);
 	if (obj == NULL)
 		return (-ENOMEM);
 
 	handle = 0;
-	ret = drm_handle_create(file, obj, &handle);
+	ret = drm_handle_create(file, &obj->base, &handle);
 	if (ret != 0) {
-		drm_unref(&obj->uobj);
+		drm_unref(&obj->base.uobj);
 		return (-ret);
 	}
 
@@ -192,7 +192,7 @@ i915_gem_create_ioctl(struct drm_device *dev, void *data,
 {
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_create	*args = data;
-	struct drm_obj			*obj;
+	struct drm_i915_gem_object	*obj;
 	int				 handle, ret;
 
 	args->size = round_page(args->size);
@@ -206,17 +206,17 @@ i915_gem_create_ioctl(struct drm_device *dev, void *data,
 		return (EFBIG);
 
 	/* Allocate the new object */
-	obj = drm_gem_object_alloc(dev, args->size);
+	obj = i915_gem_alloc_object(dev, args->size);
 	if (obj == NULL)
 		return (ENOMEM);
 
 	/* we give our reference to the handle */
-	ret = drm_handle_create(file_priv, obj, &handle);
+	ret = drm_handle_create(file_priv, &obj->base, &handle);
 
 	if (ret == 0)
 		args->handle = handle;
 	else
-		drm_unref(&obj->uobj);
+		drm_unref(&obj->base.uobj);
 
 	return (ret);
 }
@@ -1888,8 +1888,27 @@ out:
 	return (ret);
 }
 
-// i915_gem_object_init
-// i915_gem_alloc_object
+void
+i915_gem_object_init(struct drm_i915_gem_object *obj)
+{
+}
+
+struct drm_i915_gem_object *
+i915_gem_alloc_object(struct drm_device *dev, size_t size)
+{
+	struct drm_obj			*obj;
+	struct drm_i915_gem_object	*obj_priv;
+
+	obj = drm_gem_object_alloc(dev, size);
+	if (obj == NULL)
+		return NULL;
+
+	obj_priv = to_intel_bo(obj);
+
+	i915_gem_object_init(obj_priv);
+
+	return (obj_priv);
+}
 
 int
 i915_gem_init_object(struct drm_obj *obj)

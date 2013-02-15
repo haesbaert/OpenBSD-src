@@ -502,7 +502,6 @@ out:
 int
 init_pipe_control(struct intel_ring_buffer *ring)
 {
-	struct drm_device *dev = ring->dev;
 //	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct pipe_control *pc;
 	struct drm_i915_gem_object *obj;
@@ -515,7 +514,7 @@ init_pipe_control(struct intel_ring_buffer *ring)
 	if (!pc)
 		return -ENOMEM;
 
-	obj = to_intel_bo(drm_gem_object_alloc(dev, 4096));
+	obj = i915_gem_alloc_object(ring->dev, 4096);
 	if (obj == NULL) {
 		DRM_ERROR("Failed to allocate seqno page\n");
 		ret = -ENOMEM;
@@ -1163,7 +1162,7 @@ init_status_page(struct intel_ring_buffer *ring)
 	struct drm_i915_gem_object *obj;
 	int ret;
 
-	obj = to_intel_bo(drm_gem_object_alloc(dev, 4096));
+	obj = i915_gem_alloc_object(dev, 4096);
 	if (obj == NULL) {
 		DRM_ERROR("Failed to allocate status page\n");
 		ret = -ENOMEM;
@@ -1292,7 +1291,7 @@ intel_init_ring_buffer(struct drm_device *dev,
 			return ret;
 	}
 
-	obj = to_intel_bo(drm_gem_object_alloc(dev, ring->size));
+	obj = i915_gem_alloc_object(dev, ring->size);
 	if (obj == NULL) {
 		DRM_ERROR("Failed to allocate ringbuffer\n");
 		ret = -ENOMEM;
@@ -1799,7 +1798,7 @@ intel_init_render_ring_buffer(struct drm_device *dev)
 		struct drm_i915_gem_object *obj;
 		int ret;
 
-		obj = to_intel_bo(drm_gem_object_alloc(dev, I830_BATCH_LIMIT));
+		obj = i915_gem_alloc_object(dev, I830_BATCH_LIMIT);
 		if (obj == NULL) {
 			DRM_ERROR("Failed to allocate batch bo\n");
 			return -ENOMEM;
