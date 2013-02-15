@@ -435,16 +435,33 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 }
 
 int
-i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj)
+i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
+			       bool readonly)
 {
-	int			 ret;
+	struct intel_ring_buffer *ring = obj->ring;
+	u32 seqno;
+	int ret;
 
-	/* wait for queued rendering so we know it's flushed and bo is idle */
-	if (obj->active) {
-		ret =  i915_wait_seqno(obj->ring,
-		    obj->last_rendering_seqno);
+	seqno = readonly ? obj->last_write_seqno : obj->last_rendering_seqno;
+	if (seqno == 0)
+		return 0;
+
+	ret = i915_wait_seqno(ring, seqno);
+	if (ret)
+		return ret;
+
+	i915_gem_retire_requests_ring(ring);
+
+	/* Manually manage the write flush as we may have not yet
+	 * retired the buffer.
+	 */
+	if (obj->last_write_seqno &&
+	    i915_seqno_passed(seqno, obj->last_write_seqno)) {
+		obj->last_write_seqno = 0;
+		obj->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
 	}
-	return (ret);
+
+	return 0;
 }
 
 // i915_gem_object_wait_rendering__nonblocking
@@ -1533,7 +1550,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 		return (ret);
 
 	if (pipelined != obj->ring) {
-		ret = i915_gem_object_wait_rendering(obj);
+		ret = i915_gem_object_wait_rendering(obj, false);
 		if (ret == -ERESTART || ret == -EINTR)
 			return (ret);
 	}
@@ -1573,7 +1590,7 @@ i915_gem_object_finish_gpu(struct drm_i915_gem_object *obj)
 	if ((obj->base.read_domains & I915_GEM_GPU_DOMAINS) == 0)
 		return 0;
 
-	ret = i915_gem_object_wait_rendering(obj);
+	ret = i915_gem_object_wait_rendering(obj, false);
 	if (ret)
 		return ret;
 

@@ -1047,7 +1047,7 @@ int	i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *,
 int	i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *,
 	    int, int);
 int	i915_gem_get_fence_reg(struct drm_obj *);
-int	i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj);
+int	i915_gem_object_wait_rendering(struct drm_i915_gem_object *, bool);
 int	i915_gem_object_put_fence_reg(struct drm_obj *);
 bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
