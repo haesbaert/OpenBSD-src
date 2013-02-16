@@ -949,6 +949,7 @@ i915_add_request(struct intel_ring_buffer *ring,
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_request	*request;
 	uint32_t			 seqno;
+	u32				 request_ring_position;
 	int				 was_empty, ret;
 
 	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
@@ -967,6 +968,13 @@ i915_add_request(struct intel_ring_buffer *ring,
 	if (dev_priv->next_seqno == 0)
 		dev_priv->next_seqno++;
 
+	/* Record the position of the start of the request so that
+	 * should we detect the updated seqno part-way through the
+	 * GPU processing the request, we never over-estimate the
+	 * position of the head.
+	 */
+	request_ring_position = intel_ring_get_tail(ring);
+
 	ret = ring->add_request(ring, seqno);
 	if (ret) {
 		drm_free(request);
@@ -979,6 +987,7 @@ i915_add_request(struct intel_ring_buffer *ring,
 	mtx_enter(&dev_priv->request_lock);
 	request->seqno = seqno;
 	request->ring = ring;
+	request->tail = request_ring_position;
 	was_empty = list_empty(&ring->request_list);
 	list_add_tail(&request->list, &ring->request_list);
 	mtx_leave(&dev_priv->request_lock);
