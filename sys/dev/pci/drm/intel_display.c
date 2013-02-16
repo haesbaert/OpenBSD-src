@@ -2466,7 +2466,9 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		if (ret)
 			goto err_unpin;
 
+#ifdef notyet
 		i915_gem_object_pin_fence(obj);
+#endif
 	}
 
 	dev_priv->mm.interruptible = true;
@@ -2482,7 +2484,9 @@ err_interruptible:
 void
 intel_unpin_fb_obj(struct drm_i915_gem_object *obj)
 {
+#ifdef notyet
 	i915_gem_object_unpin_fence(obj);
+#endif
 	i915_gem_object_unpin(obj);
 }
 

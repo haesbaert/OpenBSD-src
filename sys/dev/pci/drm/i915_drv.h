@@ -1522,16 +1522,4 @@ inteldrm_needs_fence(struct drm_i915_gem_object *obj_priv)
 	return (obj_priv->base.do_flags & I915_FENCED_EXEC);
 }
 
-static inline void
-i915_gem_object_pin_fence(struct drm_i915_gem_object *obj)
-{
-	i915_gem_object_pin(obj, 0, 1);
-}
-
-static inline void
-i915_gem_object_unpin_fence(struct drm_i915_gem_object *obj)
-{
-	i915_gem_object_unpin(obj);
-}
-
 #endif
