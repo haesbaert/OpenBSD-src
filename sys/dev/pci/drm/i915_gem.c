@@ -442,7 +442,7 @@ i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
 	u32 seqno;
 	int ret;
 
-	seqno = readonly ? obj->last_write_seqno : obj->last_rendering_seqno;
+	seqno = readonly ? obj->last_write_seqno : obj->last_read_seqno;
 	if (seqno == 0)
 		return 0;
 
@@ -805,7 +805,7 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 	/* Move from whatever list we were on to the tail of execution. */
 	list_move_tail(&obj->mm_list, &dev_priv->mm.active_list);
 	list_move_tail(&obj->ring_list, &ring->active_list);
-	obj->last_rendering_seqno = seqno;
+	obj->last_read_seqno = seqno;
 }
 
 void
@@ -817,7 +817,7 @@ i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
 
-	obj->last_rendering_seqno = 0;
+	obj->last_read_seqno = 0;
 	obj->last_fenced_seqno = 0;
 	if (obj->base.write_domain == 0)
 		obj->last_write_seqno = 0;
@@ -1052,7 +1052,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 				      struct drm_i915_gem_object,
 				      ring_list);
 
-		if (!i915_seqno_passed(seqno, obj->last_rendering_seqno))
+		if (!i915_seqno_passed(seqno, obj->last_read_seqno))
 			break;
 
 		drm_lock_obj(&obj->base);
@@ -1496,7 +1496,7 @@ i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj,
 	/* wait for queued rendering so we know it's flushed and bo is idle */
 	if (pipelined == 0 && obj->active) {
 		if (write) {
-			seqno = obj->last_rendering_seqno;
+			seqno = obj->last_read_seqno;
 		} else {
 			seqno = obj->last_write_seqno;
 		}

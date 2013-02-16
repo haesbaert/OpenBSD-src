@@ -1317,7 +1317,7 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 		 * list, then the oldest in the list must still be newer than
 		 * this seqno.
 		 */
-		if (obj_priv->last_rendering_seqno != request->seqno)
+		if (obj_priv->last_read_seqno != request->seqno)
 			break;
 
 		drm_lock_obj(obj);
@@ -2366,7 +2366,7 @@ i915_gem_fence_regs_info(int kdev)
 				   obj->size, obj_priv->stride,
 				   get_tiling_flag(obj_priv),
 				   obj->read_domains, obj->write_domain,
-				   obj_priv->last_rendering_seqno);
+				   obj_priv->last_read_seqno);
 			if (obj->name)
 				printf(" (name: %d)", obj->name);
 			printf("\n");

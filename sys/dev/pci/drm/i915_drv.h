@@ -869,7 +869,7 @@ struct drm_i915_gem_object {
 	u_int					 user_pin_count;
 
 	/** Breadcrumb of last rendering to the buffer. */
-	u_int32_t				 last_rendering_seqno;
+	u_int32_t				 last_read_seqno;
 	u_int32_t				 last_write_seqno;
 	/** Breadcrumb of last fenced GPU access to the buffer. */
 	u_int32_t				 last_fenced_seqno;
