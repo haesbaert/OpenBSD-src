@@ -446,7 +446,7 @@ gen6_pm_rps_work(struct work_struct *work)
 	if ((pm_iir & GEN6_PM_DEFERRED_EVENTS) == 0)
 		return;
 
-	mtx_enter(&dev_priv->rps.hw_lock);
+	rw_enter_write(&dev_priv->rps.hw_lock);
 
 	if (pm_iir & GEN6_PM_RP_UP_THRESHOLD)
 		new_delay = dev_priv->rps.cur_delay + 1;
@@ -461,7 +461,7 @@ gen6_pm_rps_work(struct work_struct *work)
 		gen6_set_rps(dev_priv->dev, new_delay);
 	}
 
-	mtx_leave(&dev_priv->rps.hw_lock);
+	rw_exit_write(&dev_priv->rps.hw_lock);
 }
 #endif
 

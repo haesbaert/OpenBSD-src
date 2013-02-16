@@ -2625,9 +2625,7 @@ gen6_set_rps(struct drm_device *dev, u8 val)
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	u32 limits = gen6_rps_limits(dev_priv, &val);
 
-#ifdef notyet
-	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-#endif
+	rw_assert_wrlock(&dev_priv->rps.hw_lock);
 	WARN_ON(val > dev_priv->rps.max_delay);
 	WARN_ON(val < dev_priv->rps.min_delay);
 
@@ -2710,9 +2708,7 @@ gen6_enable_rps(struct drm_device *dev)
 	int rc6_mode;
 	int i, ret;
 
-#ifdef notyet
-	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-#endif
+	rw_assert_wrlock(&dev_priv->rps.hw_lock);
 
 	/* Here begins a magic sequence of register writes to enable
 	 * auto-downclocking.
@@ -2857,9 +2853,7 @@ gen6_update_ring_freq(struct drm_device *dev)
 	unsigned int ia_freq, max_ia_freq;
 	int scaling_factor = 180;
 
-#ifdef notyet
-	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-#endif
+	rw_assert_wrlock(&dev_priv->rps.hw_lock);
 
 	max_ia_freq = cpufreq_quick_get_max(0);
 	/*
@@ -3663,9 +3657,9 @@ intel_disable_gt_powersave(struct drm_device *dev)
 #ifdef notyet
 		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
 #endif
-		mtx_enter(&dev_priv->rps.hw_lock);
+		rw_enter_write(&dev_priv->rps.hw_lock);
 		gen6_disable_rps(dev);
-		mtx_leave(&dev_priv->rps.hw_lock);
+		rw_exit_write(&dev_priv->rps.hw_lock);
 	}
 }
 
@@ -3678,10 +3672,10 @@ intel_gen6_powersave_work(struct work_struct *work)
 			     rps.delayed_resume_work.work);
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 
-	mutex_lock(&dev_priv->rps.hw_lock);
+	rw_enter_write(&dev_priv->rps.hw_lock);
 	gen6_enable_rps(dev);
 	gen6_update_ring_freq(dev);
-	mutex_unlock(&dev_priv->rps.hw_lock);
+	rw_exit_write(&dev_priv->rps.hw_lock);
 }
 #endif
 
@@ -4701,9 +4695,7 @@ int
 sandybridge_pcode_read(struct inteldrm_softc *dev_priv, u8 mbox, u32 *val)
 {
 	int retries;
-#ifdef notyet
-	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-#endif
+	rw_assert_wrlock(&dev_priv->rps.hw_lock);
 
 	if (I915_READ(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) {
 		DRM_DEBUG_DRIVER("warning: pcode (read) mailbox access failed\n");
@@ -4733,9 +4725,7 @@ int
 sandybridge_pcode_write(struct inteldrm_softc *dev_priv, u8 mbox, u32 val)
 {
 	int retries;
-#ifdef notyet
-	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
-#endif
+	rw_assert_wrlock(&dev_priv->rps.hw_lock);
 
 	if (I915_READ(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) {
 		DRM_DEBUG_DRIVER("warning: pcode (write) mailbox access failed\n");
