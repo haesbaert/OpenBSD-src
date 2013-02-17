@@ -60,6 +60,7 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 	uint8_t *b;
 	int i, retries;
 	uint16_t rem = len;
+	int bus_err = 0;
 
 	if (cmdlen > 1)
 		return (EOPNOTSUPP);
@@ -103,8 +104,10 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 					break;
 				DELAY(1000);
 			}
-			if (st & GMBUS_SATOER)
-				return (ENXIO);
+			if (st & GMBUS_SATOER) {
+				bus_err = 1;
+				goto out;
+			}
 			if ((st & GMBUS_HW_RDY) == 0)
 				return (ETIMEDOUT);
 
@@ -126,6 +129,7 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 		}
 	}
 
+out:
 	for (retries = 10; retries > 0; retries--) {
 		st = I915_READ(GMBUS2 + reg_offset);
 		if ((st & GMBUS_ACTIVE) == 0)
@@ -134,6 +138,14 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 	}
 	if (st & GMBUS_ACTIVE)
 		return (ETIMEDOUT);
+
+	/* after the bus is idle clear the bus error */
+	if (bus_err) {
+		I915_WRITE(GMBUS1 + reg_offset, GMBUS_SW_CLR_INT);
+		I915_WRITE(GMBUS1 + reg_offset, 0);
+		I915_WRITE(GMBUS0 + reg_offset, 0);
+		return (ENXIO);
+	}
 
 	return (0);
 }
