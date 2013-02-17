@@ -267,6 +267,11 @@ enum intel_sbi_destination {
 
 struct intel_fbdev;
 
+struct intel_gmbus {
+	struct i2c_controller	 controller;
+	struct gmbus_port	 gp;
+};
+
 struct i915_suspend_saved_registers {
 	u8 saveLBB;
 	u32 saveDSPACNTR;
@@ -484,10 +489,9 @@ struct inteldrm_softc {
 	struct agp_map		*agph;
 	bus_space_handle_t	 opregion_ioh;
 
-	struct i2c_controller	 ddc;
-	struct gmbus_port	 gp;
-
 	u_long			 flags;
+
+	struct intel_gmbus	 gmbus[GMBUS_NUM_PORTS];
 
 	pci_chipset_tag_t	 pc;
 	pcitag_t		 tag;
@@ -1136,7 +1140,7 @@ extern int i915_restore_state(struct drm_device *);
 
 /* intel_i2c.c */
 extern int intel_setup_gmbus(struct inteldrm_softc *);
-extern void intel_gmbus_set_port(struct inteldrm_softc *, int);
+struct i2c_controller *intel_gmbus_get_adapter(drm_i915_private_t *, unsigned);
 static inline bool intel_gmbus_is_port_valid(unsigned port)
 {
 	return (port >= GMBUS_PORT_SSC && port <= GMBUS_PORT_DPD);

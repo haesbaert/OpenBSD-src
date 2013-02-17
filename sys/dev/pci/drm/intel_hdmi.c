@@ -878,8 +878,9 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
-	intel_gmbus_set_port(dev_priv, intel_hdmi->ddc_bus);
-	edid = drm_get_edid(connector, &dev_priv->ddc);
+	edid = drm_get_edid(connector,
+			    intel_gmbus_get_adapter(dev_priv,
+						    intel_hdmi->ddc_bus));
 
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
@@ -912,8 +913,9 @@ intel_hdmi_get_modes(struct drm_connector *connector)
 	 * we can send audio to it.
 	 */
 
-	intel_gmbus_set_port(dev_priv, intel_hdmi->ddc_bus);
-	return intel_ddc_get_modes(connector, &dev_priv->ddc);
+	return intel_ddc_get_modes(connector,
+				   intel_gmbus_get_adapter(dev_priv,
+							   intel_hdmi->ddc_bus));
 }
 
 bool
@@ -924,8 +926,9 @@ intel_hdmi_detect_audio(struct drm_connector *connector)
 	struct edid *edid;
 	bool has_audio = false;
 
-	intel_gmbus_set_port(dev_priv, intel_hdmi->ddc_bus);
-	edid = drm_get_edid(connector, &dev_priv->ddc);
+	edid = drm_get_edid(connector,
+			    intel_gmbus_get_adapter(dev_priv,
+						    intel_hdmi->ddc_bus));
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL)
 			has_audio = drm_detect_monitor_audio(edid);

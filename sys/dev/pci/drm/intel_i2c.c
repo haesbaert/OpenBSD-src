@@ -152,25 +152,32 @@ int
 intel_setup_gmbus(struct inteldrm_softc *dev_priv)
 {
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+	int i;
 
 	if (HAS_PCH_SPLIT(dev))
 		dev_priv->gpio_mmio_base = PCH_GPIOA - GPIOA;
 	else
 		dev_priv->gpio_mmio_base = 0;
 
-	dev_priv->gp.dev_priv = dev_priv;
-	dev_priv->gp.port = GMBUS_PORT_PANEL;
+	for (i = 0; i < GMBUS_NUM_PORTS; i++) {
+		struct intel_gmbus *bus = &dev_priv->gmbus[i];
 
-	dev_priv->ddc.ic_cookie = &dev_priv->gp;
-	dev_priv->ddc.ic_acquire_bus = gmbus_i2c_acquire_bus;
-	dev_priv->ddc.ic_release_bus = gmbus_i2c_release_bus;
-	dev_priv->ddc.ic_exec = gmbus_i2c_exec;
+		bus->gp.dev_priv = dev_priv;
+		bus->gp.port = i + 1;
+
+		bus->controller.ic_cookie = &bus->gp;
+		bus->controller.ic_acquire_bus = gmbus_i2c_acquire_bus;
+		bus->controller.ic_release_bus = gmbus_i2c_release_bus;
+		bus->controller.ic_exec = gmbus_i2c_exec;
+	}
 
 	return (0);
 }
 
-void
-intel_gmbus_set_port(struct inteldrm_softc *dev_priv, int port)
+struct i2c_controller *
+intel_gmbus_get_adapter(drm_i915_private_t *dev_priv, unsigned port)
 {
-	dev_priv->gp.port = port;	
+	/* -1 to map pin pair to gmbus index */
+	return (intel_gmbus_is_port_valid(port)) ?
+	    &dev_priv->gmbus[port - 1].controller : NULL;
 }

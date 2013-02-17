@@ -1629,8 +1629,9 @@ intel_sdvo_get_analog_edid(struct drm_connector *connector)
 {
 	struct inteldrm_softc *dev_priv = connector->dev->dev_private;
 
-	intel_gmbus_set_port(dev_priv, dev_priv->crt_ddc_pin);
-	return drm_get_edid(connector, &dev_priv->ddc);
+	return drm_get_edid(connector,
+			    intel_gmbus_get_adapter(dev_priv,
+						    dev_priv->crt_ddc_pin));
 }
 
 enum drm_connector_status

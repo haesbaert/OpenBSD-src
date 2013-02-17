@@ -452,10 +452,8 @@ struct edid *
 intel_crt_get_edid(struct drm_connector *connector,
 				struct i2c_controller *i2c)
 {
-	struct inteldrm_softc *dev_priv = connector->dev->dev_private;
 	struct edid *edid;
 
-	intel_gmbus_set_port(dev_priv, dev_priv->crt_ddc_pin);
 	edid = drm_get_edid(connector, i2c);
 
 #ifdef notyet
@@ -493,12 +491,13 @@ intel_crt_detect_ddc(struct drm_connector *connector)
 {
 	struct intel_crt *crt = intel_attached_crt(connector);
 	struct inteldrm_softc *dev_priv = crt->base.base.dev->dev_private;
+	struct i2c_controller *i2c;
 	struct edid *edid;
 
 	BUG_ON(crt->base.type != INTEL_OUTPUT_ANALOG);
 
-	intel_gmbus_set_port(dev_priv, dev_priv->crt_ddc_pin);
-	edid = intel_crt_get_edid(connector, &dev_priv->ddc);
+	i2c = intel_gmbus_get_adapter(dev_priv, dev_priv->crt_ddc_pin);
+	edid = intel_crt_get_edid(connector, i2c);
 
 	if (edid) {
 		bool is_digital = edid->input & DRM_EDID_INPUT_DIGITAL;
@@ -704,15 +703,16 @@ intel_crt_get_modes(struct drm_connector *connector)
 	struct drm_device *dev = connector->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	int ret;
+	struct i2c_controller *i2c;
 
-	intel_gmbus_set_port(dev_priv, dev_priv->crt_ddc_pin);
-	ret = intel_crt_ddc_get_modes(connector, &dev_priv->ddc);
+	i2c = intel_gmbus_get_adapter(dev_priv, dev_priv->crt_ddc_pin);
+	ret = intel_crt_ddc_get_modes(connector, i2c);
 	if (ret || !IS_G4X(dev))
 		return ret;
 
 	/* Try to probe digital port for output in DVI-I -> VGA mode. */
-	intel_gmbus_set_port(dev_priv, GMBUS_PORT_DPB);
-	return intel_crt_ddc_get_modes(connector, &dev_priv->ddc);
+	i2c = intel_gmbus_get_adapter(dev_priv, GMBUS_PORT_DPB);
+	return intel_crt_ddc_get_modes(connector, i2c);
 }
 
 int
