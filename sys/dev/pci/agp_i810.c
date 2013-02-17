@@ -660,24 +660,29 @@ agp_i810_activate(struct device *arg, int act)
 void
 agp_i810_configure(struct agp_i810_softc *isc)
 {
-	bus_addr_t	tmp;
-
-	tmp = isc->isc_apaddr;
-	if (isc->chiptype == CHIP_I810) {
-		tmp += isc->dcache_size;
-	} else {  
-		tmp += isc->stolen << AGP_PAGE_SHIFT;
-	}
-
 	agp_flush_cache();
+
 	/* Install the GATT. */
 	WRITE4(AGP_I810_PGTBL_CTL, isc->gatt->ag_physical | 1);
 
-	/* initialise all gtt entries to point to scribble page */
-	for (; tmp < (isc->isc_apaddr + isc->isc_apsize);
-	    tmp += AGP_PAGE_SIZE)
-		agp_i810_unbind_page(isc, tmp);
-	/* XXX we'll need to restore the GTT contents when we go kms */
+	/*
+	 * First time around, we initialise all GTT entries to point
+	 * to a scribble page.  For suspend/resume, we hope the
+	 * contents will be preserved by the BIOS.  What about
+	 * hibernate?
+	 */
+	if (isc->agpdev == NULL) {
+		bus_addr_t tmp = isc->isc_apaddr;
+
+		if (isc->chiptype == CHIP_I810)
+			tmp += isc->dcache_size;
+		else
+			tmp += isc->stolen << AGP_PAGE_SHIFT;
+
+		for (; tmp < (isc->isc_apaddr + isc->isc_apsize);
+		     tmp += AGP_PAGE_SIZE)
+			agp_i810_unbind_page(isc, tmp);
+	}
 
 	/*
 	 * Make sure the chipset can see everything.
