@@ -333,10 +333,25 @@ drm_do_probe_ddc_edid(struct i2c_controller *adapter, unsigned char *buf,
 		      int block, int len)
 {
 	uint8_t cmd = 0;
+	unsigned char start = block * EDID_LENGTH;
+	unsigned char segment = block >> 1;
+	int ret;
 
-	bzero(buf, len);
 	iic_acquire_bus(adapter, 0);
-	iic_exec(adapter, I2C_OP_READ_WITH_STOP, DDC_ADDR, &cmd, 1, buf, len, 0);
+	if (segment) {
+		ret = iic_exec(adapter, I2C_OP_WRITE_WITH_STOP,
+		    DDC_SEGMENT_ADDR, &cmd, 1, &segment, 1, 0);
+		if (ret)
+			return ret;
+	}
+	ret = iic_exec(adapter, I2C_OP_WRITE_WITH_STOP, DDC_ADDR, &cmd, 1,
+	    &start, 1, 0);
+	if (ret)
+		return (ret);
+	ret = iic_exec(adapter, I2C_OP_READ_WITH_STOP, DDC_ADDR, &cmd, 1,
+	    buf, len, 0);
+	if (ret)
+		return (ret);
 	iic_release_bus(adapter, 0);
 
 	return 0;
