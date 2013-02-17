@@ -361,7 +361,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_controller *adapter)
 	u8 *block, *new;
 	bool print_bad_edid = !connector->bad_edid_counter;
 
-	if ((block = malloc(EDID_LENGTH, M_DRM, M_NOWAIT)) == NULL)
+	if ((block = malloc(EDID_LENGTH, M_DRM, M_WAITOK)) == NULL)
 		return NULL;
 
 	/* base block fetch */
@@ -382,7 +382,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_controller *adapter)
 	if (block[0x7e] == 0)
 		return block;
 
-	new = malloc((block[0x7e] + 1) * EDID_LENGTH, M_DRM, M_NOWAIT);
+	new = malloc((block[0x7e] + 1) * EDID_LENGTH, M_DRM, M_WAITOK);
 	if (!new)
 		goto out;
 	bcopy(block, new, EDID_LENGTH);
@@ -409,7 +409,7 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_controller *adapter)
 		block[EDID_LENGTH-1] += block[0x7e] - valid_extensions;
 		block[0x7e] = valid_extensions;
 		new = malloc((valid_extensions + 1) * EDID_LENGTH,
-		    M_DRM, M_NOWAIT);
+		    M_DRM, M_WAITOK);
 		if (!new)
 			goto out;
 		bcopy(block, new, (valid_extensions + 1) * EDID_LENGTH);
