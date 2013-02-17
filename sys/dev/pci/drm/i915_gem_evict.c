@@ -189,11 +189,12 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 int
 i915_gem_evict_inactive(struct inteldrm_softc *dev_priv)
 {
-	struct drm_i915_gem_object *obj_priv;
+	struct drm_i915_gem_object *obj_priv, *next;
 	int			 ret = 0;
 
 	mtx_enter(&dev_priv->list_lock);
-	list_for_each_entry(obj_priv, &dev_priv->mm.inactive_list, mm_list) {
+	list_for_each_entry_safe(obj_priv, next,
+				 &dev_priv->mm.inactive_list, mm_list) {
 		if (obj_priv->pin_count != 0) {
 			ret = EINVAL;
 			DRM_ERROR("Pinned object in unbind list\n");
