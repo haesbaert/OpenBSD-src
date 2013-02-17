@@ -59,23 +59,38 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 	int reg_offset = dev_priv->gpio_mmio_base;
 	uint8_t *b;
 	int i, retries;
+	uint16_t rem = len;
 
-	if (cmdlen > 1 || I2C_OP_WRITE_P(op))
+	if (cmdlen > 1)
 		return (EOPNOTSUPP);
 
+	if (I2C_OP_WRITE_P(op)) {
+		val = 0;	
+
+		b = buf;
+		for (i = 0; i < 4 && rem > 0; i++, rem--) {
+			val |= *b++ << (8 * i);
+		}
+
+		I915_WRITE(GMBUS3 + reg_offset, val);
+	}
+
 	reg = 0;
-	if (cmdlen > 0)
-		reg |= GMBUS_CYCLE_INDEX;
 	if (len > 0)
 		reg |= GMBUS_CYCLE_WAIT;
 	if (I2C_OP_STOP_P(op))
 		reg |= GMBUS_CYCLE_STOP;
-	if (I2C_OP_READ_P(op))
+	if (I2C_OP_READ_P(op)) {
 		reg |= GMBUS_SLAVE_READ;
+		if (cmdlen > 0)
+			reg |= GMBUS_CYCLE_INDEX;
+		b = (void *)cmdbuf;
+		if (cmdlen > 0)
+			reg |= (b[0] << GMBUS_SLAVE_INDEX_SHIFT);
+	}
+	if (I2C_OP_WRITE_P(op))
+		reg |= GMBUS_SLAVE_WRITE;
 	reg |= (addr << GMBUS_SLAVE_ADDR_SHIFT);
-	b = (void *)cmdbuf;
-	if (cmdlen > 0)
-		reg |= (b[0] << GMBUS_SLAVE_INDEX_SHIFT);
 	reg |= (len << GMBUS_BYTE_COUNT_SHIFT);
 	I915_WRITE(GMBUS1 + reg_offset, reg | GMBUS_SW_RDY);
 
@@ -98,6 +113,16 @@ gmbus_i2c_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
 				*b++ = val & 0xff;
 				val >>= 8;
 			}
+		}
+	}
+
+	if (I2C_OP_WRITE_P(op)) {
+		while (rem > 0) {
+			val = 0;
+			for (i = 0; i < 4 && rem > 0; i++, rem--) {
+				val |= *b++ << (8 * i);
+			}
+			I915_WRITE(GMBUS3 + reg_offset, val);
 		}
 	}
 
