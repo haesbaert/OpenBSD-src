@@ -7682,8 +7682,6 @@ void
 do_intel_finish_page_flip(struct drm_device *dev,
 				      struct drm_crtc *crtc)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
@@ -7697,20 +7695,22 @@ do_intel_finish_page_flip(struct drm_device *dev,
 	work = intel_crtc->unpin_work;
 
 	/* Ensure we don't miss a work->pending update ... */
-	smp_rmb();
+	DRM_READMEMORYBARRIER();
 
 	if (work == NULL || atomic_read(&work->pending) < INTEL_FLIP_COMPLETE) {
-		spin_unlock_irqrestore(&dev->event_lock, flags);
+		mtx_leave(&dev->event_lock);
 		return;
 	}
 
 	/* and that the unpin work is consistent wrt ->pending. */
-	smp_rmb();
+	DRM_READMEMORYBARRIER();
 
 	intel_crtc->unpin_work = NULL;
 
+#ifdef notyet
 	if (work->event)
 		drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
+#endif
 
 	drm_vblank_put(dev, intel_crtc->pipe);
 
@@ -7718,14 +7718,14 @@ do_intel_finish_page_flip(struct drm_device *dev,
 
 	obj = work->old_fb_obj;
 
-	atomic_clear_mask(1 << intel_crtc->plane,
-			  &obj->pending_flip.counter);
-	wake_up(&dev_priv->pending_flip_queue);
+	atomic_clear_int(&obj->pending_flip, 1 << intel_crtc->plane);
+	wakeup(&dev_priv->pending_flip_queue);
 
+#ifdef notyet
 	queue_work(dev_priv->wq, &work->work);
-
-	trace_i915_flip_complete(intel_crtc->plane, work->pending_flip_obj);
 #endif
+
+//	trace_i915_flip_complete(intel_crtc->plane, work->pending_flip_obj);
 }
 
 void
