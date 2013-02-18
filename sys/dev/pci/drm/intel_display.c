@@ -2717,16 +2717,17 @@ intel_finish_fb(struct drm_framebuffer *old_fb)
 {
 	struct drm_i915_gem_object *obj = to_intel_framebuffer(old_fb)->obj;
 	struct inteldrm_softc *dev_priv = obj->base.dev->dev_private;
+	struct drm_device *dev = obj->base.dev;
 	bool was_interruptible = dev_priv->mm.interruptible;
 	int ret;
 
-#ifdef notyet
-	wait_event(dev_priv->pending_flip_queue,
-		   atomic_read(&dev_priv->mm.wedged) ||
-		   atomic_read(&obj->pending_flip) == 0);
-#else
-	printf("%s skipping wait on pending_flip_queue\n", __func__);
-#endif
+	mtx_enter(&dev->event_lock);
+	while(!atomic_read(&dev_priv->mm.wedged) &&
+	    atomic_read(&obj->pending_flip) != 0) {
+		msleep(&obj->pending_flip, &dev->event_lock,
+		    0, "915flp", 0);
+	}
+	mtx_leave(&dev->event_lock);
 
 	/* Big Hammer, we also need to ensure that any pending
 	 * MI_WAIT_FOR_EVENT inside a user batch buffer on the
@@ -7682,7 +7683,7 @@ void
 do_intel_finish_page_flip(struct drm_device *dev,
 				      struct drm_crtc *crtc)
 {
-	drm_i915_private_t *dev_priv = dev->dev_private;
+//	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
 	struct drm_i915_gem_object *obj;
@@ -7719,7 +7720,8 @@ do_intel_finish_page_flip(struct drm_device *dev,
 	obj = work->old_fb_obj;
 
 	atomic_clear_int(&obj->pending_flip, 1 << intel_crtc->plane);
-	wakeup(&dev_priv->pending_flip_queue);
+	if (atomic_read(&obj->pending_flip) == 0)
+		wakeup(&obj->pending_flip);
 
 #ifdef notyet
 	queue_work(dev_priv->wq, &work->work);
