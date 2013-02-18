@@ -1980,14 +1980,6 @@ out:
 	return (ret);
 }
 
-void
-i915_gem_object_init(struct drm_i915_gem_object *obj)
-{
-	INIT_LIST_HEAD(&obj->mm_list);
-	INIT_LIST_HEAD(&obj->ring_list);
-	INIT_LIST_HEAD(&obj->gpu_write_list);
-}
-
 struct drm_i915_gem_object *
 i915_gem_alloc_object(struct drm_device *dev, size_t size)
 {
@@ -1999,8 +1991,6 @@ i915_gem_alloc_object(struct drm_device *dev, size_t size)
 		return NULL;
 
 	obj_priv = to_intel_bo(obj);
-
-	i915_gem_object_init(obj_priv);
 
 	return (obj_priv);
 }
@@ -2022,6 +2012,10 @@ i915_gem_init_object(struct drm_obj *obj)
 	/* normal objects don't need special treatment */
 	obj_priv->dma_flags = 0;
 	obj_priv->fence_reg = I915_FENCE_REG_NONE;
+
+	INIT_LIST_HEAD(&obj_priv->mm_list);
+	INIT_LIST_HEAD(&obj_priv->ring_list);
+	INIT_LIST_HEAD(&obj_priv->gpu_write_list);
 
 	return 0;
 }
