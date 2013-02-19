@@ -429,7 +429,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	 * a separate wait queue to handle that.
 	 */
 	if (ret == 0)
-		i915_gem_retire_requests(dev_priv);
+		i915_gem_retire_requests_ring(ring);
 
 	return (ret);
 }
