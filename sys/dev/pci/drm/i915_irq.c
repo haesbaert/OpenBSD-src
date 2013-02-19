@@ -1559,8 +1559,10 @@ void
 i915_handle_error(struct drm_device *dev, bool wedged)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
+#ifdef notyet
 	struct intel_ring_buffer *ring;
 	int i;
+#endif
 
 	i915_capture_error_state(dev);
 	i915_report_and_clear_eir(dev);
@@ -1572,8 +1574,12 @@ i915_handle_error(struct drm_device *dev, bool wedged)
 		/*
 		 * Wakeup waiting processes so they don't hang
 		 */
+#ifdef notyet
 		for_each_ring(ring, dev_priv, i)
 			wakeup(&ring->irq_queue);
+#else
+		wakeup(dev_priv);
+#endif
 	}
 
 #ifdef notyet
