@@ -54,10 +54,10 @@ void	 cleanup_pipe_control(struct intel_ring_buffer *);
 int	 init_render_ring(struct intel_ring_buffer *);
 void	 render_ring_cleanup(struct intel_ring_buffer *);
 void	 update_mboxes(struct intel_ring_buffer *, u32, u32);
-int	 gen6_add_request(struct intel_ring_buffer *, u32);
+int	 gen6_add_request(struct intel_ring_buffer *, u32 *);
 int	 gen6_ring_sync(struct intel_ring_buffer *, struct intel_ring_buffer *,
 	     u32);
-int	 pc_render_add_request(struct intel_ring_buffer *, u32);
+int	 pc_render_add_request(struct intel_ring_buffer *, u32 *);
 u32	 gen6_ring_get_seqno(struct intel_ring_buffer *, bool);
 u32	 ring_get_seqno(struct intel_ring_buffer *, bool);
 u32	 pc_render_get_seqno(struct intel_ring_buffer *, bool);
@@ -68,7 +68,7 @@ void	 i9xx_ring_put_irq(struct intel_ring_buffer *);
 bool	 i8xx_ring_get_irq(struct intel_ring_buffer *);
 void	 i8xx_ring_put_irq(struct intel_ring_buffer *);
 int	 bsd_ring_flush(struct intel_ring_buffer *, u32, u32);
-int	 i9xx_add_request(struct intel_ring_buffer *, u32);
+int	 i9xx_add_request(struct intel_ring_buffer *, u32 *);
 bool	 gen6_ring_get_irq(struct intel_ring_buffer *);
 void	 gen6_ring_put_irq(struct intel_ring_buffer *);
 int	 i830_dispatch_execbuffer(struct intel_ring_buffer *, u32, u32,
@@ -675,7 +675,7 @@ update_mboxes(struct intel_ring_buffer *ring,
  * This acts like a signal in the canonical semaphore.
  */
 int
-gen6_add_request(struct intel_ring_buffer *ring, u32 seqno)
+gen6_add_request(struct intel_ring_buffer *ring, u32 *seqno)
 {
 	u32 mbox1_reg;
 	u32 mbox2_reg;
@@ -688,11 +688,13 @@ gen6_add_request(struct intel_ring_buffer *ring, u32 seqno)
 	mbox1_reg = ring->signal_mbox[0];
 	mbox2_reg = ring->signal_mbox[1];
 
-	update_mboxes(ring, mbox1_reg, seqno);
-	update_mboxes(ring, mbox2_reg, seqno);
+	*seqno = i915_gem_next_request_seqno(ring);
+
+	update_mboxes(ring, mbox1_reg, *seqno);
+	update_mboxes(ring, mbox2_reg, *seqno);
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, seqno);
+	intel_ring_emit(ring, *seqno);
 	intel_ring_emit(ring, MI_USER_INTERRUPT);
 	intel_ring_advance(ring);
 
@@ -749,8 +751,9 @@ do {									\
 } while (0)
 
 int
-pc_render_add_request(struct intel_ring_buffer *ring, u32 seqno)
+pc_render_add_request(struct intel_ring_buffer *ring, u32 *result)
 {
+	u32 seqno = i915_gem_next_request_seqno(ring);
 	struct pipe_control *pc = ring->private;
 	u32 scratch_addr = pc->gtt_offset + 128;
 	int ret;
@@ -794,6 +797,7 @@ pc_render_add_request(struct intel_ring_buffer *ring, u32 seqno)
 	intel_ring_emit(ring, 0);
 	intel_ring_advance(ring);
 
+	*result = seqno;
 	return 0;
 }
 
@@ -976,13 +980,16 @@ bsd_ring_flush(struct intel_ring_buffer *ring,
 }
 
 int
-i9xx_add_request(struct intel_ring_buffer *ring, u32 seqno)
+i9xx_add_request(struct intel_ring_buffer *ring, u32 *result)
 {
+	uint32_t seqno;
 	int ret;
 
 	ret = intel_ring_begin(ring, 4);
 	if (ret)
 		return ret;
+
+	seqno = i915_gem_next_request_seqno(ring);
 
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
@@ -990,6 +997,7 @@ i9xx_add_request(struct intel_ring_buffer *ring, u32 seqno)
 	intel_ring_emit(ring, MI_USER_INTERRUPT);
 	intel_ring_advance(ring);
 
+	*result = seqno;
 	return 0;
 }
 
@@ -1516,16 +1524,14 @@ int
 intel_ring_idle(struct intel_ring_buffer *ring)
 {
 	u32 seqno;
-#ifdef notyet
 	int ret;
 
 	/* We need to add any requests required to flush the objects and ring */
 	if (ring->outstanding_lazy_request) {
-		ret = i915_add_request(ring);
+		ret = i915_add_request(ring, NULL, NULL);
 		if (ret)
 			return ret;
 	}
-#endif
 
 	/* Wait upon the last request to be completed */
 	if (list_empty(&ring->request_list))

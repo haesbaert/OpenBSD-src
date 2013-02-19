@@ -1156,6 +1156,7 @@ struct drm_i915_gem_object *
     i915_gem_alloc_object(struct drm_device *, size_t);
 int i915_gpu_idle(struct drm_device *);
 void i915_gem_object_move_to_flushing(struct drm_i915_gem_object *);
+u32 i915_gem_next_request_seqno(struct intel_ring_buffer *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

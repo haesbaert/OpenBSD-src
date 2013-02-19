@@ -401,7 +401,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	if (dev_priv->mm.wedged)
 		return (EIO);
 
-	if (seqno == dev_priv->next_seqno) {
+	if (seqno == ring->outstanding_lazy_request) {
 		ret = i915_add_request(ring, NULL, &seqno);
 		if (ret)
 			return (ret);
@@ -784,7 +784,9 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 {
 	struct drm_device		*dev = obj->base.dev;
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	u_int32_t			 seqno = dev_priv->next_seqno;
+	u_int32_t			 seqno;
+
+	seqno = i915_gem_next_request_seqno(ring);
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
@@ -916,6 +918,16 @@ i915_gem_handle_seqno_wrap(struct drm_device *dev)
 	return 0;
 }
 
+u32
+i915_gem_next_request_seqno(struct intel_ring_buffer *ring)
+{
+	if (ring->outstanding_lazy_request == 0)
+		/* XXX check return */
+		i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_request);
+
+	return ring->outstanding_lazy_request;
+}
+
 int
 i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 {
@@ -923,9 +935,11 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 
 	/* reserve 0 for non-seqno */
 	if (dev_priv->next_seqno == 0) {
+#ifdef notyet
 		int ret = i915_gem_handle_seqno_wrap(dev);
 		if (ret)
 			return ret;
+#endif
 
 		dev_priv->next_seqno = 1;
 	}
@@ -960,14 +974,6 @@ i915_add_request(struct intel_ring_buffer *ring,
 		return -ENOMEM;
 	}
 
-	/* Grab the seqno we're going to make this request be, and bump the
-	 * next (skipping 0 so it can be the reserved no-seqno value).
-	 */
-	seqno = dev_priv->next_seqno;
-	dev_priv->next_seqno++;
-	if (dev_priv->next_seqno == 0)
-		dev_priv->next_seqno++;
-
 	/* Record the position of the start of the request so that
 	 * should we detect the updated seqno part-way through the
 	 * GPU processing the request, we never over-estimate the
@@ -975,7 +981,7 @@ i915_add_request(struct intel_ring_buffer *ring,
 	 */
 	request_ring_position = intel_ring_get_tail(ring);
 
-	ret = ring->add_request(ring, seqno);
+	ret = ring->add_request(ring, &seqno);
 	if (ret) {
 		drm_free(request);
 		return ret;
@@ -991,6 +997,8 @@ i915_add_request(struct intel_ring_buffer *ring,
 	was_empty = list_empty(&ring->request_list);
 	list_add_tail(&request->list, &ring->request_list);
 	mtx_leave(&dev_priv->request_lock);
+
+	ring->outstanding_lazy_request = 0;
 
 	if (dev_priv->mm.suspended == 0) {
 		if (was_empty)
