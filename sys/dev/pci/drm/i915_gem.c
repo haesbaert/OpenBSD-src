@@ -1898,7 +1898,6 @@ int
 i915_gem_busy_ioctl(struct drm_device *dev, void *data,
     struct drm_file *file)
 {
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	struct drm_i915_gem_busy *args = data;
 	struct drm_i915_gem_object *obj;
 	int ret = 0;
@@ -1926,7 +1925,7 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		 * only updated on a delayed timer. Updating now reduces 
 		 * working set size.
 		 */
-		i915_gem_retire_requests(dev_priv);
+		i915_gem_retire_requests_ring(obj->ring);
 		args->busy = obj->active;
 	}
 
