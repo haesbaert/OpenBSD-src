@@ -2167,6 +2167,9 @@ i915_gem_init_object(struct drm_obj *obj)
 	/* normal objects don't need special treatment */
 	obj_priv->dma_flags = 0;
 	obj_priv->fence_reg = I915_FENCE_REG_NONE;
+	obj_priv->madv = I915_MADV_WILLNEED;
+	/* Avoid an unnecessary call to unbind on the first bind. */
+	obj_priv->map_and_fenceable = true;
 
 	INIT_LIST_HEAD(&obj_priv->mm_list);
 	INIT_LIST_HEAD(&obj_priv->ring_list);
