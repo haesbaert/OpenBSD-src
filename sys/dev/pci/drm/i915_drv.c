@@ -2060,6 +2060,8 @@ inteldrm_verify_inactive(struct inteldrm_softc *dev_priv, char *file,
 
 #if (INTELDRM_DEBUG > 1)
 
+int i915_gem_object_list_info(int, uint);
+
 static const char *get_pin_flag(struct drm_i915_gem_object *obj)
 {
 	if (obj->user_pin_count > 0)
@@ -2079,6 +2081,107 @@ static const char *get_tiling_flag(struct drm_i915_gem_object *obj)
     case I915_TILING_Y: return "Y";
     }
 }
+
+static const char *
+cache_level_str(int type)
+{
+	switch (type) {
+	case I915_CACHE_NONE: return " uncached";
+	case I915_CACHE_LLC: return " snooped (LLC)";
+	case I915_CACHE_LLC_MLC: return " snooped (LLC+MLC)";
+	default: return "";
+	}
+}
+
+static void
+describe_obj(struct drm_i915_gem_object *obj)
+{
+	printf("%p: %s%s %8zdKiB %04x %04x %d %d %d%s%s%s",
+		   &obj->base,
+		   get_pin_flag(obj),
+		   get_tiling_flag(obj),
+		   obj->base.size / 1024,
+		   obj->base.read_domains,
+		   obj->base.write_domain,
+		   obj->last_read_seqno,
+		   obj->last_write_seqno,
+		   obj->last_fenced_seqno,
+		   cache_level_str(obj->cache_level),
+		   obj->dirty ? " dirty" : "",
+		   obj->madv == I915_MADV_DONTNEED ? " purgeable" : "");
+	if (obj->base.name)
+		printf(" (name: %d)", obj->base.name);
+	if (obj->pin_count)
+		printf(" (pinned x %d)", obj->pin_count);
+	if (obj->fence_reg != I915_FENCE_REG_NONE)
+		printf(" (fence: %d)", obj->fence_reg);
+#if 0
+	if (obj->gtt_space != NULL)
+		printf(" (gtt offset: %08x, size: %08x)",
+			   obj->gtt_offset, (unsigned int)obj->gtt_space->size);
+	if (obj->pin_mappable || obj->fault_mappable) {
+		char s[3], *t = s;
+		if (obj->pin_mappable)
+			*t++ = 'p';
+		if (obj->fault_mappable)
+			*t++ = 'f';
+		*t = '\0';
+		printf(" (%s mappable)", s);
+	}
+#endif
+	if (obj->ring != NULL)
+		printf(" (%s)", obj->ring->name);
+}
+
+#define ACTIVE_LIST 0
+#define INACTIVE_LIST 1
+
+int
+i915_gem_object_list_info(int kdev, uint list)
+{
+	struct drm_device	*dev = drm_get_device_from_kdev(kdev);
+	struct list_head *head;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_i915_gem_object *obj;
+	size_t total_obj_size, total_gtt_size;
+	int count;
+#if 0
+	int ret;
+
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		return ret;
+#endif
+
+	switch (list) {
+	case ACTIVE_LIST:
+		printf("Active:\n");
+		head = &dev_priv->mm.active_list;
+		break;
+	case INACTIVE_LIST:
+		printf("Inactive:\n");
+		head = &dev_priv->mm.inactive_list;
+		break;
+	default:
+//		mutex_unlock(&dev->struct_mutex);
+		return -EINVAL;
+	}
+
+	total_obj_size = total_gtt_size = count = 0;
+	list_for_each_entry(obj, head, mm_list) {
+		printf("   ");
+		describe_obj(obj);
+		printf("\n");
+		total_obj_size += obj->base.size;
+		count++;
+	}
+//	mutex_unlock(&dev->struct_mutex);
+
+	printf("Total %d objects, %zu bytes, %zu GTT size\n",
+		   count, total_obj_size);
+	return 0;
+}
+
 
 static void i915_ring_seqno_info(struct intel_ring_buffer *ring)
 {
@@ -2201,26 +2304,15 @@ i915_gem_fence_regs_info(int kdev)
 	printf("Reserved fences = %d\n", dev_priv->fence_reg_start);
 	printf("Total fences = %d\n", dev_priv->num_fence_regs);
 	for (i = 0; i < dev_priv->num_fence_regs; i++) {
-		struct drm_obj *obj = dev_priv->fence_regs[i].obj;
+		struct drm_i915_gem_object *obj = dev_priv->fence_regs[i].obj;
 
-		if (obj == NULL) {
-			printf("Fenced object[%2d] = unused\n", i);
-		} else {
-			struct drm_i915_gem_object *obj_priv;
-
-			obj_priv = to_intel_bo(obj);
-			printf("Fenced object[%2d] = %p: %s "
-				   "%08x %08zx %08x %s %08x %08x %d",
-				   i, obj, get_pin_flag(obj_priv),
-				   obj_priv->gtt_offset,
-				   obj->size, obj_priv->stride,
-				   get_tiling_flag(obj_priv),
-				   obj->read_domains, obj->write_domain,
-				   obj_priv->last_read_seqno);
-			if (obj->name)
-				printf(" (name: %d)", obj->name);
-			printf("\n");
-		}
+		printf("Fence %d, pin count = %d, object = ",
+			   i, dev_priv->fence_regs[i].pin_count);
+		if (obj == NULL)
+			printf("unused");
+		else
+			describe_obj(obj);
+		printf("\n");
 	}
 }
 
@@ -2273,7 +2365,7 @@ i915_batchbuffer_info(int kdev)
 	bus_space_handle_t	 bsh;
 	int			 ret;
 
-	TAILQ_FOREACH(obj_priv, &dev_priv->mm.active_list, list) {
+	list_for_each_entry(obj_priv, &dev_priv->mm.active_list, mm_list) {
 		obj = &obj_priv->base;
 		if (obj->read_domains & I915_GEM_DOMAIN_COMMAND) {
 			if ((ret = agp_map_subregion(dev_priv->agph,

@@ -923,6 +923,8 @@ struct drm_i915_gem_object {
 	unsigned int pending_fenced_gpu_access:1;
 	unsigned int fenced_gpu_access:1;
 
+	unsigned int cache_level:2;
+
 	/** for phy allocated objects */
 	struct drm_i915_gem_phys_object *phys_obj;
 
