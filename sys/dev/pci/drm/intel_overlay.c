@@ -771,7 +771,7 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 	if (ret != 0)
 		return ret;
 
-	ret = i915_gem_object_put_fence_reg(&new_bo->base);
+	ret = i915_gem_object_put_fence(new_bo);
 	if (ret)
 		goto out_unpin;
 

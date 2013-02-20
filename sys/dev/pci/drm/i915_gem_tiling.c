@@ -357,6 +357,10 @@ i915_gem_set_tiling(struct drm_device *dev, void *data,
 		if (obj_priv->fence_reg != I915_FENCE_REG_NONE)
 			atomic_setbits_int(&obj->do_flags,
 			    I915_FENCE_INVALID);
+		obj_priv->fence_dirty =
+		        obj_priv->fenced_gpu_access ||
+		        obj_priv->fence_reg != I915_FENCE_REG_NONE;
+
 		obj_priv->tiling_mode = args->tiling_mode;
 		obj_priv->stride = args->stride;
 	}

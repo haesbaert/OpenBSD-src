@@ -733,7 +733,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	INIT_LIST_HEAD(&dev_priv->mm.flushing_list);
 	INIT_LIST_HEAD(&dev_priv->mm.inactive_list);
 	INIT_LIST_HEAD(&dev_priv->mm.gpu_write_list);
-	TAILQ_INIT(&dev_priv->mm.fence_list);
+	INIT_LIST_HEAD(&dev_priv->mm.fence_list);
 	for (i = 0; i < I915_NUM_RINGS; i++)
 		init_ring_lists(&dev_priv->rings[i]);
 	timeout_set(&dev_priv->mm.retire_timer, inteldrm_timeout, dev_priv);
@@ -765,20 +765,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		dev_priv->num_fence_regs = 8;
 
 	/* Initialise fences to zero, else on some macs we'll get corruption */
-	if (IS_GEN6(dev) || IS_GEN7(dev)) {
-		for (i = 0; i < 16; i++)
-			I915_WRITE64(FENCE_REG_SANDYBRIDGE_0 + (i * 8), 0);
-	} else if (INTEL_INFO(dev)->gen >= 4) {
-		for (i = 0; i < 16; i++)
-			I915_WRITE64(FENCE_REG_965_0 + (i * 8), 0);
-	} else {
-		for (i = 0; i < 8; i++)
-			I915_WRITE(FENCE_REG_830_0 + (i * 4), 0);
-		if (IS_I945G(dev) || IS_I945GM(dev) ||
-		    IS_G33(dev))
-			for (i = 0; i < 8; i++)
-				I915_WRITE(FENCE_REG_945_8 + (i * 4), 0);
-	}
+	i915_gem_reset_fences(dev);
 
 	if (pci_find_device(&bpa, inteldrm_gmch_match) == 0) {
 		printf(": can't find GMCH\n");
@@ -1278,14 +1265,14 @@ i915_gem_process_flushing(struct intel_ring_buffer *ring,
 			i915_gem_object_move_to_active(obj_priv, ring);
 			obj->write_domain = 0;
 			/* if we still need the fence, update LRU */
-			if (inteldrm_needs_fence(obj_priv)) {
+			if (obj_priv->fenced_gpu_access) {
 				KASSERT(obj_priv->fence_reg !=
 				    I915_FENCE_REG_NONE);
 				/* we have a fence, won't sleep, can't fail
 				 * since we have the fence we no not need
 				 * to have the object held
 				 */
-				i915_gem_get_fence_reg(obj);
+				i915_gem_object_get_fence(obj_priv);
 			}
 
 		}
@@ -1436,153 +1423,6 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 	return (best);
 }
 
-/*
- * i915_gem_get_fence_reg - set up a fence reg for an object
- *
- * When mapping objects through the GTT, userspace wants to be able to write
- * to them without having to worry about swizzling if the object is tiled.
- *
- * This function walks the fence regs looking for a free one, stealing one
- * if it can't find any.
- *
- * It then sets up the reg based on the object's properties: address, pitch
- * and tiling format.
- */
-int
-i915_gem_get_fence_reg(struct drm_obj *obj)
-{
-	struct drm_device		*dev = obj->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object	*obj_priv = to_intel_bo(obj);
-	struct drm_i915_gem_object	*old_obj_priv = NULL;
-	struct drm_obj			*old_obj = NULL;
-	struct drm_i915_fence_reg	*reg = NULL;
-	int				 i, ret, avail;
-
-	/* If our fence is getting used, just update our place in the LRU */
-	if (obj_priv->fence_reg != I915_FENCE_REG_NONE) {
-		mtx_enter(&dev_priv->fence_lock);
-		reg = &dev_priv->fence_regs[obj_priv->fence_reg];
-
-		TAILQ_REMOVE(&dev_priv->mm.fence_list, reg, list);
-		TAILQ_INSERT_TAIL(&dev_priv->mm.fence_list, reg, list);
-		mtx_leave(&dev_priv->fence_lock);
-		return (0);
-	}
-
-	DRM_ASSERT_HELD(obj);
-	switch (obj_priv->tiling_mode) {
-	case I915_TILING_NONE:
-		DRM_ERROR("allocating a fence for non-tiled object?\n");
-		break;
-	case I915_TILING_X:
-		if (obj_priv->stride == 0)
-			return (EINVAL);
-		if (obj_priv->stride & (512 - 1))
-			DRM_ERROR("object 0x%08x is X tiled but has non-512B"
-			    " pitch\n", obj_priv->gtt_offset);
-		break;
-	case I915_TILING_Y:
-		if (obj_priv->stride == 0)
-			return (EINVAL);
-		if (obj_priv->stride & (128 - 1))
-			DRM_ERROR("object 0x%08x is Y tiled but has non-128B"
-			    " pitch\n", obj_priv->gtt_offset);
-		break;
-	}
-
-again:
-	/* First try to find a free reg */
-	avail = 0;
-	mtx_enter(&dev_priv->fence_lock);
-	for (i = dev_priv->fence_reg_start; i < dev_priv->num_fence_regs; i++) {
-		reg = &dev_priv->fence_regs[i];
-		if (reg->obj == NULL)
-			break;
-
-		old_obj_priv = to_intel_bo(reg->obj);
-		if (old_obj_priv->pin_count == 0)
-			avail++;
-	}
-
-	/* None available, try to steal one or wait for a user to finish */
-	if (i == dev_priv->num_fence_regs) {
-		if (avail == 0) {
-			mtx_leave(&dev_priv->fence_lock);
-			return (ENOMEM);
-		}
-
-		TAILQ_FOREACH(reg, &dev_priv->mm.fence_list,
-		    list) {
-			old_obj = reg->obj;
-			old_obj_priv = to_intel_bo(old_obj);
-
-			if (old_obj_priv->pin_count)
-				continue;
-
-			/* Ref it so that wait_rendering doesn't free it under
-			 * us. if we can't hold it, it may change state soon
-			 * so grab the next one.
-			 */
-			drm_ref(&old_obj->uobj);
-			if (drm_try_hold_object(old_obj) == 0) {
-				drm_unref(&old_obj->uobj);
-				continue;
-			}
-
-			break;
-		}
-		mtx_leave(&dev_priv->fence_lock);
-
-		/* if we tried all of them, give it another whirl. we failed to
-		 * get a hold this go round.
-		 */
-		if (reg == NULL)
-			goto again;
-
-		ret = i915_gem_object_put_fence_reg(old_obj);
-		drm_unhold_and_unref(old_obj);
-		if (ret != 0)
-			return (ret);
-		/* we should have freed one up now, so relock and re-search */
-		goto again;
-	}
-
-	/*
-	 * Here we will either have found a register in the first
-	 * loop, or we will have waited for one and in the second case
-	 * and thus have grabbed the object in question, freed the register
-	 * then redone the second loop (having relocked the fence list).
-	 * Therefore at this point it is impossible to have a null value
-	 * in reg.
-	 */
-	KASSERT(reg != NULL);
-
-	obj_priv->fence_reg = i;
-	reg->obj = obj;
-	TAILQ_INSERT_TAIL(&dev_priv->mm.fence_list, reg, list);
-
-	switch (INTEL_INFO(dev)->gen) {
-	case 7:
-	case 6:
-		sandybridge_write_fence_reg(reg);
-		break;
-	case 5:
-	case 4:
-		i965_write_fence_reg(reg);
-		break;
-	case 3:
-		i915_write_fence_reg(reg);
-		break;
-	case 2:
-		i830_write_fence_reg(reg);
-		break;
-	}
-	mtx_leave(&dev_priv->fence_lock);
-
-	return 0;
-}
-
 void
 inteldrm_wipe_mappings(struct drm_obj *obj)
 {
@@ -1628,6 +1468,16 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 	    needs_fence);
 	if (ret)
 		return ret;
+
+	if (needs_fence) {
+		ret = i915_gem_object_get_fence(obj_priv);
+		if (ret)
+			return ret;
+
+		obj->do_flags |= __EXEC_OBJECT_HAS_FENCE;
+
+		obj_priv->pending_fenced_gpu_access = true;
+	}
 
 	entry->offset = obj_priv->gtt_offset;
 

@@ -403,6 +403,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		for (i = 0; i < args->buffer_count; i++) {
 			object_list[i]->pending_read_domains = 0;
 			object_list[i]->pending_write_domain = 0;
+			to_intel_bo(object_list[i])->pending_fenced_gpu_access = false;
 			drm_hold_object(object_list[i]);
 			ret = i915_gem_object_pin_and_relocate(object_list[i],
 			    file_priv, &exec_list[i], &relocs[reloc_index]);
@@ -426,6 +427,10 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		 * unbound so we can try and refit everything in the aperture.
 		 */
 		for (i = 0; i < pinned; i++) {
+			if (object_list[i]->do_flags & __EXEC_OBJECT_HAS_FENCE) {
+				i915_gem_object_unpin_fence(to_intel_bo(object_list[i]));
+				object_list[i]->do_flags &= ~__EXEC_OBJECT_HAS_FENCE;
+			}
 			i915_gem_object_unpin(to_intel_bo(object_list[i]));
 			drm_unhold_object(object_list[i]);
 		}
@@ -486,6 +491,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		drm_lock_obj(obj);
 
 		obj->write_domain = obj->pending_write_domain;
+		obj_priv->fenced_gpu_access = obj_priv->pending_fenced_gpu_access;
 		/*
 		 * if we have a write domain, add us to the gpu write list
 		 * else we can remove the bit because it has been flushed.
@@ -541,6 +547,11 @@ err:
 	for (i = 0; i < args->buffer_count; i++) {
 		if (object_list[i] == NULL)
 			break;
+
+		if (object_list[i]->do_flags & __EXEC_OBJECT_HAS_FENCE) {
+			i915_gem_object_unpin_fence(to_intel_bo(object_list[i]));
+			object_list[i]->do_flags &= ~__EXEC_OBJECT_HAS_FENCE;
+		}
 
 		atomic_clearbits_int(&object_list[i]->do_flags, I915_IN_EXEC |
 		    I915_EXEC_NEEDS_FENCE);

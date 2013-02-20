@@ -2462,13 +2462,11 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 	 * a fence as the cost is not that onerous.
 	 */
 	if (obj->tiling_mode != I915_TILING_NONE) {
-		ret = i915_gem_object_get_fence(&obj->base, pipelined);
+		ret = i915_gem_object_get_fence(obj);
 		if (ret)
 			goto err_unpin;
 
-#ifdef notyet
 		i915_gem_object_pin_fence(obj);
-#endif
 	}
 
 	dev_priv->mm.interruptible = true;
@@ -2484,9 +2482,7 @@ err_interruptible:
 void
 intel_unpin_fb_obj(struct drm_i915_gem_object *obj)
 {
-#ifdef notyet
 	i915_gem_object_unpin_fence(obj);
-#endif
 	i915_gem_object_unpin(obj);
 }
 
@@ -7054,7 +7050,7 @@ intel_crtc_cursor_set(struct drm_crtc *crtc,
 			goto fail_locked;
 		}
 
-		ret = i915_gem_object_put_fence_reg(&obj->base);
+		ret = i915_gem_object_put_fence(obj);
 		if (ret) {
 			DRM_ERROR("failed to release fence for cursor");
 			goto fail_unpin;

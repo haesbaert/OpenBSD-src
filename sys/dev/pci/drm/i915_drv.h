@@ -231,8 +231,9 @@ struct intel_opregion {
 #define I915_MAX_NUM_FENCES 16
 
 struct drm_i915_fence_reg {
-	TAILQ_ENTRY(drm_i915_fence_reg)	 list;
-	struct drm_obj			*obj;
+	struct list_head lru_list;
+	struct drm_i915_gem_object *obj;
+	int pin_count;
 };
 
 struct sdvo_device_mapping {
@@ -674,7 +675,7 @@ struct inteldrm_softc {
 		struct list_head inactive_list;
 
 		/* Fence LRU */
-		TAILQ_HEAD(i915_fence, drm_i915_fence_reg)	fence_list;
+		struct list_head fence_list;
 
 		/**
 		 * We leave the user IRQ off as much as possible,
@@ -899,6 +900,27 @@ struct drm_i915_gem_object {
 	 */
 	unsigned int madv:2;
 
+	/**
+	 * Whether the tiling parameters for the currently associated fence
+	 * register have changed. Note that for the purposes of tracking
+	 * tiling changes we also treat the unfenced register, the register
+	 * slot that the object occupies whilst it executes a fenced
+	 * command (such as BLT on gen2/3), as a "fence".
+	 */
+	unsigned int fence_dirty:1;
+
+	/**
+	 * Is the object at the current location in the gtt mappable and
+	 * fenceable? Used to avoid costly recalculations.
+	 */
+	unsigned int map_and_fenceable:1;
+
+	/*
+	 * Is the GPU currently using a fence to access this buffer,
+	 */
+	unsigned int pending_fenced_gpu_access:1;
+	unsigned int fenced_gpu_access:1;
+
 	/** for phy allocated objects */
 	struct drm_i915_gem_phys_object *phys_obj;
 
@@ -1037,9 +1059,6 @@ struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 
 extern int i915_gem_get_seqno(struct drm_device *, u32 *);
 
-int	i915_gem_object_get_fence(struct drm_obj *,
-	    struct intel_ring_buffer *);
-
 int	i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *,
 	    int);
 int	i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *,
@@ -1048,9 +1067,7 @@ int	i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *,
 	    int);
 int	i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *,
 	    int, int);
-int	i915_gem_get_fence_reg(struct drm_obj *);
 int	i915_gem_object_wait_rendering(struct drm_i915_gem_object *, bool);
-int	i915_gem_object_put_fence_reg(struct drm_obj *);
 bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
 bus_size_t	i915_get_fence_size(struct inteldrm_softc *, bus_size_t);
@@ -1060,10 +1077,14 @@ int	i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
 int	i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 	    enum i915_cache_level cache_level);
 
-void	sandybridge_write_fence_reg(struct drm_i915_fence_reg *);
-void	i965_write_fence_reg(struct drm_i915_fence_reg *);
-void	i915_write_fence_reg(struct drm_i915_fence_reg *);
-void	i830_write_fence_reg(struct drm_i915_fence_reg *);
+void	sandybridge_write_fence_reg(struct drm_device *, int,
+	    struct drm_i915_gem_object *);
+void	i965_write_fence_reg(struct drm_device *, int,
+	    struct drm_i915_gem_object *);
+void	i915_write_fence_reg(struct drm_device *, int,
+	    struct drm_i915_gem_object *);
+void	i830_write_fence_reg(struct drm_device *, int,
+	    struct drm_i915_gem_object *);
 
 int	i915_gem_object_finish_gpu(struct drm_i915_gem_object *);
 int	i915_gem_init_hw(struct drm_device *);
@@ -1157,6 +1178,11 @@ struct drm_i915_gem_object *
 int i915_gpu_idle(struct drm_device *);
 void i915_gem_object_move_to_flushing(struct drm_i915_gem_object *);
 u32 i915_gem_next_request_seqno(struct intel_ring_buffer *);
+void i915_gem_write_fence(struct drm_device *, int,
+    struct drm_i915_gem_object *);
+void i915_gem_reset_fences(struct drm_device *);
+int i915_gem_object_get_fence(struct drm_i915_gem_object *);
+int i915_gem_object_put_fence(struct drm_i915_gem_object *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);
@@ -1456,6 +1482,8 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define PRIMARY_RINGBUFFER_SIZE         (128*1024)
 
+#define  __EXEC_OBJECT_HAS_FENCE (1<<30)
+
 /**
  * RC6 is a special power stage which allows the GPU to enter an very
  * low-voltage mode when idle, using down to 0V while at this stage.  This
@@ -1494,6 +1522,26 @@ i915_seqno_passed(uint32_t seq1, uint32_t seq2)
 	return ((int32_t)(seq1 - seq2) >= 0);
 }
 
+static inline bool
+i915_gem_object_pin_fence(struct drm_i915_gem_object *obj)
+{
+	if (obj->fence_reg != I915_FENCE_REG_NONE) {
+		drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
+		dev_priv->fence_regs[obj->fence_reg].pin_count++;
+		return true;
+	} else
+		return false;
+}
+
+static inline void
+i915_gem_object_unpin_fence(struct drm_i915_gem_object *obj)
+{
+	if (obj->fence_reg != I915_FENCE_REG_NONE) {
+		drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
+		dev_priv->fence_regs[obj->fence_reg].pin_count--;
+	}
+}
+
 #if 0
 static __inline int
 i915_obj_purgeable(struct drm_i915_gem_object *obj_priv)
@@ -1518,12 +1566,6 @@ static __inline int
 inteldrm_exec_needs_fence(struct drm_i915_gem_object *obj_priv)
 {
 	return (obj_priv->base.do_flags & I915_EXEC_NEEDS_FENCE);
-}
-
-static __inline int
-inteldrm_needs_fence(struct drm_i915_gem_object *obj_priv)
-{
-	return (obj_priv->base.do_flags & I915_FENCED_EXEC);
 }
 
 #endif
