@@ -14,18 +14,10 @@
  */
 #define I915_RING_FREE_SPACE 64
 
-union hws {
-	struct drm_i915_gem_object	*obj;
-	struct drm_dmamem		*dmamem;
-};
-#define		hws_obj		hws.obj
-#define		hws_dmamem	hws.dmamem
-
 struct  intel_hw_status_page {
 	u32		*page_addr;
 	unsigned int	gfx_addr;
-	
-	union hws	hws;
+	struct		drm_i915_gem_object *obj;
 };
 
 #define I915_READ_TAIL(ring) I915_READ(RING_TAIL((ring)->mmio_base))

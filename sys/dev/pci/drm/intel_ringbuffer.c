@@ -37,7 +37,7 @@
  * over cache flushing.
  */
 struct pipe_control {
-	union hws hws;
+	struct drm_i915_gem_object *obj;
 	volatile u32 *cpu_page;
 	u32 gtt_offset;
 };
@@ -502,7 +502,6 @@ out:
 int
 init_pipe_control(struct intel_ring_buffer *ring)
 {
-//	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct pipe_control *pc;
 	struct drm_i915_gem_object *obj;
 	int ret;
@@ -546,7 +545,7 @@ init_pipe_control(struct intel_ring_buffer *ring)
 		goto err_unpin;
         }
 
-	pc->hws_obj = obj;
+	pc->obj = obj;
 	ring->private = pc;
 	return 0;
 
@@ -1148,10 +1147,9 @@ i915_dispatch_execbuffer(struct intel_ring_buffer *ring,
 void
 cleanup_status_page(struct intel_ring_buffer *ring)
 {
-//	struct inteldrm_softc *dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_object *obj;
 
-	obj = ring->status_page.hws_obj;
+	obj = ring->status_page.obj;
 	if (obj == NULL)
 		return;
 
@@ -1159,13 +1157,12 @@ cleanup_status_page(struct intel_ring_buffer *ring)
 	    (vaddr_t)ring->status_page.page_addr + PAGE_SIZE);
 	i915_gem_object_unpin(obj);
 	drm_gem_object_unreference(&obj->base);
-	ring->status_page.hws_obj = NULL;
+	ring->status_page.obj = NULL;
 }
 
 int
 init_status_page(struct intel_ring_buffer *ring)
 {
-//	struct inteldrm_softc *dev_priv = ring->dev->dev_private;
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_gem_object *obj;
 	int ret;
@@ -1202,8 +1199,7 @@ init_status_page(struct intel_ring_buffer *ring)
 		ret = -ENOMEM;
 		goto err_unpin;
 	}
-
-	ring->status_page.hws_obj = obj;
+	ring->status_page.obj = obj;
 	memset(ring->status_page.page_addr, 0, PAGE_SIZE);
 
 	intel_ring_setup_status_page(ring);
@@ -1226,21 +1222,21 @@ init_phys_hws_pga(struct intel_ring_buffer *ring)
 	drm_i915_private_t *dev_priv = ring->dev->dev_private;
 	u32 addr;
 
-	if (ring->status_page.hws_dmamem == NULL) {
-		ring->status_page.hws_dmamem = drm_dmamem_alloc(dev_priv->dmat,
+	if (!dev_priv->status_page_dmah) {
+		dev_priv->status_page_dmah = drm_dmamem_alloc(dev_priv->dmat,
 		    PAGE_SIZE, PAGE_SIZE, 1, PAGE_SIZE, 0, BUS_DMA_READ);
-		if (ring->status_page.hws_dmamem == NULL)
+		if (!dev_priv->status_page_dmah)
 			return -ENOMEM;
 	}
 
-	addr = ring->status_page.hws_dmamem->map->dm_segs[0].ds_addr;
+	addr = dev_priv->status_page_dmah->map->dm_segs[0].ds_addr;
 	if (INTEL_INFO(ring->dev)->gen >= 4)
-		addr |= (ring->status_page.hws_dmamem->map->dm_segs[0].ds_addr >> 28) & 0xf0;
-	bus_dmamap_sync(dev_priv->dmat, ring->status_page.hws_dmamem->map, 0,
+		addr |= (dev_priv->status_page_dmah->map->dm_segs[0].ds_addr >> 28) & 0xf0;
+	bus_dmamap_sync(dev_priv->dmat, dev_priv->status_page_dmah->map, 0,
 	    PAGE_SIZE, BUS_DMASYNC_PREREAD);
 	I915_WRITE(HWS_PGA, addr);
 
-	ring->status_page.page_addr = (u32 *)ring->status_page.hws_dmamem->kva;
+	ring->status_page.page_addr = (u32 *)dev_priv->status_page_dmah->kva;
 	memset(ring->status_page.page_addr, 0, PAGE_SIZE);
 
 	return 0;
@@ -1257,11 +1253,11 @@ intel_read_status_page(struct intel_ring_buffer *ring, int reg)
 	u32			 val;
 
 	if (I915_NEED_GFX_HWS(dev)) {
-		obj_priv = ring->status_page.hws_obj;
+		obj_priv = ring->status_page.obj;
 		map = obj_priv->dmamap;
 		tag = dev_priv->agpdmat;
 	} else {
-		map = ring->status_page.hws_dmamem->map;
+		map = dev_priv->status_page_dmah->map;
 		tag = dev->dmat;
 	}
 	/* Ensure that the compiler doesn't optimize away the load. */

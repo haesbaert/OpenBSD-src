@@ -519,6 +519,8 @@ struct inteldrm_softc {
 	struct intel_ring_buffer rings[I915_NUM_RINGS];
 	uint32_t next_seqno;
 
+	struct drm_dmamem *status_page_dmah;
+
 	union flush {
 		struct {
 			bus_space_tag_t		bst;
