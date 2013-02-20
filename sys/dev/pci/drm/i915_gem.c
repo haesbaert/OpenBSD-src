@@ -849,7 +849,7 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	if (obj->pin_count != 0)
-		list_del_init(&obj->mm_list);
+		list_del(&obj->mm_list);
 	else
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
