@@ -2467,6 +2467,7 @@ init_ring_lists(struct intel_ring_buffer *ring)
 {
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
+	INIT_LIST_HEAD(&ring->gpu_write_list);
 }
 
 // i915_gem_load

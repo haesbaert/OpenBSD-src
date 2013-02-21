@@ -1869,6 +1869,7 @@ intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size)
 	ring->dev = dev;
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
+	INIT_LIST_HEAD(&ring->gpu_write_list);
 
 	ring->size = size;
 	ring->effective_size = ring->size;
