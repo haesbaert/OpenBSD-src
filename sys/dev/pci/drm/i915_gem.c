@@ -2186,8 +2186,13 @@ void
 i915_gem_free_object(struct drm_obj *gem_obj)
 {
 	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
+	struct drm_device *dev = gem_obj->dev;
 
 	DRM_ASSERT_HELD(&obj->base);
+
+	if (obj->phys_obj)
+		i915_gem_detach_phys_object(dev, obj);
+	
 	while (obj->pin_count > 0)
 		i915_gem_object_unpin(obj);
 
