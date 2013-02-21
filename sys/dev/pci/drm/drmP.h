@@ -750,7 +750,7 @@ struct dmi_system_id {
         struct dmi_strmatch matches[4];
 };
 #define	DMI_MATCH(a, b) {(a), (b)}
-bool dmi_check_system(const struct dmi_system_id *);
+int dmi_check_system(const struct dmi_system_id *);
 
 
 /* Device setup support (drm_drv.c) */

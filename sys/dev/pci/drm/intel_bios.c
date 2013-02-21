@@ -61,6 +61,7 @@ const struct lvds_fp_timing *
 	 get_lvds_fp_timing(const struct bdb_header *,
 	     const struct bdb_lvds_lfp_data *,
 	     const struct bdb_lvds_lfp_data_ptrs *, int);
+bool	 dmi_found(const struct dmi_system_id *);
 
 static int panel_type;
 unsigned int i915_lvds_downclock = 0;
@@ -711,10 +712,54 @@ static const struct dmi_system_id intel_no_opregion_vbt[] = {
 	{ }
 };
 
+extern char *hw_vendor, *hw_prod;
+
 bool
+dmi_found(const struct dmi_system_id *dsi)
+{
+	int i, slot;
+
+	for (i = 0; i < nitems(dsi->matches); i++) {
+		slot = dsi->matches[i].slot;
+		switch (slot) {
+		case DMI_NONE:
+			break;
+		case DMI_SYS_VENDOR:
+		case DMI_BOARD_VENDOR:
+			if (hw_vendor != NULL &&
+			    !strcmp(hw_vendor, dsi->matches[i].substr))
+				break;
+			else
+				return false;
+		case DMI_PRODUCT_NAME:
+		case DMI_BOARD_NAME:
+			if (hw_prod != NULL &&
+			    !strcmp(hw_prod, dsi->matches[i].substr))
+				break;
+			else
+				return false;
+		default:
+			return false;
+		}
+	}
+
+	return true;
+}
+
+int
 dmi_check_system(const struct dmi_system_id *sysid)
 {
-	return (false);
+	const struct dmi_system_id *dsi;
+	int num = 0;
+
+	for (dsi = sysid; dsi->matches[0].slot != 0 ; dsi++) {
+		if (dmi_found(dsi)) {
+			num++;
+			if (dsi->callback && dsi->callback(dsi))
+				break;
+		}
+	}
+	return (num);
 }
 
 #define VGA_BIOS_ADDR	0xc0000
