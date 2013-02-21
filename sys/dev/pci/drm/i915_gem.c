@@ -1709,7 +1709,7 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 	/* We're accessing through the gpu, so grab a new fence register or
 	 * update the LRU.
 	 */
-	if (obj->base.do_flags & I915_FENCE_INVALID) {
+	if (obj->fence_dirty) {
 		ret = i915_gem_object_put_fence(obj);
 		if (ret)
 			return (ret);
@@ -1923,7 +1923,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 	 * So if so, nuke it before we do anything with the gpu.
 	 * XXX 965+ can put this off.. and be faster
 	 */
-	if (obj->base.do_flags & I915_FENCE_INVALID) {
+	if (obj->fence_dirty) {
 		ret= i915_gem_object_put_fence(obj);
 		if (ret)
 			return (ret);

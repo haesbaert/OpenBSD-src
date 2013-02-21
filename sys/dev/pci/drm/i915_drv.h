@@ -849,7 +849,6 @@ struct inteldrm_file {
 #define I915_GPU_WRITE		0x0080	/* BO has been not flushed */
 #define I915_EXEC_NEEDS_FENCE	0x0800	/* being processed but will need fence*/
 #define I915_FENCED_EXEC	0x1000	/* Most recent exec needs fence */
-#define I915_FENCE_INVALID	0x2000	/* fence has been lazily invalidated */
 
 /** driver private structure attached to each drm_gem_object */
 struct drm_i915_gem_object {

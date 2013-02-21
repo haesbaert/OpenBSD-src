@@ -354,9 +354,6 @@ i915_gem_set_tiling(struct drm_device *dev, void *data,
 		 */
 		/* fence may no longer be correct, wipe it */
 		inteldrm_wipe_mappings(obj);
-		if (obj_priv->fence_reg != I915_FENCE_REG_NONE)
-			atomic_setbits_int(&obj->do_flags,
-			    I915_FENCE_INVALID);
 		obj_priv->fence_dirty =
 		        obj_priv->fenced_gpu_access ||
 		        obj_priv->fence_reg != I915_FENCE_REG_NONE;
