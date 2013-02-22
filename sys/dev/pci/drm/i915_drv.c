@@ -712,16 +712,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
-	/* Unmask the interrupts that we always want on. */
-	if (HAS_PCH_SPLIT(dev)) {
-		dev_priv->irq_mask = ~PCH_SPLIT_DISPLAY_INTR_FIX;
-		/* masked for now, turned on on demand */
-		dev_priv->gt_irq_mask = ~PCH_SPLIT_RENDER_INTR_FIX;
-		dev_priv->pch_irq_mask = ~PCH_SPLIT_HOTPLUG_INTR_FIX;
-	} else {
-		dev_priv->irq_mask = ~I915_INTERRUPT_ENABLE_FIX;
-	}
-
 	dev_priv->workq = workq_create("intelrel", 1, IPL_TTY);
 	if (dev_priv->workq == NULL) {
 		printf("couldn't create workq\n");

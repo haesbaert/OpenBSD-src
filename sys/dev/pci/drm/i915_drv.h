@@ -1439,46 +1439,6 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 
 #define HAS_L3_GPU_CACHE(dev) (IS_IVYBRIDGE(dev) || IS_HASWELL(dev))
 
-/*
- * Interrupts that are always left unmasked.
- *
- * Since pipe events are edge-triggered from the PIPESTAT register to IIRC,
- * we leave them always unmasked in IMR and then control enabling them through
- * PIPESTAT alone.
- */
-#define I915_INTERRUPT_ENABLE_FIX		\
-	(I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |	\
-	I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |	\
-	I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-
-/* Interrupts that we mask and unmask at runtime */
-#define I915_INTERRUPT_ENABLE_VAR	(I915_USER_INTERRUPT)
-
-/* These are all of the interrupts used by the driver */
-#define I915_INTERRUPT_ENABLE_MASK	\
-	(I915_INTERRUPT_ENABLE_FIX |	\
-	I915_INTERRUPT_ENABLE_VAR)
-
-/*
- * if kms we want pch event, gse, and plane flip masks too
- */
-#define PCH_SPLIT_DISPLAY_INTR_FIX	(DE_MASTER_IRQ_CONTROL)
-#define PCH_SPLIT_DISPLAY_INTR_VAR	(DE_PIPEA_VBLANK | DE_PIPEB_VBLANK)
-#define PCH_SPLIT_DISPLAY_ENABLE_MASK	\
-	(PCH_SPLIT_DISPLAY_INTR_FIX | PCH_SPLIT_DISPLAY_INTR_VAR)
-#define PCH_SPLIT_RENDER_INTR_FIX	(0)
-#define PCH_SPLIT_RENDER_INTR_VAR	(GT_USER_INTERRUPT | GT_RENDER_CS_ERROR_INTERRUPT)
-#define PCH_SPLIT_RENDER_ENABLE_MASK	\
-	(PCH_SPLIT_RENDER_INTR_FIX | PCH_SPLIT_RENDER_INTR_VAR)
-/* not yet */
-#define PCH_SPLIT_HOTPLUG_INTR_FIX	(0)
-#define PCH_SPLIT_HOTPLUG_INTR_VAR	(0)
-#define PCH_SPLIT_HOTPLUG_ENABLE_MASK	\
-	(PCH_SPLIT_HOTPLUG_INTR_FIX | PCH_SPLIT_HOTPLUG_INTR_VAR)
-
-#define	printeir(val)	printf("%s: error reg: %b\n", __func__, val,	\
-	"\20\x10PTEERR\x2REFRESHERR\x1INSTERR")
-
 #define PRIMARY_RINGBUFFER_SIZE         (128*1024)
 
 #define  __EXEC_OBJECT_HAS_FENCE (1<<30)
