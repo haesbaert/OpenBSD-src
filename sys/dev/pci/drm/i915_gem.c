@@ -2520,7 +2520,7 @@ void i915_gem_detach_phys_object(struct drm_device *dev,
 		}
 #endif
 	}
-//	intel_gtt_chipset_flush();
+	inteldrm_chipset_flush(dev->dev_private);
 
 	obj->phys_obj->cur_obj = NULL;
 	obj->phys_obj = NULL;
@@ -2595,7 +2595,7 @@ i915_gem_phys_pwrite(struct drm_device *dev,
 	ret = copyin((char *)(uintptr_t)args->data_ptr,
 	    vaddr, args->size);
 
-	// intel_gtt_chipset_flush();
+	inteldrm_chipset_flush(dev->dev_private);
 
 	return ret;
 }
