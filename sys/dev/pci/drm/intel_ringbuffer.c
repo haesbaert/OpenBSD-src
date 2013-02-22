@@ -561,8 +561,6 @@ err:
 void
 cleanup_pipe_control(struct intel_ring_buffer *ring)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct pipe_control *pc = ring->private;
 	struct drm_i915_gem_object *obj;
 
@@ -571,13 +569,13 @@ cleanup_pipe_control(struct intel_ring_buffer *ring)
 
 	obj = pc->obj;
 
-	kunmap(sg_page(obj->pages->sgl));
+	uvm_unmap(kernel_map, (vaddr_t)pc->cpu_page,
+	    (vaddr_t)pc->cpu_page + PAGE_SIZE);
 	i915_gem_object_unpin(obj);
 	drm_gem_object_unreference(&obj->base);
 
-	kfree(pc);
+	free(pc, M_DRM);
 	ring->private = NULL;
-#endif
 }
 
 int
