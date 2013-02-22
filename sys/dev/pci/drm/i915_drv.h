@@ -613,9 +613,6 @@ struct inteldrm_softc {
 	/* number of ioctls + faults in flight */
 	int			 entries;
 
-	/* protects inactive, flushing, active and exec locks */
-	struct mutex		 list_lock;
-
 	/* protects access to request_list */
 	struct mutex		 request_lock;
 

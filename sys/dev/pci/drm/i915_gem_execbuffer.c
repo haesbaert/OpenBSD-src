@@ -484,7 +484,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	 * then we could fail in much worse ways.
 	 */
 	mtx_enter(&dev_priv->request_lock); /* to prevent races on next_seqno */
-	mtx_enter(&dev_priv->list_lock);
 	for (i = 0; i < args->buffer_count; i++) {
 		obj = object_list[i];
 		obj_priv = to_intel_bo(obj);
@@ -521,7 +520,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		i915_gem_object_move_to_active(to_intel_bo(object_list[i]), ring);
 		drm_unlock_obj(obj);
 	}
-	mtx_leave(&dev_priv->list_lock);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	mtx_leave(&dev_priv->request_lock);

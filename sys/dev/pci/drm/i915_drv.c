@@ -803,7 +803,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	printf(": %s\n", pci_intr_string(pa->pa_pc, dev_priv->ih));
 
 	mtx_init(&dev_priv->irq_lock, IPL_TTY);
-	mtx_init(&dev_priv->list_lock, IPL_NONE);
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->rps.lock, IPL_NONE);
 	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
@@ -1253,7 +1252,6 @@ i915_gem_process_flushing(struct intel_ring_buffer *ring,
 	struct drm_i915_gem_object	*obj_priv, *next;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
-	mtx_enter(&dev_priv->list_lock);
 
 	list_for_each_entry_safe(obj_priv, next,
 				 &ring->gpu_write_list,
@@ -1279,7 +1277,6 @@ i915_gem_process_flushing(struct intel_ring_buffer *ring,
 
 		}
 	}
-	mtx_leave(&dev_priv->list_lock);
 }
 
 #if 0
@@ -1296,7 +1293,6 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 	struct drm_i915_gem_object	*obj_priv;
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
-	mtx_enter(&dev_priv->list_lock);
 	/* Move any buffers on the active list that are no longer referenced
 	 * by the ringbuffer to the flushing/inactive lists as appropriate.  */
 	while ((obj_priv  = TAILQ_FIRST(&dev_priv->mm.active_list)) != NULL) {
@@ -1324,10 +1320,8 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 		} else {
 			/* unlocks object for us and drops ref */
 			i915_gem_object_move_to_inactive_locked(obj_priv);
-			mtx_enter(&dev_priv->list_lock);
 		}
 	}
-	mtx_leave(&dev_priv->list_lock);
 }
 #endif
 
@@ -1393,7 +1387,6 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 	 * We don't need references to the object as long as we hold the list
 	 * lock, they won't disappear until we release the lock.
 	 */
-	mtx_enter(&dev_priv->list_lock);
 	list_for_each_entry(obj_priv, &dev_priv->mm.inactive_list, mm_list) {
 		obj = &obj_priv->base;
 		if (obj->size >= min_size) {
@@ -1421,7 +1414,6 @@ i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
 			best = NULL;
 		}
 	}
-	mtx_leave(&dev_priv->list_lock);
 	return (best);
 }
 
@@ -1900,7 +1892,6 @@ inteldrm_hung(void *arg, void *reset_type)
 	 * flushed or completed otherwise. nuke the domains since
 	 * they're now irrelavent.
 	 */
-	mtx_enter(&dev_priv->list_lock);
 	while (!list_empty(&dev_priv->mm.flushing_list)) {
 		obj_priv = list_first_entry(&dev_priv->mm.flushing_list,
 					   struct drm_i915_gem_object,
@@ -1915,9 +1906,7 @@ inteldrm_hung(void *arg, void *reset_type)
 		}
 		/* unlocks object and list */
 		i915_gem_object_move_to_inactive_locked(obj_priv);
-		mtx_enter(&dev_priv->list_lock);
 	}
-	mtx_leave(&dev_priv->list_lock);
 
 	/* unbind everything */
 	(void)i915_gem_evict_inactive(dev_priv);

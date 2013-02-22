@@ -807,7 +807,6 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 	seqno = i915_gem_next_request_seqno(ring);
 
 	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
-	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	obj->ring = ring;
 
 	/* Add a reference if we're newly entering the active list. */
@@ -831,10 +830,6 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 void
 i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 {
-	struct drm_device		*dev = obj->base.dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-
-	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
 
 	obj->last_read_seqno = 0;
@@ -862,7 +857,6 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 	struct drm_device	*dev = obj->base.dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 
-	MUTEX_ASSERT_LOCKED(&dev_priv->list_lock);
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
@@ -880,7 +874,6 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 
 	KASSERT((obj->base.do_flags & I915_GPU_WRITE) == 0);
 	/* unlock because this unref could recurse */
-	mtx_leave(&dev_priv->list_lock);
 	if (obj->active) {
 		obj->active = 0;
 		drm_unref_locked(&obj->base.uobj);
@@ -896,12 +889,8 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 void
 i915_gem_object_move_to_inactive(struct drm_i915_gem_object *obj)
 {
-	struct drm_device	*dev = obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-
-	mtx_enter(&dev_priv->list_lock);
 	drm_lock_obj(&obj->base);
-	/* unlocks list lock and object lock */
+	/* unlocks object lock */
 	i915_gem_object_move_to_inactive_locked(obj);
 }
 
@@ -1102,7 +1091,6 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 	/* Move any buffers on the active list that are no longer referenced
 	 * by the ringbuffer to the flushing/inactive lists as appropriate.
 	 */
-	mtx_enter(&dev_priv->list_lock);
 	while (!list_empty(&ring->active_list)) {
 		struct drm_i915_gem_object *obj;
 
@@ -1124,10 +1112,8 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		} else {
 			/* unlocks object for us and drops ref */
 			i915_gem_object_move_to_inactive_locked(obj);
-			mtx_enter(&dev_priv->list_lock);
 		}
 	}
-	mtx_leave(&dev_priv->list_lock);
 	mtx_leave(&dev_priv->request_lock);
 }
 

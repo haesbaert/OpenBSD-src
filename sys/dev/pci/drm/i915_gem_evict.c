@@ -119,7 +119,6 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		 * When we wait on it, those buffers waiting for that flush
 		 * will get moved to inactive.
 		 */
-		mtx_enter(&dev_priv->list_lock);
 		list_for_each_entry(obj_priv, &dev_priv->mm.flushing_list,
 		    mm_list) {
 			obj = &obj_priv->base;
@@ -129,7 +128,6 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 			}
 			obj = NULL;
 		}
-		mtx_leave(&dev_priv->list_lock);
 
 		if (write_domain) {
 			if (i915_gem_flush(obj_priv->ring, write_domain,
@@ -192,7 +190,6 @@ i915_gem_evict_inactive(struct inteldrm_softc *dev_priv)
 	struct drm_i915_gem_object *obj_priv, *next;
 	int			 ret = 0;
 
-	mtx_enter(&dev_priv->list_lock);
 	list_for_each_entry_safe(obj_priv, next,
 				 &dev_priv->mm.inactive_list, mm_list) {
 		if (obj_priv->pin_count != 0) {
@@ -202,17 +199,14 @@ i915_gem_evict_inactive(struct inteldrm_softc *dev_priv)
 		}
 		/* reference it so that we can frob it outside the lock */
 		drm_ref(&obj_priv->base.uobj);
-		mtx_leave(&dev_priv->list_lock);
 
 		drm_hold_object(&obj_priv->base);
 		ret = i915_gem_object_unbind(obj_priv);
 		drm_unhold_and_unref(&obj_priv->base);
 
-		mtx_enter(&dev_priv->list_lock);
 		if (ret)
 			break;
 	}
-	mtx_leave(&dev_priv->list_lock);
 
 	return (ret);
 }
