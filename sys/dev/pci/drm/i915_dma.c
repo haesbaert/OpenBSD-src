@@ -76,7 +76,11 @@ i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 #endif
 		break;
 	case I915_PARAM_HAS_RELAXED_FENCING:
-		value = 0;
+#ifdef notyet
+		value = 1;
+#else
+		return EINVAL;
+#endif
 		break;
 	case I915_PARAM_HAS_GEN7_SOL_RESET:
 		value = 1;
