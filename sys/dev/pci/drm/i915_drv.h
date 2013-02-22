@@ -602,7 +602,6 @@ struct inteldrm_softc {
 	int			 child_dev_num;
 	struct child_device_config *child_dev;
 
-	struct mutex		 fence_lock;
 	struct drm_i915_fence_reg fence_regs[16]; /* 965 */
 	int			 fence_reg_start; /* 4 by default */
 	int			 num_fence_regs; /* 8 pre-965, 16 post */
