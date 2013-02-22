@@ -867,7 +867,7 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	if (obj->pin_count != 0)
-		list_del(&obj->mm_list);
+		list_del_init(&obj->mm_list);
 	else
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
@@ -1092,7 +1092,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		 */
 		ring->last_retired_head = request->tail;
 
-		list_del(&request->list);
+		list_del_init(&request->list);
 		mtx_leave(&dev_priv->request_lock);
 
 		drm_free(request);
@@ -1946,7 +1946,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 		atomic_inc(&dev->pin_count);
 		atomic_add(obj->base.size, &dev->pin_memory);
 		if (!obj->active)
-			list_del(&obj->mm_list);
+			list_del_init(&obj->mm_list);
 	}
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
