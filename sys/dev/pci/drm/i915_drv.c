@@ -805,6 +805,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->irq_lock, IPL_TTY);
 	mtx_init(&dev_priv->list_lock, IPL_NONE);
 	mtx_init(&dev_priv->request_lock, IPL_NONE);
+	mtx_init(&dev_priv->rps.lock, IPL_NONE);
 	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
 	mtx_init(&mchdev_lock, IPL_NONE);
 
