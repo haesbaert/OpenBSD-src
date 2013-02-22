@@ -1468,7 +1468,8 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 		if (ret)
 			return ret;
 
-		obj->do_flags |= __EXEC_OBJECT_HAS_FENCE;
+		if (i915_gem_object_pin_fence(obj_priv))
+			obj->do_flags |= __EXEC_OBJECT_HAS_FENCE;
 
 		obj_priv->pending_fenced_gpu_access = true;
 	}
