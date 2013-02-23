@@ -639,6 +639,11 @@ int
 inteldrm_show_screen(void *v, void *cookie, int waitok,
     void (*cb)(void *, int, int), void *cbarg)
 {
+	struct inteldrm_softc *dev_priv = v;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+
+	intel_fb_restore_mode(dev);
+
 	return (0);
 }
 
