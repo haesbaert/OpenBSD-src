@@ -642,6 +642,190 @@ inteldrm_show_screen(void *v, void *cookie, int waitok,
 	return (0);
 }
 
+/*
+ * Accelerated routines.
+ */
+
+int inteldrm_copycols(void *, int, int, int, int);
+int inteldrm_erasecols(void *, int, int, int, long);
+int inteldrm_copyrows(void *, int, int, int);
+int inteldrm_eraserows(void *cookie, int, int, long);
+void inteldrm_copyrect(struct inteldrm_softc *, int, int, int, int, int, int);
+void inteldrm_fillrect(struct inteldrm_softc *, int, int, int, int, int);
+
+int
+inteldrm_copycols(void *cookie, int row, int src, int dst, int num)
+{
+	struct rasops_info *ri = cookie;
+	struct inteldrm_softc *sc = ri->ri_hw;
+
+	num *= ri->ri_font->fontwidth;
+	src *= ri->ri_font->fontwidth;
+	dst *= ri->ri_font->fontwidth;
+	row *= ri->ri_font->fontheight;
+
+	inteldrm_copyrect(sc, ri->ri_xorigin + src, ri->ri_yorigin + row,
+	    ri->ri_xorigin + dst, ri->ri_yorigin + row,
+	    num, ri->ri_font->fontheight);
+
+	return 0;
+}
+
+int
+inteldrm_erasecols(void *cookie, int row, int col, int num, long attr)
+{
+	struct rasops_info *ri = cookie;
+	struct inteldrm_softc *sc = ri->ri_hw;
+	int bg, fg;
+
+	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
+
+	row *= ri->ri_font->fontheight;
+	col *= ri->ri_font->fontwidth;
+	num *= ri->ri_font->fontwidth;
+
+	inteldrm_fillrect(sc, ri->ri_xorigin + col, ri->ri_yorigin + row,
+	    num, ri->ri_font->fontheight, ri->ri_devcmap[bg]);
+
+	return 0;
+}
+
+int
+inteldrm_copyrows(void *cookie, int src, int dst, int num)
+{
+	struct rasops_info *ri = cookie;
+	struct inteldrm_softc *sc = ri->ri_hw;
+
+	num *= ri->ri_font->fontheight;
+	src *= ri->ri_font->fontheight;
+	dst *= ri->ri_font->fontheight;
+
+	inteldrm_copyrect(sc, ri->ri_xorigin, ri->ri_yorigin + src,
+	    ri->ri_xorigin, ri->ri_yorigin + dst, ri->ri_emuwidth, num);
+
+	return 0;
+}
+
+int
+inteldrm_eraserows(void *cookie, int row, int num, long attr)
+{
+	struct rasops_info *ri = cookie;
+	struct inteldrm_softc *sc = ri->ri_hw;
+	int bg, fg;
+	int x, y, w;
+
+	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
+
+	if ((num == ri->ri_rows) && ISSET(ri->ri_flg, RI_FULLCLEAR)) {
+		num = ri->ri_height;
+		x = y = 0;
+		w = ri->ri_width;
+	} else {
+		num *= ri->ri_font->fontheight;
+		x = ri->ri_xorigin;
+		y = ri->ri_yorigin + row * ri->ri_font->fontheight;
+		w = ri->ri_emuwidth;
+	}
+	inteldrm_fillrect(sc, x, y, w, num, ri->ri_devcmap[bg]);
+
+	return 0;
+}
+
+void
+inteldrm_copyrect(struct inteldrm_softc *dev_priv, int sx, int sy,
+    int dx, int dy, int w, int h)
+{
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
+	bus_addr_t base = dev_priv->fbdev->ifb.obj->gtt_offset;
+	uint32_t pitch = dev_priv->fbdev->ifb.base.pitches[0];
+	uint32_t seqno;
+	int ret, i;
+
+	ret = intel_ring_begin(ring, 8);
+	if (ret)
+		return;
+
+	intel_ring_emit(ring, XY_SRC_COPY_BLT_CMD |
+	    XY_SRC_COPY_BLT_WRITE_ALPHA | XY_SRC_COPY_BLT_WRITE_RGB);
+	intel_ring_emit(ring, BLT_DEPTH_32 | BLT_ROP_GXCOPY | pitch);
+	intel_ring_emit(ring, (dx << 0) | (dy << 16));
+	intel_ring_emit(ring, ((dx + w) << 0) | ((dy + h) << 16));
+	intel_ring_emit(ring, base);
+	intel_ring_emit(ring, (sx << 0) | (sy << 16));
+	intel_ring_emit(ring, pitch);
+	intel_ring_emit(ring, base);
+	intel_ring_advance(ring);
+
+	ret = intel_ring_begin(ring, 2);
+	if (ret)
+		return;
+
+	intel_ring_emit(ring, MI_FLUSH | MI_READ_FLUSH);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
+
+	ret = i915_add_request(ring, NULL, &seqno);
+	if (ret)
+		return;
+
+	for (i = 1000000; i != 0; i--) {
+		if (i915_seqno_passed(ring->get_seqno(ring, true), seqno))
+			break;
+		DELAY(1);
+	}
+
+	i915_gem_retire_requests_ring(ring);
+}
+
+void
+inteldrm_fillrect(struct inteldrm_softc *dev_priv, int x, int y,
+    int w, int h, int color)
+{
+	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
+	bus_addr_t base = dev_priv->fbdev->ifb.obj->gtt_offset;
+	uint32_t pitch = dev_priv->fbdev->ifb.base.pitches[0];
+	uint32_t seqno;
+	int ret, i;
+
+	ret = intel_ring_begin(ring, 6);
+	if (ret)
+		return;
+
+#define XY_COLOR_BLT_CMD		((2<<29)|(0x50<<22)|4)
+#define XY_COLOR_BLT_WRITE_ALPHA	(1<<21)
+#define XY_COLOR_BLT_WRITE_RGB		(1<<20)
+#define   BLT_ROP_PATCOPY		(0xf0<<16)
+
+	intel_ring_emit(ring, XY_COLOR_BLT_CMD |
+	    XY_COLOR_BLT_WRITE_ALPHA | XY_COLOR_BLT_WRITE_RGB);
+	intel_ring_emit(ring, BLT_DEPTH_32 | BLT_ROP_PATCOPY | pitch);
+	intel_ring_emit(ring, (x << 0) | (y << 16));
+	intel_ring_emit(ring, ((x + w) << 0) | ((y + h) << 16));
+	intel_ring_emit(ring, base);
+	intel_ring_emit(ring, color);
+	intel_ring_advance(ring);
+
+	ret = intel_ring_begin(ring, 2);
+	if (ret)
+		return;
+
+	intel_ring_emit(ring, MI_FLUSH | MI_READ_FLUSH);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
+
+	ret = i915_add_request(ring, NULL, &seqno);
+	if (ret)
+		return;
+
+	for (i = 1000000; i != 0; i--) {
+		if (i915_seqno_passed(ring->get_seqno(ring, true), seqno))
+			break;
+		DELAY(1);
+	}
+
+	i915_gem_retire_requests_ring(ring);
+}
+
 void
 inteldrm_attach(struct device *parent, struct device *self, void *aux)
 {
@@ -850,6 +1034,14 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	ri->ri_flg = RI_CENTER;
 	rasops_init(ri, 96, 132);
+
+#if notyet
+	ri->ri_hw = dev_priv;
+	ri->ri_ops.copyrows = inteldrm_copyrows;
+	ri->ri_ops.copycols = inteldrm_copycols;
+	ri->ri_ops.eraserows = inteldrm_eraserows;
+	ri->ri_ops.erasecols = inteldrm_erasecols;
+#endif
 
 	inteldrm_stdscreen.capabilities = ri->ri_caps;
 	inteldrm_stdscreen.nrows = ri->ri_rows;
