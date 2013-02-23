@@ -600,6 +600,30 @@ struct wsdisplay_accessops inteldrm_accessops = {
 int
 inteldrm_wsioctl(void *v, u_long cmd, caddr_t data, int flag, struct proc *p)
 {
+	struct inteldrm_softc *dev_priv = v;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+	struct wsdisplay_param *dp = (struct wsdisplay_param *)data;
+	extern u32 _intel_panel_get_max_backlight(struct drm_device *);
+
+	switch (cmd) {
+	case WSDISPLAYIO_GETPARAM:
+		switch (dp->param) {
+		case WSDISPLAYIO_PARAM_BRIGHTNESS:
+			dp->min = 0;
+			dp->max = _intel_panel_get_max_backlight(dev);
+			dp->curval = dev_priv->backlight_level;
+			return 0;
+		}
+		break;
+	case WSDISPLAYIO_SETPARAM:
+		switch (dp->param) {
+		case WSDISPLAYIO_PARAM_BRIGHTNESS:
+			intel_panel_set_backlight(dev, dp->curval);
+			return 0;
+		}
+		break;
+	}
+
 	return (-1);
 }
 
