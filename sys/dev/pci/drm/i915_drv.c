@@ -867,7 +867,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	if (wsdisplay_console_initted) {
 		long defattr;
 
-		wsdisplay_console_initted = 0;
 		ri->ri_ops.alloc_attr(ri, 0, 0, 0, &defattr);
 		wsdisplay_cnattach(&inteldrm_stdscreen, ri, 0, 0, defattr);
 		aa.console = 1;
