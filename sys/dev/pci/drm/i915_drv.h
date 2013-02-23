@@ -613,9 +613,6 @@ struct inteldrm_softc {
 	/* number of ioctls + faults in flight */
 	int			 entries;
 
-	/* protects access to request_list */
-	struct mutex		 request_lock;
-
 	enum intel_pch pch_type;
 	unsigned short pch_id;
 

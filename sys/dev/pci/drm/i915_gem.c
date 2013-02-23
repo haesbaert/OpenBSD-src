@@ -806,7 +806,6 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 
 	seqno = i915_gem_next_request_seqno(ring);
 
-	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	obj->ring = ring;
 
 	/* Add a reference if we're newly entering the active list. */
@@ -974,8 +973,6 @@ i915_add_request(struct intel_ring_buffer *ring,
 	u32				 request_ring_position;
 	int				 was_empty, ret;
 
-	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
-
 	request = drm_calloc(1, sizeof(*request));
 	if (request == NULL) {
 		printf("%s: failed to allocate request\n", __func__);
@@ -998,13 +995,11 @@ i915_add_request(struct intel_ring_buffer *ring,
 	DRM_DEBUG("%d\n", seqno);
 
 	/* XXX request timing for throttle */
-	mtx_enter(&dev_priv->request_lock);
 	request->seqno = seqno;
 	request->ring = ring;
 	request->tail = request_ring_position;
 	was_empty = list_empty(&ring->request_list);
 	list_add_tail(&request->list, &ring->request_list);
-	mtx_leave(&dev_priv->request_lock);
 
 	ring->outstanding_lazy_request = 0;
 
@@ -1061,11 +1056,8 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 	if (list_empty(&ring->request_list))
 		return;
 
-	MUTEX_ASSERT_UNLOCKED(&dev_priv->request_lock);
-
 	seqno = ring->get_seqno(ring, true);
 
-	mtx_enter(&dev_priv->request_lock);
 	while (!list_empty(&ring->request_list)) {
 		request = list_first_entry(&ring->request_list,
 		    struct drm_i915_gem_request, list);
@@ -1082,10 +1074,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		ring->last_retired_head = request->tail;
 
 		list_del_init(&request->list);
-		mtx_leave(&dev_priv->request_lock);
-
 		drm_free(request);
-		mtx_enter(&dev_priv->request_lock);
 	}
 
 	/* Move any buffers on the active list that are no longer referenced
@@ -1114,7 +1103,6 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 			i915_gem_object_move_to_inactive_locked(obj);
 		}
 	}
-	mtx_leave(&dev_priv->request_lock);
 }
 
 void

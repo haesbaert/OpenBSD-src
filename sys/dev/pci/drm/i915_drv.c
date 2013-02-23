@@ -793,7 +793,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	printf(": %s\n", pci_intr_string(pa->pa_pc, dev_priv->ih));
 
 	mtx_init(&dev_priv->irq_lock, IPL_TTY);
-	mtx_init(&dev_priv->request_lock, IPL_NONE);
 	mtx_init(&dev_priv->rps.lock, IPL_NONE);
 	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
 	mtx_init(&mchdev_lock, IPL_NONE);
@@ -1238,10 +1237,7 @@ void
 i915_gem_process_flushing(struct intel_ring_buffer *ring,
     u_int32_t flush_domains)
 {
-	struct inteldrm_softc		*dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_object	*obj_priv, *next;
-
-	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 
 	list_for_each_entry_safe(obj_priv, next,
 				 &ring->gpu_write_list,
@@ -1271,7 +1267,6 @@ i915_gem_retire_request(struct inteldrm_softc *dev_priv,
 {
 	struct drm_i915_gem_object	*obj_priv;
 
-	MUTEX_ASSERT_LOCKED(&dev_priv->request_lock);
 	/* Move any buffers on the active list that are no longer referenced
 	 * by the ringbuffer to the flushing/inactive lists as appropriate.  */
 	while ((obj_priv  = TAILQ_FIRST(&dev_priv->mm.active_list)) != NULL) {
@@ -1343,9 +1338,7 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
 
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
-		mtx_enter(&dev_priv->request_lock);
 		i915_gem_process_flushing(ring, flush_domains);
-		mtx_leave(&dev_priv->request_lock);
 		err = i915_add_request(ring, NULL, &seqno);
 	}
 

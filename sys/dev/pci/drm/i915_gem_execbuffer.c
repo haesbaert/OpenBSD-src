@@ -483,7 +483,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	 * wait), which will waste some time, but if we're that low on memory
 	 * then we could fail in much worse ways.
 	 */
-	mtx_enter(&dev_priv->request_lock); /* to prevent races on next_seqno */
 	for (i = 0; i < args->buffer_count; i++) {
 		obj = object_list[i];
 		obj_priv = to_intel_bo(obj);
@@ -522,7 +521,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	}
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
-	mtx_leave(&dev_priv->request_lock);
 
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		ret = i915_reset_gen7_sol_offsets(dev, ring);
