@@ -2227,7 +2227,7 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 	/* if we hung then the timer alredy fired. */
 	timeout_del(&dev_priv->hangcheck_timer);
 
-//	inteldrm_update_ring(&dev_priv->rings[RCS]);
+	i915_kernel_lost_context(dev);
 	i915_gem_cleanup_ringbuffer(dev);
 	DRM_UNLOCK();
 

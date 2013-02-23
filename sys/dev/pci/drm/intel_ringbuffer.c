@@ -480,11 +480,7 @@ init_ring_common(struct intel_ring_buffer *ring)
 	}
 
 	if (!drm_core_check_feature(ring->dev, DRIVER_MODESET))
-#ifdef notyet
 		i915_kernel_lost_context(ring->dev);
-#else
-		;
-#endif
 	else {
 		ring->head = I915_READ_HEAD(ring);
 		ring->tail = I915_READ_TAIL(ring) & TAIL_ADDR;

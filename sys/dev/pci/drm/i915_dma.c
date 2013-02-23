@@ -33,6 +33,39 @@
 #include "intel_drv.h"
 #include "drm_crtc_helper.h"
 
+void
+i915_kernel_lost_context(struct drm_device * dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+#if 0
+	struct drm_i915_master_private *master_priv;
+#endif
+	struct intel_ring_buffer *ring = LP_RING(dev_priv);
+
+	/*
+	 * We should never lose context on the ring with modesetting
+	 * as we don't expose it to userspace
+	 */
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return;
+
+	ring->head = I915_READ_HEAD(ring) & HEAD_ADDR;
+	ring->tail = I915_READ_TAIL(ring) & TAIL_ADDR;
+	ring->space = ring->head - (ring->tail + I915_RING_FREE_SPACE);
+	if (ring->space < 0)
+		ring->space += ring->size;
+
+#if 0
+	if (!dev->primary->master)
+		return;
+
+	master_priv = dev->primary->master->driver_priv;
+	if (ring->head == ring->tail && master_priv->sarea_priv)
+		master_priv->sarea_priv->perf_boxes |= I915_BOX_RING_EMPTY;
+#endif
+}
+
+
 int
 i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 {

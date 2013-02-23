@@ -1129,6 +1129,7 @@ void	intel_teardown_mchbar(struct inteldrm_softc *,
 	    struct pci_attach_args *, int);
 int	i915_getparam(struct inteldrm_softc *dev_priv, void *data);
 int	i915_setparam(struct inteldrm_softc *dev_priv, void *data);
+void	i915_kernel_lost_context(struct drm_device *);
 
 /* i915_drv.c */
 void	inteldrm_wipe_mappings(struct drm_obj *);
