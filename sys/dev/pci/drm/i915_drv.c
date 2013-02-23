@@ -1254,17 +1254,6 @@ i915_gem_process_flushing(struct intel_ring_buffer *ring,
 			list_del_init(&obj_priv->gpu_write_list);
 			i915_gem_object_move_to_active(obj_priv, ring);
 			obj->write_domain = 0;
-			/* if we still need the fence, update LRU */
-			if (obj_priv->fenced_gpu_access) {
-				KASSERT(obj_priv->fence_reg !=
-				    I915_FENCE_REG_NONE);
-				/* we have a fence, won't sleep, can't fail
-				 * since we have the fence we no not need
-				 * to have the object held
-				 */
-				i915_gem_object_get_fence(obj_priv);
-			}
-
 		}
 	}
 }
