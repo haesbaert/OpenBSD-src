@@ -783,7 +783,6 @@ wsdisplay_cnattach(const struct wsscreen_descr *type, void *cookie, int ccol,
 	const struct wsemul_ops *wsemul;
 	const struct wsdisplay_emulops *emulops;
 
-	KASSERT(!wsdisplay_console_initted);
 	KASSERT(type->nrows > 0);
 	KASSERT(type->ncols > 0);
 	KASSERT(crow < type->nrows);
@@ -808,7 +807,8 @@ wsdisplay_cnattach(const struct wsscreen_descr *type, void *cookie, int ccol,
 	wsdisplay_console_conf.wsemulcookie =
 	    (*wsemul->cnattach)(type, cookie, ccol, crow, defattr);
 
-	cn_tab = &wsdisplay_cons;
+	if (!wsdisplay_console_initted)
+		cn_tab = &wsdisplay_cons;
 
 	wsdisplay_console_initted = 1;
 }
