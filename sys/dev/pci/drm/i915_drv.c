@@ -659,6 +659,9 @@ inteldrm_copycols(void *cookie, int row, int src, int dst, int num)
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
 
+	if (sc->mm.suspended)
+		return sc->noaccel_ops.copycols(cookie, row, src, dst, num);
+
 	num *= ri->ri_font->fontwidth;
 	src *= ri->ri_font->fontwidth;
 	dst *= ri->ri_font->fontwidth;
@@ -678,6 +681,9 @@ inteldrm_erasecols(void *cookie, int row, int col, int num, long attr)
 	struct inteldrm_softc *sc = ri->ri_hw;
 	int bg, fg;
 
+	if (sc->mm.suspended)
+		return sc->noaccel_ops.erasecols(cookie, row, col, num, attr);
+
 	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
 
 	row *= ri->ri_font->fontheight;
@@ -696,6 +702,9 @@ inteldrm_copyrows(void *cookie, int src, int dst, int num)
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
 
+	if (sc->mm.suspended)
+		return sc->noaccel_ops.copyrows(cookie, src, dst, num);
+
 	num *= ri->ri_font->fontheight;
 	src *= ri->ri_font->fontheight;
 	dst *= ri->ri_font->fontheight;
@@ -713,6 +722,9 @@ inteldrm_eraserows(void *cookie, int row, int num, long attr)
 	struct inteldrm_softc *sc = ri->ri_hw;
 	int bg, fg;
 	int x, y, w;
+
+	if (sc->mm.suspended)
+		return sc->noaccel_ops.eraserows(cookie, row, num, attr);
 
 	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
 
@@ -1035,7 +1047,9 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	ri->ri_flg = RI_CENTER;
 	rasops_init(ri, 96, 132);
 
-#if notyet
+	dev_priv->noaccel_ops = ri->ri_ops;
+
+#ifdef notyet
 	ri->ri_hw = dev_priv;
 	ri->ri_ops.copyrows = inteldrm_copyrows;
 	ri->ri_ops.copycols = inteldrm_copycols;
