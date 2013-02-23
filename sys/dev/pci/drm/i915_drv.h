@@ -504,6 +504,8 @@ struct inteldrm_softc {
 
 	int			 nscreens;
 	struct rasops_info	 ro;
+
+	int			 noaccel;
 	struct wsdisplay_emulops noaccel_ops;
 
 	uint32_t		 gpio_mmio_base;

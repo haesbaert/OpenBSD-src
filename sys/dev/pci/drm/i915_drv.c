@@ -664,7 +664,7 @@ inteldrm_copycols(void *cookie, int row, int src, int dst, int num)
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
 
-	if (sc->mm.suspended)
+	if (sc->noaccel)
 		return sc->noaccel_ops.copycols(cookie, row, src, dst, num);
 
 	num *= ri->ri_font->fontwidth;
@@ -686,7 +686,7 @@ inteldrm_erasecols(void *cookie, int row, int col, int num, long attr)
 	struct inteldrm_softc *sc = ri->ri_hw;
 	int bg, fg;
 
-	if (sc->mm.suspended)
+	if (sc->noaccel)
 		return sc->noaccel_ops.erasecols(cookie, row, col, num, attr);
 
 	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
@@ -707,7 +707,7 @@ inteldrm_copyrows(void *cookie, int src, int dst, int num)
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
 
-	if (sc->mm.suspended)
+	if (sc->noaccel)
 		return sc->noaccel_ops.copyrows(cookie, src, dst, num);
 
 	num *= ri->ri_font->fontheight;
@@ -728,7 +728,7 @@ inteldrm_eraserows(void *cookie, int row, int num, long attr)
 	int bg, fg;
 	int x, y, w;
 
-	if (sc->mm.suspended)
+	if (sc->noaccel)
 		return sc->noaccel_ops.eraserows(cookie, row, num, attr);
 
 	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
@@ -1149,6 +1149,7 @@ inteldrm_activate(struct device *arg, int act)
 	switch (act) {
 	case DVACT_QUIESCE:
 //		inteldrm_quiesce(dev_priv);
+		dev_priv->noaccel = 1;
 		i915_drm_freeze(dev);
 		break;
 	case DVACT_SUSPEND:
@@ -1161,6 +1162,7 @@ inteldrm_activate(struct device *arg, int act)
 //		wakeup(&dev_priv->flags);
 		i915_drm_thaw(dev);
 		intel_fb_restore_mode(dev);
+		dev_priv->noaccel = 0;
 		break;
 	}
 
