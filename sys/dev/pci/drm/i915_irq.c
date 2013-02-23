@@ -87,6 +87,7 @@ int	 i965_irq_postinstall(struct drm_device *);
 int	 i965_intr(void *);
 void	 i965_irq_uninstall(struct drm_device *);
 void	 intel_irq_init(struct drm_device *);
+void	 i915_hotplug_work_func(void *, void *);
 
 /* For display hotplug interrupt */
 void
@@ -335,29 +336,26 @@ i915_get_vblank_timestamp(struct drm_device *dev, int pipe,
 /*
  * Handle hotplug events outside the interrupt handler proper.
  */
-#ifdef notyet
 void
-i915_hotplug_work_func(struct work_struct *work)
+i915_hotplug_work_func(void *arg1, void *arg2)
 {
-	drm_i915_private_t *dev_priv = container_of(work, drm_i915_private_t,
-						    hotplug_work);
-	struct drm_device *dev = dev_priv->dev;
+	drm_i915_private_t *dev_priv = (drm_i915_private_t *)arg1;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct intel_encoder *encoder;
 
-	mutex_lock(&mode_config->mutex);
+	rw_enter_write(&mode_config->rwl);
 	DRM_DEBUG_KMS("running encoder hotplug functions\n");
 
 	list_for_each_entry(encoder, &mode_config->encoder_list, base.head)
 		if (encoder->hot_plug)
 			encoder->hot_plug(encoder);
 
-	mutex_unlock(&mode_config->mutex);
+	rw_exit_write(&mode_config->rwl);
 
 	/* Just fire off a uevent and let userspace tell us what to do */
 	drm_helper_hpd_irq_event(dev);
 }
-#endif
 
 /* defined intel_pm.c */
 extern struct mutex mchdev_lock;
@@ -659,11 +657,9 @@ valleyview_intr(void *arg)
 
 			DRM_DEBUG_DRIVER("hotplug event received, stat 0x%08x\n",
 					 hotplug_status);
-#ifdef notyet
 			if (hotplug_status & dev_priv->hotplug_supported_mask)
-				queue_work(dev_priv->wq,
-					   &dev_priv->hotplug_work);
-#endif
+				workq_queue_task(NULL, &dev_priv->hotplug_task,
+				    0, i915_hotplug_work_func, dev_priv, NULL);
 
 			I915_WRITE(PORT_HOTPLUG_STAT, hotplug_status);
 			I915_READ(PORT_HOTPLUG_STAT);
@@ -690,10 +686,9 @@ ibx_irq_handler(struct drm_device *dev, u32 pch_iir)
 	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
 	int pipe;
 
-#ifdef notyet
 	if (pch_iir & SDE_HOTPLUG_MASK)
-		queue_work(dev_priv->wq, &dev_priv->hotplug_work);
-#endif
+		workq_queue_task(NULL, &dev_priv->hotplug_task, 0,
+		    i915_hotplug_work_func, dev_priv, NULL);
 
 	if (pch_iir & SDE_AUDIO_POWER_MASK)
 		DRM_DEBUG_DRIVER("PCH audio power change on port %d\n",
@@ -736,10 +731,9 @@ cpt_irq_handler(struct drm_device *dev, u32 pch_iir)
 	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
 	int pipe;
 
-#ifdef notyet
 	if (pch_iir & SDE_HOTPLUG_MASK_CPT)
-		queue_work(dev_priv->wq, &dev_priv->hotplug_work);
-#endif
+		workq_queue_task(NULL, &dev_priv->hotplug_task, 0,
+		    i915_hotplug_work_func, dev_priv, NULL);
 
 	if (pch_iir & SDE_AUDIO_POWER_MASK_CPT)
 		DRM_DEBUG_DRIVER("PCH audio power change on port %d\n",
@@ -2520,11 +2514,9 @@ i915_intr(void *arg)
 
 			DRM_DEBUG_DRIVER("hotplug event received, stat 0x%08x\n",
 				  hotplug_status);
-#ifdef notyet
 			if (hotplug_status & dev_priv->hotplug_supported_mask)
-				queue_work(dev_priv->wq,
-					   &dev_priv->hotplug_work);
-#endif
+				workq_queue_task(NULL, &dev_priv->hotplug_task,
+				    0, i915_hotplug_work_func, dev_priv, NULL);
 
 			I915_WRITE(PORT_HOTPLUG_STAT, hotplug_status);
 			POSTING_READ(PORT_HOTPLUG_STAT);
@@ -2767,11 +2759,9 @@ i965_intr(void *arg)
 
 			DRM_DEBUG_DRIVER("hotplug event received, stat 0x%08x\n",
 				  hotplug_status);
-#ifdef notyet
 			if (hotplug_status & dev_priv->hotplug_supported_mask)
-				queue_work(dev_priv->wq,
-					   &dev_priv->hotplug_work);
-#endif
+				workq_queue_task(NULL, &dev_priv->hotplug_task,
+				    0, i915_hotplug_work_func, dev_priv, NULL);
 
 			I915_WRITE(PORT_HOTPLUG_STAT, hotplug_status);
 			I915_READ(PORT_HOTPLUG_STAT);
@@ -2861,7 +2851,6 @@ intel_irq_init(struct drm_device *dev)
 //	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 #ifdef notyet
-	INIT_WORK(&dev_priv->hotplug_work, i915_hotplug_work_func);
 	INIT_WORK(&dev_priv->error_work, i915_error_work_func);
 	INIT_WORK(&dev_priv->rps.work, gen6_pm_rps_work);
 	INIT_WORK(&dev_priv->l3_parity.error_work, ivybridge_parity_work);

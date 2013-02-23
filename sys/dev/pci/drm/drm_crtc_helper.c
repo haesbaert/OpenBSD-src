@@ -44,6 +44,8 @@ void	 drm_crtc_prepare_encoders(struct drm_device *);
 int	 drm_helper_choose_encoder_dpms(struct drm_encoder *);
 int	 drm_helper_choose_crtc_dpms(struct drm_crtc *);
 int	 drm_crtc_helper_disable(struct drm_crtc *);
+void	 drm_output_poll_execute(void *, void *);
+void	 drm_output_poll_tick(void *);
 
 /**
  * drm_helper_move_panel_connectors_to_head() - move panels to the front in the
@@ -989,13 +991,20 @@ drm_kms_helper_hotplug_event(struct drm_device *dev)
 }
 EXPORT_SYMBOL(drm_kms_helper_hotplug_event);
 
-#ifdef notyet
-#define DRM_OUTPUT_POLL_PERIOD (10*HZ)
 void
-output_poll_execute(struct work_struct *work)
+drm_output_poll_tick(void *arg)
 {
-	struct delayed_work *delayed_work = to_delayed_work(work);
-	struct drm_device *dev = container_of(delayed_work, struct drm_device, mode_config.output_poll_work);
+	struct drm_device *dev = arg;
+
+	workq_queue_task(NULL, &dev->mode_config.poll_task, 0,
+	    drm_output_poll_execute, dev, NULL);
+}
+
+#define DRM_OUTPUT_POLL_SECONDS 10
+void
+drm_output_poll_execute(void *arg1, void *arg2)
+{
+	struct drm_device *dev = (struct drm_device *)arg1;
 	struct drm_connector *connector;
 	enum drm_connector_status old_status;
 	bool repoll = false, changed = false;
@@ -1003,7 +1012,7 @@ output_poll_execute(struct work_struct *work)
 	if (!drm_kms_helper_poll)
 		return;
 
-	mutex_lock(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
 
 		/* Ignore forced connectors. */
@@ -1033,31 +1042,28 @@ output_poll_execute(struct work_struct *work)
 			changed = true;
 	}
 
-	mutex_unlock(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	if (changed)
 		drm_kms_helper_hotplug_event(dev);
 
 	if (repoll)
-		schedule_delayed_work(delayed_work, DRM_OUTPUT_POLL_PERIOD);
+		timeout_add_sec(&dev->mode_config.output_poll_to,
+		    DRM_OUTPUT_POLL_SECONDS);
 }
-#endif
 
 void
 drm_kms_helper_poll_disable(struct drm_device *dev)
 {
 	if (!dev->mode_config.poll_enabled)
 		return;
-#ifdef notyet
-	cancel_delayed_work_sync(&dev->mode_config.output_poll_work);
-#endif
+	timeout_del(&dev->mode_config.output_poll_to);
 }
 EXPORT_SYMBOL(drm_kms_helper_poll_disable);
 
 void
 drm_kms_helper_poll_enable(struct drm_device *dev)
 {
-#ifdef notyet
 	bool poll = false;
 	struct drm_connector *connector;
 
@@ -1071,20 +1077,19 @@ drm_kms_helper_poll_enable(struct drm_device *dev)
 	}
 
 	if (poll)
-		schedule_delayed_work(&dev->mode_config.output_poll_work, DRM_OUTPUT_POLL_PERIOD);
-#endif
+		timeout_add_sec(&dev->mode_config.output_poll_to,
+		    DRM_OUTPUT_POLL_SECONDS);
 }
 EXPORT_SYMBOL(drm_kms_helper_poll_enable);
 
 void
 drm_kms_helper_poll_init(struct drm_device *dev)
 {
-#ifdef notyet
-	INIT_DELAYED_WORK(&dev->mode_config.output_poll_work, output_poll_execute);
+	timeout_set(&dev->mode_config.output_poll_to, drm_output_poll_tick,
+	    dev);
 	dev->mode_config.poll_enabled = true;
 
 	drm_kms_helper_poll_enable(dev);
-#endif
 }
 EXPORT_SYMBOL(drm_kms_helper_poll_init);
 

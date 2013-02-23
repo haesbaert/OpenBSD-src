@@ -27,6 +27,7 @@
 
 #include <sys/types.h>
 #include <dev/i2c/i2cvar.h>
+#include <sys/workq.h>
 #include "drm_mode.h"
 
 #include "drm_fourcc.h"
@@ -793,7 +794,8 @@ struct drm_mode_config {
 	/* output poll support */
 	bool poll_enabled;
 	bool poll_running;
-//	struct delayed_work output_poll_work;
+	struct timeout output_poll_to;
+	struct workq_task poll_task;
 
 	/* pointers to standard properties */
 	struct list_head property_blob_list;

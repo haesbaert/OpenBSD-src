@@ -36,6 +36,7 @@
 #include "intel_bios.h"
 #include "intel_ringbuffer.h"
 
+#include <sys/workq.h>
 #include <dev/wscons/wsconsio.h>
 #include <dev/wscons/wsdisplayvar.h>
 #include <dev/rasops/rasops.h>
@@ -550,6 +551,7 @@ struct inteldrm_softc {
 	u_int32_t		 pch_irq_mask;
 
 	u_int32_t		 hotplug_supported_mask;
+	struct workq_task	 hotplug_task;
 
 	int			 num_pipe;
 	int			 num_pch_pll;
