@@ -1817,9 +1817,6 @@ intel_init_render_ring_buffer(struct drm_device *dev)
 int
 intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#if 0
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
 	int ret;
@@ -1870,10 +1867,9 @@ intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size)
 	if (IS_I830(ring->dev) || IS_845G(ring->dev))
 		ring->effective_size -= 128;
 
-	ring->virtual_start = ioremap_wc(start, size);
-	if (ring->virtual_start == NULL) {
-		DRM_ERROR("can not ioremap virtual address for"
-			  " ring buffer\n");
+	if ((ret = agp_map_subregion(dev_priv->agph, start,
+	    size, &ring->bsh)) != 0) {
+		DRM_ERROR("Failed to map ringbuffer.\n");
 		return -ENOMEM;
 	}
 
@@ -1884,7 +1880,6 @@ intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size)
 	}
 
 	return 0;
-#endif
 }
 
 int
