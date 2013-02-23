@@ -666,6 +666,10 @@ wsdisplay_common_attach(struct wsdisplay_softc *sc, int console, int kbdmux,
 #if NWSMUX > 0
 	struct wsmux_softc *mux;
 
+	/* XXX */
+	if (wsdisplay_console_device)
+		console = 0;
+
 	if (kbdmux >= 0)
 		mux = wsmux_getmux(kbdmux);
 	else

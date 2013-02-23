@@ -249,8 +249,6 @@ vga_pci_attach(struct device *parent, struct device *self, void *aux)
 	}
 #endif
 	printf("\n");
-	sc->sc_vc = vga_common_attach(self, pa->pa_iot, pa->pa_memt,
-	    WSDISPLAY_TYPE_PCIVGA);
 
 	vga_pci_bar_init(sc, pa);
 
@@ -294,6 +292,9 @@ vga_pci_attach(struct device *parent, struct device *self, void *aux)
 #if NDRM > 0
 	config_found_sm(self, aux, NULL, drmsubmatch);
 #endif
+
+	sc->sc_vc = vga_common_attach(self, pa->pa_iot, pa->pa_memt,
+	    WSDISPLAY_TYPE_PCIVGA);
 }
 
 int
