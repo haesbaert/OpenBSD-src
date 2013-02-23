@@ -747,11 +747,17 @@ void
 inteldrm_copyrect(struct inteldrm_softc *dev_priv, int sx, int sy,
     int dx, int dy, int w, int h)
 {
-	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	bus_addr_t base = dev_priv->fbdev->ifb.obj->gtt_offset;
 	uint32_t pitch = dev_priv->fbdev->ifb.base.pitches[0];
+	struct intel_ring_buffer *ring;
 	uint32_t seqno;
 	int ret, i;
+
+	if (HAS_BLT(dev))
+		ring = &dev_priv->rings[BCS];
+	else
+		ring = &dev_priv->rings[RCS];
 
 	ret = intel_ring_begin(ring, 8);
 	if (ret)
@@ -793,11 +799,17 @@ void
 inteldrm_fillrect(struct inteldrm_softc *dev_priv, int x, int y,
     int w, int h, int color)
 {
-	struct intel_ring_buffer *ring = &dev_priv->rings[RCS];
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	bus_addr_t base = dev_priv->fbdev->ifb.obj->gtt_offset;
 	uint32_t pitch = dev_priv->fbdev->ifb.base.pitches[0];
+	struct intel_ring_buffer *ring;
 	uint32_t seqno;
 	int ret, i;
+
+	if (HAS_BLT(dev))
+		ring = &dev_priv->rings[BCS];
+	else
+		ring = &dev_priv->rings[RCS];
 
 	ret = intel_ring_begin(ring, 6);
 	if (ret)
