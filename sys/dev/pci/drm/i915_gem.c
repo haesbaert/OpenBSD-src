@@ -91,7 +91,6 @@ i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
 // i915_gem_info_remove_obj
 // i915_gem_wait_for_error
 // i915_mutex_lock_interruptible
-// i915_gem_object_is_inactive
 
 static inline bool
 i915_gem_object_is_inactive(struct drm_i915_gem_object *obj)
@@ -611,7 +610,6 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 			printf("%s: failed to bind\n", __func__);
 			goto error;
 		}
-		i915_gem_object_move_to_inactive(obj);
 	}
 
 	/*
@@ -626,6 +624,9 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 		    __func__, ret);
 		goto error;
 	}
+
+	if (i915_gem_object_is_inactive(obj))
+		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
 	mapprot = ufi->entry->protection;
 	/*
@@ -838,6 +839,7 @@ i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 {
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
 
+	list_del_init(&obj->ring_list);
 	obj->last_read_seqno = 0;
 	obj->last_fenced_seqno = 0;
 	if (obj->base.write_domain == 0)
@@ -864,27 +866,24 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
-
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
+
 	if (obj->pin_count != 0)
 		list_del_init(&obj->mm_list);
 	else
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
-	list_del_init(&obj->ring_list);
+	BUG_ON(!list_empty(&obj->gpu_write_list));
+	BUG_ON(!obj->active);
 	obj->ring = NULL;
 
 	i915_gem_object_move_off_active(obj);
 	obj->fenced_gpu_access = false;
 
-	/* unlock because this unref could recurse */
-	if (obj->active) {
-		obj->active = 0;
-		obj->pending_gpu_write = false;
-		drm_unref_locked(&obj->base.uobj);
-	} else {
-		drm_unlock_obj(&obj->base);
-	}
+	obj->active = 0;
+	obj->pending_gpu_write = false;
+	drm_gem_object_unreference(&obj->base);
+
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 }
 
@@ -1078,10 +1077,7 @@ i915_gem_reset_fences(struct drm_device *dev)
 void
 i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 {
-	struct drm_device		*dev = ring->dev;
-	struct inteldrm_softc		*dev_priv = dev->dev_private;
-	struct drm_i915_gem_request	*request;
-	uint32_t			 seqno;
+	uint32_t seqno;
 
 	if (list_empty(&ring->request_list))
 		return;
@@ -1089,13 +1085,16 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 	seqno = ring->get_seqno(ring, true);
 
 	while (!list_empty(&ring->request_list)) {
-		request = list_first_entry(&ring->request_list,
-		    struct drm_i915_gem_request, list);
+		struct drm_i915_gem_request *request;
 
-		if (!(i915_seqno_passed(seqno, request->seqno) ||
-		    dev_priv->mm.wedged))
+		request = list_first_entry(&ring->request_list,
+					   struct drm_i915_gem_request,
+					   list);
+
+		if (!i915_seqno_passed(seqno, request->seqno))
 			break;
 
+//		trace_i915_gem_request_retire(ring, request->seqno);
 		/* We know the GPU must have read the request to have
 		 * sent us the seqno + interrupt, so use the position
 		 * of tail of the request to update the last known position
@@ -1103,7 +1102,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		 */
 		ring->last_retired_head = request->tail;
 
-		list_del_init(&request->list);
+		list_del(&request->list);
 		drm_free(request);
 	}
 
@@ -1120,18 +1119,10 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		if (!i915_seqno_passed(seqno, obj->last_read_seqno))
 			break;
 
-		drm_lock_obj(&obj->base);
-		if (obj->base.write_domain != 0) {
-			KASSERT(obj->active);
-			list_move_tail(&obj->mm_list,
-			    &dev_priv->mm.flushing_list);
-			list_del_init(&obj->ring_list);
-			i915_gem_object_move_off_active(obj);
-			drm_unlock_obj(&obj->base);
-		} else {
-			/* unlocks object for us and drops ref */
-			i915_gem_object_move_to_inactive_locked(obj);
-		}
+		if (obj->base.write_domain != 0)
+			i915_gem_object_move_to_flushing(obj);
+		else
+			i915_gem_object_move_to_inactive(obj);
 	}
 }
 
@@ -1961,6 +1952,7 @@ void
 i915_gem_object_unpin(struct drm_i915_gem_object *obj)
 {
 	struct drm_device	*dev = obj->base.dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 	KASSERT(obj->pin_count >= 1);
@@ -1973,7 +1965,8 @@ i915_gem_object_unpin(struct drm_i915_gem_object *obj)
 	 */
 	if (--obj->pin_count == 0) {
 		if (!obj->active)
-			i915_gem_object_move_to_inactive(obj);
+			list_move_tail(&obj->mm_list,
+				       &dev_priv->mm.inactive_list);
 		atomic_dec(&dev->pin_count);
 		atomic_sub(obj->base.size, &dev->pin_memory);
 	}
