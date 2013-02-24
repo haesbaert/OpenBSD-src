@@ -1480,51 +1480,6 @@ inteldrm_purge_obj(struct drm_obj *obj)
 	obj_priv->madv = __I915_MADV_PURGED;
 }
 
-#if 0
-/**
- * Moves buffers associated only with the given active seqno from the active
- * to inactive list, potentially freeing them.
- *
- * called with and sleeps with the drm_lock.
- */
-void
-i915_gem_retire_request(struct inteldrm_softc *dev_priv,
-    struct drm_i915_gem_request *request)
-{
-	struct drm_i915_gem_object	*obj_priv;
-
-	/* Move any buffers on the active list that are no longer referenced
-	 * by the ringbuffer to the flushing/inactive lists as appropriate.  */
-	while ((obj_priv  = TAILQ_FIRST(&dev_priv->mm.active_list)) != NULL) {
-		struct drm_obj *obj = &obj_priv->base;
-
-		/* If the seqno being retired doesn't match the oldest in the
-		 * list, then the oldest in the list must still be newer than
-		 * this seqno.
-		 */
-		if (obj_priv->last_read_seqno != request->seqno)
-			break;
-
-		drm_lock_obj(obj);
-		/*
-		 * If we're now clean and can be read from, move inactive,
-		 * else put on the flushing list to signify that we're not
-		 * available quite yet.
-		 */
-		if (obj->write_domain != 0) {
-			KASSERT(obj_priv->active);
-			i915_move_to_tail(obj_priv,
-			    &dev_priv->mm.flushing_list);
-			i915_gem_object_move_off_active(obj_priv);
-			drm_unlock_obj(obj);
-		} else {
-			/* unlocks object for us and drops ref */
-			i915_gem_object_move_to_inactive_locked(obj_priv);
-		}
-	}
-}
-#endif
-
 void
 i915_gem_retire_work_handler(void *arg1, void *unused)
 {
