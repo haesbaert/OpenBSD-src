@@ -535,23 +535,23 @@ i915_gem_set_domain_ioctl(struct drm_device *dev, void *data,
 // i915_gem_mmap_ioctl
 
 int
-i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
-    vaddr_t vaddr, vm_page_t *pps, int npages, int centeridx,
+i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
+    off_t offset, vaddr_t vaddr, vm_page_t *pps, int npages, int centeridx,
     vm_prot_t access_type, int flags)
 {
-	struct drm_device	*dev = obj->dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
-	paddr_t			 paddr;
-	int			 lcv, ret;
-	int			 write = !!(access_type & VM_PROT_WRITE);
-	vm_prot_t		 mapprot;
-	boolean_t		 locked = TRUE;
+	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
+	struct drm_device *dev = obj->base.dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	paddr_t paddr;
+	int lcv, ret;
+	int write = !!(access_type & VM_PROT_WRITE);
+	vm_prot_t mapprot;
+	boolean_t locked = TRUE;
 
 	/* Are we about to suspend?, if so wait until we're done */
 	if (dev_priv->sc_flags & INTELDRM_QUIET) {
 		/* we're about to sleep, unlock the map etc */
-		uvmfault_unlockall(ufi, NULL, &obj->uobj, NULL);
+		uvmfault_unlockall(ufi, NULL, &obj->base.uobj, NULL);
 		while (dev_priv->sc_flags & INTELDRM_QUIET)
 			tsleep(&dev_priv->flags, 0, "intelflt", 0);
 		dev_priv->entries++;
@@ -561,7 +561,7 @@ i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 		 */
 		locked = uvmfault_relock(ufi);
 		if (locked) {
-			drm_lock_obj(obj);
+			drm_lock_obj(&obj->base);
 		} else {
 			dev_priv->entries--;
 			if (dev_priv->sc_flags & INTELDRM_QUIET)
@@ -573,14 +573,14 @@ i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 	}
 
 	if (rw_enter(&dev->dev_lock, RW_NOSLEEP | RW_READ) != 0) {
-		uvmfault_unlockall(ufi, NULL, &obj->uobj, NULL);
+		uvmfault_unlockall(ufi, NULL, &obj->base.uobj, NULL);
 		DRM_READLOCK();
 		locked = uvmfault_relock(ufi);
 		if (locked)
-			drm_lock_obj(obj);
+			drm_lock_obj(&obj->base);
 	}
 	if (locked)
-		drm_hold_object_locked(obj);
+		drm_hold_object_locked(&obj->base);
 	else { /* obj already unlocked */
 		dev_priv->entries--;
 		if (dev_priv->sc_flags & INTELDRM_QUIET)
@@ -591,27 +591,27 @@ i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 	/* we have a hold set on the object now, we can unlock so that we can
 	 * sleep in binding and flushing.
 	 */
-	drm_unlock_obj(obj);
+	drm_unlock_obj(&obj->base);
 
-	if (obj_priv->dmamap != NULL &&
-	    (obj_priv->gtt_offset & (i915_gem_get_gtt_alignment(obj) - 1) ||
-	    (!i915_gem_object_fence_ok(obj, obj_priv->tiling_mode)))) {
+	if (obj->dmamap != NULL &&
+	    (obj->gtt_offset & (i915_gem_get_gtt_alignment(&obj->base) - 1) ||
+	    (!i915_gem_object_fence_ok(&obj->base, obj->tiling_mode)))) {
 		/*
 		 * pinned objects are defined to have a sane alignment which can
 		 * not change.
 		 */
-		KASSERT(obj_priv->pin_count == 0);
-		if ((ret = i915_gem_object_unbind(obj_priv)))
+		KASSERT(obj->pin_count == 0);
+		if ((ret = i915_gem_object_unbind(obj)))
 			goto error;
 	}
 
-	if (obj_priv->dmamap == NULL) {
-		ret = i915_gem_object_bind_to_gtt(obj_priv, 0);
+	if (obj->dmamap == NULL) {
+		ret = i915_gem_object_bind_to_gtt(obj, 0);
 		if (ret) {
 			printf("%s: failed to bind\n", __func__);
 			goto error;
 		}
-		i915_gem_object_move_to_inactive(obj_priv);
+		i915_gem_object_move_to_inactive(obj);
 	}
 
 	/*
@@ -620,9 +620,9 @@ i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 	 * is done by the GL application), however it gives coherency problems
 	 * normally.
 	 */
-	ret = i915_gem_object_set_to_gtt_domain(obj_priv, write);
+	ret = i915_gem_object_set_to_gtt_domain(obj, write);
 	if (ret) {
-		printf("%s: failed to set to gtt (%d)\n",
+		panic("%s: failed to set to gtt (%d)\n",
 		    __func__, ret);
 		goto error;
 	}
@@ -645,11 +645,11 @@ i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 		if (pps[lcv] == PGO_DONTCARE)
 			continue;
 
-		paddr = dev->agp->base + obj_priv->gtt_offset + offset;
+		paddr = dev->agp->base + obj->gtt_offset + offset;
 
 		if (pmap_enter(ufi->orig_map->pmap, vaddr, paddr,
 		    mapprot, PMAP_CANFAIL | mapprot) != 0) {
-			drm_unhold_object(obj);
+			drm_unhold_object(&obj->base);
 			uvmfault_unlockall(ufi, ufi->entry->aref.ar_amap,
 			    NULL, NULL);
 			DRM_READUNLOCK();
@@ -661,7 +661,7 @@ i915_gem_fault(struct drm_obj *obj, struct uvm_faultinfo *ufi, off_t offset,
 		}
 	}
 error:
-	drm_unhold_object(obj);
+	drm_unhold_object(&obj->base);
 	uvmfault_unlockall(ufi, ufi->entry->aref.ar_amap, NULL, NULL);
 	DRM_READUNLOCK();
 	dev_priv->entries--;
