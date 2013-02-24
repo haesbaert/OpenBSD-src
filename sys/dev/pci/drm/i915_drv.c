@@ -1480,27 +1480,6 @@ inteldrm_purge_obj(struct drm_obj *obj)
 	obj_priv->madv = __I915_MADV_PURGED;
 }
 
-void
-i915_gem_process_flushing(struct intel_ring_buffer *ring,
-    u_int32_t flush_domains)
-{
-	struct drm_i915_gem_object	*obj_priv, *next;
-
-	list_for_each_entry_safe(obj_priv, next,
-				 &ring->gpu_write_list,
-				 gpu_write_list) {
-		struct drm_obj *obj = &(obj_priv->base);
-
-		if ((obj->write_domain & flush_domains)) {
-			atomic_clearbits_int(&obj->do_flags,
-			     I915_GPU_WRITE);
-			list_del_init(&obj_priv->gpu_write_list);
-			i915_gem_object_move_to_active(obj_priv, ring);
-			obj->write_domain = 0;
-		}
-	}
-}
-
 #if 0
 /**
  * Moves buffers associated only with the given active seqno from the active
@@ -1585,7 +1564,7 @@ i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
 
 	/* if this is a gpu flush, process the results */
 	if (flush_domains & I915_GEM_GPU_DOMAINS) {
-		i915_gem_process_flushing(ring, flush_domains);
+		i915_gem_process_flushing_list(ring, flush_domains);
 		err = i915_add_request(ring, NULL, &seqno);
 	}
 

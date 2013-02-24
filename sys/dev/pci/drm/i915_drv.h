@@ -1027,7 +1027,7 @@ void	i915_gem_object_move_off_active(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *);
 int	i915_add_request(struct intel_ring_buffer *, struct drm_file *, u32 *);
-void	i915_gem_process_flushing(struct intel_ring_buffer *, u_int32_t);
+void	i915_gem_process_flushing_list(struct intel_ring_buffer *, u_int32_t);
 int	init_pipe_control(struct intel_ring_buffer *);
 void	cleanup_status_page(struct intel_ring_buffer *);
 void	i915_gem_init_swizzling(struct drm_device *);

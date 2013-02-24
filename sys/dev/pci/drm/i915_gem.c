@@ -893,6 +893,32 @@ i915_gem_object_move_to_inactive(struct drm_i915_gem_object *obj)
 	i915_gem_object_move_to_inactive_locked(obj);
 }
 
+void
+i915_gem_process_flushing_list(struct intel_ring_buffer *ring,
+			       uint32_t flush_domains)
+{
+	struct drm_i915_gem_object *obj, *next;
+
+	list_for_each_entry_safe(obj, next,
+				 &ring->gpu_write_list,
+				 gpu_write_list) {
+		if (obj->base.write_domain & flush_domains) {
+//			uint32_t old_write_domain = obj->base.write_domain;
+
+			obj->base.write_domain = 0;
+
+			atomic_clearbits_int(&obj->base.do_flags,
+			    I915_GPU_WRITE);
+			list_del_init(&obj->gpu_write_list);
+			i915_gem_object_move_to_active(obj, ring);
+
+//			trace_i915_gem_object_change_domain(obj,
+//							    obj->base.read_domains,
+//							    old_write_domain);
+		}
+	}
+}
+
 int
 i915_gem_handle_seqno_wrap(struct drm_device *dev)
 {
