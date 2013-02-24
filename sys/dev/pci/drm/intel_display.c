@@ -7179,7 +7179,7 @@ intel_framebuffer_create(struct drm_device *dev,
 	struct intel_framebuffer *intel_fb;
 	int ret;
 
-	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_NOWAIT | M_ZERO);
+	intel_fb = malloc(sizeof(*intel_fb), M_DRM, M_WAITOK | M_ZERO);
 	if (!intel_fb) {
 		drm_gem_object_unreference_unlocked(&obj->base);
 		return ERR_PTR(-ENOMEM);
@@ -8643,13 +8643,13 @@ intel_set_config_save_state(struct drm_device *dev,
 
 	config->save_encoder_crtcs =
 		malloc(dev->mode_config.num_encoder *
-		    sizeof(struct drm_crtc *), M_DRM, M_NOWAIT | M_ZERO);
+		    sizeof(struct drm_crtc *), M_DRM, M_WAITOK | M_ZERO);
 	if (!config->save_encoder_crtcs)
 		return -ENOMEM;
 
 	config->save_connector_encoders =
 		malloc(dev->mode_config.num_connector *
-		    sizeof(struct drm_encoder *),M_DRM, M_NOWAIT | M_ZERO);
+		    sizeof(struct drm_encoder *),M_DRM, M_WAITOK | M_ZERO);
 	if (!config->save_connector_encoders)
 		return -ENOMEM;
 
@@ -8858,7 +8858,7 @@ intel_crtc_set_config(struct drm_mode_set *set)
 	dev = set->crtc->dev;
 
 	ret = -ENOMEM;
-	config = malloc(sizeof(*config), M_DRM, M_NOWAIT | M_ZERO);
+	config = malloc(sizeof(*config), M_DRM, M_WAITOK | M_ZERO);
 	if (!config)
 		goto out_config;
 

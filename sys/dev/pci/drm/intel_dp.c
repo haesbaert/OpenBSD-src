@@ -2419,7 +2419,7 @@ intel_dp_get_edid(struct drm_connector *connector, struct i2c_controller *adapte
 			return NULL;
 
 		size = (intel_connector->edid->extensions + 1) * EDID_LENGTH;
-		edid = malloc(size, M_DRM, M_NOWAIT);
+		edid = malloc(size, M_DRM, M_WAITOK);
 		if (!edid)
 			return NULL;
 

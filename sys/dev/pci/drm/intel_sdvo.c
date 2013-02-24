@@ -563,12 +563,12 @@ intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd,
 
         /* Would be simpler to allocate both in one go ? */        
 	buf = (u8 *)malloc(args_len * 2 + 2, M_DRM,
-	    M_NOWAIT | M_ZERO);
+	    M_WAITOK | M_ZERO);
 	if (!buf)
 		return false;
 
 	msgs = malloc(args_len + 3 * sizeof(*msgs), M_DRM,
-	    M_NOWAIT | M_ZERO);
+	    M_WAITOK | M_ZERO);
 	if (!msgs) {
 	        free(buf, M_DRM);
 		return false;
