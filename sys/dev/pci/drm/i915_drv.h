@@ -654,14 +654,6 @@ struct inteldrm_softc {
 		 */
 		struct list_head flushing_list;
 
-		/*
-		 * list of objects currently pending a GPU write flush.
-		 *
-		 * All elements on this list will either be on the active
-		 * or flushing list, last rendiering_seqno differentiates the
-		 * two.
-		 */
-		struct list_head gpu_write_list;
 		/**
 		 * LRU list of objects which are not in the ringbuffer and
 		 * are ready to unbind, but are still in the GTT.
