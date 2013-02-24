@@ -607,19 +607,19 @@ drm_crtc_helper_set_config(struct drm_mode_set *set)
 	/* Allocate space for the backup of all (non-pointer) crtc, encoder and
 	 * connector data. */
 	save_crtcs = malloc(dev->mode_config.num_crtc *
-	    sizeof(struct drm_crtc), M_DRM, M_NOWAIT|M_ZERO);
+	    sizeof(struct drm_crtc), M_DRM, M_WAITOK|M_ZERO);
 	if (!save_crtcs)
 		return ENOMEM;
 
 	save_encoders = malloc(dev->mode_config.num_encoder *
-	    sizeof(struct drm_encoder), M_DRM, M_NOWAIT|M_ZERO);
+	    sizeof(struct drm_encoder), M_DRM, M_WAITOK|M_ZERO);
 	if (!save_encoders) {
 		free(save_crtcs, M_DRM);
 		return ENOMEM;
 	}
 
 	save_connectors = malloc(dev->mode_config.num_connector *
-	    sizeof(struct drm_connector), M_DRM, M_NOWAIT|M_ZERO);
+	    sizeof(struct drm_connector), M_DRM, M_WAITOK|M_ZERO);
 	if (!save_connectors) {
 		free(save_crtcs, M_DRM);
 		free(save_encoders, M_DRM);
