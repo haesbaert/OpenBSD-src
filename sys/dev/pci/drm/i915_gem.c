@@ -812,11 +812,12 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 
 	seqno = i915_gem_next_request_seqno(ring);
 
+	BUG_ON(ring == NULL);
 	obj->ring = ring;
 
 	/* Add a reference if we're newly entering the active list. */
 	if (!obj->active) {
-		drm_ref(&obj->base.uobj);
+		drm_gem_object_reference(&obj->base);
 		obj->active = 1;
 	}
 
