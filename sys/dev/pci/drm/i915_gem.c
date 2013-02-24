@@ -913,8 +913,6 @@ i915_gem_process_flushing_list(struct intel_ring_buffer *ring,
 
 			obj->base.write_domain = 0;
 
-			atomic_clearbits_int(&obj->base.do_flags,
-			    I915_GPU_WRITE);
 			list_del_init(&obj->gpu_write_list);
 			i915_gem_object_move_to_active(obj, ring);
 
