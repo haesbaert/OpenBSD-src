@@ -93,6 +93,12 @@ i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
 // i915_mutex_lock_interruptible
 // i915_gem_object_is_inactive
 
+static inline bool
+i915_gem_object_is_inactive(struct drm_i915_gem_object *obj)
+{
+	return obj->dmamap && !obj->active && obj->pin_count == 0;
+}
+
 int
 i915_gem_init_ioctl(struct drm_device *dev, void *data,
 		    struct drm_file *file_priv)
