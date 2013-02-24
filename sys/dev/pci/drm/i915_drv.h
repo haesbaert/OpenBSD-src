@@ -836,7 +836,6 @@ struct inteldrm_file {
 /* flags we use in drm_obj's do_flags */
 #define I915_IN_EXEC		0x0020	/* being processed in execbuffer */
 #define I915_USER_PINNED	0x0040	/* BO has been pinned from userland */
-#define I915_GPU_WRITE		0x0080	/* BO has been not flushed */
 #define I915_EXEC_NEEDS_FENCE	0x0800	/* being processed but will need fence*/
 
 /** driver private structure attached to each drm_gem_object */
@@ -884,6 +883,12 @@ struct drm_i915_gem_object {
 	 * to the GTT
 	 */
 	unsigned int dirty:1;
+
+	/**
+	 * This is set if the object has been written to since the last
+	 * GPU flush.
+	 */
+	unsigned int pending_gpu_write:1;
 
 	/**
 	 * Advice: are the backing pages purgeable?

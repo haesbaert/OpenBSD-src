@@ -2054,8 +2054,6 @@ inteldrm_hung(void *arg, void *reset_type)
 		drm_lock_obj(&obj_priv->base);
 		if (obj_priv->base.write_domain & I915_GEM_GPU_DOMAINS) {
 			list_del_init(&obj_priv->gpu_write_list);
-			atomic_clearbits_int(&obj_priv->base.do_flags,
-			    I915_GPU_WRITE);
 			obj_priv->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
 		}
 		/* unlocks object and list */

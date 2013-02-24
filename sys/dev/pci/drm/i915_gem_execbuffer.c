@@ -492,17 +492,11 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		obj_priv->fenced_gpu_access = obj_priv->pending_fenced_gpu_access;
 		/*
 		 * if we have a write domain, add us to the gpu write list
-		 * else we can remove the bit because it has been flushed.
 		 */
-		if (obj->do_flags & I915_GPU_WRITE)
-			list_del_init(&obj_priv->gpu_write_list);
 		if (obj->write_domain) {
+			obj_priv->pending_gpu_write = true;
 			list_move_tail(&obj_priv->gpu_write_list,
 				       &ring->gpu_write_list);
-			atomic_setbits_int(&obj->do_flags, I915_GPU_WRITE);
-		} else {
-			atomic_clearbits_int(&obj->do_flags,
-			     I915_GPU_WRITE);
 		}
 
 		i915_gem_object_move_to_active(to_intel_bo(object_list[i]), ring);
