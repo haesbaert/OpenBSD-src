@@ -869,7 +869,6 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 
 	i915_gem_object_move_off_active(obj);
 	obj->fenced_gpu_access = false;
-	atomic_clearbits_int(&obj->base.do_flags, I915_FENCED_EXEC);
 
 	KASSERT((obj->base.do_flags & I915_GPU_WRITE) == 0);
 	/* unlock because this unref could recurse */

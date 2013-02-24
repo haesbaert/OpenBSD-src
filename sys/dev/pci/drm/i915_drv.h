@@ -838,7 +838,6 @@ struct inteldrm_file {
 #define I915_USER_PINNED	0x0040	/* BO has been pinned from userland */
 #define I915_GPU_WRITE		0x0080	/* BO has been not flushed */
 #define I915_EXEC_NEEDS_FENCE	0x0800	/* being processed but will need fence*/
-#define I915_FENCED_EXEC	0x1000	/* Most recent exec needs fence */
 
 /** driver private structure attached to each drm_gem_object */
 struct drm_i915_gem_object {
@@ -1514,12 +1513,6 @@ static inline int
 i915_gem_object_is_purgeable(struct drm_i915_gem_object *obj)
 {
 	return obj->madv == I915_MADV_DONTNEED;
-}
-
-static __inline int
-inteldrm_exec_needs_fence(struct drm_i915_gem_object *obj_priv)
-{
-	return (obj_priv->base.do_flags & I915_EXEC_NEEDS_FENCE);
 }
 
 #endif

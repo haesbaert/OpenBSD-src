@@ -504,17 +504,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 			atomic_clearbits_int(&obj->do_flags,
 			     I915_GPU_WRITE);
 		}
-		/* if this batchbuffer needs a fence, then the object is
-		 * counted as fenced exec. else any outstanding fence waits
-		 * will just wait on the fence last_seqno.
-		 */
-		if (inteldrm_exec_needs_fence(obj_priv)) {
-			atomic_setbits_int(&obj->do_flags,
-			    I915_FENCED_EXEC);
-		} else {
-			atomic_clearbits_int(&obj->do_flags,
-			    I915_FENCED_EXEC);
-		}
 
 		i915_gem_object_move_to_active(to_intel_bo(object_list[i]), ring);
 		drm_unlock_obj(obj);
