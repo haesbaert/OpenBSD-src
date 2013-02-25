@@ -562,6 +562,9 @@ struct drm_driver_info {
 	u_int32_t (*get_vblank_counter)(struct drm_device *, int);
 	int	(*enable_vblank)(struct drm_device *, int);
 	void	(*disable_vblank)(struct drm_device *, int);
+	int	(*get_scanout_position)(struct drm_device *, int, int *, int *);
+	int	(*get_vblank_timestamp)(struct drm_device *, int, int *,
+		    struct timeval *, unsigned);;
 
 	/*
 	 * driver-specific constructor for gem objects to set up private data.
@@ -668,6 +671,8 @@ struct drm_device {
 	int			 vblank_disable_allowed;
 	struct drm_vblank_info	*vblank;		/* One per ctrc */
 	int			*vblank_inmodeset;
+	/**< size of vblank counter register */
+	uint32_t		 max_vblank_count;
 	struct mutex		 event_lock;
 
 	int			 num_crtcs;
