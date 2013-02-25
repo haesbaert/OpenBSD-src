@@ -1278,6 +1278,28 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 }
 
 int
+i915_gem_flush_ring(struct intel_ring_buffer *ring,
+		    uint32_t invalidate_domains,
+		    uint32_t flush_domains)
+{
+	int ret;
+
+	if (((invalidate_domains | flush_domains) & I915_GEM_GPU_DOMAINS) == 0)
+		return 0;
+
+//	trace_i915_gem_ring_flush(ring, invalidate_domains, flush_domains);
+
+	ret = ring->flush(ring, invalidate_domains, flush_domains);
+	if (ret)
+		return ret;
+
+	if (flush_domains & I915_GEM_GPU_DOMAINS)
+		i915_gem_process_flushing_list(ring, flush_domains);
+
+	return 0;
+}
+
+int
 i915_gpu_idle(struct drm_device *dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
@@ -1696,39 +1718,16 @@ error:
 // i915_gem_clflush_object
 
 // i915_gem_object_flush_gtt_write_domain
-/*
- * Flush the GPU write domain for the object if dirty, then wait for the
- * rendering to complete. When this returns it is safe to unbind from the
- * GTT or access from the CPU.
- */
+
+/** Flushes any GPU write domain for the object if it's dirty. */
 int
-i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj,
-    int pipelined, int write)
+i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj)
 {
-	u_int32_t		 seqno;
-	int			 ret = 0;
+	if ((obj->base.write_domain & I915_GEM_GPU_DOMAINS) == 0)
+		return 0;
 
-	DRM_ASSERT_HELD(&obj->base);
-	if ((obj->base.write_domain & I915_GEM_GPU_DOMAINS) != 0) {
-		/*
-		 * Queue the GPU write cache flushing we need.
-		 * This call will move stuff form the flushing list to the
-		 * active list so all we need to is wait for it.
-		 */
-		(void)i915_gem_flush(obj->ring, 0, obj->base.write_domain);
-		KASSERT(obj->base.write_domain == 0);
-	}
-
-	/* wait for queued rendering so we know it's flushed and bo is idle */
-	if (pipelined == 0 && obj->active) {
-		if (write) {
-			seqno = obj->last_read_seqno;
-		} else {
-			seqno = obj->last_write_seqno;
-		}
-		ret =  i915_wait_seqno(obj->ring, seqno);
-	}
-	return (ret);
+	/* Queue the GPU write cache flushing we need. */
+	return i915_gem_flush_ring(obj->ring, 0, obj->base.write_domain);
 }
 
 void
@@ -1747,17 +1746,27 @@ int
 i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 {
 	drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
+//	uint32_t old_write_domain, old_read_domains;
 	int ret;
 
 	DRM_ASSERT_HELD(&obj->base);
+
 	/* Not valid to be called on unbound objects. */
 	if (obj->dmamap == NULL)
 		return (EINVAL);
 
-	/* Wait on any GPU rendering and flushing to occur. */
-	if ((ret = i915_gem_object_flush_gpu_write_domain(obj, 0,
-	    write)) != 0)
-		return (ret);
+	if (obj->base.write_domain == I915_GEM_DOMAIN_GTT)
+		return 0;
+
+	ret = i915_gem_object_flush_gpu_write_domain(obj);
+	if (ret)
+		return ret;
+
+	if (obj->pending_gpu_write || write) {
+		ret = i915_gem_object_wait_rendering(obj, false);
+		if (ret)
+			return ret;
+	}
 
 	if (obj->base.write_domain == I915_GEM_DOMAIN_CPU) {
 		/* clflush the pages, and flush chipset cache */
@@ -1778,21 +1787,25 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 	if (obj->tiling_mode != I915_TILING_NONE)
 		ret = i915_gem_object_get_fence(obj);
 
-	/*
-	 * If we're writing through the GTT domain then the CPU and GPU caches
-	 * will need to be invalidated at next use.
-	 * It should now be out of any other write domains and we can update
-	 * to the correct ones
+//	old_write_domain = obj->base.write_domain;
+//	old_read_domains = obj->base.read_domains;
+
+	/* It should now be out of any other write domains, and we can update
+	 * the domain values for our changes.
 	 */
-	KASSERT((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) == 0);
+	BUG_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) != 0);
+	obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 	if (write) {
-		obj->base.read_domains = obj->base.write_domain = I915_GEM_DOMAIN_GTT;
+		obj->base.read_domains = I915_GEM_DOMAIN_GTT;
+		obj->base.write_domain = I915_GEM_DOMAIN_GTT;
 		obj->dirty = 1;
-	} else {
-		obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 	}
 
-	return (ret);
+//	trace_i915_gem_object_change_domain(obj,
+//					    old_read_domains,
+//					    old_write_domain);
+
+	return 0;
 }
 
 int
@@ -1808,15 +1821,15 @@ i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 
 int
 i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
-    u32 alignment, struct intel_ring_buffer *pipelined)
+				     u32 alignment,
+				     struct intel_ring_buffer *pipelined)
 {
 //	u32 old_read_domains, old_write_domain;
 	int ret;
 
-	ret = i915_gem_object_flush_gpu_write_domain(obj, pipelined != NULL,
-	    0);
-	if (ret != 0)
-		return (ret);
+	ret = i915_gem_object_flush_gpu_write_domain(obj);
+	if (ret)
+		return ret;
 
 	if (pipelined != obj->ring) {
 		ret = i915_gem_object_wait_rendering(obj, false);
@@ -1824,31 +1837,47 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 			return (ret);
 	}
 
+	/* The display engine is not coherent with the LLC cache on gen6.  As
+	 * a result, we make sure that the pinning that is about to occur is
+	 * done with uncached PTEs. This is lowest common denominator for all
+	 * chipsets.
+	 *
+	 * However for gen6+, we could do better by using the GFDT bit instead
+	 * of uncaching, which would allow us to flush all the LLC-cached data
+	 * with that bit in the PTE to main memory with just one PIPE_CONTROL.
+	 */
 	ret = i915_gem_object_set_cache_level(obj, I915_CACHE_NONE);
-	if (ret != 0)
-		return (ret);
+	if (ret)
+		return ret;
 
+	/* As the user may map the buffer once pinned in the display plane
+	 * (e.g. libkms for the bootup splash), we have to ensure that we
+	 * always use map_and_fenceable for all scanout buffers.
+	 */
 	ret = i915_gem_object_pin(obj, alignment, true);
-	if (ret != 0)
-		return (ret);
+	if (ret)
+		return ret;
 
 #ifdef notyet
 	i915_gem_object_flush_cpu_write_domain(obj);
 
-	old_write_domain = obj->write_domain;
-	old_read_domains = obj->read_domains;
+//	old_write_domain = obj->write_domain;
+//	old_read_domains = obj->read_domains;
 
-	KASSERT((obj->write_domain & ~I915_GEM_DOMAIN_GTT) == 0);
-	obj->read_domains |= I915_GEM_DOMAIN_GTT;
+	/* It should now be out of any other write domains, and we can update
+	 * the domain values for our changes.
+	 */
+	BUG_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) != 0);
+	obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 #else
 	printf("%s skipping write domain flush\n", __func__);
 #endif
 
-#ifdef notyet
-	CTR3(KTR_DRM, "object_change_domain pin_to_display_plan %p %x %x",
-	    obj, old_read_domains, obj->write_domain);
-#endif
-	return (0);
+//	trace_i915_gem_object_change_domain(obj,
+//					    old_read_domains,
+//					    old_write_domain);
+
+	return 0;
 }
 
 int
@@ -1879,13 +1908,21 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 {
 	struct drm_device	*dev = obj->base.dev;
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	int			 ret;
+//	uint32_t old_write_domain, old_read_domains;
+	int ret;
 
 	DRM_ASSERT_HELD(obj);
-	/* Wait on any GPU rendering and flushing to occur. */
-	if ((ret = i915_gem_object_flush_gpu_write_domain(obj, 0,
-	    write)) != 0)
-		return (ret);
+
+	if (obj->base.write_domain == I915_GEM_DOMAIN_CPU)
+		return 0;
+
+	ret = i915_gem_object_flush_gpu_write_domain(obj);
+	if (ret)
+		return ret;
+
+	ret = i915_gem_object_wait_rendering(obj, false);
+	if (ret)
+		return ret;
 
 	if (obj->base.write_domain == I915_GEM_DOMAIN_GTT ||
 	    (write && obj->base.read_domains & I915_GEM_DOMAIN_GTT)) {
@@ -1904,6 +1941,9 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 	if ((ret = i915_gem_object_put_fence(obj)) != 0)
 		return (ret);
 
+//	old_write_domain = obj->base.write_domain;
+//	old_read_domains = obj->base.read_domains;
+
 	/* Flush the CPU cache if it's still invalid. */
 	if ((obj->base.read_domains & I915_GEM_DOMAIN_CPU) == 0) {
 		bus_dmamap_sync(dev_priv->agpdmat, obj->dmamap, 0,
@@ -1912,20 +1952,24 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 		obj->base.read_domains |= I915_GEM_DOMAIN_CPU;
 	}
 
-	/*
-	 * It should now be out of any other write domain, and we can update
-	 * the domain value for our changes.
+	/* It should now be out of any other write domains, and we can update
+	 * the domain values for our changes.
 	 */
-	KASSERT((obj->base.write_domain & ~I915_GEM_DOMAIN_CPU) == 0);
+	BUG_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_CPU) != 0);
 
-	/*
-	 * If we're writing through the CPU, then the GPU read domains will
+	/* If we're writing through the CPU, then the GPU read domains will
 	 * need to be invalidated at next use.
 	 */
-	if (write)
-		obj->base.read_domains = obj->base.write_domain = I915_GEM_DOMAIN_CPU;
+	if (write) {
+		obj->base.read_domains = I915_GEM_DOMAIN_CPU;
+		obj->base.write_domain = I915_GEM_DOMAIN_CPU;
+	}
 
-	return (0);
+//	trace_i915_gem_object_change_domain(obj,
+//					    old_read_domains,
+//					    old_write_domain);
+
+	return 0;
 }
 
 /* Throttle our rendering by waiting until the ring has completed our requests
@@ -2136,9 +2180,11 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		 * it wants to use this buffer sooner rather than later, so
 		 * flushing now shoul reduce latency.
 		 */
-		if (obj->base.write_domain)
-			(void)i915_gem_flush(obj->ring, obj->base.write_domain,
-			    obj->base.write_domain);
+		if (obj->base.write_domain & I915_GEM_GPU_DOMAINS) {
+			ret = i915_gem_flush_ring(obj->ring,
+						  0, obj->base.write_domain);
+		}
+
 		/*
 		 * Update the active list after the flush otherwise this is
 		 * only updated on a delayed timer. Updating now reduces 

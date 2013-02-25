@@ -127,7 +127,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		}
 
 		if (write_domain) {
-			if (i915_gem_flush(obj_priv->ring, write_domain,
+			if (i915_gem_flush_ring(obj_priv->ring, write_domain,
 			    write_domain) == 0)
 				return (ENOMEM);
 			continue;

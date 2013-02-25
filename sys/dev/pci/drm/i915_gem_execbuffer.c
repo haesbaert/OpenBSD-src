@@ -472,7 +472,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
 	/* flush and invalidate any domains that need them. */
-	(void)i915_gem_flush(ring, dev->invalidate_domains,
+	(void)i915_gem_flush_ring(ring, dev->invalidate_domains,
 	    dev->flush_domains);
 
 	/*

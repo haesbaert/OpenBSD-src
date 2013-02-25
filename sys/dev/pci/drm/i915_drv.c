@@ -1492,38 +1492,6 @@ i915_gem_retire_work_handler(void *arg1, void *unused)
 		timeout_add_sec(&dev_priv->mm.retire_timer, 1);
 }
 
-/*
- * flush and invalidate the provided domains
- * if we have successfully queued a gpu flush, then we return a seqno from
- * the request. else (failed or just cpu flushed)  we return 0.
- */
-u_int32_t
-i915_gem_flush(struct intel_ring_buffer *ring, uint32_t invalidate_domains,
-    uint32_t flush_domains)
-{
-	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
-	int			 err = 0;
-	u32			 seqno;
-
-	if (flush_domains & I915_GEM_DOMAIN_CPU)
-		inteldrm_chipset_flush(dev_priv);
-	if (((invalidate_domains | flush_domains) & I915_GEM_GPU_DOMAINS) == 0) 
-		return (0);
-
-	ring->flush(ring, invalidate_domains, flush_domains);
-
-	/* if this is a gpu flush, process the results */
-	if (flush_domains & I915_GEM_GPU_DOMAINS) {
-		i915_gem_process_flushing_list(ring, flush_domains);
-		err = i915_add_request(ring, NULL, &seqno);
-	}
-
-	if (err)
-		return (0);
-	else
-		return (seqno);
-}
-
 struct drm_obj *
 i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
     size_t min_size)
