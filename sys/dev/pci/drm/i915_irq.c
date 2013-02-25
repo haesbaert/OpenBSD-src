@@ -89,6 +89,7 @@ void	 i965_irq_uninstall(struct drm_device *);
 void	 intel_irq_init(struct drm_device *);
 void	 i915_hotplug_work_func(void *, void *);
 void	 i915_error_work_func(void *, void *);
+void	 ivybridge_parity_work(void *, void *);
 
 /* For display hotplug interrupt */
 void
@@ -474,14 +475,13 @@ gen6_pm_rps_work(struct work_struct *work)
  * this event, userspace should try to remap the bad rows since statistically
  * it is likely the same row is more likely to go bad again.
  */
-#ifdef notyet
 void
-ivybridge_parity_work(struct work_struct *work)
+ivybridge_parity_work(void *arg1, void *arg2)
 {
-	drm_i915_private_t *dev_priv = container_of(work, drm_i915_private_t,
-						    l3_parity.error_work);
+	drm_i915_private_t *dev_priv = arg1;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	u32 error_status, row, bank, subbank;
-	char *parity_event[5];
+//	char *parity_event[5];
 	uint32_t misccpctl;
 
 	/* We must turn off DOP level clock gating to access the L3 registers.
@@ -512,11 +512,13 @@ ivybridge_parity_work(struct work_struct *work)
 
 	DRM_UNLOCK();
 
+#if 0
 	parity_event[0] = "L3_PARITY_ERROR=1";
 	parity_event[1] = kasprintf(GFP_KERNEL, "ROW=%d", row);
 	parity_event[2] = kasprintf(GFP_KERNEL, "BANK=%d", bank);
 	parity_event[3] = kasprintf(GFP_KERNEL, "SUBBANK=%d", subbank);
 	parity_event[4] = NULL;
+#endif
 
 #ifdef notyet
 	kobject_uevent_env(&dev_priv->dev->primary->kdev.kobj,
@@ -526,11 +528,12 @@ ivybridge_parity_work(struct work_struct *work)
 	DRM_DEBUG("Parity error: Row = %d, Bank = %d, Sub bank = %d.\n",
 		  row, bank, subbank);
 
+#if 0
 	free(parity_event[3], M_DRM);
 	free(parity_event[2], M_DRM);
 	free(parity_event[1], M_DRM);
-}
 #endif
+}
 
 void
 ivybridge_handle_parity_error(struct drm_device *dev)
@@ -545,9 +548,9 @@ ivybridge_handle_parity_error(struct drm_device *dev)
 	I915_WRITE(GTIMR, dev_priv->gt_irq_mask);
 	mtx_leave(&dev_priv->irq_lock);
 
-#ifdef notyet
-	queue_work(dev_priv->wq, &dev_priv->l3_parity.error_work);
-#endif
+	workq_queue_task(NULL, &dev_priv->l3_parity.error_task, 0,
+	    ivybridge_parity_work, dev_priv, NULL);
+	
 }
 
 void
@@ -2851,7 +2854,6 @@ intel_irq_init(struct drm_device *dev)
 
 #ifdef notyet
 	INIT_WORK(&dev_priv->rps.work, gen6_pm_rps_work);
-	INIT_WORK(&dev_priv->l3_parity.error_work, ivybridge_parity_work);
 
 	dev->driver->get_vblank_counter = i915_get_vblank_counter;
 	dev->max_vblank_count = 0xffffff; /* only 24 bits of frame count */

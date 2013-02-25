@@ -474,6 +474,11 @@ struct intel_ilk_power_mgmt {
 	struct drm_i915_gem_object *renderctx;
 };
 
+struct intel_l3_parity {
+	u32 *remap_info;
+	struct workq_task error_task;
+};
+
 /*
  * lock ordering:
  * exec lock,
@@ -751,6 +756,8 @@ struct inteldrm_softc {
 	int c_m;
 	int r_t;
 	u8 corr;
+
+	struct intel_l3_parity l3_parity;
 
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
