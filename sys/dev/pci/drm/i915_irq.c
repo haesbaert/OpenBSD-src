@@ -2854,6 +2854,7 @@ intel_irq_init(struct drm_device *dev)
 
 #ifdef notyet
 	INIT_WORK(&dev_priv->rps.work, gen6_pm_rps_work);
+#endif
 
 	dev->driver->get_vblank_counter = i915_get_vblank_counter;
 	dev->max_vblank_count = 0xffffff; /* only 24 bits of frame count */
@@ -2867,7 +2868,6 @@ intel_irq_init(struct drm_device *dev)
 	else
 		dev->driver->get_vblank_timestamp = NULL;
 	dev->driver->get_scanout_position = i915_get_crtc_scanoutpos;
-#endif
 
 	if (IS_VALLEYVIEW(dev)) {
 		dev->driver->irq_handler = valleyview_intr;
