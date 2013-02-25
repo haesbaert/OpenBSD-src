@@ -1893,32 +1893,6 @@ inteldrm_timeout(void *arg)
 		DRM_ERROR("failed to run retire handler\n");
 }
 
-bus_size_t
-i915_get_fence_size(struct inteldrm_softc *dev_priv, bus_size_t size)
-{
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	bus_size_t		 i, start;
-
-	if (INTEL_INFO(dev)->gen >= 4) {
-		/* 965 can have fences anywhere, so align to gpu-page size */
-		return ((size + (4096 - 1)) & ~(4096 - 1));
-	} else {
-		/*
-		 * Align the size to a power of two greater than the smallest
-		 * fence size.
-		 */
-		if (IS_I9XX(dev))
-			start = 1024 * 1024;
-		else
-			start = 512 * 1024;
-
-		for (i = start; i < size; i <<= 1)
-			;
-
-		return (i);
-	}
-}
-
 int
 i8xx_do_reset(struct drm_device *dev)
 {

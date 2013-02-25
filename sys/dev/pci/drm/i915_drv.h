@@ -1071,7 +1071,6 @@ int	i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *,
 int	i915_gem_object_wait_rendering(struct drm_i915_gem_object *, bool);
 bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
-bus_size_t	i915_get_fence_size(struct inteldrm_softc *, bus_size_t);
 int	i915_gem_init(struct drm_device *);
 int	i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
 	    uint32_t, uint64_t *);
