@@ -618,6 +618,8 @@ struct inteldrm_softc {
 	/* number of ioctls + faults in flight */
 	int			 entries;
 
+	struct workq_task error_task;
+
 	enum intel_pch pch_type;
 	unsigned short pch_id;
 
@@ -768,6 +770,8 @@ struct inteldrm_softc {
 	struct intel_fbc_work *fbc_work;
 
 	unsigned int fsb_freq, mem_freq, is_ddr3;
+
+	time_t last_gpu_reset;
 
 	struct intel_fbdev *fbdev;
 
@@ -1134,7 +1138,8 @@ void	inteldrm_wipe_mappings(struct drm_obj *);
 void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
 void	inteldrm_purge_obj(struct drm_obj *);
 void	inteldrm_chipset_flush(struct inteldrm_softc *);
-void	inteldrm_error(struct inteldrm_softc *);
+int	intel_gpu_reset(struct drm_device *);
+int	i915_reset(struct drm_device *);
 
 /* i915_gem_evict.c */
 int i915_gem_evict_everything(struct inteldrm_softc *);
@@ -1181,6 +1186,7 @@ void i915_gem_write_fence(struct drm_device *, int,
 void i915_gem_reset_fences(struct drm_device *);
 int i915_gem_object_get_fence(struct drm_i915_gem_object *);
 int i915_gem_object_put_fence(struct drm_i915_gem_object *);
+void i915_gem_reset(struct drm_device *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

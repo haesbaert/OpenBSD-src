@@ -88,6 +88,7 @@ int	 i965_intr(void *);
 void	 i965_irq_uninstall(struct drm_device *);
 void	 intel_irq_init(struct drm_device *);
 void	 i915_hotplug_work_func(void *, void *);
+void	 i915_error_work_func(void *, void *);
 
 /* For display hotplug interrupt */
 void
@@ -922,30 +923,29 @@ done:
  * Fire an error uevent so userspace can see that a hang or error
  * was detected.
  */
-#ifdef notyet
 void
-i915_error_work_func(struct work_struct *work)
+i915_error_work_func(void *arg1, void *arg2)
 {
-	drm_i915_private_t *dev_priv = container_of(work, drm_i915_private_t,
-						    error_work);
-	struct drm_device *dev = dev_priv->dev;
+	drm_i915_private_t *dev_priv = arg1;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
+#if 0
 	char *error_event[] = { "ERROR=1", NULL };
 	char *reset_event[] = { "RESET=1", NULL };
 	char *reset_done_event[] = { "ERROR=0", NULL };
 
 	kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, error_event);
+#endif
 
 	if (atomic_read(&dev_priv->mm.wedged)) {
 		DRM_DEBUG_DRIVER("resetting chip\n");
-		kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, reset_event);
+//		kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, reset_event);
 		if (!i915_reset(dev)) {
 			atomic_set(&dev_priv->mm.wedged, 0);
-			kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, reset_done_event);
+//			kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, reset_done_event);
 		}
-		complete_all(&dev_priv->error_completion);
+//		complete_all(&dev_priv->error_completion);
 	}
 }
-#endif
 
 /* NB: please notice the memset */
 void
@@ -1576,9 +1576,8 @@ i915_handle_error(struct drm_device *dev, bool wedged)
 #endif
 	}
 
-#ifdef notyet
-	queue_work(dev_priv->wq, &dev_priv->error_work);
-#endif
+	workq_queue_task(NULL, &dev_priv->error_task, 0,
+	    i915_error_work_func, dev_priv, NULL);
 }
 
 void
@@ -2851,7 +2850,6 @@ intel_irq_init(struct drm_device *dev)
 //	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 #ifdef notyet
-	INIT_WORK(&dev_priv->error_work, i915_error_work_func);
 	INIT_WORK(&dev_priv->rps.work, gen6_pm_rps_work);
 	INIT_WORK(&dev_priv->l3_parity.error_work, ivybridge_parity_work);
 

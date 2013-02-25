@@ -97,11 +97,14 @@ int	inteldrm_doioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
 
 int	inteldrm_gmch_match(struct pci_attach_args *);
 void	inteldrm_timeout(void *);
-void	inteldrm_hung(void *, void *);
-void	inteldrm_965_reset(struct inteldrm_softc *, u_int8_t);
 void	inteldrm_quiesce(struct inteldrm_softc *);
 
 /* For reset and suspend */
+int	i8xx_do_reset(struct drm_device *);
+int	i965_do_reset(struct drm_device *);
+int	i965_reset_complete(struct drm_device *);
+int	ironlake_do_reset(struct drm_device *);
+int	gen6_do_reset(struct drm_device *);
 
 void	i915_alloc_ifp(struct inteldrm_softc *, struct pci_attach_args *);
 void	i965_alloc_ifp(struct inteldrm_softc *, struct pci_attach_args *);
@@ -1890,184 +1893,6 @@ inteldrm_timeout(void *arg)
 		DRM_ERROR("failed to run retire handler\n");
 }
 
-/*
- * handle hung hardware, or error interrupts. for now print debug info.
- */
-void
-inteldrm_error(struct inteldrm_softc *dev_priv)
-{
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	u_int32_t		 eir, ipeir;
-	u_int8_t		 reset = GRDOM_RENDER;
-	char 			*errbitstr;
-
-	eir = I915_READ(EIR);
-	if (eir == 0)
-		return;
-
-	if (IS_IRONLAKE(dev)) {
-		errbitstr = "\20\x05PTEE\x04MPVE\x03CPVE";
-	} else if (IS_G4X(dev)) {
-		errbitstr = "\20\x10 BCSINSTERR\x06PTEERR\x05MPVERR\x04CPVERR"
-		     "\x03 BCSPTEERR\x02REFRESHERR\x01INSTERR";
-	} else {
-		errbitstr = "\20\x5PTEERR\x2REFRESHERR\x1INSTERR";
-	}
-
-	printf("render error detected, EIR: %b\n", eir, errbitstr);
-	if (IS_IRONLAKE(dev) || IS_GEN6(dev) || IS_GEN7(dev)) {
-		if (eir & I915_ERROR_PAGE_TABLE) {
-			dev_priv->mm.wedged = 1;
-			reset = GRDOM_FULL;
-		}
-	} else {
-		if (IS_G4X(dev)) {
-			if (eir & (GM45_ERROR_MEM_PRIV | GM45_ERROR_CP_PRIV)) {
-				printf("  IPEIR: 0x%08x\n",
-				    I915_READ(IPEIR_I965));
-				printf("  IPEHR: 0x%08x\n",
-				    I915_READ(IPEHR_I965));
-				printf("  INSTDONE: 0x%08x\n",
-				    I915_READ(INSTDONE_I965));
-				printf("  INSTPS: 0x%08x\n",
-				    I915_READ(INSTPS));
-				printf("  INSTDONE1: 0x%08x\n",
-				    I915_READ(INSTDONE1));
-				printf("  ACTHD: 0x%08x\n",
-				    I915_READ(ACTHD_I965));
-			}
-			if (eir & GM45_ERROR_PAGE_TABLE) {
-				printf("  PGTBL_ER: 0x%08x\n",
-				    I915_READ(PGTBL_ER));
-				dev_priv->mm.wedged = 1;
-				reset = GRDOM_FULL;
-
-			}
-		} else if (IS_I9XX(dev) && eir & I915_ERROR_PAGE_TABLE) {
-			printf("  PGTBL_ER: 0x%08x\n", I915_READ(PGTBL_ER));
-			dev_priv->mm.wedged = 1;
-			reset = GRDOM_FULL;
-		}
-		if (eir & I915_ERROR_MEMORY_REFRESH) {
-			printf("PIPEASTAT: 0x%08x\n",
-			    I915_READ(_PIPEASTAT));
-			printf("PIPEBSTAT: 0x%08x\n",
-			    I915_READ(_PIPEBSTAT));
-		}
-		if (eir & I915_ERROR_INSTRUCTION) {
-			printf("  INSTPM: 0x%08x\n",
-			       I915_READ(INSTPM));
-			if (INTEL_INFO(dev)->gen < 4) {
-				ipeir = I915_READ(IPEIR);
-
-				printf("  IPEIR: 0x%08x\n",
-				       I915_READ(IPEIR));
-				printf("  IPEHR: 0x%08x\n",
-					   I915_READ(IPEHR));
-				printf("  INSTDONE: 0x%08x\n",
-					   I915_READ(INSTDONE));
-				printf("  ACTHD: 0x%08x\n",
-					   I915_READ(ACTHD));
-				I915_WRITE(IPEIR, ipeir);
-				(void)I915_READ(IPEIR);
-			} else {
-				ipeir = I915_READ(IPEIR_I965);
-
-				printf("  IPEIR: 0x%08x\n",
-				       I915_READ(IPEIR_I965));
-				printf("  IPEHR: 0x%08x\n",
-				       I915_READ(IPEHR_I965));
-				printf("  INSTDONE: 0x%08x\n",
-				       I915_READ(INSTDONE_I965));
-				printf("  INSTPS: 0x%08x\n",
-				       I915_READ(INSTPS));
-				printf("  INSTDONE1: 0x%08x\n",
-				       I915_READ(INSTDONE1));
-				printf("  ACTHD: 0x%08x\n",
-				       I915_READ(ACTHD_I965));
-				I915_WRITE(IPEIR_I965, ipeir);
-				(void)I915_READ(IPEIR_I965);
-			}
-		}
-	}
-
-	I915_WRITE(EIR, eir);
-	eir = I915_READ(EIR);
-	/*
-	 * nasty errors don't clear and need a reset, mask them until we reset
-	 * else we'll get infinite interrupt storms.
-	 */
-	if (eir) {
-		if (dev_priv->mm.wedged == 0)
-			DRM_ERROR("EIR stuck: 0x%08x, masking\n", eir);
-		I915_WRITE(EMR, I915_READ(EMR) | eir);
-		if (IS_IRONLAKE(dev) || IS_GEN6(dev) ||
-		    IS_GEN7(dev)) {
-			I915_WRITE(GTIIR, GT_RENDER_CS_ERROR_INTERRUPT);
-		} else {
-			I915_WRITE(IIR,
-			    I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT);
-		}
-	}
-	/*
-	 * if it was a pagetable error, or we were called from hangcheck, then
-	 * reset the gpu.
-	 */
-	if (dev_priv->mm.wedged && workq_add_task(dev_priv->workq, 0,
-	    inteldrm_hung, dev_priv, (void *)(uintptr_t)reset) == ENOMEM)
-		DRM_INFO("failed to schedule reset task\n");
-
-}
-
-void
-inteldrm_hung(void *arg, void *reset_type)
-{
-	struct inteldrm_softc	*dev_priv = arg;
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	struct drm_i915_gem_object *obj_priv;
-	u_int8_t		 reset = (u_int8_t)(uintptr_t)reset_type;
-
-	DRM_LOCK();
-	if (HAS_RESET(dev)) {
-		DRM_INFO("resetting gpu: ");
-		inteldrm_965_reset(dev_priv, reset);
-		printf("done!\n");
-	} else
-		printf("no reset function for chipset.\n");
-
-	/*
-	 * Clear out all of the requests and make everything inactive.
-	 */
-	i915_gem_retire_requests(dev_priv);
-
-	/*
-	 * Clear the active and flushing lists to inactive. Since
-	 * we've reset the hardware then they're not going to get
-	 * flushed or completed otherwise. nuke the domains since
-	 * they're now irrelavent.
-	 */
-	while (!list_empty(&dev_priv->mm.flushing_list)) {
-		obj_priv = list_first_entry(&dev_priv->mm.flushing_list,
-					   struct drm_i915_gem_object,
-					   mm_list);
-
-		drm_lock_obj(&obj_priv->base);
-		if (obj_priv->base.write_domain & I915_GEM_GPU_DOMAINS) {
-			list_del_init(&obj_priv->gpu_write_list);
-			obj_priv->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
-		}
-		/* unlocks object and list */
-		i915_gem_object_move_to_inactive_locked(obj_priv);
-	}
-
-	/* unbind everything */
-	(void)i915_gem_evict_inactive(dev_priv);
-
-	if (HAS_RESET(dev))
-		dev_priv->mm.wedged = 0;
-	DRM_UNLOCK();
-}
-
 bus_size_t
 i915_get_fence_size(struct inteldrm_softc *dev_priv, bus_size_t size)
 {
@@ -2094,89 +1919,296 @@ i915_get_fence_size(struct inteldrm_softc *dev_priv, bus_size_t size)
 	}
 }
 
-/*
- * Reset the chip after a hang (965 only)
- *
- * The procedure that should be followed is relatively simple:
- *	- reset the chip using the reset reg
- *	- re-init context state
- *	- re-init Hardware status page
- *	- re-init ringbuffer
- *	- re-init interrupt state
- *	- re-init display
- */
-void
-inteldrm_965_reset(struct inteldrm_softc *dev_priv, u_int8_t flags)
+int
+i8xx_do_reset(struct drm_device *dev)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
-	pcireg_t		 reg;
-	int			 i = 0;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	if (IS_I85X(dev))
+		return -ENODEV;
+
+	I915_WRITE(D_STATE, I915_READ(D_STATE) | DSTATE_GFX_RESET_I830);
+	POSTING_READ(D_STATE);
+
+	if (IS_I830(dev) || IS_845G(dev)) {
+		I915_WRITE(DEBUG_RESET_I830,
+			   DEBUG_RESET_DISPLAY |
+			   DEBUG_RESET_RENDER |
+			   DEBUG_RESET_FULL);
+		POSTING_READ(DEBUG_RESET_I830);
+		drm_msleep(1, "8res1");
+
+		I915_WRITE(DEBUG_RESET_I830, 0);
+		POSTING_READ(DEBUG_RESET_I830);
+	}
+
+	drm_msleep(1, "8res2");
+
+	I915_WRITE(D_STATE, I915_READ(D_STATE) & ~DSTATE_GFX_RESET_I830);
+	POSTING_READ(D_STATE);
+
+	return 0;
+}
+
+int
+i965_reset_complete(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	u8 gdrst;
+	gdrst = (pci_conf_read(dev_priv->pc, dev_priv->tag, I965_GDRST) >> 24);
+	return (gdrst & GRDOM_RESET_ENABLE) == 0;
+}
+
+int
+i965_do_reset(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	pcireg_t reg;
+	int retries;
 
 	/*
-	 * There seems to be soemthing wrong with !full reset modes, so force
-	 * the whole shebang for now.
+	 * Set the domains we want to reset (GRDOM/bits 2 and 3) as
+	 * well as the reset bit (GR/bit 0).  Setting the GR bit
+	 * triggers the reset; when done, the hardware will clear it.
 	 */
-	flags = GRDOM_FULL;
-
-	if (flags == GRDOM_FULL)
-		i915_save_display(dev);
-
 	reg = pci_conf_read(dev_priv->pc, dev_priv->tag, I965_GDRST);
-	/*
-	 * Set the domains we want to reset, then bit 0 (reset itself).
-	 * then we wait for the hardware to clear it.
+	reg |= ((GRDOM_RENDER | GRDOM_RESET_ENABLE) << 24);
+	pci_conf_write(dev_priv->pc, dev_priv->tag, I965_GDRST, reg);
+
+	for (retries = 50; retries > 0 ; retries--) {
+		if (i965_reset_complete(dev))
+			break;
+		DELAY(100);
+	}
+	if (retries == 0) {
+		DRM_ERROR("965 reset timed out\n");
+		return -ETIMEDOUT;
+	}
+
+	/* We can't reset render&media without also resetting display ... */
+	reg = pci_conf_read(dev_priv->pc, dev_priv->tag, I965_GDRST);
+	reg |= ((GRDOM_MEDIA | GRDOM_RESET_ENABLE) << 24);
+	pci_conf_write(dev_priv->pc, dev_priv->tag, I965_GDRST, reg);
+
+	for (retries = 50; retries > 0 ; retries--) {
+		if (i965_reset_complete(dev))
+			break;
+		DELAY(100);
+	}
+	if (retries == 0) {
+		DRM_ERROR("965 reset 2 timed out\n");
+		return -ETIMEDOUT;
+	}
+
+	return (0);
+}
+
+int
+ironlake_do_reset(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	u32 gdrst;
+	int retries;
+
+	gdrst = I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR);
+	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
+		   gdrst | GRDOM_RENDER | GRDOM_RESET_ENABLE);
+	for (retries = 50; retries > 0 ; retries--) {
+		if (I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) & 0x1)
+			break;
+		DELAY(100);
+	}
+	if (retries == 0) {
+		DRM_ERROR("ironlake reset timed out\n");
+		return -ETIMEDOUT;		
+	}
+
+	/* We can't reset render&media without also resetting display ... */
+	gdrst = I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR);
+	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
+		   gdrst | GRDOM_MEDIA | GRDOM_RESET_ENABLE);
+	for (retries = 50; retries > 0 ; retries--) {
+		if (I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) & 0x1)
+			break;
+		DELAY(100);
+	}
+	if (retries == 0) {
+		DRM_ERROR("ironlake reset timed out\n");
+		return -ETIMEDOUT;		
+	}
+	
+	return (0);
+}
+
+int
+gen6_do_reset(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	int ret = 0;
+	int retries;
+
+	/* Hold gt_lock across reset to prevent any register access
+	 * with forcewake not set correctly
 	 */
-	pci_conf_write(dev_priv->pc, dev_priv->tag, I965_GDRST,
-	    reg | (u_int32_t)flags | ((flags == GRDOM_FULL) ? 0x1 : 0x0));
-	delay(50);
-	/* don't clobber the rest of the register */
-	pci_conf_write(dev_priv->pc, dev_priv->tag, I965_GDRST, reg & 0xfe);
+	mtx_enter(&dev_priv->gt_lock);
 
-	/* if this fails we're pretty much fucked, but don't loop forever */
-	do {
-		delay(100);
-		reg = pci_conf_read(dev_priv->pc, dev_priv->tag, I965_GDRST);
-	} while ((reg & 0x1) && ++i < 10);
+	/* Reset the chip */
 
-	if (reg & 0x1)
-		printf("bit 0 not cleared .. ");
-
-	/* put everything back together again */
-
-	/*
-	 * GTT is already up (we didn't do a pci-level reset, thank god.
-	 *
-	 * We don't have to restore the contexts (we don't use them yet).
-	 * So, if X is running we need to put the ringbuffer back first.
+	/* GEN6_GDRST is not in the gt power well, no need to check
+	 * for fifo space for the write or forcewake the chip for
+	 * the read
 	 */
-	 if (dev_priv->mm.suspended == 0) {
-		struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
-		if (init_ring_common(&dev_priv->rings[RCS]) != 0)
-			panic("can't restart ring, we're fucked");
+	I915_WRITE_NOTRACE(GEN6_GDRST, GEN6_GRDOM_FULL);
 
-#if 0
-		/* put the hardware status page back */
-		if (I915_NEED_GFX_HWS(dev)) {
-			I915_WRITE(HWS_PGA, ((struct drm_i915_gem_object *)
-			    dev_priv->hws_obj)->gtt_offset);
-		} else {
-			I915_WRITE(HWS_PGA,
-			    dev_priv->hws_dmamem->map->dm_segs[0].ds_addr);
+	/* Spin waiting for the device to ack the reset request */
+	for (retries = 50; retries > 0 ; retries--) {
+		if ((I915_READ_NOTRACE(GEN6_GDRST) & GEN6_GRDOM_FULL) == 0)
+			break;
+		DELAY(100);
+	}
+	if (retries == 0) {
+		DRM_ERROR("gen6 reset timed out\n");
+		ret = -ETIMEDOUT;
+	}
+
+	/* If reset with a user forcewake, try to restore, otherwise turn it off */
+	if (dev_priv->forcewake_count)
+		dev_priv->gt.force_wake_get(dev_priv);
+	else
+		dev_priv->gt.force_wake_put(dev_priv);
+
+	/* Restore fifo count */
+	dev_priv->gt_fifo_count = I915_READ_NOTRACE(GT_FIFO_FREE_ENTRIES);
+
+	mtx_leave(&dev_priv->gt_lock);
+	return ret;
+}
+
+int
+intel_gpu_reset(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	int ret = -ENODEV;
+
+	switch (INTEL_INFO(dev)->gen) {
+	case 7:
+	case 6:
+		ret = gen6_do_reset(dev);
+		break;
+	case 5:
+		ret = ironlake_do_reset(dev);
+		break;
+	case 4:
+		ret = i965_do_reset(dev);
+		break;
+	case 2:
+		ret = i8xx_do_reset(dev);
+		break;
+	}
+
+	/* Also reset the gpu hangman. */
+	if (dev_priv->stop_rings) {
+		DRM_DEBUG("Simulated gpu hang, resetting stop_rings\n");
+		dev_priv->stop_rings = 0;
+		if (ret == -ENODEV) {
+			DRM_ERROR("Reset not implemented, but ignoring "
+				  "error for simulated gpu hangs\n");
+			ret = 0;
 		}
-		I915_READ(HWS_PGA); /* posting read */
+	}
+
+	return ret;
+}
+
+/**
+ * i915_reset - reset chip after a hang
+ * @dev: drm device to reset
+ *
+ * Reset the chip.  Useful if a hang is detected. Returns zero on successful
+ * reset or otherwise an error code.
+ *
+ * Procedure is fairly simple:
+ *   - reset the chip using the reset reg
+ *   - re-init context state
+ *   - re-init hardware status page
+ *   - re-init ring buffer
+ *   - re-init interrupt state
+ *   - re-init display
+ */
+int
+i915_reset(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	int ret;
+
+#ifdef notyet
+	if (!i915_try_reset)
+		return 0;
 #endif
 
-		/* so we remove the handler and can put it back in */
+	DRM_LOCK();
+
+	i915_gem_reset(dev);
+
+	ret = -ENODEV;
+	if (time_second - dev_priv->last_gpu_reset < 5)
+		DRM_ERROR("GPU hanging too fast, declaring wedged!\n");
+	else
+		ret = intel_gpu_reset(dev);
+
+	dev_priv->last_gpu_reset = time_second;
+	if (ret) {
+		DRM_ERROR("Failed to reset chip.\n");
 		DRM_UNLOCK();
+		return ret;
+	}
+
+	/* Ok, now get things going again... */
+
+	/*
+	 * Everything depends on having the GTT running, so we need to start
+	 * there.  Fortunately we don't need to do this unless we reset the
+	 * chip at a PCI level.
+	 *
+	 * Next we need to restore the context, but we don't use those
+	 * yet either...
+	 *
+	 * Ring buffer needs to be re-initialized in the KMS case, or if X
+	 * was running at the time of the reset (i.e. we weren't VT
+	 * switched away).
+	 */
+	if (drm_core_check_feature(dev, DRIVER_MODESET) ||
+			!dev_priv->mm.suspended) {
+		struct intel_ring_buffer *ring;
+		int i;
+
+		dev_priv->mm.suspended = 0;
+
+		i915_gem_init_swizzling(dev);
+
+		for_each_ring(ring, dev_priv, i)
+			ring->init(ring);
+
+#ifdef notyet
+		i915_gem_context_init(dev);
+		i915_gem_init_ppgtt(dev);
+#endif
+
+		/*
+		 * It would make sense to re-init all the other hw state, at
+		 * least the rps/rc6/emon init done within modeset_init_hw. For
+		 * some unknown reason, this blows up my ilk, so don't.
+		 */
+
+		DRM_UNLOCK();
+
 		drm_irq_uninstall(dev);
 		drm_irq_install(dev);
-		DRM_LOCK();
-	 } else
-		printf("not restarting ring...\n");
+	} else {
+		DRM_UNLOCK();
+	}
 
-
-	 if (flags == GRDOM_FULL)
-		i915_restore_display(dev);
+	return 0;
 }
 
 /*

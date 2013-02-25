@@ -71,6 +71,8 @@ void i915_gem_object_update_fence(struct drm_i915_gem_object *,
     struct drm_i915_fence_reg *, bool);
 int i915_gem_object_flush_fence(struct drm_i915_gem_object *);
 struct drm_i915_fence_reg *i915_find_fence_reg(struct drm_device *);
+void i915_gem_reset_ring_lists(drm_i915_private_t *,
+    struct intel_ring_buffer *);
 
 static inline void
 i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
@@ -1045,7 +1047,35 @@ i915_add_request(struct intel_ring_buffer *ring,
 }
 
 // i915_gem_request_remove_from_client
-// i915_gem_reset_ring_lists
+
+void
+i915_gem_reset_ring_lists(drm_i915_private_t *dev_priv,
+				      struct intel_ring_buffer *ring)
+{
+	while (!list_empty(&ring->request_list)) {
+		struct drm_i915_gem_request *request;
+
+		request = list_first_entry(&ring->request_list,
+					   struct drm_i915_gem_request,
+					   list);
+
+		list_del(&request->list);
+//		i915_gem_request_remove_from_client(request);
+		free(request, M_DRM);
+	}
+
+	while (!list_empty(&ring->active_list)) {
+		struct drm_i915_gem_object *obj;
+
+		obj = list_first_entry(&ring->active_list,
+				       struct drm_i915_gem_object,
+				       ring_list);
+
+		obj->base.write_domain = 0;
+		list_del_init(&obj->gpu_write_list);
+		i915_gem_object_move_to_inactive(obj);
+	}
+}
 
 void
 i915_gem_reset_fences(struct drm_device *dev)
@@ -1069,7 +1099,43 @@ i915_gem_reset_fences(struct drm_device *dev)
 	INIT_LIST_HEAD(&dev_priv->mm.fence_list);
 }
 
-// i915_gem_reset
+void
+i915_gem_reset(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_i915_gem_object *obj;
+	int i;
+
+	for (i = 0; i < I915_NUM_RINGS; i++)
+		i915_gem_reset_ring_lists(dev_priv, &dev_priv->rings[i]);
+
+	/* Remove anything from the flushing lists. The GPU cache is likely
+	 * to be lost on reset along with the data, so simply move the
+	 * lost bo to the inactive list.
+	 */
+	while (!list_empty(&dev_priv->mm.flushing_list)) {
+		obj = list_first_entry(&dev_priv->mm.flushing_list,
+				      struct drm_i915_gem_object,
+				      mm_list);
+
+		obj->base.write_domain = 0;
+		list_del_init(&obj->gpu_write_list);
+		i915_gem_object_move_to_inactive(obj);
+	}
+
+	/* Move everything out of the GPU domains to ensure we do any
+	 * necessary invalidation upon reuse.
+	 */
+	list_for_each_entry(obj,
+			    &dev_priv->mm.inactive_list,
+			    mm_list)
+	{
+		obj->base.read_domains &= ~I915_GEM_GPU_DOMAINS;
+	}
+
+	/* The fence registers are invalidated so clear them out */
+	i915_gem_reset_fences(dev);
+}
 
 /**
  * This function clears the request list as sequence numbers are passed.
