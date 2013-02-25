@@ -806,13 +806,9 @@ inteldrm_copyrect(struct inteldrm_softc *dev_priv, int sx, int sy,
 	intel_ring_emit(ring, base);
 	intel_ring_advance(ring);
 
-	ret = intel_ring_begin(ring, 2);
+	ret = ring->flush(ring, 0, I915_GEM_GPU_DOMAINS);
 	if (ret)
 		return;
-
-	intel_ring_emit(ring, MI_FLUSH | MI_READ_FLUSH);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
 
 	ret = i915_add_request(ring, NULL, &seqno);
 	if (ret)
@@ -861,13 +857,9 @@ inteldrm_fillrect(struct inteldrm_softc *dev_priv, int x, int y,
 	intel_ring_emit(ring, color);
 	intel_ring_advance(ring);
 
-	ret = intel_ring_begin(ring, 2);
+	ret = ring->flush(ring, 0, I915_GEM_GPU_DOMAINS);
 	if (ret)
 		return;
-
-	intel_ring_emit(ring, MI_FLUSH | MI_READ_FLUSH);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
 
 	ret = i915_add_request(ring, NULL, &seqno);
 	if (ret)
