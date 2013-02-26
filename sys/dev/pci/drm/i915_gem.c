@@ -1974,7 +1974,6 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	if (ret)
 		return ret;
 
-#ifdef notyet
 	i915_gem_object_flush_cpu_write_domain(obj);
 
 //	old_write_domain = obj->write_domain;
@@ -1985,9 +1984,6 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	 */
 	BUG_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) != 0);
 	obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
-#else
-	printf("%s skipping write domain flush\n", __func__);
-#endif
 
 //	trace_i915_gem_object_change_domain(obj,
 //					    old_read_domains,
