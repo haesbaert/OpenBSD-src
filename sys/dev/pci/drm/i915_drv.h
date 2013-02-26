@@ -1192,6 +1192,7 @@ void i915_gem_reset_fences(struct drm_device *);
 int i915_gem_object_get_fence(struct drm_i915_gem_object *);
 int i915_gem_object_put_fence(struct drm_i915_gem_object *);
 void i915_gem_reset(struct drm_device *);
+void i915_gem_clflush_object(struct drm_i915_gem_object *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);
