@@ -697,8 +697,6 @@ struct drm_device {
 	atomic_t		 gtt_count;
 	atomic_t		 gtt_memory;
 	uint32_t		 gtt_total;
-	uint32_t		 invalidate_domains;
-	uint32_t		 flush_domains;
 	SPLAY_HEAD(drm_name_tree, drm_obj)	name_tree;
 	struct pool				objpl;
 	

@@ -55,8 +55,25 @@
 #include <sys/queue.h>
 #include <sys/workq.h>
 
+struct change_domains {
+	uint32_t invalidate_domains;
+	uint32_t flush_domains;
+	uint32_t flush_rings;
+	uint32_t flips;
+};
+
 int	i915_reset_gen7_sol_offsets(struct drm_device *,
 	    struct intel_ring_buffer *);
+int	i915_gem_execbuffer_flush(struct drm_device *, uint32_t, uint32_t,
+	    uint32_t);
+bool	intel_enable_semaphores(struct drm_device *);
+int	i915_gem_execbuffer_sync_rings(struct drm_i915_gem_object *,
+	    struct intel_ring_buffer *);
+int	i915_gem_execbuffer_wait_for_flips(struct intel_ring_buffer *, u32);
+int	i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *,
+	    struct drm_obj **, int);
+void	i915_gem_object_set_to_gpu_domain(struct drm_i915_gem_object *,
+	    struct intel_ring_buffer *, struct change_domains *);
 
 /*
  * Set the next domain for the specified object. This
@@ -128,7 +145,7 @@ int	i915_reset_gen7_sol_offsets(struct drm_device *,
  *	4. set_domain (CPU, CPU)
  *		flush_domains gets GPU
  *		invalidate_domains gets CPU
- *		flush_gpu_write (obj) to make sure all drawing is complete.
+ *		wait_rendering (obj) to make sure all drawing is complete.
  *		This will include an MI_FLUSH to get the data from GPU
  *		to memory
  *		clflush (obj) to invalidate the CPU cache
@@ -170,25 +187,18 @@ int	i915_reset_gen7_sol_offsets(struct drm_device *,
  *		drm_agp_chipset_flush
  */
 void
-i915_gem_object_set_to_gpu_domain(struct drm_obj *obj)
+i915_gem_object_set_to_gpu_domain(struct drm_i915_gem_object *obj,
+				  struct intel_ring_buffer *ring,
+				  struct change_domains *cd)
 {
-	struct drm_device	*dev = obj->dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
-	u_int32_t		 invalidate_domains = 0;
-	u_int32_t		 flush_domains = 0;
+	uint32_t invalidate_domains = 0, flush_domains = 0;
 
-	DRM_ASSERT_HELD(obj);
-	KASSERT((obj->pending_read_domains & I915_GEM_DOMAIN_CPU) == 0);
-	KASSERT(obj->pending_write_domain != I915_GEM_DOMAIN_CPU);
 	/*
 	 * If the object isn't moving to a new write domain,
 	 * let the object stay in multiple read domains
 	 */
-	if (obj->pending_write_domain == 0)
-		obj->pending_read_domains |= obj->read_domains;
-	else
-		obj_priv->dirty = 1;
+	if (obj->base.pending_write_domain == 0)
+		obj->base.pending_read_domains |= obj->base.read_domains;
 
 	/*
 	 * Flush the current write domain if
@@ -196,41 +206,40 @@ i915_gem_object_set_to_gpu_domain(struct drm_obj *obj)
 	 * any read domains which differ from the old
 	 * write domain
 	 */
-	if (obj->write_domain &&
-	    obj->write_domain != obj->pending_read_domains) {
-		flush_domains |= obj->write_domain;
-		invalidate_domains |= obj->pending_read_domains &
-		    ~obj->write_domain;
+	if (obj->base.write_domain &&
+	    (((obj->base.write_domain != obj->base.pending_read_domains ||
+	       obj->ring != ring)) ||
+	     (obj->fenced_gpu_access && !obj->pending_fenced_gpu_access))) {
+		flush_domains |= obj->base.write_domain;
+		invalidate_domains |=
+			obj->base.pending_read_domains & ~obj->base.write_domain;
 	}
 	/*
 	 * Invalidate any read caches which may have
 	 * stale data. That is, any new read domains.
 	 */
-	invalidate_domains |= obj->pending_read_domains & ~obj->read_domains;
-	/* clflush the cpu now, gpu caches get queued. */
-	if ((flush_domains | invalidate_domains) & I915_GEM_DOMAIN_CPU) {
-		bus_dmamap_sync(dev_priv->agpdmat, obj_priv->dmamap, 0,
-		    obj->size, BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
-	}
-	if ((flush_domains | invalidate_domains) & I915_GEM_DOMAIN_GTT) {
-		inteldrm_wipe_mappings(obj);
-	}
+	invalidate_domains |= obj->base.pending_read_domains & ~obj->base.read_domains;
+	if ((flush_domains | invalidate_domains) & I915_GEM_DOMAIN_CPU)
+		i915_gem_clflush_object(obj);
+
+	if (obj->base.pending_write_domain)
+		cd->flips |= atomic_read(&obj->pending_flip);
 
 	/* The actual obj->write_domain will be updated with
-	 * pending_write_domain after we emit the accumulated flush for all of
-	 * the domain changes in execuffer (which clears object's write
-	 * domains). So if we have a current write domain that we aren't
-	 * changing, set pending_write_domain to it.
+	 * pending_write_domain after we emit the accumulated flush for all
+	 * of our domain changes in execbuffers (which clears objects'
+	 * write_domains).  So if we have a current write domain that we
+	 * aren't changing, set pending_write_domain to that.
 	 */
-	if (flush_domains == 0 && obj->pending_write_domain == 0 &&
-	    (obj->pending_read_domains == obj->write_domain ||
-	    obj->write_domain == 0))
-		obj->pending_write_domain = obj->write_domain;
-	obj->read_domains = obj->pending_read_domains;
-	obj->pending_read_domains = 0;
+	if (flush_domains == 0 && obj->base.pending_write_domain == 0)
+		obj->base.pending_write_domain = obj->base.write_domain;
 
-	dev->invalidate_domains |= invalidate_domains;
-	dev->flush_domains |= flush_domains;
+	cd->invalidate_domains |= invalidate_domains;
+	cd->flush_domains |= flush_domains;
+	if (flush_domains & I915_GEM_GPU_DOMAINS)
+		cd->flush_rings |= intel_ring_flag(obj->ring);
+	if (invalidate_domains & I915_GEM_GPU_DOMAINS)
+		cd->flush_rings |= intel_ring_flag(ring);
 }
 
 // struct eb_objects {
@@ -246,11 +255,169 @@ i915_gem_object_set_to_gpu_domain(struct drm_obj *obj)
 // pin_and_fence_object
 // i915_gem_execbuffer_reserve
 // i915_gem_execbuffer_relocate_slow
-// i915_gem_execbuffer_flush
-// intel_enable_semaphores
-// i915_gem_execbuffer_sync_rings
-// i915_gem_execbuffer_wait_for_flips
-// i915_gem_execbuffer_move_to_gpu 
+
+int
+i915_gem_execbuffer_flush(struct drm_device *dev,
+			  uint32_t invalidate_domains,
+			  uint32_t flush_domains,
+			  uint32_t flush_rings)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	int i, ret;
+
+	if (flush_domains & I915_GEM_DOMAIN_CPU)
+		inteldrm_chipset_flush(dev_priv);
+
+	if (flush_domains & I915_GEM_DOMAIN_GTT)
+		DRM_WRITEMEMORYBARRIER();
+
+	if ((flush_domains | invalidate_domains) & I915_GEM_GPU_DOMAINS) {
+		for (i = 0; i < I915_NUM_RINGS; i++)
+			if (flush_rings & (1 << i)) {
+				ret = i915_gem_flush_ring(&dev_priv->rings[i],
+							  invalidate_domains,
+							  flush_domains);
+				if (ret)
+					return ret;
+			}
+	}
+
+	return 0;
+}
+
+bool
+intel_enable_semaphores(struct drm_device *dev)
+{
+	return 0;
+#ifdef notyet
+	if (INTEL_INFO(dev)->gen < 6)
+		return 0;
+
+	if (i915_semaphores >= 0)
+		return i915_semaphores;
+
+	/* Disable semaphores on SNB */
+	if (INTEL_INFO(dev)->gen == 6)
+		return 0;
+
+	return 1;
+#endif
+}
+
+int
+i915_gem_execbuffer_sync_rings(struct drm_i915_gem_object *obj,
+			       struct intel_ring_buffer *to)
+{
+	struct intel_ring_buffer *from = obj->ring;
+//	u32 seqno;
+//	int ret, idx;
+
+	if (from == NULL || to == from)
+		return 0;
+
+	/* XXX gpu semaphores are implicated in various hard hangs on SNB */
+//	if (!intel_enable_semaphores(obj->base.dev))
+		return i915_gem_object_wait_rendering(obj, false);
+#ifdef notyet
+	idx = intel_ring_sync_index(from, to);
+
+	seqno = obj->last_rendering_seqno;
+	if (seqno <= from->sync_seqno[idx])
+		return 0;
+
+	if (seqno == from->outstanding_lazy_request) {
+		struct drm_i915_gem_request *request;
+
+		request = kzalloc(sizeof(*request), GFP_KERNEL);
+		if (request == NULL)
+			return -ENOMEM;
+
+		ret = i915_add_request(from, NULL, request);
+		if (ret) {
+			kfree(request);
+			return ret;
+		}
+
+		seqno = request->seqno;
+	}
+
+	from->sync_seqno[idx] = seqno;
+
+	return to->sync_to(to, from, seqno - 1);
+#endif
+}
+
+int
+i915_gem_execbuffer_wait_for_flips(struct intel_ring_buffer *ring, u32 flips)
+{
+	u32 plane, flip_mask;
+	int ret;
+
+	/* Check for any pending flips. As we only maintain a flip queue depth
+	 * of 1, we can simply insert a WAIT for the next display flip prior
+	 * to executing the batch and avoid stalling the CPU.
+	 */
+
+	for (plane = 0; flips >> plane; plane++) {
+		if (((flips >> plane) & 1) == 0)
+			continue;
+
+		if (plane)
+			flip_mask = MI_WAIT_FOR_PLANE_B_FLIP;
+		else
+			flip_mask = MI_WAIT_FOR_PLANE_A_FLIP;
+
+		ret = intel_ring_begin(ring, 2);
+		if (ret)
+			return ret;
+
+		intel_ring_emit(ring, MI_WAIT_FOR_EVENT | flip_mask);
+		intel_ring_emit(ring, MI_NOOP);
+		intel_ring_advance(ring);
+	}
+
+	return 0;
+}
+
+int
+i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *ring,
+   struct drm_obj **object_list, int buffer_count)
+{
+	struct drm_i915_gem_object *obj;
+	struct change_domains cd;
+	int ret, i;
+
+	memset(&cd, 0, sizeof(cd));
+	for (i = 0; i < buffer_count; i++) {
+		obj = to_intel_bo(object_list[i]);
+		i915_gem_object_set_to_gpu_domain(obj, ring, &cd);
+	}
+
+	if (cd.invalidate_domains | cd.flush_domains) {
+		ret = i915_gem_execbuffer_flush(ring->dev,
+						cd.invalidate_domains,
+						cd.flush_domains,
+						cd.flush_rings);
+		if (ret)
+			return ret;
+	}
+
+	if (cd.flips) {
+		ret = i915_gem_execbuffer_wait_for_flips(ring, cd.flips);
+		if (ret)
+			return ret;
+	}
+
+	for (i = 0; i < buffer_count; i++) {
+		obj = to_intel_bo(object_list[i]);
+		ret = i915_gem_execbuffer_sync_rings(obj, ring);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 // i915_gem_check_execbuffer
 // validate_exec_list
 // i915_gem_execbuffer_move_to_active
@@ -456,24 +623,10 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	}
 	batch_obj->pending_read_domains |= I915_GEM_DOMAIN_COMMAND;
 
-	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
-
-	/*
-	 * Zero the global flush/invalidate flags. These will be modified as
-	 * new domains are computed for each object
-	 */
-	dev->invalidate_domains = 0;
-	dev->flush_domains = 0;
-
-	/* Compute new gpu domains and update invalidate/flush */
-	for (i = 0; i < args->buffer_count; i++)
-		i915_gem_object_set_to_gpu_domain(object_list[i]);
-
-	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
-
-	/* flush and invalidate any domains that need them. */
-	(void)i915_gem_flush_ring(ring, dev->invalidate_domains,
-	    dev->flush_domains);
+	ret = i915_gem_execbuffer_move_to_gpu(ring, object_list,
+	    args->buffer_count);
+	if (ret)
+		goto err;
 
 	/*
 	 * update the write domains, and fence/gpu write accounting information.

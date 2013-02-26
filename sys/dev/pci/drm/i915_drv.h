@@ -1054,7 +1054,6 @@ int	i915_gem_put_relocs_to_user(struct drm_i915_gem_exec_object2 *,
 	    u_int32_t, struct drm_i915_gem_relocation_entry *);
 void	i915_dispatch_gem_execbuffer(struct intel_ring_buffer *,
 	    struct drm_i915_gem_execbuffer2 *, uint64_t);
-void	i915_gem_object_set_to_gpu_domain(struct drm_obj *);
 int	i915_gem_object_pin_and_relocate(struct drm_obj *,
 	    struct drm_file *, struct drm_i915_gem_exec_object2 *,
 	    struct drm_i915_gem_relocation_entry *);
