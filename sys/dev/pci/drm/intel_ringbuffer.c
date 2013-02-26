@@ -1524,8 +1524,15 @@ intel_ring_idle(struct intel_ring_buffer *ring)
 	}
 
 	/* Wait upon the last request to be completed */
-	if (list_empty(&ring->request_list))
+	if (list_empty(&ring->gpu_write_list) && list_empty(&ring->active_list))
 		return 0;
+
+	if (!list_empty(&ring->gpu_write_list)) {
+		ret = i915_gem_flush_ring(ring,
+				    I915_GEM_GPU_DOMAINS, I915_GEM_GPU_DOMAINS);
+		if (ret)
+			return ret;
+	}
 
 	seqno = list_entry(ring->request_list.prev,
 			   struct drm_i915_gem_request,
