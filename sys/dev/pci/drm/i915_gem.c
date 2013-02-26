@@ -2315,6 +2315,7 @@ int
 i915_gem_init_object(struct drm_obj *obj)
 {
 	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
+	struct drm_device *dev = obj->dev;
 
 	/*
 	 * We've just allocated pages from the kernel,
@@ -2324,6 +2325,23 @@ i915_gem_init_object(struct drm_obj *obj)
 	 */
 	obj->write_domain = I915_GEM_DOMAIN_CPU;
 	obj->read_domains = I915_GEM_DOMAIN_CPU;
+
+	if (HAS_LLC(dev)) {
+		/* On some devices, we can have the GPU use the LLC (the CPU
+		 * cache) for about a 10% performance improvement
+		 * compared to uncached.  Graphics requests other than
+		 * display scanout are coherent with the CPU in
+		 * accessing this cache.  This means in this mode we
+		 * don't need to clflush on the CPU side, and on the
+		 * GPU side we only need to flush internal caches to
+		 * get data visible to the CPU.
+		 *
+		 * However, we maintain the display planes as UC, and so
+		 * need to rebind when first used as such.
+		 */
+		obj_priv->cache_level = I915_CACHE_LLC;
+	} else
+		obj_priv->cache_level = I915_CACHE_NONE;
 
 	/* normal objects don't need special treatment */
 	obj_priv->dma_flags = 0;
