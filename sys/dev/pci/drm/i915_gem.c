@@ -60,8 +60,7 @@
 #include "i915_drv.h"
 #include "intel_drv.h"
 
-void	 i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj);
-
+void i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *);
 int i915_gem_init_phys_object(struct drm_device *, int, int, int);
 int i915_gem_phys_pwrite(struct drm_device *, struct drm_i915_gem_object *,
 			 struct drm_i915_gem_pwrite *, struct drm_file *);
@@ -1767,10 +1766,26 @@ i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj)
 	return i915_gem_flush_ring(obj->ring, 0, obj->base.write_domain);
 }
 
+/** Flushes the CPU write domain for the object if it's dirty. */
 void
-i915_gem_object_flush_cpu_write_domain(struct drm_obj *obj)
+i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *obj)
 {
-	printf("%s stub\n", __func__);
+	drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
+	uint32_t old_write_domain;
+
+	if (obj->base.write_domain != I915_GEM_DOMAIN_CPU)
+		return;
+
+	i915_gem_clflush_object(obj);
+	inteldrm_chipset_flush(dev_priv);
+	old_write_domain = obj->base.write_domain;
+	obj->base.write_domain = 0;
+
+#if 0
+	trace_i915_gem_object_change_domain(obj,
+					    obj->base.read_domains,
+					    old_write_domain);
+#endif
 }
 
 /*
