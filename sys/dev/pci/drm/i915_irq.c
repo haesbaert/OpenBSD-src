@@ -90,6 +90,7 @@ void	 intel_irq_init(struct drm_device *);
 void	 i915_hotplug_work_func(void *, void *);
 void	 i915_error_work_func(void *, void *);
 void	 ivybridge_parity_work(void *, void *);
+void	 gen6_pm_rps_work(void *, void *);
 
 /* For display hotplug interrupt */
 void
@@ -427,12 +428,11 @@ notify_ring(struct drm_device *dev,
 #endif
 }
 
-#ifdef notyet
 void
-gen6_pm_rps_work(struct work_struct *work)
+gen6_pm_rps_work(void *arg1, void *arg2)
 {
-	drm_i915_private_t *dev_priv = container_of(work, drm_i915_private_t,
-						    rps.work);
+	drm_i915_private_t *dev_priv = arg1;
+	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 	u32 pm_iir, pm_imr;
 	u8 new_delay;
 
@@ -458,13 +458,11 @@ gen6_pm_rps_work(struct work_struct *work)
 	 */
 	if (!(new_delay > dev_priv->rps.max_delay ||
 	      new_delay < dev_priv->rps.min_delay)) {
-		gen6_set_rps(dev_priv->dev, new_delay);
+		gen6_set_rps(dev, new_delay);
 	}
 
 	rw_exit_write(&dev_priv->rps.hw_lock);
 }
-#endif
-
 
 /**
  * ivybridge_parity_work - Workqueue called when a parity error interrupt
@@ -598,9 +596,8 @@ gen6_queue_rps_work(struct inteldrm_softc *dev_priv,
 	POSTING_READ(GEN6_PMIMR);
 	mtx_leave(&dev_priv->rps.lock);
 
-#ifdef notyet
-	queue_work(dev_priv->wq, &dev_priv->rps.work);
-#endif
+	workq_queue_task(NULL, &dev_priv->rps.task, 0, gen6_pm_rps_work,
+	    dev_priv, NULL);
 }
 
 int
@@ -2851,10 +2848,6 @@ void
 intel_irq_init(struct drm_device *dev)
 {
 //	struct inteldrm_softc *dev_priv = dev->dev_private;
-
-#ifdef notyet
-	INIT_WORK(&dev_priv->rps.work, gen6_pm_rps_work);
-#endif
 
 	dev->driver->get_vblank_counter = i915_get_vblank_counter;
 	dev->max_vblank_count = 0xffffff; /* only 24 bits of frame count */

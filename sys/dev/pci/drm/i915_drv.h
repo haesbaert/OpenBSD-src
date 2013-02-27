@@ -427,9 +427,7 @@ struct i915_suspend_saved_registers {
 };
 
 struct intel_gen6_power_mgmt {
-#if 0
-	struct work_struct work;
-#endif
+	struct workq_task task;
 	u32 pm_iir;
 	/* lock - irqsave spinlock that protectects the work_struct and
 	 * pm_iir. */
