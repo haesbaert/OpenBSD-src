@@ -1653,6 +1653,7 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 	struct drm_device *dev = obj->base.dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	int ret;
+	uint32_t flags;
 
 	DRM_ASSERT_HELD(&obj->base);
 	if (dev_priv->agpdmat == NULL)
@@ -1678,12 +1679,25 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 	    alignment);
 
  search_free:
+	switch (obj->cache_level) {
+	case I915_CACHE_NONE:
+		flags = BUS_DMA_GTT_NOCACHE;
+		break;
+	case I915_CACHE_LLC:
+		flags = BUS_DMA_GTT_CACHE_LLC;
+		break;
+	case I915_CACHE_LLC_MLC:
+		flags = BUS_DMA_GTT_CACHE_LLC_MLC;
+		break;
+	default:
+		BUG();
+	}
 	/*
 	 * the helper function wires the uao then binds it to the aperture for
 	 * us, so all we have to do is set up the dmamap then load it.
 	 */
 	ret = drm_gem_load_uao(dev_priv->agpdmat, obj->dmamap, obj->base.uao,
-	    obj->base.size, BUS_DMA_WAITOK | obj->dma_flags,
+	    obj->base.size, BUS_DMA_WAITOK | obj->dma_flags | flags,
 	    &obj->dma_segs);
 	/* XXX NOWAIT? */
 	if (ret != 0) {

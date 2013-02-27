@@ -738,7 +738,12 @@ agp_i810_bind_page(void *sc, bus_addr_t offset, paddr_t physical, int flags)
 	switch (isc->chiptype) {
 	case CHIP_SANDYBRIDGE:
 	case CHIP_IVYBRIDGE:
-		physical |= GEN6_PTE_UNCACHED;
+		if (flags & BUS_DMA_GTT_NOCACHE)
+			physical |= GEN6_PTE_UNCACHED;
+		if (flags & BUS_DMA_GTT_CACHE_LLC)
+			physical |= GEN6_PTE_CACHE_LLC;
+		if (flags & BUS_DMA_GTT_CACHE_LLC_MLC)
+			physical |= GEN6_PTE_CACHE_LLC_MLC;
 		break;
 	default:
 		if (flags & BUS_DMA_COHERENT)

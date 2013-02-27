@@ -43,6 +43,11 @@
 
 #define AGPUNIT(x)	minor(x)
 
+/* we can't use the BUS_DMA_NOCACHE here or it won't get mapped via the gtt */
+#define BUS_DMA_GTT_NOCACHE		(1 << 30)
+#define BUS_DMA_GTT_CACHE_LLC		(1 << 29)
+#define BUS_DMA_GTT_CACHE_LLC_MLC	(1 << 28)
+
 struct agp_attach_args {
 	char			*aa_busname;
 	struct pci_attach_args	*aa_pa;
