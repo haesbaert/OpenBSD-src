@@ -571,7 +571,7 @@ snb_gt_irq_handler(struct drm_device *dev,
 		      GT_GEN6_BSD_CS_ERROR_INTERRUPT |
 		      GT_RENDER_CS_ERROR_INTERRUPT)) {
 		DRM_ERROR("GT error interrupt 0x%08x\n", gt_iir);
-//		i915_handle_error(dev, false);
+		i915_handle_error(dev, false);
 	}
 
 	if (gt_iir & GT_GEN7_L3_PARITY_ERROR_INTERRUPT)
