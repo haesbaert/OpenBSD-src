@@ -418,7 +418,6 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 {
 	struct drm_device *dev = ring->dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
-	bool interruptible = dev_priv->mm.interruptible;
 	int ret = 0;
 
 	/* Check first because poking a wedged chip is bad. */
@@ -439,7 +438,8 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			    seqno) || dev_priv->mm.wedged)
 				break;
 			ret = msleep(dev_priv, &dev_priv->irq_lock,
-			    PZERO | (interruptible ? PCATCH : 0), "gemwt", 0);
+			    PZERO | (dev_priv->mm.interruptible ? PCATCH : 0),
+			    "gemwt", 0);
 		}
 		ring->irq_put(ring);
 		mtx_leave(&dev_priv->irq_lock);
