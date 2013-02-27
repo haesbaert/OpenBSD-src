@@ -222,6 +222,10 @@ i915_gem_object_set_to_gpu_domain(struct drm_i915_gem_object *obj,
 	if ((flush_domains | invalidate_domains) & I915_GEM_DOMAIN_CPU)
 		i915_gem_clflush_object(obj);
 
+	if ((flush_domains | invalidate_domains) & I915_GEM_DOMAIN_GTT) {
+		inteldrm_wipe_mappings(&obj->base);
+	}
+
 	if (obj->base.pending_write_domain)
 		cd->flips |= atomic_read(&obj->pending_flip);
 
