@@ -49,6 +49,7 @@
 #include "drm.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
+#include "intel_drv.h"
 
 #include <machine/pmap.h>
 
@@ -74,6 +75,10 @@ int	i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *,
 	    struct drm_obj **, int);
 void	i915_gem_object_set_to_gpu_domain(struct drm_i915_gem_object *,
 	    struct intel_ring_buffer *, struct change_domains *);
+void	i915_gem_execbuffer_move_to_active(struct drm_obj **, int,
+	    struct intel_ring_buffer *);
+void	i915_gem_execbuffer_retire_commands(struct drm_device *,
+	    struct drm_file *, struct intel_ring_buffer *);
 
 /*
  * Set the next domain for the specified object. This
@@ -424,10 +429,64 @@ i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *ring,
 
 // i915_gem_check_execbuffer
 // validate_exec_list
-// i915_gem_execbuffer_move_to_active
-// i915_gem_execbuffer_retire_commands
+
+void
+i915_gem_execbuffer_move_to_active(struct drm_obj **object_list,
+    int buffer_count, struct intel_ring_buffer *ring)
+{
+	struct drm_i915_gem_object *obj;
+	int i;
+
+	for (i = 0; i < buffer_count; i++) {
+		obj = to_intel_bo(object_list[i]);
+#if 0
+		u32 old_read = obj->base.read_domains;
+		u32 old_write = obj->base.write_domain;
+#endif
+
+		obj->base.read_domains = obj->base.pending_read_domains;
+		obj->base.write_domain = obj->base.pending_write_domain;
+		obj->fenced_gpu_access = obj->pending_fenced_gpu_access;
+
+		i915_gem_object_move_to_active(obj, ring);
+		if (obj->base.write_domain) {
+			obj->dirty = 1;
+			obj->pending_gpu_write = true;
+			list_move_tail(&obj->gpu_write_list,
+				       &ring->gpu_write_list);
+			intel_mark_busy(ring->dev);
+		}
+
+//		trace_i915_gem_object_change_domain(obj, old_read, old_write);
+	}
+}
+
+void
+i915_gem_execbuffer_retire_commands(struct drm_device *dev,
+				    struct drm_file *file,
+				    struct intel_ring_buffer *ring)
+{
+	u32 invalidate;
+
+	/*
+	 * Ensure that the commands in the batch buffer are
+	 * finished before the interrupt fires.
+	 *
+	 * The sampler always gets flushed on i965 (sigh).
+	 */
+	invalidate = I915_GEM_DOMAIN_COMMAND;
+	if (INTEL_INFO(dev)->gen >= 4)
+		invalidate |= I915_GEM_DOMAIN_SAMPLER;
+	if (ring->flush(ring, invalidate, 0)) {
+		i915_gem_next_request_seqno(ring);
+		return;
+	}
+
+	/* Add a breadcrumb for the completion of the batch buffer */
+	(void)i915_add_request(ring, file, NULL);
+}
+
 // i915_gem_fix_mi_batchbuffer_end
-// i915_reset_gen7_sol_offsets
 
 int
 i915_reset_gen7_sol_offsets(struct drm_device *dev,
@@ -465,7 +524,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	struct drm_i915_gem_execbuffer2		*args = data;
 	struct drm_i915_gem_exec_object2	*exec_list = NULL;
 	struct drm_i915_gem_relocation_entry	*relocs = NULL;
-	struct drm_i915_gem_object		*obj_priv, *batch_obj_priv;
+	struct drm_i915_gem_object		*batch_obj_priv;
 	struct drm_obj				**object_list = NULL;
 	struct drm_obj				*batch_obj, *obj;
 	struct intel_ring_buffer		*ring;
@@ -632,36 +691,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	if (ret)
 		goto err;
 
-	/*
-	 * update the write domains, and fence/gpu write accounting information.
-	 * Also do the move to active list here. The lazy seqno accounting will
-	 * make sure that they have the correct seqno. If the add_request
-	 * fails, then we will wait for a later batch (or one added on the
-	 * wait), which will waste some time, but if we're that low on memory
-	 * then we could fail in much worse ways.
-	 */
-	for (i = 0; i < args->buffer_count; i++) {
-		obj = object_list[i];
-		obj_priv = to_intel_bo(obj);
-		drm_lock_obj(obj);
-
-		obj->write_domain = obj->pending_write_domain;
-		obj_priv->fenced_gpu_access = obj_priv->pending_fenced_gpu_access;
-		/*
-		 * if we have a write domain, add us to the gpu write list
-		 */
-		if (obj->write_domain) {
-			obj_priv->pending_gpu_write = true;
-			list_move_tail(&obj_priv->gpu_write_list,
-				       &ring->gpu_write_list);
-		}
-
-		i915_gem_object_move_to_active(to_intel_bo(object_list[i]), ring);
-		drm_unlock_obj(obj);
-	}
-
-	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
-
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		ret = i915_reset_gen7_sol_offsets(dev, ring);
 		if (ret)
@@ -674,7 +703,8 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	 */
 	i915_dispatch_gem_execbuffer(ring, args, batch_obj_priv->gtt_offset);
 
-	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
+	i915_gem_execbuffer_move_to_active(object_list, args->buffer_count, ring);
+	i915_gem_execbuffer_retire_commands(dev, file_priv, ring);
 
 	ret = copyout(exec_list, (void *)(uintptr_t)args->buffers_ptr,
 	    sizeof(*exec_list) * args->buffer_count);
