@@ -437,7 +437,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			if (i915_seqno_passed(ring->get_seqno(ring, false),
 			    seqno) || dev_priv->mm.wedged)
 				break;
-			ret = msleep(dev_priv, &dev_priv->irq_lock,
+			ret = msleep(ring, &dev_priv->irq_lock,
 			    PZERO | (dev_priv->mm.interruptible ? PCATCH : 0),
 			    "gemwt", 0);
 		}

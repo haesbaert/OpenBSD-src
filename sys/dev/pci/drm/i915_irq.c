@@ -414,7 +414,7 @@ notify_ring(struct drm_device *dev,
 
 //	trace_i915_gem_request_complete(ring, ring->get_seqno(ring, false));
 
-	wakeup(dev_priv);
+	wakeup(ring);
 	dev_priv->hangcheck_count = 0;
 	timeout_add_msec(&dev_priv->hangcheck_timer, 750);
 
@@ -1553,10 +1553,8 @@ void
 i915_handle_error(struct drm_device *dev, bool wedged)
 {
 	struct inteldrm_softc *dev_priv = dev->dev_private;
-#ifdef notyet
 	struct intel_ring_buffer *ring;
 	int i;
-#endif
 
 	i915_capture_error_state(dev);
 	i915_report_and_clear_eir(dev);
@@ -1568,12 +1566,8 @@ i915_handle_error(struct drm_device *dev, bool wedged)
 		/*
 		 * Wakeup waiting processes so they don't hang
 		 */
-#ifdef notyet
 		for_each_ring(ring, dev_priv, i)
-			wakeup(&ring->irq_queue);
-#else
-		wakeup(dev_priv);
-#endif
+			wakeup(ring);
 	}
 
 	workq_queue_task(NULL, &dev_priv->error_task, 0,
@@ -1776,9 +1770,6 @@ ring_last_seqno(struct intel_ring_buffer *ring)
 bool
 i915_hangcheck_ring_idle(struct intel_ring_buffer *ring, bool *err)
 {
-	struct drm_device *dev = ring->dev;
-	struct inteldrm_softc *dev_priv = dev->dev_private;
-
 	if (list_empty(&ring->request_list) ||
 	    i915_seqno_passed(ring->get_seqno(ring, false),
 			      ring_last_seqno(ring))) {
@@ -1791,7 +1782,8 @@ i915_hangcheck_ring_idle(struct intel_ring_buffer *ring, bool *err)
 			*err = true;
 		}
 #else
-		wakeup(dev_priv);
+		wakeup(ring);
+		*err = true;
 #endif
 		return true;
 	}
