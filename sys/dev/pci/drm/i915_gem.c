@@ -912,7 +912,6 @@ i915_gem_process_flushing_list(struct intel_ring_buffer *ring,
 //			uint32_t old_write_domain = obj->base.write_domain;
 
 			obj->base.write_domain = 0;
-
 			list_del_init(&obj->gpu_write_list);
 			i915_gem_object_move_to_active(obj, ring);
 
@@ -1812,7 +1811,6 @@ i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *obj)
 int
 i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 {
-	drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
 //	uint32_t old_write_domain, old_read_domains;
 	int ret;
 
@@ -1835,13 +1833,7 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 			return ret;
 	}
 
-	if (obj->base.write_domain == I915_GEM_DOMAIN_CPU) {
-		/* clflush the pages, and flush chipset cache */
-		bus_dmamap_sync(dev_priv->agpdmat, obj->dmamap, 0,
-		    obj->base.size, BUS_DMASYNC_PREWRITE | BUS_DMASYNC_PREREAD);
-		inteldrm_chipset_flush(dev_priv);
-		obj->base.write_domain = 0;
-	}
+	i915_gem_object_flush_cpu_write_domain(obj);
 
 	/* We're accessing through the gpu, so grab a new fence register or
 	 * update the LRU.
@@ -2033,8 +2025,6 @@ i915_gem_object_finish_gpu(struct drm_i915_gem_object *obj)
 int
 i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 {
-	struct drm_device	*dev = obj->base.dev;
-	struct inteldrm_softc	*dev_priv = dev->dev_private;
 //	uint32_t old_write_domain, old_read_domains;
 	int ret;
 
@@ -2073,8 +2063,7 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 
 	/* Flush the CPU cache if it's still invalid. */
 	if ((obj->base.read_domains & I915_GEM_DOMAIN_CPU) == 0) {
-		bus_dmamap_sync(dev_priv->agpdmat, obj->dmamap, 0,
-		    obj->base.size, BUS_DMASYNC_POSTREAD | BUS_DMASYNC_POSTWRITE);
+		i915_gem_clflush_object(obj);
 
 		obj->base.read_domains |= I915_GEM_DOMAIN_CPU;
 	}
