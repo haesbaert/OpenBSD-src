@@ -302,7 +302,7 @@ int	 intel_gen6_queue_flip(struct drm_device *, struct drm_crtc *,
 	     struct drm_framebuffer *, struct drm_i915_gem_object *);
 int	 intel_gen7_queue_flip(struct drm_device *, struct drm_crtc *,
 	     struct drm_framebuffer *, struct drm_i915_gem_object *);
-void	 intel_unpin_work_fn(void *, int);
+void	 intel_unpin_work_fn(void *, void *);
 void	 intel_dpio_write(struct inteldrm_softc *, int, u32);
 void	 vlv_init_dpio(struct drm_device *);
 int	 intel_dual_link_lvds_callback(const struct dmi_system_id *);
@@ -7650,12 +7650,10 @@ intel_crtc_destroy(struct drm_crtc *crtc)
 	free(intel_crtc, M_DRM);
 }
 
-#ifdef notyet
 void
-intel_unpin_work_fn(struct work_struct *__work)
+intel_unpin_work_fn(void *arg1, void *arg2)
 {
-	struct intel_unpin_work *work =
-		container_of(__work, struct intel_unpin_work, work);
+	struct intel_unpin_work *work = arg1;
 	struct drm_device *dev = work->crtc->dev;
 
 	DRM_LOCK();
@@ -7671,7 +7669,6 @@ intel_unpin_work_fn(struct work_struct *__work)
 
 	free(work, M_DRM);
 }
-#endif
 
 void
 do_intel_finish_page_flip(struct drm_device *dev,
@@ -7717,9 +7714,7 @@ do_intel_finish_page_flip(struct drm_device *dev,
 	if (atomic_read(&obj->pending_flip) == 0)
 		wakeup(&obj->pending_flip);
 
-#ifdef notyet
-	queue_work(dev_priv->wq, &work->work);
-#endif
+	workq_queue_task(NULL, &work->task, 0, intel_unpin_work_fn, work, NULL);
 
 //	trace_i915_flip_complete(intel_crtc->plane, work->pending_flip_obj);
 }
@@ -8053,7 +8048,6 @@ intel_crtc_page_flip(struct drm_crtc *crtc,
 	work->crtc = crtc;
 	intel_fb = to_intel_framebuffer(crtc->fb);
 	work->old_fb_obj = intel_fb->obj;
-//	INIT_WORK(&work->work, intel_unpin_work_fn);
 
 	ret = drm_vblank_get(dev, intel_crtc->pipe);
 	if (ret)
