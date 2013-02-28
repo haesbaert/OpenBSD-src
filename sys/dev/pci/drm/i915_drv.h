@@ -920,6 +920,14 @@ struct drm_i915_gem_object {
 	 */
 	unsigned int map_and_fenceable:1;
 
+	/**
+	 * Whether the current gtt mapping needs to be mappable (and isn't just
+	 * mappable by accident). Track pin and fault separate for a more
+	 * accurate mappable working set.
+	 */
+	unsigned int fault_mappable:1;
+	unsigned int pin_mappable:1;
+
 	/*
 	 * Is the GPU currently using a fence to access this buffer,
 	 */

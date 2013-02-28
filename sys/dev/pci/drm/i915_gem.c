@@ -60,6 +60,8 @@
 #include "i915_drv.h"
 #include "intel_drv.h"
 
+void i915_gem_release_mmap(struct drm_i915_gem_object *);
+void i915_gem_object_finish_gtt(struct drm_i915_gem_object *);
 void i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *);
 int i915_gem_init_phys_object(struct drm_device *, int, int, int);
 int i915_gem_phys_pwrite(struct drm_device *, struct drm_i915_gem_object *,
@@ -76,10 +78,8 @@ void i915_gem_reset_ring_lists(drm_i915_private_t *,
 static inline void
 i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
 {
-#ifdef notyet
 	if (obj->tiling_mode)
 		i915_gem_release_mmap(obj);
-#endif
 
 	/* As we do not have an associated fence register, we will force
 	 * a tiling change if we ever need to acquire one.
@@ -629,6 +629,8 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 	if (i915_gem_object_is_inactive(obj))
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
+	obj->fault_mappable = true;
+
 	mapprot = ufi->entry->protection;
 	/*
 	 * if it's only a read fault, we only put ourselves into the gtt
@@ -684,7 +686,37 @@ error:
 	return (ret);
 }
 
-// i915_gem_release_mmap
+/**
+ * i915_gem_release_mmap - remove physical page mappings
+ * @obj: obj in question
+ *
+ * Preserve the reservation of the mmapping with the DRM core code, but
+ * relinquish ownership of the pages back to the system.
+ *
+ * It is vital that we remove the page mapping if we have mapped a tiled
+ * object through the GTT and then lose the fence register due to
+ * resource pressure. Similarly if the object has been moved out of the
+ * aperture, than pages mapped into userspace must be revoked. Removing the
+ * mapping will then trigger a page fault on the next user access, allowing
+ * fixup by i915_gem_fault().
+ */
+void
+i915_gem_release_mmap(struct drm_i915_gem_object *obj)
+{
+	struct inteldrm_softc *dev_priv = obj->base.dev->dev_private;
+	struct vm_page *pg;
+
+	if (!obj->fault_mappable)
+		return;
+
+	for (pg = &dev_priv->pgs[atop(obj->gtt_offset)];
+	     pg != &dev_priv->pgs[atop(obj->gtt_offset + obj->base.size)];
+	     pg++)
+		pmap_page_protect(pg, VM_PROT_NONE);
+
+	obj->fault_mappable = false;
+}
+
 // i915_gem_get_gtt_size
 
 /*
@@ -1205,7 +1237,34 @@ i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
 // i915_gem_object_flush_active
 // i915_gem_wait_ioctl
 // i915_gem_object_sync
-// i915_gem_object_finish_gtt
+
+void
+i915_gem_object_finish_gtt(struct drm_i915_gem_object *obj)
+{
+	u32 old_write_domain, old_read_domains;
+
+	/* Act a barrier for all accesses through the GTT */
+	DRM_MEMORYBARRIER();
+
+	/* Force a pagefault for domain tracking on next user access */
+	i915_gem_release_mmap(obj);
+
+	if ((obj->base.read_domains & I915_GEM_DOMAIN_GTT) == 0)
+		return;
+
+	old_read_domains = obj->base.read_domains;
+	old_write_domain = obj->base.write_domain;
+
+	obj->base.read_domains &= ~I915_GEM_DOMAIN_GTT;
+	obj->base.write_domain &= ~I915_GEM_DOMAIN_GTT;
+
+#if 0
+	trace_i915_gem_object_change_domain(obj,
+					    old_read_domains,
+					    old_write_domain);
+#endif
+}
+
 
 /**
  * Unbinds an object from the GTT aperture.
@@ -1233,6 +1292,8 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	}
 
 	KASSERT(obj->madv != __I915_MADV_PURGED);
+
+	i915_gem_object_finish_gtt(obj);
 
 	/* Move the object to the CPU domain to ensure that
 	 * any possible CPU writes while it's not in the GTT
