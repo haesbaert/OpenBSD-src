@@ -347,6 +347,27 @@ unsleep(struct proc *p)
 	}
 }
 
+int
+wakeup_pending(const volatile void *ident)
+{
+	struct slpque *qp;
+	struct proc *p;
+	struct proc *pnext;
+	int s;
+
+	SCHED_LOCK(s);
+	qp = &slpque[LOOKUP(ident)];
+	for (p = TAILQ_FIRST(qp); p != NULL; p = pnext) {
+		pnext = TAILQ_NEXT(p, p_runq);
+		if (p->p_wchan == ident) {
+			SCHED_UNLOCK(s);
+			return (1);
+		}
+	}
+	SCHED_UNLOCK(s);
+	return (0);
+}
+
 /*
  * Make a number of processes sleeping on the specified identifier runnable.
  */
