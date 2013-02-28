@@ -1037,7 +1037,8 @@ i915_add_request(struct intel_ring_buffer *ring,
 		if (was_empty)
 			timeout_add_sec(&dev_priv->mm.retire_timer, 1);
 		/* XXX was_empty? */
-		timeout_add_msec(&dev_priv->hangcheck_timer, 750);
+		timeout_add_msec(&dev_priv->hangcheck_timer,
+		    DRM_I915_HANGCHECK_PERIOD);
 	}
 
 	if (out_seqno)

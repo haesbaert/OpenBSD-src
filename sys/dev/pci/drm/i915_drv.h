@@ -718,6 +718,7 @@ struct inteldrm_softc {
 	} mm;
 
 	/* for hangcheck */
+#define DRM_I915_HANGCHECK_PERIOD 1500 /* in ms */
 	struct timeout hangcheck_timer;
 	int hangcheck_count;
 	uint32_t last_acthd[I915_NUM_RINGS];

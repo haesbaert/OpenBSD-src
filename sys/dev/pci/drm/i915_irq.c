@@ -416,7 +416,7 @@ notify_ring(struct drm_device *dev,
 
 	wakeup(ring);
 	dev_priv->hangcheck_count = 0;
-	timeout_add_msec(&dev_priv->hangcheck_timer, 750);
+	timeout_add_msec(&dev_priv->hangcheck_timer, DRM_I915_HANGCHECK_PERIOD);
 
 #ifdef notyet
 	wakeup(&ring->irq_queue);
@@ -1885,7 +1885,7 @@ i915_hangcheck_elapsed(void *arg)
 
 repeat:
 	/* Reset timer case chip hangs without another request being added */
-	timeout_add_msec(&dev_priv->hangcheck_timer, 750);
+	timeout_add_msec(&dev_priv->hangcheck_timer, DRM_I915_HANGCHECK_PERIOD);
 }
 
 /* drm_dma.h hooks
