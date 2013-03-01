@@ -595,7 +595,7 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 
 	if (obj->dmamap != NULL &&
 	    (obj->gtt_offset & (i915_gem_get_gtt_alignment(&obj->base) - 1) ||
-	    (!i915_gem_object_fence_ok(&obj->base, obj->tiling_mode)))) {
+	    (!i915_gem_object_fence_ok(obj, obj->tiling_mode)))) {
 		/*
 		 * pinned objects are defined to have a sane alignment which can
 		 * not change.
@@ -2187,7 +2187,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 	if (obj->dmamap != NULL &&
 	    ((alignment && obj->gtt_offset & (alignment - 1)) ||
 	    obj->gtt_offset & (i915_gem_get_gtt_alignment(&obj->base) - 1) ||
-	    !i915_gem_object_fence_ok(&obj->base, obj->tiling_mode))) {
+	    !i915_gem_object_fence_ok(obj, obj->tiling_mode))) {
 		/* if it is already pinned we sanitised the alignment then */
 		KASSERT(obj->pin_count == 0);
 		if ((ret = i915_gem_object_unbind(obj)))

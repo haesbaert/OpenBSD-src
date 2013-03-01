@@ -275,27 +275,46 @@ i915_tiling_ok(struct drm_device *dev, int stride, int size, int tiling_mode)
 	return (1);
 }
 
-int
-i915_gem_object_fence_ok(struct drm_obj *obj, int tiling_mode)
+bool
+i915_gem_object_fence_ok(struct drm_i915_gem_object *obj, int tiling_mode)
 {
-	struct drm_device	*dev = obj->dev;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
+	u32 size;
 
-	if (obj_priv->dmamap == NULL || tiling_mode == I915_TILING_NONE)
-		return (1);
+	if (tiling_mode == I915_TILING_NONE)
+		return true;
 
-	if (INTEL_INFO(dev)->gen < 4) {
-		if (obj_priv->gtt_offset & (obj->size -1))
-			return (0);
-		if (IS_I9XX(dev)) {
-			if (obj_priv->gtt_offset & ~I915_FENCE_START_MASK)
-				return (0);
-		} else {
-			if (obj_priv->gtt_offset & ~I830_FENCE_START_MASK)
-				return (0);
-		}
+	if (INTEL_INFO(obj->base.dev)->gen >= 4)
+		return true;
+
+	if (INTEL_INFO(obj->base.dev)->gen == 3) {
+		if (obj->gtt_offset & ~I915_FENCE_START_MASK)
+			return false;
+	} else {
+		if (obj->gtt_offset & ~I830_FENCE_START_MASK)
+			return false;
 	}
-	return (1);
+
+	/*
+	 * Previous chips need to be aligned to the size of the smallest
+	 * fence register that can contain the object.
+	 */
+	if (INTEL_INFO(obj->base.dev)->gen == 3)
+		size = 1024*1024;
+	else
+		size = 512*1024;
+
+	while (size < obj->base.size)
+		size <<= 1;
+
+#if 0
+	if (obj->gtt_space->size != size)
+		return false;
+#endif
+
+	if (obj->gtt_offset & (size - 1))
+		return false;
+
+	return true;
 }
 
 /**
