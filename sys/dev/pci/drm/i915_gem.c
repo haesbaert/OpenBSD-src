@@ -1292,17 +1292,16 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 		return (EINVAL);
 	}
 
+	ret = i915_gem_object_finish_gpu(obj);
+	if (ret)
+		return ret;
+
 	KASSERT(obj->madv != __I915_MADV_PURGED);
 
 	i915_gem_object_finish_gtt(obj);
 
-	/* Move the object to the CPU domain to ensure that
-	 * any possible CPU writes while it's not in the GTT
-	 * are flushed when we go to remap it. This will
-	 * also ensure that all pending GPU writes are finished
-	 * before we unbind.
-	 */
-	ret = i915_gem_object_set_to_cpu_domain(obj, 1);
+	/* release the fence reg _after_ flushing */
+	ret = i915_gem_object_put_fence(obj);
 	if (ret)
 		return ret;
 
