@@ -2448,7 +2448,12 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		DRM_ERROR("Y tiled not allowed for scan out buffers\n");
 		return -EINVAL;
 	default:
+#ifdef notyet
 		BUG();
+#else
+		DRM_ERROR("invalid tiling mode %d", obj->tiling_mode);
+		return -EINVAL;
+#endif
 	}
 
 	dev_priv->mm.interruptible = false;
