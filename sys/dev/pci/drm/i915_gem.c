@@ -2547,23 +2547,25 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 		return (0);
 
 	DRM_LOCK();
-	if (dev_priv->mm.suspended || dev_priv->rings[RCS].obj == NULL) {
-		KASSERT(list_empty(&dev_priv->mm.flushing_list));
-		KASSERT(list_empty(&dev_priv->mm.active_list));
-		(void)i915_gem_evict_inactive(dev_priv);
+
+	if (dev_priv->mm.suspended) {
 		DRM_UNLOCK();
-		return (0);
+		return 0;
 	}
 
-	/*
-	 * To idle the gpu, flush anything pending then unbind the whole
-	 * shebang. If we're wedged, assume that the reset workq will clear
-	 * everything out and continue as normal.
-	 */
-	if ((ret = i915_gem_evict_everything(dev_priv)) != 0 &&
-	    ret != ENOSPC && ret != EIO) {
+	ret = i915_gpu_idle(dev);
+	if (ret) {
 		DRM_UNLOCK();
 		return (ret);
+	}
+
+	/* Under UMS, be paranoid and evict. */
+	if (!drm_core_check_feature(dev, DRIVER_MODESET)) {
+		ret = i915_gem_evict_inactive(dev_priv);
+		if (ret) {
+			DRM_UNLOCK();
+			return (ret);
+		}
 	}
 
 	i915_gem_reset_fences(dev);
