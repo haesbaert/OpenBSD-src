@@ -74,6 +74,7 @@ int i915_gem_object_flush_fence(struct drm_i915_gem_object *);
 struct drm_i915_fence_reg *i915_find_fence_reg(struct drm_device *);
 void i915_gem_reset_ring_lists(drm_i915_private_t *,
     struct intel_ring_buffer *);
+void i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *);
 
 static inline void
 i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
@@ -1828,7 +1829,34 @@ i915_gem_clflush_object(struct drm_i915_gem_object *obj)
 	    obj->base.size, BUS_DMASYNC_POSTREAD | BUS_DMASYNC_POSTWRITE);
 }
 
-// i915_gem_object_flush_gtt_write_domain
+/** Flushes the GTT write domain for the object if it's dirty. */
+void
+i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *obj)
+{
+	uint32_t old_write_domain;
+
+	if (obj->base.write_domain != I915_GEM_DOMAIN_GTT)
+		return;
+
+	/* No actual flushing is required for the GTT write domain.  Writes
+	 * to it immediately go to main memory as far as we know, so there's
+	 * no chipset flush.  It also doesn't land in render cache.
+	 *
+	 * However, we do have to enforce the order so that all writes through
+	 * the GTT land before any writes to the device, such as updates to
+	 * the GATT itself.
+	 */
+	DRM_WRITEMEMORYBARRIER();
+
+	old_write_domain = obj->base.write_domain;
+	obj->base.write_domain = 0;
+
+#if 0
+	trace_i915_gem_object_change_domain(obj,
+					    obj->base.read_domains,
+					    old_write_domain);
+#endif
+}
 
 /** Flushes any GPU write domain for the object if it's dirty. */
 int
