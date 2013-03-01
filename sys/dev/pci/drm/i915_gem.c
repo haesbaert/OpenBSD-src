@@ -471,11 +471,11 @@ i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
 	if (seqno == 0)
 		return 0;
 
-	ret = i915_wait_seqno(ring, seqno);
-	if (ret)
-		return ret;
-
-	i915_gem_retire_requests_ring(ring);
+	if (obj->active) {
+		ret = i915_wait_seqno(ring, seqno);
+		if (ret)
+			return ret;
+	}
 
 	/* Manually manage the write flush as we may have not yet
 	 * retired the buffer.
