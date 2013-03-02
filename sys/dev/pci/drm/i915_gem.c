@@ -49,16 +49,12 @@
 #include "drm.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
+#include "intel_drv.h"
 
 #include <machine/pmap.h>
 
 #include <sys/queue.h>
 #include <sys/workq.h>
-
-#include "drmP.h"
-#include "drm.h"
-#include "i915_drv.h"
-#include "intel_drv.h"
 
 void i915_gem_release_mmap(struct drm_i915_gem_object *);
 void i915_gem_object_finish_gtt(struct drm_i915_gem_object *);
