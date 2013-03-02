@@ -459,27 +459,20 @@ int
 i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
 			       bool readonly)
 {
-	struct intel_ring_buffer *ring = obj->ring;
-	u32 seqno;
 	int ret;
 
-	seqno = readonly ? obj->last_write_seqno : obj->last_read_seqno;
-	if (seqno == 0)
-		return 0;
+	/* This function only exists to support waiting for existing rendering,
+	 * not for emitting required flushes.
+	 */
+	BUG_ON((obj->base.write_domain & I915_GEM_GPU_DOMAINS) != 0);
 
+	/* If there is rendering queued on the buffer being evicted, wait for
+	 * it.
+	 */
 	if (obj->active) {
-		ret = i915_wait_seqno(ring, seqno);
+		ret = i915_wait_seqno(obj->ring, obj->last_read_seqno);
 		if (ret)
 			return ret;
-	}
-
-	/* Manually manage the write flush as we may have not yet
-	 * retired the buffer.
-	 */
-	if (obj->last_write_seqno &&
-	    i915_seqno_passed(seqno, obj->last_write_seqno)) {
-		obj->last_write_seqno = 0;
-		obj->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
 	}
 
 	return 0;
