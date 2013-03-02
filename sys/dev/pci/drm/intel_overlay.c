@@ -270,10 +270,11 @@ void
 intel_overlay_unmap_regs(struct intel_overlay *overlay,
 				     struct overlay_registers *regs)
 {
-	printf("%s stub\n", __func__);
-#if 0
 	if (!OVERLAY_NEEDS_PHYSICAL(overlay->dev))
+#ifdef notyet
 		io_mapping_unmap(regs);
+#else
+		printf("%s partial stub\n", __func__);
 #endif
 }
 
