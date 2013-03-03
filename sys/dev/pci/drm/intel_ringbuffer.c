@@ -1374,9 +1374,21 @@ intel_cleanup_ring_buffer(struct intel_ring_buffer *ring)
 int
 intel_ring_wait_seqno(struct intel_ring_buffer *ring, u32 seqno)
 {
+	drm_i915_private_t *dev_priv = ring->dev->dev_private;
+	bool was_interruptible;
 	int ret;
 
+	/* XXX As we have not yet audited all the paths to check that
+	 * they are ready for ERESTARTSYS from intel_ring_begin, do not
+	 * allow us to be interruptible by a signal.
+	 */
+	was_interruptible = dev_priv->mm.interruptible;
+	dev_priv->mm.interruptible = false;
+
 	ret = i915_wait_seqno(ring, seqno);
+
+	dev_priv->mm.interruptible = was_interruptible;
+
 	if (!ret)
 		i915_gem_retire_requests_ring(ring);
 
