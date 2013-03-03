@@ -1282,16 +1282,34 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	}
 
 	ret = i915_gem_object_finish_gpu(obj);
-	if (ret)
+	if (ret == ERESTART || ret == EINTR)
 		return ret;
-
-	KASSERT(obj->madv != __I915_MADV_PURGED);
+	/* Continue on if we fail due to EIO, the GPU is hung so we
+	 * should be safe and we need to cleanup or else we might
+	 * cause memory corruption through use-after-free.
+	 */
 
 	i915_gem_object_finish_gtt(obj);
 
+	/* Move the object to the CPU domain to ensure that
+	 * any possible CPU writes while it's not in the GTT
+	 * are flushed when we go to remap it.
+	 */
+	if (ret == 0)
+		ret = i915_gem_object_set_to_cpu_domain(obj, 1);
+	if (ret == ERESTART || ret == EINTR)
+		return ret;
+	if (ret) {
+		/* In the event of a disaster, abandon all caches and
+		 * hope for the best.
+		 */
+		i915_gem_clflush_object(obj);
+		obj->base.read_domains = obj->base.write_domain = I915_GEM_DOMAIN_CPU;
+	}
+
 	/* release the fence reg _after_ flushing */
 	ret = i915_gem_object_put_fence(obj);
-	if (ret)
+	if (ret == ERESTART || ret == EINTR)
 		return ret;
 
 	KASSERT(!obj->active);
