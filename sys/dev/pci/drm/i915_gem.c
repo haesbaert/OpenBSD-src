@@ -2084,6 +2084,12 @@ i915_gem_object_finish_gpu(struct drm_i915_gem_object *obj)
 	if ((obj->base.read_domains & I915_GEM_GPU_DOMAINS) == 0)
 		return 0;
 
+	if (obj->base.write_domain & I915_GEM_GPU_DOMAINS) {
+		ret = i915_gem_flush_ring(obj->ring, 0, obj->base.write_domain);
+		if (ret)
+			return ret;
+	}
+
 	ret = i915_gem_object_wait_rendering(obj, false);
 	if (ret)
 		return ret;
