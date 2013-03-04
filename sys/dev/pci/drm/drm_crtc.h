@@ -253,7 +253,7 @@ struct drm_framebuffer {
 	 * hold a ref to the fb even though it has already been removed from
 	 * userspace perspective.
 	 */
-//	struct kref refcount;
+	int refcount;
 	struct list_head head;
 	struct drm_mode_object base;
 	const struct drm_framebuffer_funcs *funcs;

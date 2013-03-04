@@ -77,6 +77,7 @@ int	 drm_mode_crtc_set_obj_prop(struct drm_mode_object *,
 	     struct drm_property *, uint64_t);
 int	 drm_mode_plane_set_obj_prop(struct drm_mode_object *,
 	     struct drm_property *, uint64_t);
+void	 drm_framebuffer_free(struct drm_framebuffer *);
 
 SPLAY_PROTOTYPE(drm_mode_tree, drm_mode_handle, entry, drm_mode_handle_cmp);
 
@@ -342,7 +343,7 @@ drm_framebuffer_init(struct drm_device *dev, struct drm_framebuffer *fb,
 {
 	int ret;
 
-//	kref_init(&fb->refcount);
+	fb->refcount = 0;
 
 	ret = drm_mode_object_get(dev, &fb->base, DRM_MODE_OBJECT_FB);
 	if (ret)
@@ -357,15 +358,11 @@ drm_framebuffer_init(struct drm_device *dev, struct drm_framebuffer *fb,
 }
 EXPORT_SYMBOL(drm_framebuffer_init);
 
-#ifdef notyet
 void
-drm_framebuffer_free(struct kref *kref)
+drm_framebuffer_free(struct drm_framebuffer *fb)
 {
-	struct drm_framebuffer *fb =
-			container_of(kref, struct drm_framebuffer, refcount);
 	fb->funcs->destroy(fb);
 }
-#endif
 
 /**
  * drm_framebuffer_unreference - unref a framebuffer
@@ -380,8 +377,9 @@ drm_framebuffer_unreference(struct drm_framebuffer *fb)
 	DRM_DEBUG("FB ID: %d\n", fb->base.id);
 #ifdef notyet
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
-	kref_put(&fb->refcount, drm_framebuffer_free);
 #endif
+	if (--fb->refcount == 0)
+		drm_framebuffer_free(fb);
 }
 EXPORT_SYMBOL(drm_framebuffer_unreference);
 
@@ -392,9 +390,7 @@ void
 drm_framebuffer_reference(struct drm_framebuffer *fb)
 {
 	DRM_DEBUG("FB ID: %d\n", fb->base.id);
-#ifdef notyet
-	kref_get(&fb->refcount);
-#endif
+	fb->refcount++;
 }
 EXPORT_SYMBOL(drm_framebuffer_reference);
 
