@@ -292,8 +292,6 @@ drm_vblank_init(struct drm_device *dev, int num_crtcs)
 	mtx_init(&dev->vbl_lock, IPL_TTY);
 	mtx_init(&dev->vblank_time_lock, IPL_NONE);
 
-	TAILQ_INIT(&dev->vbl_events);
-
 	dev->num_crtcs = num_crtcs;
 
 	dev->vbl_queue = malloc(sizeof(int) * num_crtcs,

@@ -180,6 +180,7 @@ drm_attach(struct device *parent, struct device *self, void *aux)
 
 	TAILQ_INIT(&dev->maplist);
 	SPLAY_INIT(&dev->files);
+	TAILQ_INIT(&dev->vbl_events);
 
 	/*
 	 * the dma buffers api is just weird. offset 1Gb to ensure we don't
