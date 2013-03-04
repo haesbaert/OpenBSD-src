@@ -60,6 +60,16 @@ atomic_add_return(int n, atomic_t *p)
 	return  (*p);
 }
 
+static inline int
+atomic_inc_not_zero(atomic_t *p)
+{
+	if (*p == 0)
+		return (0);
+
+	*(p) += 1;
+	return (*p);
+}
+
 #define atomic_sub(n, p)	(*(p) -= (n))
 /* FIXME */
 #define atomic_add_int(p, v)      *(p) += v

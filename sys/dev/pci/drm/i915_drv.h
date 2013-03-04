@@ -734,6 +734,7 @@ struct inteldrm_softc {
 
 	struct drm_crtc *plane_to_crtc_mapping[3];
 	struct drm_crtc *pipe_to_crtc_mapping[3];
+	int pending_flip_queue;
 
 	bool flip_pending_is_done;
 

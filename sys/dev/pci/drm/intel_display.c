@@ -2723,7 +2723,7 @@ intel_finish_fb(struct drm_framebuffer *old_fb)
 	mtx_enter(&dev->event_lock);
 	while(!atomic_read(&dev_priv->mm.wedged) &&
 	    atomic_read(&obj->pending_flip) != 0) {
-		msleep(&obj->pending_flip, &dev->event_lock,
+		msleep(&dev_priv->pending_flip_queue, &dev->event_lock,
 		    0, "915flp", 0);
 	}
 	mtx_leave(&dev->event_lock);
@@ -3441,14 +3441,15 @@ intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 {
 	struct drm_i915_gem_object *obj;
 	struct drm_device *dev = crtc->dev;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	if (crtc->fb == NULL)
 		return;
 
 	obj = to_intel_framebuffer(crtc->fb)->obj;
 	mtx_enter(&dev->event_lock);
-	while (atomic_read(&obj->pending_flip) != 0)
-		msleep(&obj->pending_flip, &dev->event_lock, 0, "915wfl", 0);
+	while (intel_crtc_has_pending_flip(crtc))
+		msleep(&dev_priv->pending_flip_queue, &dev->event_lock, 0, "915wfl", 0);
 	mtx_leave(&dev->event_lock);
 
 	DRM_LOCK();
@@ -7679,7 +7680,7 @@ void
 do_intel_finish_page_flip(struct drm_device *dev,
 				      struct drm_crtc *crtc)
 {
-//	drm_i915_private_t *dev_priv = dev->dev_private;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
 	struct drm_i915_gem_object *obj;
@@ -7714,8 +7715,7 @@ do_intel_finish_page_flip(struct drm_device *dev,
 	obj = work->old_fb_obj;
 
 	atomic_clear_int(&obj->pending_flip, 1 << intel_crtc->plane);
-	if (atomic_read(&obj->pending_flip) == 0)
-		wakeup(&obj->pending_flip);
+	wakeup(&dev_priv->pending_flip_queue);
 
 	workq_queue_task(NULL, &work->task, 0, intel_unpin_work_fn, work, NULL);
 
@@ -7753,8 +7753,7 @@ intel_prepare_page_flip(struct drm_device *dev, int plane)
 	 */
 	mtx_enter(&dev->event_lock);
 	if (intel_crtc->unpin_work)
-		if ((++intel_crtc->unpin_work->pending) > 1)
-			DRM_ERROR("Prepared flip multiple times\n");
+		atomic_inc_not_zero(&intel_crtc->unpin_work->pending);
 	mtx_leave(&dev->event_lock);
 }
 
