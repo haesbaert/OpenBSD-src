@@ -802,6 +802,9 @@ radeondrm_attach(struct device *parent, struct device *self, void *aux)
 	TAILQ_INIT(&dev_priv->fb_heap);
 
 	dev_priv->drmdev = drm_attach_pci(&radeondrm_driver, pa, is_agp, self);
+
+	if (drm_vblank_init((struct drm_device *)dev_priv->drmdev, 2))
+		printf(": drm_vblank_init failed\n");
 }
 
 int

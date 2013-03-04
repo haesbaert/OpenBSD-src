@@ -181,12 +181,6 @@ drm_attach(struct device *parent, struct device *self, void *aux)
 	TAILQ_INIT(&dev->maplist);
 	SPLAY_INIT(&dev->files);
 
-	if (dev->driver->vblank_pipes != 0 && drm_vblank_init(dev,
-	    dev->driver->vblank_pipes)) {
-		printf(": failed to allocate vblank data\n");
-		goto error;
-	}
-
 	/*
 	 * the dma buffers api is just weird. offset 1Gb to ensure we don't
 	 * conflict with it.
@@ -481,7 +475,8 @@ drmclose(dev_t kdev, int flags, int fmt, struct proc *p)
 	struct drm_device		*dev = drm_get_device_from_kdev(kdev);
 	struct drm_file			*file_priv;
 	struct drm_pending_event	*ev, *evtmp;
-	int				 i, retcode = 0;
+	struct drm_pending_vblank_event	*vev;
+	int				 retcode = 0;
 
 	if (dev == NULL)
 		return (ENXIO);
@@ -516,16 +511,15 @@ drmclose(dev_t kdev, int flags, int fmt, struct proc *p)
 		drm_reclaim_buffers(dev, file_priv);
 
 	mtx_enter(&dev->event_lock);
-	for (i = 0; dev->vblank && i < dev->vblank->vb_num; i++) {
-		struct drmevlist *list = &dev->vblank->vb_crtcs[i].vbl_events;
-		for (ev = TAILQ_FIRST(list); ev != TAILQ_END(list);
-		    ev = evtmp) {
-			evtmp = TAILQ_NEXT(ev, link);
-			if (ev->file_priv == file_priv) {
-				TAILQ_REMOVE(list, ev, link);
-				drm_vblank_put(dev, i);
-				ev->destroy(ev);
-			}
+	struct drmevlist *list = &dev->vbl_events;
+	for (ev = TAILQ_FIRST(list); ev != TAILQ_END(list);
+	    ev = evtmp) {
+		evtmp = TAILQ_NEXT(ev, link);
+		vev = (struct drm_pending_vblank_event *)ev;
+		if (ev->file_priv == file_priv) {
+			TAILQ_REMOVE(list, ev, link);
+			drm_vblank_put(dev, vev->pipe);
+			ev->destroy(ev);
 		}
 	}
 	while ((ev = TAILQ_FIRST(&file_priv->evlist)) != NULL) {
@@ -850,7 +844,7 @@ int
 drm_dequeue_event(struct drm_device *dev, struct drm_file *file_priv,
     size_t resid, struct drm_pending_event **out)
 {
-	struct drm_pending_event	*ev;
+	struct drm_pending_event	*ev = NULL;
 	int				 gotone = 0;
 
 	MUTEX_ASSERT_LOCKED(&dev->event_lock);

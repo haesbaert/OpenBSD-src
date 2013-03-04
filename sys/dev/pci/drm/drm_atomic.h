@@ -52,6 +52,14 @@ typedef u_int32_t atomic_t;
 #define atomic_inc(p)		(*(p) += 1)
 #define atomic_dec(p)		(*(p) -= 1)
 #define atomic_add(n, p)	(*(p) += (n))
+
+static inline int
+atomic_add_return(int n, atomic_t *p)
+{
+	*(p) += (n);
+	return  (*p);
+}
+
 #define atomic_sub(n, p)	(*(p) -= (n))
 /* FIXME */
 #define atomic_add_int(p, v)      *(p) += v

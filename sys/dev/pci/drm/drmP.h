@@ -325,11 +325,13 @@ struct drm_pending_event {
 	TAILQ_ENTRY(drm_pending_event)	 link;
 	struct drm_event		*event;
 	struct drm_file			*file_priv;
+	pid_t				 pid;
 	void				(*destroy)(struct drm_pending_event *);
 };
 
 struct drm_pending_vblank_event {
 	struct drm_pending_event	base;
+	int				pipe;
 	struct drm_event_vblank		event;
 };
 
@@ -421,21 +423,6 @@ struct drm_local_map {
 	int				 mtrr;	/* Boolean: MTRR used */
 	enum drm_map_flags		 flags;	/* Flags */
 	enum drm_map_type		 type;	/* Type of memory mapped */
-};
-
-struct drm_vblank_info {
-	struct mutex		 vb_lock;		/* VBLANK data lock */
-	struct timeout		 vb_disable_timer;	/* timer for disable */
-	int			 vb_num;		/* number of crtcs */
-	u_int32_t		 vb_max;		/* counter reg size */
-	struct drm_vblank {
-		struct drmevlist vbl_events;		/* vblank events */
-		u_int32_t	 vbl_last;		/* Last received */
-		u_int32_t	 vbl_count;		/* interrupt no. */
-		int		 vbl_refs;		/* Number of users */
-		int		 vbl_enabled;		/* Enabled? */
-		int		 vbl_inmodeset;		/* in a modeset? */
-	}			 vb_crtcs[1];
 };
 
 /* Heap implementation for radeon and i915 legacy */
@@ -668,12 +655,24 @@ struct drm_device {
 	int		  irq_enabled;	/* True if the irq handler is enabled */
 
 	/* VBLANK support */
+	struct drmevlist	vbl_events;		/* vblank events */
 	int			 vblank_disable_allowed;
-	struct drm_vblank_info	*vblank;		/* One per ctrc */
-	int			*vblank_inmodeset;
 	/**< size of vblank counter register */
 	uint32_t		 max_vblank_count;
 	struct mutex		 event_lock;
+
+	int			*vbl_queue;
+	atomic_t		*_vblank_count;
+	struct timeval		*_vblank_time;
+	struct mutex		 vblank_time_lock;
+	struct mutex		 vbl_lock;
+	atomic_t		*vblank_refcount;
+	uint32_t		*last_vblank;
+
+	int			*vblank_enabled;
+	int			*vblank_inmodeset;
+	u32			*last_vblank_wait;
+	struct timeout		 vblank_disable_timer;
 
 	int			 num_crtcs;
 
@@ -885,6 +884,8 @@ int	drm_rmctx(struct drm_device *, void *, struct drm_file *);
 int	drm_control(struct drm_device *, void *, struct drm_file *);
 int	drm_wait_vblank(struct drm_device *, void *, struct drm_file *);
 int	drm_irq_by_busid(struct drm_device *, void *, struct drm_file *);
+void	drm_send_vblank_event(struct drm_device *, int,
+	    struct drm_pending_vblank_event *);
 
 /* AGP/GART support (drm_agpsupport.c) */
 int	drm_agp_acquire_ioctl(struct drm_device *, void *, struct drm_file *);

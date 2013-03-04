@@ -418,10 +418,6 @@ static struct drm_driver_info inteldrm_driver = {
 	.file_priv_size		= sizeof(struct inteldrm_file),
 	.ioctl			= inteldrm_ioctl,
 	.lastclose		= i915_driver_lastclose,
-	.vblank_pipes		= 2,
-	.get_vblank_counter	= i915_get_vblank_counter,
-	.enable_vblank		= i915_enable_vblank,
-	.disable_vblank		= i915_disable_vblank,
 
 	.gem_init_object	= i915_gem_init_object,
 	.gem_free_object	= i915_gem_free_object,
@@ -1036,6 +1032,11 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		dev_priv->num_pipe = 2;
 	else
 		dev_priv->num_pipe = 1;
+
+	if (drm_vblank_init(dev, dev_priv->num_pipe)) {
+		printf(": vblank init failed\n");
+		return;
+	}
 
 	intel_gt_init(dev);
 

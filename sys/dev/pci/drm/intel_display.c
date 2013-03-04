@@ -7704,10 +7704,8 @@ do_intel_finish_page_flip(struct drm_device *dev,
 
 	intel_crtc->unpin_work = NULL;
 
-#ifdef notyet
 	if (work->event)
 		drm_send_vblank_event(dev, intel_crtc->pipe, work->event);
-#endif
 
 	drm_vblank_put(dev, intel_crtc->pipe);
 

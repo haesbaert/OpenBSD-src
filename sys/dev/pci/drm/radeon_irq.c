@@ -349,7 +349,7 @@ radeon_driver_irq_install(struct drm_device * dev)
 
 	atomic_set(&dev_priv->swi_emitted, 0);
 
-	dev->vblank->vb_max = 0x001fffff;
+	dev->max_vblank_count = 0x001fffff;
 
 	radeon_irq_set_state(dev, RADEON_SW_INT_ENABLE, 1);
 
