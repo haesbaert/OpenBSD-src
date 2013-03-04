@@ -327,7 +327,8 @@ drm_firstopen(struct drm_device *dev)
 	if (dev->driver->firstopen)
 		dev->driver->firstopen(dev);
 
-	if (dev->driver->flags & DRIVER_DMA) {
+	if (drm_core_check_feature(dev, DRIVER_DMA) &&
+	    !drm_core_check_feature(dev, DRIVER_MODESET)) {
 		if ((i = drm_dma_setup(dev)) != 0)
 			return (i);
 	}
@@ -359,12 +360,15 @@ drm_lastclose(struct drm_device *dev)
 		drm_irq_uninstall(dev);
 
 #if __OS_HAS_AGP
-	drm_agp_takedown(dev);
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		drm_agp_takedown(dev);
 #endif
-	drm_dma_takedown(dev);
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		drm_dma_takedown(dev);
 
 	DRM_LOCK();
-	if (dev->sg != NULL) {
+	if (dev->sg != NULL &&
+	    !drm_core_check_feature(dev, DRIVER_MODESET)) {
 		struct drm_sg_mem *sg = dev->sg; 
 		dev->sg = NULL;
 
