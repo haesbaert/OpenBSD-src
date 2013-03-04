@@ -67,7 +67,6 @@ void	 send_vblank_event(struct drm_device *,
 	     struct drm_pending_vblank_event *, unsigned long,
 	     struct timeval *);
 void	 drm_update_vblank_count(struct drm_device *, int);
-void	 vblank_free(void *);
 int	 drm_queue_vblank_event(struct drm_device *, int,
 	     union drm_wait_vblank *, struct drm_file *);
 void	 drm_handle_vblank_events(struct drm_device *, int);
@@ -1177,12 +1176,6 @@ drm_modeset_ctl(struct drm_device *dev, void *data,
 	return 0;
 }
 
-void
-vblank_free(void *ptr)
-{
-	free(ptr, M_DRM);
-}
-
 int
 drm_queue_vblank_event(struct drm_device *dev, int pipe,
 				  union drm_wait_vblank *vblwait,
@@ -1206,7 +1199,7 @@ drm_queue_vblank_event(struct drm_device *dev, int pipe,
 	e->event.user_data = vblwait->request.signal;
 	e->base.event = &e->event.base;
 	e->base.file_priv = file_priv;
-	e->base.destroy = (void (*) (struct drm_pending_event *)) vblank_free;
+	e->base.destroy = (void (*) (struct drm_pending_event *)) drm_free;
 
 	mtx_enter(&dev->event_lock);
 
