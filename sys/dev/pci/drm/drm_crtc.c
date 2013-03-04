@@ -2020,7 +2020,7 @@ drm_mode_setcrtc(struct drm_device *dev, void *data,
 	if (crtc_req->x > INT_MAX || crtc_req->y > INT_MAX)
 		return ERANGE;
 
-//	rw_enter_write(&dev->mode_config.rwl);
+	rw_enter_write(&dev->mode_config.rwl);
 	obj = drm_mode_object_find(dev, crtc_req->crtc_id,
 				   DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
@@ -2158,7 +2158,7 @@ out:
 	if (connector_set != NULL)
 		free(connector_set, M_DRM);
 	drm_mode_destroy(dev, mode);
-//	rw_exit_write(&dev->mode_config.rwl);
+	rw_exit_write(&dev->mode_config.rwl);
 	return ret;
 }
 
