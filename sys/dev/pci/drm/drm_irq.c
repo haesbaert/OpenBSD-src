@@ -873,7 +873,7 @@ send_vblank_event(struct drm_device *dev,
 		unsigned long seq, struct timeval *now)
 {
 	struct drm_file *file_priv = e->base.file_priv;
-//	WARN_ON_SMP(!spin_is_locked(&dev->event_lock));
+	MUTEX_ASSERT_LOCKED(&dev->event_lock);
 	e->event.sequence = seq;
 	e->event.tv_sec = now->tv_sec;
 	e->event.tv_usec = now->tv_usec;
