@@ -3810,7 +3810,7 @@ drm_mode_page_flip_ioctl(struct drm_device *dev,
 		e->base.event = &e->event.base;
 		e->base.file_priv = file_priv;
 		e->base.destroy =
-			(void (*) (struct drm_pending_event *)) free;
+			(void (*) (struct drm_pending_event *)) drm_free;
 	}
 
 	ret = crtc->funcs->page_flip(crtc, fb, e);
