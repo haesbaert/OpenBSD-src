@@ -603,20 +603,21 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 			printf("%s: failed to bind\n", __func__);
 			goto error;
 		}
+
+		ret = i915_gem_object_set_to_gtt_domain(obj, write);
+		if (ret) {
+			panic("%s: failed to set to gtt (%d)\n",
+			    __func__, ret);
+			goto error;
+		}
 	}
 
-	/*
-	 * We could only do this on bind so allow for map_buffer_range
-	 * unsynchronised objects (where buffer suballocation
-	 * is done by the GL application), however it gives coherency problems
-	 * normally.
-	 */
-	ret = i915_gem_object_set_to_gtt_domain(obj, write);
-	if (ret) {
-		panic("%s: failed to set to gtt (%d)\n",
-		    __func__, ret);
+	if (obj->tiling_mode == I915_TILING_NONE)
+		ret = i915_gem_object_put_fence(obj);
+	else
+		ret = i915_gem_object_get_fence(obj);
+	if (ret)
 		goto error;
-	}
 
 	if (i915_gem_object_is_inactive(obj))
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
