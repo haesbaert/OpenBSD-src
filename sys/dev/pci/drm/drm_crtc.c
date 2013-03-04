@@ -2695,16 +2695,15 @@ out_err1:
  * Zero on success, errno on failure.
  */
 void
-drm_fb_release(struct drm_file *priv)
+drm_fb_release(struct drm_device *dev, struct drm_file *priv)
 {
-//	struct drm_device *dev = priv->minor->dev;
 	struct drm_framebuffer *fb, *tfb;
 
-	// XXX rw_enter_write(&dev->mode_config.rwl);
+	rw_enter_write(&dev->mode_config.rwl);
 	list_for_each_entry_safe(fb, tfb, &priv->fbs, filp_head) {
 		drm_framebuffer_remove(fb);
 	}
-	// XXX rw_exit_write(&dev->mode_config.rwl);
+	rw_exit_write(&dev->mode_config.rwl);
 }
 
 /**
