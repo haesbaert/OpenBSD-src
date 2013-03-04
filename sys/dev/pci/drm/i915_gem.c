@@ -71,6 +71,8 @@ struct drm_i915_fence_reg *i915_find_fence_reg(struct drm_device *);
 void i915_gem_reset_ring_lists(drm_i915_private_t *,
     struct intel_ring_buffer *);
 void i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *);
+int i915_gem_gtt_rebind_object(struct drm_i915_gem_object *,
+    enum i915_cache_level);
 
 static inline void
 i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
@@ -1711,6 +1713,36 @@ i915_gem_object_get_fence(struct drm_i915_gem_object *obj)
 // i915_gem_valid_gtt_space
 // i915_gem_verify_gtt
 
+/* XXX make this less stupid */
+int
+i915_gem_gtt_rebind_object(struct drm_i915_gem_object *obj,
+    enum i915_cache_level cache_level)
+{
+	struct drm_device *dev = obj->base.dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+
+	/*
+	 * unload the map, then unwire the backing object.
+	 */
+	i915_gem_object_save_bit_17_swizzle(obj);
+	bus_dmamap_unload(dev_priv->agpdmat, obj->dmamap);
+	uvm_objunwire(obj->base.uao, 0, obj->base.size);
+	/* XXX persistent dmamap worth the memory? */
+	bus_dmamap_destroy(dev_priv->agpdmat, obj->dmamap);
+	obj->dmamap = NULL;
+	free(obj->dma_segs, M_DRM);
+	obj->dma_segs = NULL;
+	/* XXX this should change whether we tell uvm the page is dirty */
+	obj->dirty = 0;
+
+	obj->gtt_offset = 0;
+	atomic_dec(&dev->gtt_count);
+	atomic_sub(obj->base.size, &dev->gtt_memory);
+
+	obj->cache_level = cache_level;
+	return (i915_gem_object_bind_to_gtt(obj, 0));
+}
+
 /**
  * Finds free space in the GTT aperture and binds the object there.
  */
@@ -1966,11 +1998,9 @@ int
 i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 				    enum i915_cache_level cache_level)
 {
-#ifdef notyet
-	struct drm_device *dev = obj->base.dev;
-	drm_i915_private_t *dev_priv = dev->dev_private;
+//	struct drm_device *dev = obj->base.dev;
+//	drm_i915_private_t *dev_priv = dev->dev_private;
 	int ret;
-#endif
 
 	if (obj->cache_level == cache_level)
 		return 0;
@@ -1980,8 +2010,7 @@ i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 		return -EBUSY;
 	}
 
-#ifdef notyet
-	if (obj->gtt_space) {
+	if (obj->dmamap != NULL) {
 		ret = i915_gem_object_finish_gpu(obj);
 		if (ret)
 			return ret;
@@ -1999,11 +2028,13 @@ i915_gem_object_set_cache_level(struct drm_i915_gem_object *obj,
 		}
 
 		i915_gem_gtt_rebind_object(obj, cache_level);
+		
+#ifdef notyet
 		if (obj->has_aliasing_ppgtt_mapping)
 			i915_ppgtt_bind_object(dev_priv->mm.aliasing_ppgtt,
 					       obj, cache_level);
-	}
 #endif
+	}
 
 	if (cache_level == I915_CACHE_NONE) {
 		u32 old_read_domains, old_write_domain;
