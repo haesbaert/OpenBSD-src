@@ -90,7 +90,7 @@ i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 		value = dev_priv->overlay ? 1 : 0;
 		break;
 	case I915_PARAM_HAS_PAGEFLIPPING:
-		value = 0;
+		value = 1;
 		break;
 	case I915_PARAM_HAS_BSD:
 		value = HAS_BSD(dev);
