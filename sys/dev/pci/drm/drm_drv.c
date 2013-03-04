@@ -529,6 +529,9 @@ drmclose(dev_t kdev, int flags, int fmt, struct proc *p)
 	}
 	mtx_leave(&dev->event_lock);
 
+	if (dev->driver->flags & DRIVER_MODESET)
+		drm_fb_release(file_priv);
+
 	DRM_LOCK();
 	if (dev->driver->flags & DRIVER_GEM) {
 		struct drm_handle	*han;
