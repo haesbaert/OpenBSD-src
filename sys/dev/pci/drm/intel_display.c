@@ -2716,17 +2716,13 @@ intel_finish_fb(struct drm_framebuffer *old_fb)
 {
 	struct drm_i915_gem_object *obj = to_intel_framebuffer(old_fb)->obj;
 	struct inteldrm_softc *dev_priv = obj->base.dev->dev_private;
-	struct drm_device *dev = obj->base.dev;
 	bool was_interruptible = dev_priv->mm.interruptible;
 	int ret;
 
-	mtx_enter(&dev->event_lock);
 	while(!atomic_read(&dev_priv->mm.wedged) &&
 	    atomic_read(&obj->pending_flip) != 0) {
-		msleep(&dev_priv->pending_flip_queue, &dev->event_lock,
-		    0, "915flp", 0);
+		tsleep(&dev_priv->pending_flip_queue, 0, "915flp", 0);
 	}
-	mtx_leave(&dev->event_lock);
 
 	/* Big Hammer, we also need to ensure that any pending
 	 * MI_WAIT_FOR_EVENT inside a user batch buffer on the
@@ -3439,18 +3435,14 @@ intel_crtc_has_pending_flip(struct drm_crtc *crtc)
 void
 intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 {
-	struct drm_i915_gem_object *obj;
 	struct drm_device *dev = crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	if (crtc->fb == NULL)
 		return;
 
-	obj = to_intel_framebuffer(crtc->fb)->obj;
-	mtx_enter(&dev->event_lock);
 	while (intel_crtc_has_pending_flip(crtc))
-		msleep(&dev_priv->pending_flip_queue, &dev->event_lock, 0, "915wfl", 0);
-	mtx_leave(&dev->event_lock);
+		tsleep(&dev_priv->pending_flip_queue, 0, "915wfl", 0);
 
 	DRM_LOCK();
 	intel_finish_fb(crtc->fb);
