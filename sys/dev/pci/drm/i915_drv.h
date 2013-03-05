@@ -951,6 +951,13 @@ struct drm_i915_gem_object {
 
 #define to_intel_bo(x) container_of(x,struct drm_i915_gem_object, base)
 
+struct drm_i915_file_private {
+	struct {
+		struct mutex lock;
+		struct list_head request_list;
+	} mm;
+};
+
 /**
  * Request queue structure.
  *
@@ -969,6 +976,11 @@ struct drm_i915_gem_request {
 	uint32_t			seqno;
 	/** Postion in the ringbuffer of the end of the request */
 	uint32_t			tail;
+	/** Time at which this request was emitted, in ticks. */
+	unsigned long			emitted_ticks;
+	struct drm_i915_file_private	*file_priv;
+	/** file_priv list entry for this request */
+	struct list_head		client_list;
 };
 
 u_int32_t	inteldrm_read_hws(struct inteldrm_softc *, int);
@@ -1144,6 +1156,8 @@ void	intel_teardown_mchbar(struct inteldrm_softc *,
 int	i915_getparam(struct inteldrm_softc *dev_priv, void *data);
 int	i915_setparam(struct inteldrm_softc *dev_priv, void *data);
 void	i915_kernel_lost_context(struct drm_device *);
+int	i915_driver_open(struct drm_device *, struct drm_file *);
+void	i915_driver_close(struct drm_device *, struct drm_file *);
 
 /* i915_drv.c */
 void	inteldrm_wipe_mappings(struct drm_obj *);
@@ -1152,6 +1166,7 @@ void	inteldrm_purge_obj(struct drm_obj *);
 void	inteldrm_chipset_flush(struct inteldrm_softc *);
 int	intel_gpu_reset(struct drm_device *);
 int	i915_reset(struct drm_device *);
+void	inteldrm_timeout(void *);
 
 /* i915_gem_evict.c */
 int i915_gem_evict_everything(struct inteldrm_softc *);
@@ -1200,6 +1215,7 @@ int i915_gem_object_get_fence(struct drm_i915_gem_object *);
 int i915_gem_object_put_fence(struct drm_i915_gem_object *);
 void i915_gem_reset(struct drm_device *);
 void i915_gem_clflush_object(struct drm_i915_gem_object *);
+void i915_gem_release(struct drm_device *, struct drm_file *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

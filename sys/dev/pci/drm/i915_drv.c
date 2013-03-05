@@ -417,6 +417,8 @@ static struct drm_driver_info inteldrm_driver = {
 	.buf_priv_size		= 1,	/* No dev_priv */
 	.file_priv_size		= sizeof(struct inteldrm_file),
 	.ioctl			= inteldrm_ioctl,
+	.open 			= i915_driver_open,
+	.close			= i915_driver_close,
 	.lastclose		= i915_driver_lastclose,
 
 	.gem_init_object	= i915_gem_init_object,

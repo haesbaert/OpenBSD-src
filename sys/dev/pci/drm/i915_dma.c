@@ -345,3 +345,29 @@ i915_driver_lastclose(struct drm_device *dev)
 	}
 	dev_priv->agpdmat = NULL;
 }
+
+int
+i915_driver_open(struct drm_device *dev, struct drm_file *file)
+{
+	struct drm_i915_file_private *file_priv;
+
+	file_priv = malloc(sizeof(*file_priv), M_DRM, M_WAITOK);
+	if (!file_priv)
+		return ENOMEM;
+
+	file->driver_priv = file_priv;
+
+	mtx_init(&file_priv->mm.lock, IPL_NONE);
+	INIT_LIST_HEAD(&file_priv->mm.request_list);
+
+	return 0;
+}
+
+void
+i915_driver_close(struct drm_device *dev, struct drm_file *file)
+{
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+
+	i915_gem_release(dev, file);
+	free(file_priv, M_DRM);
+}

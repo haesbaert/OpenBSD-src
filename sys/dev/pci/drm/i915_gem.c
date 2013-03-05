@@ -73,6 +73,9 @@ void i915_gem_reset_ring_lists(drm_i915_private_t *,
 void i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *);
 int i915_gem_gtt_rebind_object(struct drm_i915_gem_object *,
     enum i915_cache_level);
+void i915_gem_request_remove_from_client(struct drm_i915_gem_request *);
+
+extern int ticks;
 
 static inline void
 i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
@@ -1048,12 +1051,22 @@ i915_add_request(struct intel_ring_buffer *ring,
 
 	DRM_DEBUG("%d\n", seqno);
 
-	/* XXX request timing for throttle */
 	request->seqno = seqno;
 	request->ring = ring;
 	request->tail = request_ring_position;
+	request->emitted_ticks = ticks;
 	was_empty = list_empty(&ring->request_list);
 	list_add_tail(&request->list, &ring->request_list);
+
+	if (file) {
+		struct drm_i915_file_private *file_priv = file->driver_priv;
+
+		mtx_enter(&file_priv->mm.lock);
+		request->file_priv = file_priv;
+		list_add_tail(&request->client_list,
+			      &file_priv->mm.request_list);
+		mtx_leave(&file_priv->mm.lock);
+	}
 
 	ring->outstanding_lazy_request = 0;
 
@@ -1070,7 +1083,21 @@ i915_add_request(struct intel_ring_buffer *ring,
 	return 0;
 }
 
-// i915_gem_request_remove_from_client
+void
+i915_gem_request_remove_from_client(struct drm_i915_gem_request *request)
+{
+	struct drm_i915_file_private *file_priv = request->file_priv;
+
+	if (!file_priv)
+		return;
+
+	mtx_enter(&file_priv->mm.lock);
+	if (request->file_priv) {
+		list_del(&request->client_list);
+		request->file_priv = NULL;
+	}
+	mtx_leave(&file_priv->mm.lock);
+}
 
 void
 i915_gem_reset_ring_lists(drm_i915_private_t *dev_priv,
@@ -1084,7 +1111,7 @@ i915_gem_reset_ring_lists(drm_i915_private_t *dev_priv,
 					   list);
 
 		list_del(&request->list);
-//		i915_gem_request_remove_from_client(request);
+		i915_gem_request_remove_from_client(request);
 		free(request, M_DRM);
 	}
 
@@ -1193,6 +1220,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		ring->last_retired_head = request->tail;
 
 		list_del(&request->list);
+		i915_gem_request_remove_from_client(request);
 		drm_free(request);
 	}
 
@@ -2224,17 +2252,68 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 /* Throttle our rendering by waiting until the ring has completed our requests
  * emitted over 20 msec ago.
  *
+ * Note that if we were to use the current jiffies each time around the loop,
+ * we wouldn't escape the function with any frames outstanding if the time to
+ * render a frame was over 20ms.
+ *
  * This should get us reasonable parallelism between CPU and GPU but also
  * relatively low latency when blocking on a particular request to finish.
  */
 int
-i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file_priv)
+i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 {
-#if 0
-	struct inteldrm_file	*intel_file = (struct inteldrm_file *)file_priv;
-	u_int32_t		 seqno;
-#endif
-	int			 ret = 0;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+	unsigned long recent_enough = ticks - msecs_to_jiffies(20);
+	struct drm_i915_gem_request *request;
+	struct intel_ring_buffer *ring = NULL;
+	u32 seqno = 0;
+	int ret, retries;
+
+	if (atomic_read(&dev_priv->mm.wedged))
+		return EIO;
+
+	mtx_enter(&file_priv->mm.lock);
+	list_for_each_entry(request, &file_priv->mm.request_list, client_list) {
+		if (time_after_eq(request->emitted_ticks, recent_enough))
+			break;
+
+		ring = request->ring;
+		seqno = request->seqno;
+	}
+	mtx_leave(&file_priv->mm.lock);
+
+	if (seqno == 0)
+		return 0;
+
+	ret = 0;
+	if (!i915_seqno_passed(ring->get_seqno(ring, false), seqno)) {
+		/* And wait for the seqno passing without holding any locks and
+		 * causing extra latency for others. This is safe as the irq
+		 * generation is designed to be run atomically and so is
+		 * lockless.
+		 */
+		if (ring->irq_get(ring)) {
+			while (ret == 0 &&
+			    !(i915_seqno_passed(ring->get_seqno(ring, false), seqno) ||
+			    atomic_read(&dev_priv->mm.wedged)))
+				ret = msleep(ring, &dev_priv->irq_lock, PCATCH,
+				    "915thr", 0);
+			ring->irq_put(ring);
+		} else {
+			for (retries = 300; retries > 0; retries--) {
+				if (i915_seqno_passed(ring->get_seqno(ring, false), seqno) ||
+				    atomic_read(&dev_priv->mm.wedged))
+					break;
+				DELAY(1000);
+			}
+			if (retries == 0)
+				ret = EBUSY;
+		}
+	}
+
+	if (ret == 0)
+		inteldrm_timeout(dev_priv);
 
 	return ret;
 }
@@ -2993,6 +3072,28 @@ i915_gem_phys_pwrite(struct drm_device *dev,
 	inteldrm_chipset_flush(dev->dev_private);
 
 	return ret;
+}
+
+void
+i915_gem_release(struct drm_device *dev, struct drm_file *file)
+{
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+
+	/* Clean up our request list when the client is going away, so that
+	 * later retire_requests won't dereference our soon-to-be-gone
+	 * file_priv.
+	 */
+	mtx_enter(&file_priv->mm.lock);
+	while (!list_empty(&file_priv->mm.request_list)) {
+		struct drm_i915_gem_request *request;
+
+		request = list_first_entry(&file_priv->mm.request_list,
+					   struct drm_i915_gem_request,
+					   client_list);
+		list_del(&request->client_list);
+		request->file_priv = NULL;
+	}
+	mtx_leave(&file_priv->mm.lock);
 }
 
 // i915_gem_release

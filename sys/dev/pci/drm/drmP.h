@@ -119,6 +119,8 @@
 
 #define PAGE_ALIGN(addr)	(((addr) + PAGE_MASK) & ~PAGE_MASK)
 #define roundup2(x, y)	(((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
+#define msecs_to_jiffies(x)	(((int64_t)(x)) * hz / 1000)
+#define time_after_eq(a,b)	((long)(b) - (long)(a) <= 0)
 #define drm_msleep(x, msg)	delay(x * 1000)
 
 extern struct cfdriver drm_cd;
@@ -353,6 +355,7 @@ struct drm_file {
 	int					 minor;
 	u_int					 obj_id; /*next gem id*/
 	struct list_head			 fbs;
+	void					*driver_priv;
 };
 
 struct drm_lock_data {
