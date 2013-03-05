@@ -2287,6 +2287,7 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 		return 0;
 
 	ret = 0;
+	mtx_enter(&dev_priv->irq_lock);
 	if (!i915_seqno_passed(ring->get_seqno(ring, false), seqno)) {
 		/* And wait for the seqno passing without holding any locks and
 		 * causing extra latency for others. This is safe as the irq
@@ -2311,6 +2312,7 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 				ret = EBUSY;
 		}
 	}
+	mtx_leave(&dev_priv->irq_lock);
 
 	if (ret == 0)
 		inteldrm_timeout(dev_priv);
