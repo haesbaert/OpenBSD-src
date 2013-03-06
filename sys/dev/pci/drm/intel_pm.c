@@ -4494,14 +4494,14 @@ __gen6_gt_force_wake_get(struct inteldrm_softc *dev_priv)
 
 	count = 0;
 	while (count++ < 50 && (I915_READ_NOTRACE(forcewake_ack) & 1))
-		DELAY(10000);
+		DELAY(10);
 
 	I915_WRITE_NOTRACE(FORCEWAKE, FORCEWAKE_KERNEL);
 	POSTING_READ(ECOBUS); /* something from same cacheline, but !FORCEWAKE */
 
 	count = 0;
 	while (count++ < 50 && (I915_READ_NOTRACE(forcewake_ack) & 1) == 0)
-		DELAY(10000);
+		DELAY(10);
 
 	__gen6_gt_wait_for_thread_c0(dev_priv);
 }
@@ -4528,7 +4528,7 @@ __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv)
 
 	count = 0;
 	while (count++ < 50 && (I915_READ_NOTRACE(forcewake_ack) & 1))
-		DELAY(10000);
+		DELAY(10);
 
 	I915_WRITE_NOTRACE(FORCEWAKE_MT, _MASKED_BIT_ENABLE(FORCEWAKE_KERNEL));
 	/* something from same cacheline, but !FORCEWAKE_MT */
@@ -4536,7 +4536,7 @@ __gen6_gt_force_wake_mt_get(struct inteldrm_softc *dev_priv)
 
 	count = 0;
 	while (count++ < 50 && (I915_READ_NOTRACE(forcewake_ack) & 1) == 0)
-		DELAY(10000);
+		DELAY(10);
 
 	__gen6_gt_wait_for_thread_c0(dev_priv);
 }
@@ -4632,13 +4632,13 @@ vlv_force_wake_get(struct inteldrm_softc *dev_priv)
 
 	count = 0;
 	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_ACK_VLV) & 1))
-		DELAY(10000);
+		DELAY(10);
 
 	I915_WRITE_NOTRACE(FORCEWAKE_VLV, _MASKED_BIT_ENABLE(FORCEWAKE_KERNEL));
 
 	count = 0;
 	while (count++ < 50 && (I915_READ_NOTRACE(FORCEWAKE_ACK_VLV) & 1) == 0)
-		DELAY(10000);
+		DELAY(10);
 
 	__gen6_gt_wait_for_thread_c0(dev_priv);
 }
