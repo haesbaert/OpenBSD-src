@@ -1392,9 +1392,6 @@ intel_ring_wait_seqno(struct intel_ring_buffer *ring, u32 seqno)
 
 	dev_priv->mm.interruptible = was_interruptible;
 
-	if (!ret)
-		i915_gem_retire_requests_ring(ring);
-
 	return ret;
 }
 
