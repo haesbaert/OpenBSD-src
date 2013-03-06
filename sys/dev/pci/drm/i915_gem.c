@@ -432,8 +432,8 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			return (ret);
 	}
 
+	mtx_enter(&dev_priv->irq_lock);
 	if (!i915_seqno_passed(ring->get_seqno(ring, true), seqno)) {
-		mtx_enter(&dev_priv->irq_lock);
 		ring->irq_get(ring);
 		while (ret == 0) {
 			if (i915_seqno_passed(ring->get_seqno(ring, false),
@@ -444,8 +444,8 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			    "gemwt", 0);
 		}
 		ring->irq_put(ring);
-		mtx_leave(&dev_priv->irq_lock);
 	}
+	mtx_leave(&dev_priv->irq_lock);
 	if (dev_priv->mm.wedged)
 		ret = EIO;
 
