@@ -1501,6 +1501,7 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 extern unsigned int i915_lvds_downclock;
 extern int i915_panel_ignore_lid;
 extern unsigned int i915_powersave;
+extern int i915_semaphores;
 extern int i915_enable_rc6;
 extern int i915_enable_fbc;
 
