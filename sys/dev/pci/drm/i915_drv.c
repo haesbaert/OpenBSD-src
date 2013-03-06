@@ -1733,43 +1733,6 @@ err:
 	return (ret);
 }
 
-/** Dispatch a batchbuffer to the ring
- */
-void
-i915_dispatch_gem_execbuffer(struct intel_ring_buffer *ring,
-    struct drm_i915_gem_execbuffer2 *exec, uint64_t exec_offset)
-{
-//	struct inteldrm_softc	*dev_priv = dev->dev_private;
-	uint32_t		 exec_start, exec_len;
-	int			 ret;
-
-	exec_start = (uint32_t)exec_offset + exec->batch_start_offset;
-	exec_len = (uint32_t)exec->batch_len;
-
-	ret = ring->dispatch_execbuffer(ring, exec_start, exec_len, 0);
-	if (ret)
-		return;
-
-	/*
-	 * Ensure that the commands in the batch buffer are
-	 * finished before the interrupt fires (from a subsequent request
-	 * added). We get back a seqno representing the execution of the
-	 * current buffer, which we can wait on.  We would like to mitigate
-	 * these interrupts, likely by only creating seqnos occasionally
-	 * (so that we have *some* interrupts representing completion of
-	 * buffers that we can wait on when trying to clear up gtt space).
-	 */
-	intel_ring_flush_all_caches(ring);
-	/*
-	 * move to active associated all previous buffers with the seqno
-	 * that this call will emit. so we don't need the return. If it fails
-	 * then the next seqno will take care of it.
-	 */
-	(void)i915_add_request(ring, NULL, NULL);
-
-	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
-}
-
 int
 i915_gem_get_relocs_from_user(struct drm_i915_gem_exec_object2 *exec_list,
     u_int32_t buffer_count, struct drm_i915_gem_relocation_entry **relocs)
