@@ -519,7 +519,8 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	int					 ret, ret2, i;
 	int					 pinned = 0, pin_tries;
 	uint32_t				 reloc_index;
-	uint32_t				 seqno;
+	uint32_t				 seqno, flags;
+	uint32_t				 exec_start, exec_len;
 
 	/*
 	 * Check for valid execbuffer offset. We can do this early because
@@ -536,6 +537,16 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		DRM_ERROR("execbuf with %d buffers\n", args->buffer_count);
 		return (EINVAL);
 	}
+
+	flags = 0;
+	if (args->flags & I915_EXEC_SECURE) {
+		if (!DRM_SUSER(curproc))
+			return (EPERM);
+
+		flags |= I915_DISPATCH_SECURE;
+	}
+	if (args->flags & I915_EXEC_IS_PINNED)
+		flags |= I915_DISPATCH_PINNED;
 
 	switch (args->flags & I915_EXEC_RING_MASK) {
 	case I915_EXEC_DEFAULT:
@@ -704,7 +715,13 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	/*
 	 * XXX make sure that this may never fail by preallocating the request.
 	 */
-	i915_dispatch_gem_execbuffer(ring, args, batch_obj_priv->gtt_offset);
+
+	exec_start = batch_obj_priv->gtt_offset + args->batch_start_offset;
+	exec_len = args->batch_len;
+
+	ret = ring->dispatch_execbuffer(ring, exec_start, exec_len, flags);
+	if (ret)
+		goto err;
 
 	i915_gem_execbuffer_move_to_active(object_list, args->buffer_count, ring);
 	i915_gem_execbuffer_retire_commands(dev, file_priv, ring);
