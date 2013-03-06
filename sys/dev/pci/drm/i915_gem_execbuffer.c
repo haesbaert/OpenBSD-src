@@ -469,7 +469,8 @@ i915_gem_execbuffer_retire_commands(struct drm_device *dev,
 	}
 
 	/* Add a breadcrumb for the completion of the batch buffer */
-	(void)i915_add_request(ring, file, NULL);
+	if (i915_add_request(ring, file, NULL))
+		i915_gem_next_request_seqno(ring);
 }
 
 // i915_gem_fix_mi_batchbuffer_end

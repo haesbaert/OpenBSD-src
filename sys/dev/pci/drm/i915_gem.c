@@ -1036,6 +1036,8 @@ i915_add_request(struct intel_ring_buffer *ring,
 		return -ENOMEM;
 	}
 
+	seqno = i915_gem_next_request_seqno(ring);
+
 	/* Record the position of the start of the request so that
 	 * should we detect the updated seqno part-way through the
 	 * GPU processing the request, we never over-estimate the
