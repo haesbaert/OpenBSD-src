@@ -785,7 +785,7 @@ struct inteldrm_softc {
 	struct drm_property *broadcast_rgb_property;
 	struct drm_property *force_audio_property;
 
-	bool fdi_rx_polarity_reversed;
+	u32 fdi_rx_config;
 
 	struct i915_suspend_saved_registers regfile;
 };
