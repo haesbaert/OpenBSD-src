@@ -154,9 +154,6 @@ static struct edid_quirk {
 	int product_id;
 	u32 quirks;
 } edid_quirk_list[] = {
-	/* ASUS VW222S */
-	{ "ACI", 0x22a2, EDID_QUIRK_FORCE_REDUCED_BLANKING },
-
 	/* Acer AL1706 */
 	{ "ACR", 44358, EDID_QUIRK_PREFER_LARGE_60 },
 	/* Acer F51 */
@@ -415,9 +412,13 @@ drm_do_get_edid(struct drm_connector *connector, struct i2c_controller *adapter)
 				break;
 			}
 		}
-		if (i == 4)
+
+		if (i == 4 && print_bad_edid) {
 			printf("%s: Ignoring invalid EDID block %d.\n",
 			 drm_get_connector_name(connector), j);
+
+			connector->bad_edid_counter++;
+		}
 	}
 
 	if (valid_extensions != block[0x7e]) {
@@ -2098,7 +2099,8 @@ drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 	num_modes += add_cvt_modes(connector, edid);
 	num_modes += add_standard_modes(connector, edid);
 	num_modes += add_established_modes(connector, edid);
-	num_modes += add_inferred_modes(connector, edid);
+	if (edid->features & DRM_EDID_FEATURE_DEFAULT_GTF)
+		num_modes += add_inferred_modes(connector, edid);
 	num_modes += add_cea_modes(connector, edid);
 
 	if (quirks & (EDID_QUIRK_PREFER_LARGE_60 | EDID_QUIRK_PREFER_LARGE_75))
