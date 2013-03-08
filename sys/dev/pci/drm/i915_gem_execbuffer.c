@@ -245,7 +245,7 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	int					 ret, ret2, i;
 	int					 pinned = 0, pin_tries;
 	uint32_t				 reloc_index;
-	uint32_t				 seqno, flags;
+	uint32_t				 flags;
 	uint32_t				 exec_start, exec_len;
 
 	/*
@@ -415,21 +415,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	    args->buffer_count);
 	if (ret)
 		goto err;
-
-	seqno = i915_gem_next_request_seqno(ring);
-	for (i = 0; i < ARRAY_SIZE(ring->sync_seqno); i++) {
-		if (seqno < ring->sync_seqno[i]) {
-			/* The GPU can not handle its semaphore value wrapping,
-			 * so every billion or so execbuffers, we need to stall
-			 * the GPU in order to reset the counters.
-			 */
-			ret = i915_gpu_idle(dev);
-			if (ret)
-				goto err;
-
-			BUG_ON(ring->sync_seqno[i]);
-                }
-	}
 
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		ret = i915_reset_gen7_sol_offsets(dev, ring);
