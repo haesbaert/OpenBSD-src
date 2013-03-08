@@ -1719,7 +1719,7 @@ i915_gem_object_pin_and_relocate(struct drm_obj *obj,
 			 continue;
 		}
 
-		ret = i915_gem_object_set_to_gtt_domain(obj_priv, 1);
+		ret = i915_gem_object_set_to_gtt_domain(obj_priv, true);
 		if (ret != 0)
 			goto err;
 

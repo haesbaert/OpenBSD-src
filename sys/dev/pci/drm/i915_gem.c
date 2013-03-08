@@ -293,7 +293,7 @@ i915_gem_pread_ioctl(struct drm_device *dev, void *data,
 	if (ret) {
 		goto out;
 	}
-	ret = i915_gem_object_set_to_gtt_domain(obj, 0);
+	ret = i915_gem_object_set_to_gtt_domain(obj, false);
 	if (ret)
 		goto unpin;
 
@@ -369,7 +369,7 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 	if (ret) {
 		goto out;
 	}
-	ret = i915_gem_object_set_to_gtt_domain(obj, 1);
+	ret = i915_gem_object_set_to_gtt_domain(obj, true);
 	if (ret)
 		goto unpin;
 
@@ -1171,7 +1171,6 @@ void
 i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 {
 	uint32_t seqno;
-	int i;
 
 	if (list_empty(&ring->request_list))
 		return;
@@ -1938,15 +1937,16 @@ i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *obj)
 #endif
 }
 
-/*
- * Moves a single object to the GTT and possibly write domain.
+/**
+ * Moves a single object to the GTT read, and possibly write domain.
  *
  * This function returns when the move is complete, including waiting on
  * flushes to occur.
  */
 int
-i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
+i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, bool write)
 {
+	drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
 //	uint32_t old_write_domain, old_read_domains;
 	int ret;
 
@@ -1965,23 +1965,13 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 
 	i915_gem_object_flush_cpu_write_domain(obj);
 
-	/* We're accessing through the gpu, so grab a new fence register or
-	 * update the LRU.
-	 */
-	if (obj->fence_dirty) {
-		ret = i915_gem_object_put_fence(obj);
-		if (ret)
-			return (ret);
-	}
-	if (obj->tiling_mode != I915_TILING_NONE)
-		ret = i915_gem_object_get_fence(obj);
-
 //	old_write_domain = obj->base.write_domain;
 //	old_read_domains = obj->base.read_domains;
 
 	/* It should now be out of any other write domains, and we can update
 	 * the domain values for our changes.
 	 */
+	WARN_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) != 0);
 	obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 	if (write) {
 		obj->base.read_domains = I915_GEM_DOMAIN_GTT;
@@ -1992,6 +1982,10 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 //	trace_i915_gem_object_change_domain(obj,
 //					    old_read_domains,
 //					    old_write_domain);
+
+	/* And bump the LRU for this access */
+	if (i915_gem_object_is_inactive(obj))
+		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
 	return 0;
 }
@@ -2140,14 +2134,14 @@ i915_gem_object_finish_gpu(struct drm_i915_gem_object *obj)
 	return 0;
 }
 
-/*
- * Moves a single object to the CPU read and possibly write domain.
+/**
+ * Moves a single object to the CPU read, and possibly write domain.
  *
  * This function returns when the move is complete, including waiting on
  * flushes to return.
  */
 int
-i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
+i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, bool write)
 {
 //	uint32_t old_write_domain, old_read_domains;
 	int ret;
@@ -2161,22 +2155,7 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 	if (ret)
 		return ret;
 
-	if (obj->base.write_domain == I915_GEM_DOMAIN_GTT ||
-	    (write && obj->base.read_domains & I915_GEM_DOMAIN_GTT)) {
-		/*
-		 * No actual flushing is required for the GTT write domain.
-		 * Writes to it immeditately go to main memory as far as we
-		 * know, so there's no chipset flush. It also doesn't land
-		 * in render cache.
-		 */
-		inteldrm_wipe_mappings(&obj->base);
-		if (obj->base.write_domain == I915_GEM_DOMAIN_GTT)
-			obj->base.write_domain = 0;
-	}
-
-	/* remove the fence register since we're not using it anymore */
-	if ((ret = i915_gem_object_put_fence(obj)) != 0)
-		return (ret);
+	i915_gem_object_flush_gtt_write_domain(obj);
 
 //	old_write_domain = obj->base.write_domain;
 //	old_read_domains = obj->base.read_domains;
@@ -2403,7 +2382,7 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 	/* XXX - flush the CPU caches for pinned objects
 	 * as the X server doesn't manage domains yet
 	 */
-	i915_gem_object_set_to_gtt_domain(obj, 1);
+	i915_gem_object_set_to_gtt_domain(obj, true);
 	args->offset = obj->gtt_offset;
 
 out:
