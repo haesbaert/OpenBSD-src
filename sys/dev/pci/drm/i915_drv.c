@@ -953,7 +953,6 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	/* GEM init */
 	INIT_LIST_HEAD(&dev_priv->mm.active_list);
-	INIT_LIST_HEAD(&dev_priv->mm.flushing_list);
 	INIT_LIST_HEAD(&dev_priv->mm.inactive_list);
 	INIT_LIST_HEAD(&dev_priv->mm.fence_list);
 	for (i = 0; i < I915_NUM_RINGS; i++)
@@ -1806,7 +1805,6 @@ inteldrm_quiesce(struct inteldrm_softc *dev_priv)
 	 * for gtt mapping. Nothing should be pinned over vt switch, if it
 	 * is then rendering corruption will occur due to api misuse, shame.
 	 */
-	KASSERT(list_empty(&dev_priv->mm.flushing_list));
 	KASSERT(list_empty(&dev_priv->mm.active_list));
 	/* Disabled because root could panic the kernel if this was enabled */
 	/* KASSERT(dev->pin_count == 0); */

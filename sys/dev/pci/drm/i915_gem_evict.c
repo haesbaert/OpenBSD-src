@@ -63,7 +63,7 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 	struct drm_i915_gem_object *obj_priv;
 	struct intel_ring_buffer *ring;
 	u_int32_t		 seqno;
-	int			 ret = 0, write_domain = 0, i;
+	int			 ret = 0, i;
 	int			 found;
 
 	for (;;) {
@@ -111,28 +111,6 @@ i915_gem_evict_something(struct inteldrm_softc *dev_priv, size_t min_size)
 		if (found)
 			continue;
 
-		/* If we didn't have anything on the request list but there
-		 * are buffers awaiting a flush, emit one and try again.
-		 * When we wait on it, those buffers waiting for that flush
-		 * will get moved to inactive.
-		 */
-		list_for_each_entry(obj_priv, &dev_priv->mm.flushing_list,
-		    mm_list) {
-			obj = &obj_priv->base;
-			if (obj->size >= min_size) {
-				write_domain = obj->write_domain;
-				break;
-			}
-			obj = NULL;
-		}
-
-		if (write_domain) {
-			if (i915_gem_flush_ring(obj_priv->ring, write_domain,
-			    write_domain) == 0)
-				return (ENOMEM);
-			continue;
-		}
-
 		/*
 		 * If we didn't do any of the above, there's no single buffer
 		 * large enough to swap out for the new one, so just evict
@@ -153,7 +131,6 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 	int		ret;
 
 	if (list_empty(&dev_priv->mm.inactive_list) &&
-	    list_empty(&dev_priv->mm.flushing_list) &&
 	    list_empty(&dev_priv->mm.active_list))
 		return (ENOSPC);
 
@@ -174,7 +151,6 @@ i915_gem_evict_everything(struct inteldrm_softc *dev_priv)
 	 * we evicted the whole shebang, only pinned objects are still bound.
 	 */
 	KASSERT(list_empty(&dev_priv->mm.inactive_list));
-	KASSERT(list_empty(&dev_priv->mm.flushing_list));
 	KASSERT(list_empty(&dev_priv->mm.active_list));
 
 	return (0);

@@ -649,17 +649,6 @@ struct inteldrm_softc {
 		struct list_head active_list;
 
 		/**
-		 * List of objects which are not in the ringbuffer but which
-		 * still have a write_domain which needs to be flushed before
-		 * unbinding.
-		 *
-		 * last_rendering_seqno is 0 while an object is in this list
-		 *
-		 * A reference is held on the buffer while on this list.
-		 */
-		struct list_head flushing_list;
-
-		/**
 		 * LRU list of objects which are not in the ringbuffer and
 		 * are ready to unbind, but are still in the GTT.
 		 *

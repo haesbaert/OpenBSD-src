@@ -889,18 +889,6 @@ i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 	obj->last_write_seqno = 0;
 }
 
-void
-i915_gem_object_move_to_flushing(struct drm_i915_gem_object *obj)
-{
-	struct drm_device *dev = obj->base.dev;
-	drm_i915_private_t *dev_priv = dev->dev_private;
-
-	BUG_ON(!obj->active);
-	list_move_tail(&obj->mm_list, &dev_priv->mm.flushing_list);
-
-	i915_gem_object_move_off_active(obj);
-}
-
 /* called locked */
 void
 i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
@@ -1161,19 +1149,6 @@ i915_gem_reset(struct drm_device *dev)
 	for (i = 0; i < I915_NUM_RINGS; i++)
 		i915_gem_reset_ring_lists(dev_priv, &dev_priv->rings[i]);
 
-	/* Remove anything from the flushing lists. The GPU cache is likely
-	 * to be lost on reset along with the data, so simply move the
-	 * lost bo to the inactive list.
-	 */
-	while (!list_empty(&dev_priv->mm.flushing_list)) {
-		obj = list_first_entry(&dev_priv->mm.flushing_list,
-				      struct drm_i915_gem_object,
-				      mm_list);
-
-		obj->base.write_domain = 0;
-		i915_gem_object_move_to_inactive(obj);
-	}
-
 	/* Move everything out of the GPU domains to ensure we do any
 	 * necessary invalidation upon reuse.
 	 */
@@ -1243,7 +1218,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 			break;
 
 		if (obj->base.write_domain != 0)
-			i915_gem_object_move_to_flushing(obj);
+			i915_gem_object_move_off_active(obj);
 		else
 			i915_gem_object_move_to_inactive(obj);
 	}
@@ -1836,7 +1811,6 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 		 * fitting our object in, we're out of memory.
 		 */
 		if (list_empty(&dev_priv->mm.inactive_list) &&
-		    list_empty(&dev_priv->mm.flushing_list) &&
 		    list_empty(&dev_priv->mm.active_list)) {
 			DRM_ERROR("GTT full, but LRU list empty\n");
 			goto error;
@@ -2894,7 +2868,6 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 
 	/* gtt mapping means that the inactive list may not be empty */
 	KASSERT(list_empty(&dev_priv->mm.active_list));
-	KASSERT(list_empty(&dev_priv->mm.flushing_list));
 	for_each_ring(ring, dev_priv, i)
 		KASSERT(list_empty(&ring->request_list));
 	DRM_UNLOCK();
