@@ -1162,8 +1162,10 @@ int	i915_gem_swizzle_page(struct vm_page *page);
 int	i915_tiling_ok(struct drm_device *, int, int, int);
 bool	i915_gem_object_fence_ok(struct drm_i915_gem_object *, int);
 
-/* i915_suspend.c */
+/* i915_gem_debug.c */
+#define i915_verify_lists(dev) 0
 
+/* i915_suspend.c */
 extern void i915_save_display(struct drm_device *);
 extern void i915_restore_display(struct drm_device *);
 extern int i915_save_state(struct drm_device *);
@@ -1197,6 +1199,8 @@ void i915_gem_clflush_object(struct drm_i915_gem_object *);
 void i915_gem_release(struct drm_device *, struct drm_file *);
 int i915_gem_object_sync(struct drm_i915_gem_object *,
     struct intel_ring_buffer *);
+
+int i915_mutex_lock_interruptible(struct drm_device *dev);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

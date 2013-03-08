@@ -95,7 +95,25 @@ i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
 // i915_gem_info_add_obj
 // i915_gem_info_remove_obj
 // i915_gem_wait_for_error
-// i915_mutex_lock_interruptible
+
+int
+i915_mutex_lock_interruptible(struct drm_device *dev)
+{
+	int ret;
+
+#ifdef notyet
+	ret = i915_gem_wait_for_error(dev);
+	if (ret)
+		return ret;
+#endif
+
+	ret = rw_enter(&dev->dev_lock, RW_WRITE | RW_INTR);
+	if (ret)
+		return ret;
+
+	WARN_ON(i915_verify_lists(dev));
+	return 0;
+}
 
 static inline bool
 i915_gem_object_is_inactive(struct drm_i915_gem_object *obj)
