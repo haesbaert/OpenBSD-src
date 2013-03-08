@@ -1188,7 +1188,6 @@ struct drm_i915_gem_object *
     i915_gem_alloc_object(struct drm_device *, size_t);
 int i915_gpu_idle(struct drm_device *);
 void i915_gem_object_move_to_flushing(struct drm_i915_gem_object *);
-u32 i915_gem_next_request_seqno(struct intel_ring_buffer *);
 void i915_gem_write_fence(struct drm_device *, int,
     struct drm_i915_gem_object *);
 void i915_gem_reset_fences(struct drm_device *);

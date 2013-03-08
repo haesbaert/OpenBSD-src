@@ -178,7 +178,7 @@ i915_gem_execbuffer_move_to_active(struct drm_obj **object_list,
 		i915_gem_object_move_to_active(obj, ring);
 		if (obj->base.write_domain) {
 			obj->dirty = 1;
-			obj->last_write_seqno = i915_gem_next_request_seqno(ring);
+			obj->last_write_seqno = intel_ring_get_seqno(ring);
 			intel_mark_busy(ring->dev);
 		}
 
@@ -195,8 +195,7 @@ i915_gem_execbuffer_retire_commands(struct drm_device *dev,
 	ring->gpu_caches_dirty = true;
 
 	/* Add a breadcrumb for the completion of the batch buffer */
-	if (i915_add_request(ring, file, NULL))
-		i915_gem_next_request_seqno(ring);
+	i915_add_request(ring, file, NULL);
 }
 
 // i915_gem_fix_mi_batchbuffer_end

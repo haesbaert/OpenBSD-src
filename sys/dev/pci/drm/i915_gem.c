@@ -864,7 +864,7 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 	struct inteldrm_softc		*dev_priv = dev->dev_private;
 	u_int32_t			 seqno;
 
-	seqno = i915_gem_next_request_seqno(ring);
+	seqno = intel_ring_get_seqno(ring);
 
 	BUG_ON(ring == NULL);
 	obj->ring = ring;
@@ -976,16 +976,6 @@ i915_gem_handle_seqno_wrap(struct drm_device *dev)
 	return 0;
 }
 
-u32
-i915_gem_next_request_seqno(struct intel_ring_buffer *ring)
-{
-	if (ring->outstanding_lazy_request == 0)
-		/* XXX check return */
-		i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_request);
-
-	return ring->outstanding_lazy_request;
-}
-
 int
 i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 {
@@ -993,11 +983,9 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 
 	/* reserve 0 for non-seqno */
 	if (dev_priv->next_seqno == 0) {
-#ifdef notyet
 		int ret = i915_gem_handle_seqno_wrap(dev);
 		if (ret)
 			return ret;
-#endif
 
 		dev_priv->next_seqno = 1;
 	}
@@ -1020,7 +1008,6 @@ i915_add_request(struct intel_ring_buffer *ring,
 {
 	drm_i915_private_t	*dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_request	*request;
-	uint32_t			 seqno;
 	u32				 request_ring_position;
 	int				 was_empty, ret;
 
@@ -1041,8 +1028,6 @@ i915_add_request(struct intel_ring_buffer *ring,
 		return -ENOMEM;
 	}
 
-	seqno = i915_gem_next_request_seqno(ring);
-
 	/* Record the position of the start of the request so that
 	 * should we detect the updated seqno part-way through the
 	 * GPU processing the request, we never over-estimate the
@@ -1050,20 +1035,20 @@ i915_add_request(struct intel_ring_buffer *ring,
 	 */
 	request_ring_position = intel_ring_get_tail(ring);
 
-	ret = ring->add_request(ring, &seqno);
+	ret = ring->add_request(ring);
 	if (ret) {
 		drm_free(request);
 		return ret;
 	}
 
-	DRM_DEBUG("%d\n", seqno);
-
-	request->seqno = seqno;
+	request->seqno = intel_ring_get_seqno(ring);
 	request->ring = ring;
 	request->tail = request_ring_position;
 	request->emitted_ticks = ticks;
 	was_empty = list_empty(&ring->request_list);
 	list_add_tail(&request->list, &ring->request_list);
+
+	DRM_DEBUG("%d\n", request->seqno);
 
 	if (file) {
 		struct drm_i915_file_private *file_priv = file->driver_priv;
