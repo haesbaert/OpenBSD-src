@@ -445,11 +445,9 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	if (dev_priv->mm.wedged)
 		return (EIO);
 
-	if (seqno == ring->outstanding_lazy_request) {
-		ret = i915_add_request(ring, NULL, &seqno);
-		if (ret)
-			return (ret);
-	}
+	ret = i915_gem_check_olr(ring, seqno);
+	if (ret)
+		return ret;
 
 	mtx_enter(&dev_priv->irq_lock);
 	if (!i915_seqno_passed(ring->get_seqno(ring, true), seqno)) {
@@ -1306,16 +1304,19 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 	if (seqno <= from->sync_seqno[idx])
 		return 0;
 
-	if (seqno == from->outstanding_lazy_request) {
-		ret = i915_add_request(from, NULL, &seqno);
-		if (ret) {
-			return ret;
-		}
-	}
+	ret = i915_gem_check_olr(obj->ring, seqno);
+	if (ret)
+		return ret;
 
-	from->sync_seqno[idx] = seqno;
+	ret = to->sync_to(to, from, seqno);
+	if (!ret)
+		/* We use last_read_seqno because sync_to()
+		 * might have just caused seqno wrap under
+		 * the radar.
+		 */
+		from->sync_seqno[idx] = obj->last_read_seqno;
 
-	return to->sync_to(to, from, seqno);
+	return ret;
 }
 
 void
