@@ -1498,26 +1498,6 @@ inteldrm_purge_obj(struct drm_obj *obj)
 	obj_priv->madv = __I915_MADV_PURGED;
 }
 
-void
-i915_gem_retire_work_handler(void *arg1, void *unused)
-{
-	struct inteldrm_softc	*dev_priv = arg1;
-	struct intel_ring_buffer *ring;
-	bool			 idle;
-	int			 i;
-
-	i915_gem_retire_requests(dev_priv);
-	idle = true;
-	for_each_ring(ring, dev_priv, i) {
-		if (ring->gpu_caches_dirty)
-			i915_add_request(ring, NULL, NULL);
-
-		idle &= list_empty(&ring->request_list);
-	}
-	if (!dev_priv->mm.suspended && !idle)
-		timeout_add_sec(&dev_priv->mm.retire_timer, 1);
-}
-
 struct drm_obj *
 i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
     size_t min_size)
