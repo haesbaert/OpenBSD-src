@@ -1379,9 +1379,9 @@ nope:
 }
 
 void
-inteldrm_chipset_flush(struct inteldrm_softc *dev_priv)
+i915_gem_chipset_flush(struct drm_device *dev)
 {
-	struct drm_device	*dev = (struct drm_device *)dev_priv->drmdev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
 
 	/*
 	 * Write to this flush page flushes the chipset write cache.

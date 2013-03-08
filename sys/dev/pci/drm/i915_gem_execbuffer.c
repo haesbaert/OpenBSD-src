@@ -143,7 +143,7 @@ i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *ring,
 	}
 
 	if (flush_domains & I915_GEM_DOMAIN_CPU)
-		inteldrm_chipset_flush(ring->dev->dev_private);
+		i915_gem_chipset_flush(ring->dev);
 
 	if (flush_domains & I915_GEM_DOMAIN_GTT)
 		DRM_WRITEMEMORYBARRIER();

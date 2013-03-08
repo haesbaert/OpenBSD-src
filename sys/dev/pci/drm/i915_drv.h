@@ -1142,7 +1142,7 @@ void	i915_driver_close(struct drm_device *, struct drm_file *);
 void	inteldrm_wipe_mappings(struct drm_obj *);
 void	inteldrm_set_max_obj_size(struct inteldrm_softc *);
 void	inteldrm_purge_obj(struct drm_obj *);
-void	inteldrm_chipset_flush(struct inteldrm_softc *);
+void	i915_gem_chipset_flush(struct drm_device *);
 int	intel_gpu_reset(struct drm_device *);
 int	i915_reset(struct drm_device *);
 void	inteldrm_timeout(void *);
