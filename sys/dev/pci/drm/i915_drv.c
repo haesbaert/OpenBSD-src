@@ -1492,11 +1492,8 @@ i915_gem_retire_work_handler(void *arg1, void *unused)
 	i915_gem_retire_requests(dev_priv);
 	idle = true;
 	for_each_ring(ring, dev_priv, i) {
-
-		if (!list_empty(&ring->gpu_write_list)) {
-			i915_gem_flush_ring(ring, 0, I915_GEM_GPU_DOMAINS);
+		if (ring->gpu_caches_dirty)
 			i915_add_request(ring, NULL, NULL);
-		}
 
 		idle &= list_empty(&ring->request_list);
 	}

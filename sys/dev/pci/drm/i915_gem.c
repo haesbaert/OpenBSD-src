@@ -464,20 +464,27 @@ int
 i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
 			       bool readonly)
 {
+	struct intel_ring_buffer *ring = obj->ring;
+	u32 seqno;
 	int ret;
 
-	/* This function only exists to support waiting for existing rendering,
-	 * not for emitting required flushes.
-	 */
-	BUG_ON((obj->base.write_domain & I915_GEM_GPU_DOMAINS) != 0);
+	seqno = readonly ? obj->last_write_seqno : obj->last_read_seqno;
+	if (seqno == 0)
+		return 0;
 
-	/* If there is rendering queued on the buffer being evicted, wait for
-	 * it.
+	ret = i915_wait_seqno(ring, seqno);
+	if (ret)
+		return ret;
+
+	i915_gem_retire_requests_ring(ring);
+
+	/* Manually manage the write flush as we may have not yet
+	 * retired the buffer.
 	 */
-	if (obj->active) {
-		ret = i915_wait_seqno(obj->ring, obj->last_read_seqno);
-		if (ret)
-			return ret;
+	if (obj->last_write_seqno &&
+	    i915_seqno_passed(seqno, obj->last_write_seqno)) {
+		obj->last_write_seqno = 0;
+		obj->base.write_domain &= ~I915_GEM_GPU_DOMAINS;
 	}
 
 	return 0;
@@ -851,16 +858,24 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 		obj->active = 1;
 	}
 
-	if (obj->fenced_gpu_access) {
-		obj->last_fenced_seqno = seqno;
-	}
-	if (obj->base.write_domain)
-		obj->last_write_seqno = seqno;
-
 	/* Move from whatever list we were on to the tail of execution. */
 	list_move_tail(&obj->mm_list, &dev_priv->mm.active_list);
 	list_move_tail(&obj->ring_list, &ring->active_list);
+
 	obj->last_read_seqno = seqno;
+
+	if (obj->fenced_gpu_access) {
+		obj->last_fenced_seqno = seqno;
+
+		/* Bump MRU to take account of the delayed flush */
+		if (obj->fence_reg != I915_FENCE_REG_NONE) {
+			struct drm_i915_fence_reg *reg;
+			
+			reg = &dev_priv->fence_regs[obj->fence_reg];
+			list_move_tail(&reg->lru_list,
+				       &dev_priv->mm.fence_list);
+		}
+	}
 }
 
 void
@@ -871,8 +886,7 @@ i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
 	list_del_init(&obj->ring_list);
 	obj->last_read_seqno = 0;
 	obj->last_fenced_seqno = 0;
-	if (obj->base.write_domain == 0)
-		obj->last_write_seqno = 0;
+	obj->last_write_seqno = 0;
 }
 
 void
@@ -902,7 +916,6 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 	else
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
-	BUG_ON(!list_empty(&obj->gpu_write_list));
 	BUG_ON(!obj->active);
 	obj->ring = NULL;
 
@@ -910,7 +923,6 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 	obj->fenced_gpu_access = false;
 
 	obj->active = 0;
-	obj->pending_gpu_write = false;
 	drm_gem_object_unreference(&obj->base);
 
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
@@ -925,29 +937,6 @@ i915_gem_object_move_to_inactive(struct drm_i915_gem_object *obj)
 	drm_lock_obj(&obj->base);
 	/* unlocks object lock */
 	i915_gem_object_move_to_inactive_locked(obj);
-}
-
-void
-i915_gem_process_flushing_list(struct intel_ring_buffer *ring,
-			       uint32_t flush_domains)
-{
-	struct drm_i915_gem_object *obj, *next;
-
-	list_for_each_entry_safe(obj, next,
-				 &ring->gpu_write_list,
-				 gpu_write_list) {
-		if (obj->base.write_domain & flush_domains) {
-//			uint32_t old_write_domain = obj->base.write_domain;
-
-			obj->base.write_domain = 0;
-			list_del_init(&obj->gpu_write_list);
-			i915_gem_object_move_to_active(obj, ring);
-
-//			trace_i915_gem_object_change_domain(obj,
-//							    obj->base.read_domains,
-//							    old_write_domain);
-		}
-	}
 }
 
 int
@@ -1029,6 +1018,17 @@ i915_add_request(struct intel_ring_buffer *ring,
 	uint32_t			 seqno;
 	u32				 request_ring_position;
 	int				 was_empty, ret;
+
+	/*
+	 * Emit any outstanding flushes - execbuf can fail to emit the flush
+	 * after having emitted the batchbuffer command. Hence we need to fix
+	 * things up similar to emitting the lazy request. The difference here
+	 * is that the flush _must_ happen before the next request, no matter
+	 * what.
+	 */
+	ret = intel_ring_flush_all_caches(ring);
+	if (ret)
+		return ret;
 
 	request = drm_calloc(1, sizeof(*request));
 	if (request == NULL) {
@@ -1125,7 +1125,6 @@ i915_gem_reset_ring_lists(drm_i915_private_t *dev_priv,
 				       ring_list);
 
 		obj->base.write_domain = 0;
-		list_del_init(&obj->gpu_write_list);
 		i915_gem_object_move_to_inactive(obj);
 	}
 }
@@ -1172,7 +1171,6 @@ i915_gem_reset(struct drm_device *dev)
 				      mm_list);
 
 		obj->base.write_domain = 0;
-		list_del_init(&obj->gpu_write_list);
 		i915_gem_object_move_to_inactive(obj);
 	}
 
@@ -1397,9 +1395,6 @@ i915_gem_flush_ring(struct intel_ring_buffer *ring,
 	ret = ring->flush(ring, invalidate_domains, flush_domains);
 	if (ret)
 		return ret;
-
-	if (flush_domains & I915_GEM_GPU_DOMAINS)
-		i915_gem_process_flushing_list(ring, flush_domains);
 
 	return 0;
 }
@@ -1990,11 +1985,9 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 	if (ret)
 		return ret;
 
-	if (obj->pending_gpu_write || write) {
-		ret = i915_gem_object_wait_rendering(obj, false);
-		if (ret)
-			return ret;
-	}
+	ret = i915_gem_object_wait_rendering(obj, !write);
+	if (ret)
+		return ret;
 
 	i915_gem_object_flush_cpu_write_domain(obj);
 
@@ -2015,7 +2008,6 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 	/* It should now be out of any other write domains, and we can update
 	 * the domain values for our changes.
 	 */
-	BUG_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) != 0);
 	obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 	if (write) {
 		obj->base.read_domains = I915_GEM_DOMAIN_GTT;
@@ -2640,7 +2632,6 @@ i915_gem_init_object(struct drm_obj *obj)
 
 	INIT_LIST_HEAD(&obj_priv->mm_list);
 	INIT_LIST_HEAD(&obj_priv->ring_list);
-	INIT_LIST_HEAD(&obj_priv->gpu_write_list);
 
 	return 0;
 }
@@ -2936,7 +2927,6 @@ init_ring_lists(struct intel_ring_buffer *ring)
 {
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
-	INIT_LIST_HEAD(&ring->gpu_write_list);
 }
 
 // i915_gem_load

@@ -1277,7 +1277,6 @@ intel_init_ring_buffer(struct drm_device *dev,
 	ring->dev = dev;
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
-	INIT_LIST_HEAD(&ring->gpu_write_list);
 	ring->size = 32 * PAGE_SIZE;
 	memset(ring->sync_seqno, 0, sizeof(ring->sync_seqno));
 
@@ -1526,19 +1525,24 @@ intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 int
 intel_ring_idle(struct intel_ring_buffer *ring)
 {
+	u32 seqno;
 	int ret;
 
-	if (list_empty(&ring->gpu_write_list) && list_empty(&ring->active_list))
-		return 0;
-
-	if (!list_empty(&ring->gpu_write_list)) {
-		ret = i915_gem_flush_ring(ring,
-				    I915_GEM_GPU_DOMAINS, I915_GEM_GPU_DOMAINS);
+	if (ring->outstanding_lazy_request) {
+		ret = i915_add_request(ring, NULL, NULL);
 		if (ret)
 			return ret;
 	}
 
-	return i915_wait_seqno(ring, i915_gem_next_request_seqno(ring));
+	if (list_empty(&ring->request_list))
+		return 0;
+
+	seqno = list_entry(ring->request_list.prev,
+			   struct drm_i915_gem_request,
+			   list)->seqno;
+	
+
+	return i915_wait_seqno(ring, seqno);
 }
 
 #if 0
@@ -1867,7 +1871,6 @@ intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size)
 	ring->dev = dev;
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
-	INIT_LIST_HEAD(&ring->gpu_write_list);
 
 	ring->size = size;
 	ring->effective_size = ring->size;

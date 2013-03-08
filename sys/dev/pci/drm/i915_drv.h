@@ -856,7 +856,6 @@ struct drm_i915_gem_object {
 	/** This object's place on the active/flushing/inactive lists */
 	struct list_head			 ring_list;
 	struct list_head			 mm_list;
-	struct list_head			 gpu_write_list;
 	/* GTT binding. */
 	bus_dmamap_t				 dmamap;
 	bus_dma_segment_t			*dma_segs;
@@ -894,12 +893,6 @@ struct drm_i915_gem_object {
 	 * to the GTT
 	 */
 	unsigned int dirty:1;
-
-	/**
-	 * This is set if the object has been written to since the last
-	 * GPU flush.
-	 */
-	unsigned int pending_gpu_write:1;
 
 	/**
 	 * Advice: are the backing pages purgeable?
@@ -1062,7 +1055,6 @@ void	i915_gem_object_move_off_active(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive(struct drm_i915_gem_object *);
 void	i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *);
 int	i915_add_request(struct intel_ring_buffer *, struct drm_file *, u32 *);
-void	i915_gem_process_flushing_list(struct intel_ring_buffer *, u_int32_t);
 int	init_pipe_control(struct intel_ring_buffer *);
 void	cleanup_status_page(struct intel_ring_buffer *);
 void	i915_gem_init_swizzling(struct drm_device *);

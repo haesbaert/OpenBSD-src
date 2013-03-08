@@ -437,9 +437,7 @@ i915_gem_execbuffer_move_to_active(struct drm_obj **object_list,
 		i915_gem_object_move_to_active(obj, ring);
 		if (obj->base.write_domain) {
 			obj->dirty = 1;
-			obj->pending_gpu_write = true;
-			list_move_tail(&obj->gpu_write_list,
-				       &ring->gpu_write_list);
+			obj->last_write_seqno = i915_gem_next_request_seqno(ring);
 			intel_mark_busy(ring->dev);
 		}
 
@@ -453,6 +451,9 @@ i915_gem_execbuffer_retire_commands(struct drm_device *dev,
 				    struct intel_ring_buffer *ring)
 {
 	u32 invalidate;
+
+	/* Unconditionally force add_request to emit a full flush. */
+	ring->gpu_caches_dirty = true;
 
 	/*
 	 * Ensure that the commands in the batch buffer are
