@@ -895,17 +895,6 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 	}
 }
 
-void
-i915_gem_object_move_off_active(struct drm_i915_gem_object *obj)
-{
-	DRM_OBJ_ASSERT_LOCKED(&obj->base);
-
-	list_del_init(&obj->ring_list);
-	obj->last_read_seqno = 0;
-	obj->last_fenced_seqno = 0;
-	obj->last_write_seqno = 0;
-}
-
 /* called locked */
 void
 i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
@@ -915,16 +904,22 @@ i915_gem_object_move_to_inactive_locked(struct drm_i915_gem_object *obj)
 
 	DRM_OBJ_ASSERT_LOCKED(&obj->base);
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
+	BUG_ON(obj->base.write_domain & ~I915_GEM_GPU_DOMAINS);
+	BUG_ON(!obj->active);
 
 	if (obj->pin_count != 0)
 		list_del_init(&obj->mm_list);
 	else
 		list_move_tail(&obj->mm_list, &dev_priv->mm.inactive_list);
 
-	BUG_ON(!obj->active);
+	list_del_init(&obj->ring_list);
 	obj->ring = NULL;
 
-	i915_gem_object_move_off_active(obj);
+	obj->last_read_seqno = 0;
+	obj->last_write_seqno = 0;
+	obj->base.write_domain = 0;
+
+	obj->last_fenced_seqno = 0;
 	obj->fenced_gpu_access = false;
 
 	obj->active = 0;
