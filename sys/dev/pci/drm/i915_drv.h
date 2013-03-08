@@ -1060,7 +1060,6 @@ int	i915_gem_object_pin_and_relocate(struct drm_obj *,
 	    struct drm_i915_gem_relocation_entry *);
 int	i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *,
 	    bus_size_t);
-int	i915_gem_flush_ring(struct intel_ring_buffer *, uint32_t, uint32_t);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 		     size_t);
@@ -1148,6 +1147,7 @@ void	inteldrm_chipset_flush(struct inteldrm_softc *);
 int	intel_gpu_reset(struct drm_device *);
 int	i915_reset(struct drm_device *);
 void	inteldrm_timeout(void *);
+bool	i915_semaphore_is_enabled(struct drm_device *);
 
 /* i915_gem_evict.c */
 int i915_gem_evict_everything(struct inteldrm_softc *);
@@ -1197,6 +1197,8 @@ int i915_gem_object_put_fence(struct drm_i915_gem_object *);
 void i915_gem_reset(struct drm_device *);
 void i915_gem_clflush_object(struct drm_i915_gem_object *);
 void i915_gem_release(struct drm_device *, struct drm_file *);
+int i915_gem_object_sync(struct drm_i915_gem_object *,
+    struct intel_ring_buffer *);
 
 /* intel_opregion.c */
 int intel_opregion_setup(struct drm_device *dev);

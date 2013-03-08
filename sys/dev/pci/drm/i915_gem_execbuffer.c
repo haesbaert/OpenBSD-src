@@ -65,11 +65,6 @@ struct change_domains {
 
 int	i915_reset_gen7_sol_offsets(struct drm_device *,
 	    struct intel_ring_buffer *);
-int	i915_gem_execbuffer_flush(struct drm_device *, uint32_t, uint32_t,
-	    uint32_t);
-bool	intel_enable_semaphores(struct drm_device *);
-int	i915_gem_execbuffer_sync_rings(struct drm_i915_gem_object *,
-	    struct intel_ring_buffer *);
 int	i915_gem_execbuffer_wait_for_flips(struct intel_ring_buffer *, u32);
 int	i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *,
 	    struct drm_obj **, int);
@@ -266,83 +261,6 @@ i915_gem_object_set_to_gpu_domain(struct drm_i915_gem_object *obj,
 // i915_gem_execbuffer_relocate_slow
 
 int
-i915_gem_execbuffer_flush(struct drm_device *dev,
-			  uint32_t invalidate_domains,
-			  uint32_t flush_domains,
-			  uint32_t flush_rings)
-{
-	drm_i915_private_t *dev_priv = dev->dev_private;
-	int i, ret;
-
-	if (flush_domains & I915_GEM_DOMAIN_CPU)
-		inteldrm_chipset_flush(dev_priv);
-
-	if (flush_domains & I915_GEM_DOMAIN_GTT)
-		DRM_WRITEMEMORYBARRIER();
-
-	if ((flush_domains | invalidate_domains) & I915_GEM_GPU_DOMAINS) {
-		for (i = 0; i < I915_NUM_RINGS; i++)
-			if (flush_rings & (1 << i)) {
-				ret = i915_gem_flush_ring(&dev_priv->rings[i],
-							  invalidate_domains,
-							  flush_domains);
-				if (ret)
-					return ret;
-			}
-	}
-
-	return 0;
-}
-
-bool
-intel_enable_semaphores(struct drm_device *dev)
-{
-	if (INTEL_INFO(dev)->gen < 6)
-		return 0;
-
-	if (i915_semaphores >= 0)
-		return i915_semaphores;
-
-	/* Disable semaphores on SNB */
-	if (INTEL_INFO(dev)->gen == 6)
-		return 0;
-
-	return 1;
-}
-
-int
-i915_gem_execbuffer_sync_rings(struct drm_i915_gem_object *obj,
-			       struct intel_ring_buffer *to)
-{
-	struct intel_ring_buffer *from = obj->ring;
-	u32 seqno;
-	int ret, idx;
-
-	if (from == NULL || to == from)
-		return 0;
-
-	/* XXX gpu semaphores are implicated in various hard hangs on SNB */
-	if (!intel_enable_semaphores(obj->base.dev))
-		return i915_gem_object_wait_rendering(obj, false);
-	idx = intel_ring_sync_index(from, to);
-
-	seqno = obj->last_read_seqno;
-	if (seqno <= from->sync_seqno[idx])
-		return 0;
-
-	if (seqno == from->outstanding_lazy_request) {
-		ret = i915_add_request(from, NULL, &seqno);
-		if (ret) {
-			return ret;
-		}
-	}
-
-	from->sync_seqno[idx] = seqno;
-
-	return to->sync_to(to, from, seqno);
-}
-
-int
 i915_gem_execbuffer_wait_for_flips(struct intel_ring_buffer *ring, u32 flips)
 {
 	u32 plane, flip_mask;
@@ -379,38 +297,41 @@ i915_gem_execbuffer_move_to_gpu(struct intel_ring_buffer *ring,
    struct drm_obj **object_list, int buffer_count)
 {
 	struct drm_i915_gem_object *obj;
-	struct change_domains cd;
+	uint32_t flush_domains = 0;
+	uint32_t flips = 0;
 	int ret, i;
 
-	memset(&cd, 0, sizeof(cd));
 	for (i = 0; i < buffer_count; i++) {
 		obj = to_intel_bo(object_list[i]);
-		i915_gem_object_set_to_gpu_domain(obj, ring, &cd);
+		ret = i915_gem_object_sync(obj, ring);
+		if (ret)
+			return ret;
+
+		if (obj->base.write_domain & I915_GEM_DOMAIN_CPU)
+			i915_gem_clflush_object(obj);
+
+		if (obj->base.pending_write_domain)
+			flips |= atomic_read(&obj->pending_flip);
+
+		flush_domains |= obj->base.write_domain;
 	}
 
-	if (cd.invalidate_domains | cd.flush_domains) {
-		ret = i915_gem_execbuffer_flush(ring->dev,
-						cd.invalidate_domains,
-						cd.flush_domains,
-						cd.flush_rings);
+	if (flips) {
+		ret = i915_gem_execbuffer_wait_for_flips(ring, flips);
 		if (ret)
 			return ret;
 	}
 
-	if (cd.flips) {
-		ret = i915_gem_execbuffer_wait_for_flips(ring, cd.flips);
-		if (ret)
-			return ret;
-	}
+	if (flush_domains & I915_GEM_DOMAIN_CPU)
+		inteldrm_chipset_flush(ring->dev->dev_private);
 
-	for (i = 0; i < buffer_count; i++) {
-		obj = to_intel_bo(object_list[i]);
-		ret = i915_gem_execbuffer_sync_rings(obj, ring);
-		if (ret)
-			return ret;
-	}
+	if (flush_domains & I915_GEM_DOMAIN_GTT)
+		DRM_WRITEMEMORYBARRIER();
 
-	return 0;
+	/* Unconditionally invalidate gpu caches and ensure that we do flush
+	 * any residual writes from the previous batch.
+	 */
+	return intel_ring_invalidate_all_caches(ring);
 }
 
 // i915_gem_check_execbuffer

@@ -74,6 +74,8 @@ void i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *);
 int i915_gem_gtt_rebind_object(struct drm_i915_gem_object *,
     enum i915_cache_level);
 void i915_gem_request_remove_from_client(struct drm_i915_gem_request *);
+int i915_gem_object_flush_active(struct drm_i915_gem_object *);
+int i915_gem_check_olr(struct intel_ring_buffer *, u32);
 
 extern int ticks;
 
@@ -406,7 +408,24 @@ i915_gem_check_wedge(struct inteldrm_softc *dev_priv,
 	return 0;
 }
 
-// i915_gem_check_olr
+/*
+ * Compare seqno against outstanding lazy request. Emit a request if they are
+ * equal.
+ */
+int
+i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno)
+{
+	int ret;
+
+//	BUG_ON(!mutex_is_locked(&ring->dev->struct_mutex));
+
+	ret = 0;
+	if (seqno == ring->outstanding_lazy_request)
+		ret = i915_add_request(ring, NULL, NULL);
+
+	return ret;
+}
+
 // __wait_seqno
 
 /**
@@ -1112,7 +1131,6 @@ i915_gem_reset_ring_lists(drm_i915_private_t *dev_priv,
 				       struct drm_i915_gem_object,
 				       ring_list);
 
-		obj->base.write_domain = 0;
 		i915_gem_object_move_to_inactive(obj);
 	}
 }
@@ -1217,10 +1235,7 @@ i915_gem_retire_requests_ring(struct intel_ring_buffer *ring)
 		if (!i915_seqno_passed(seqno, obj->last_read_seqno))
 			break;
 
-		if (obj->base.write_domain != 0)
-			i915_gem_object_move_off_active(obj);
-		else
-			i915_gem_object_move_to_inactive(obj);
+		i915_gem_object_move_to_inactive(obj);
 	}
 }
 
@@ -1235,9 +1250,73 @@ i915_gem_retire_requests(struct inteldrm_softc *dev_priv)
 }
 
 // i915_gem_retire_work_handler
-// i915_gem_object_flush_active
+
+/**
+ * Ensures that an object will eventually get non-busy by flushing any required
+ * write domains, emitting any outstanding lazy request and retiring and
+ * completed requests.
+ */
+int
+i915_gem_object_flush_active(struct drm_i915_gem_object *obj)
+{
+	int ret;
+
+	if (obj->active) {
+		ret = i915_gem_check_olr(obj->ring, obj->last_read_seqno);
+		if (ret)
+			return ret;
+
+		i915_gem_retire_requests_ring(obj->ring);
+	}
+
+	return 0;
+}
+
 // i915_gem_wait_ioctl
-// i915_gem_object_sync
+
+/**
+ * i915_gem_object_sync - sync an object to a ring.
+ *
+ * @obj: object which may be in use on another ring.
+ * @to: ring we wish to use the object on. May be NULL.
+ *
+ * This code is meant to abstract object synchronization with the GPU.
+ * Calling with NULL implies synchronizing the object with the CPU
+ * rather than a particular GPU ring.
+ *
+ * Returns 0 if successful, else propagates up the lower layer error.
+ */
+int
+i915_gem_object_sync(struct drm_i915_gem_object *obj,
+		     struct intel_ring_buffer *to)
+{
+	struct intel_ring_buffer *from = obj->ring;
+	u32 seqno;
+	int ret, idx;
+
+	if (from == NULL || to == from)
+		return 0;
+
+	if (to == NULL || !i915_semaphore_is_enabled(obj->base.dev))
+		return i915_gem_object_wait_rendering(obj, false);
+
+	idx = intel_ring_sync_index(from, to);
+
+	seqno = obj->last_read_seqno;
+	if (seqno <= from->sync_seqno[idx])
+		return 0;
+
+	if (seqno == from->outstanding_lazy_request) {
+		ret = i915_add_request(from, NULL, &seqno);
+		if (ret) {
+			return ret;
+		}
+	}
+
+	from->sync_seqno[idx] = seqno;
+
+	return to->sync_to(to, from, seqno);
+}
 
 void
 i915_gem_object_finish_gtt(struct drm_i915_gem_object *obj)
@@ -1302,22 +1381,6 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 
 	i915_gem_object_finish_gtt(obj);
 
-	/* Move the object to the CPU domain to ensure that
-	 * any possible CPU writes while it's not in the GTT
-	 * are flushed when we go to remap it.
-	 */
-	if (ret == 0)
-		ret = i915_gem_object_set_to_cpu_domain(obj, 1);
-	if (ret == ERESTART || ret == EINTR)
-		return ret;
-	if (ret) {
-		/* In the event of a disaster, abandon all caches and
-		 * hope for the best.
-		 */
-		i915_gem_clflush_object(obj);
-		obj->base.read_domains = obj->base.write_domain = I915_GEM_DOMAIN_CPU;
-	}
-
 	/* release the fence reg _after_ flushing */
 	ret = i915_gem_object_put_fence(obj);
 	if (ret == ERESTART || ret == EINTR)
@@ -1353,25 +1416,6 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 		inteldrm_purge_obj(&obj->base);
 
 	return (0);
-}
-
-int
-i915_gem_flush_ring(struct intel_ring_buffer *ring,
-		    uint32_t invalidate_domains,
-		    uint32_t flush_domains)
-{
-	int ret;
-
-	if (((invalidate_domains | flush_domains) & I915_GEM_GPU_DOMAINS) == 0)
-		return 0;
-
-//	trace_i915_gem_ring_flush(ring, invalidate_domains, flush_domains);
-
-	ret = ring->flush(ring, invalidate_domains, flush_domains);
-	if (ret)
-		return ret;
-
-	return 0;
 }
 
 int
@@ -1571,19 +1615,8 @@ i915_gem_object_update_fence(struct drm_i915_gem_object *obj,
 int
 i915_gem_object_flush_fence(struct drm_i915_gem_object *obj)
 {
-	int ret;
-
-	if (obj->fenced_gpu_access) {
-		if (obj->base.write_domain & I915_GEM_GPU_DOMAINS) {
-			ret = i915_gem_flush_ring(obj->ring, 0,
-			    obj->base.write_domain);
-			if (ret)
-				return ret;
-		}
-	}
-
 	if (obj->last_fenced_seqno) {
-		ret = i915_wait_seqno(obj->ring, obj->last_fenced_seqno);
+		int ret = i915_wait_seqno(obj->ring, obj->last_fenced_seqno);
 		if (ret)
 			return ret;
 
@@ -1901,17 +1934,6 @@ i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *obj)
 #endif
 }
 
-/** Flushes any GPU write domain for the object if it's dirty. */
-int
-i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *obj)
-{
-	if ((obj->base.write_domain & I915_GEM_GPU_DOMAINS) == 0)
-		return 0;
-
-	/* Queue the GPU write cache flushing we need. */
-	return i915_gem_flush_ring(obj->ring, 0, obj->base.write_domain);
-}
-
 /** Flushes the CPU write domain for the object if it's dirty. */
 void
 i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *obj)
@@ -1954,10 +1976,6 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, int write)
 
 	if (obj->base.write_domain == I915_GEM_DOMAIN_GTT)
 		return 0;
-
-	ret = i915_gem_object_flush_gpu_write_domain(obj);
-	if (ret)
-		return ret;
 
 	ret = i915_gem_object_wait_rendering(obj, !write);
 	if (ret)
@@ -2078,13 +2096,9 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 //	u32 old_read_domains, old_write_domain;
 	int ret;
 
-	ret = i915_gem_object_flush_gpu_write_domain(obj);
-	if (ret)
-		return ret;
-
 	if (pipelined != obj->ring) {
-		ret = i915_gem_object_wait_rendering(obj, false);
-		if (ret == -ERESTART || ret == -EINTR)
+		ret = i915_gem_object_sync(obj, pipelined);
+		if (ret)
 			return (ret);
 	}
 
@@ -2117,7 +2131,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	/* It should now be out of any other write domains, and we can update
 	 * the domain values for our changes.
 	 */
-	BUG_ON((obj->base.write_domain & ~I915_GEM_DOMAIN_GTT) != 0);
+	obj->base.write_domain = 0;
 	obj->base.read_domains |= I915_GEM_DOMAIN_GTT;
 
 //	trace_i915_gem_object_change_domain(obj,
@@ -2134,12 +2148,6 @@ i915_gem_object_finish_gpu(struct drm_i915_gem_object *obj)
 
 	if ((obj->base.read_domains & I915_GEM_GPU_DOMAINS) == 0)
 		return 0;
-
-	if (obj->base.write_domain & I915_GEM_GPU_DOMAINS) {
-		ret = i915_gem_flush_ring(obj->ring, 0, obj->base.write_domain);
-		if (ret)
-			return ret;
-	}
 
 	ret = i915_gem_object_wait_rendering(obj, false);
 	if (ret)
@@ -2167,11 +2175,7 @@ i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *obj, int write)
 	if (obj->base.write_domain == I915_GEM_DOMAIN_CPU)
 		return 0;
 
-	ret = i915_gem_object_flush_gpu_write_domain(obj);
-	if (ret)
-		return ret;
-
-	ret = i915_gem_object_wait_rendering(obj, false);
+	ret = i915_gem_object_wait_rendering(obj, !write);
 	if (ret)
 		return ret;
 
@@ -2475,30 +2479,8 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 		return (EBADF);
 	}
 
+	ret = i915_gem_object_flush_active(obj);
 	args->busy = obj->active;
-	if (args->busy) {
-		/*
-		 * Unconditionally flush objects write domain if they are
-		 * busy. The fact userland is calling this ioctl means that
-		 * it wants to use this buffer sooner rather than later, so
-		 * flushing now shoul reduce latency.
-		 */
-		if (obj->base.write_domain & I915_GEM_GPU_DOMAINS) {
-			ret = i915_gem_flush_ring(obj->ring,
-						  0, obj->base.write_domain);
-		} else if (obj->ring->outstanding_lazy_request ==
-			   obj->last_read_seqno) {
-			i915_add_request(obj->ring, NULL, NULL);
-		}
-
-		/*
-		 * Update the active list after the flush otherwise this is
-		 * only updated on a delayed timer. Updating now reduces 
-		 * working set size.
-		 */
-		i915_gem_retire_requests_ring(obj->ring);
-		args->busy = obj->active;
-	}
 
 	drm_gem_object_unreference(&obj->base);
 	return ret;
