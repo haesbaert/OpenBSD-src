@@ -9221,6 +9221,7 @@ intel_user_framebuffer_create_handle(struct drm_framebuffer *fb,
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
 	struct drm_i915_gem_object *obj = intel_fb->obj;
 
+	drm_gem_object_reference(&obj->base);
 	return drm_handle_create(file, &obj->base, handle);
 }
 
