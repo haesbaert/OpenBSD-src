@@ -506,6 +506,9 @@ struct inteldrm_softc {
 	struct vga_pci_bar	*regs;
 
 	int			 nscreens;
+	void			(*switchcb)(void *, int, int);
+	void			*switchcbarg;
+	struct workq_task	 switchwqt;
 	struct rasops_info	 ro;
 
 	int			 noaccel;

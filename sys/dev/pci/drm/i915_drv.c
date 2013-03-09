@@ -593,6 +593,7 @@ int inteldrm_alloc_screen(void *, const struct wsscreen_descr *,
 void inteldrm_free_screen(void *, void *);
 int inteldrm_show_screen(void *, void *, int,
     void (*)(void *, int, int), void *);
+void inteldrm_doswitch(void *, void *);
 
 struct wsscreen_descr inteldrm_stdscreen = {
 	"std",
@@ -686,11 +687,30 @@ inteldrm_show_screen(void *v, void *cookie, int waitok,
     void (*cb)(void *, int, int), void *cbarg)
 {
 	struct inteldrm_softc *dev_priv = v;
+
+	dev_priv->switchcb = cb;
+	dev_priv->switchcbarg = cbarg;
+	if (cb) {
+		workq_queue_task(NULL, &dev_priv->switchwqt, 0,
+		    inteldrm_doswitch, v, cookie);
+		return (EAGAIN);
+	}
+
+	inteldrm_doswitch(v, cookie);
+
+	return (0);
+}
+
+void
+inteldrm_doswitch(void *v, void *cookie)
+{
+	struct inteldrm_softc *dev_priv = v;
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 
 	intel_fb_restore_mode(dev);
 
-	return (0);
+	if (dev_priv->switchcb)
+		(*dev_priv->switchcb)(dev_priv->switchcbarg, 0, 0);
 }
 
 /*
