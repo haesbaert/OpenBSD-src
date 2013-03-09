@@ -111,6 +111,12 @@ i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 	case I915_PARAM_HAS_GEN7_SOL_RESET:
 		value = 1;
 		break;
+	case I915_PARAM_HAS_LLC:
+		value = HAS_LLC(dev);
+		break;
+	case I915_PARAM_HAS_SEMAPHORES:
+		value = i915_semaphore_is_enabled(dev);
+		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
 		return (EINVAL);
