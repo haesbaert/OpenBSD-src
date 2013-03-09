@@ -993,6 +993,8 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		}
 	}
 
+	dev_priv->relative_constants_mode = I915_EXEC_CONSTANTS_REL_GENERAL;
+
 	/* Old X drivers will take 0-2 for front, back, depth buffers */
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		dev_priv->fence_reg_start = 3;

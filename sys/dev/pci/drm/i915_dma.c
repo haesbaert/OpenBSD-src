@@ -105,6 +105,9 @@ i915_getparam(struct inteldrm_softc *dev_priv, void *data)
 		return EINVAL;
 #endif
 		break;
+	case I915_PARAM_HAS_EXEC_CONSTANTS:
+		value = INTEL_INFO(dev)->gen >= 4;
+		break;
 	case I915_PARAM_HAS_GEN7_SOL_RESET:
 		value = 1;
 		break;

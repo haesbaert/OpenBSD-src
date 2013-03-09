@@ -715,6 +715,8 @@ struct inteldrm_softc {
 
 	const struct intel_device_info *info;
 
+	int relative_constants_mode;
+
 	struct sdvo_device_mapping sdvo_mappings[2];
 	/* indicate whether the LVDS_BORDER should be enabled or not */
 	unsigned int lvds_border_bits;

@@ -246,6 +246,8 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	uint32_t				 reloc_index;
 	uint32_t				 flags;
 	uint32_t				 exec_start, exec_len;
+	uint32_t				 mask;
+	int					 mode;
 
 	/*
 	 * Check for valid execbuffer offset. We can do this early because
@@ -293,6 +295,31 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		DRM_DEBUG("execbuf with invalid ring: %d\n",
 			  (int)(args->flags & I915_EXEC_RING_MASK));
 		return (EINVAL);
+	}
+
+	mode = args->flags & I915_EXEC_CONSTANTS_MASK;
+	mask = I915_EXEC_CONSTANTS_MASK;
+	switch (mode) {
+	case I915_EXEC_CONSTANTS_REL_GENERAL:
+	case I915_EXEC_CONSTANTS_ABSOLUTE:
+	case I915_EXEC_CONSTANTS_REL_SURFACE:
+		if (ring == &dev_priv->rings[RCS] &&
+		    mode != dev_priv->relative_constants_mode) {
+			if (INTEL_INFO(dev)->gen < 4)
+				return EINVAL;
+
+			if (INTEL_INFO(dev)->gen > 5 &&
+			    mode == I915_EXEC_CONSTANTS_REL_SURFACE)
+				return EINVAL;
+
+			/* The HW changed the meaning on this bit on gen6 */
+			if (INTEL_INFO(dev)->gen >= 6)
+				mask &= ~I915_EXEC_CONSTANTS_REL_SURFACE;
+		}
+		break;
+	default:
+		DRM_DEBUG("execbuf with unknown constants: %d\n", mode);
+		return EINVAL;
 	}
 
 	/* Copy in the exec list from userland, check for overflow */
@@ -414,6 +441,21 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	    args->buffer_count);
 	if (ret)
 		goto err;
+
+	if (ring == &dev_priv->rings[RCS] &&
+	    mode != dev_priv->relative_constants_mode) {
+		ret = intel_ring_begin(ring, 4);
+		if (ret)
+				goto err;
+
+		intel_ring_emit(ring, MI_NOOP);
+		intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+		intel_ring_emit(ring, INSTPM);
+		intel_ring_emit(ring, mask << 16 | mode);
+		intel_ring_advance(ring);
+
+		dev_priv->relative_constants_mode = mode;
+	}
 
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		ret = i915_reset_gen7_sol_offsets(dev, ring);
