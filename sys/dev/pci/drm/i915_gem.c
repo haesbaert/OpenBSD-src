@@ -552,20 +552,31 @@ i915_gem_set_domain_ioctl(struct drm_device *dev, void *data,
 	    (write_domain != 0 && read_domains != write_domain))
 		return (EINVAL);
 
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
+
 	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
-	if (obj == NULL)
-		return (EBADF);
+	if (&obj->base == NULL) {
+		ret = EBADF;
+		goto unlock;
+	}
+
 	drm_hold_object(&obj->base);
-
 	ret = i915_gem_object_set_to_gtt_domain(obj, write_domain != 0);
-
 	drm_unhold_and_unref(&obj->base);
+
 	/*
 	 * Silently promote `you're not bound, there was nothing to do'
 	 * to success, since the client was just asking us to make sure
 	 * everything was done.
 	 */
-	return ((ret == EINVAL) ? 0 : ret);
+	if (ret == EINVAL)
+		ret = 0;
+
+unlock:
+	DRM_UNLOCK();
+	return ret;
 }
 
 // i915_gem_sw_finish_ioctl
@@ -2388,12 +2399,18 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pin	*args = data;
 	struct drm_i915_gem_object *obj;
-	int			 ret = 0;
+	int ret;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
 
 	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
-	if (obj == NULL)
-		return (EBADF);
-	DRM_LOCK();
+	if (&obj->base == NULL) {
+		ret = EBADF;
+		goto unlock;
+	}
+
 	drm_hold_object(&obj->base);
 
 	if (obj->madv != I915_MADV_WILLNEED) {
@@ -2417,9 +2434,9 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 
 out:
 	drm_unhold_and_unref(&obj->base);
+unlock:
 	DRM_UNLOCK();
-
-	return (ret);
+	return ret;
 }
 
 int
@@ -2429,13 +2446,18 @@ i915_gem_unpin_ioctl(struct drm_device *dev, void *data,
 	struct inteldrm_softc	*dev_priv = dev->dev_private;
 	struct drm_i915_gem_pin	*args = data;
 	struct drm_i915_gem_object *obj;
-	int ret = 0;
+	int ret;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
 
 	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
-	if (&obj->base == NULL)
-		return (EBADF);
+	if (&obj->base == NULL) {
+		ret = EBADF;
+		goto unlock;
+	}
 
-	DRM_LOCK();
 	drm_hold_object(&obj->base);
 
 	if (obj->user_pin_count == 0) {
@@ -2451,8 +2473,9 @@ i915_gem_unpin_ioctl(struct drm_device *dev, void *data,
 
 out:
 	drm_unhold_and_unref(&obj->base);
+unlock:
 	DRM_UNLOCK();
-	return (ret);
+	return ret;
 }
 
 int
@@ -2461,19 +2484,24 @@ i915_gem_busy_ioctl(struct drm_device *dev, void *data,
 {
 	struct drm_i915_gem_busy *args = data;
 	struct drm_i915_gem_object *obj;
-	int ret = 0;
+	int ret;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
 
 	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
 	if (&obj->base == NULL) {
-		DRM_ERROR("Bad handle in i915_gem_busy_ioctl(): %d\n",
-			  args->handle);
-		return (EBADF);
+		ret = EBADF;
+		goto unlock;
 	}
 
 	ret = i915_gem_object_flush_active(obj);
 	args->busy = obj->active;
 
 	drm_gem_object_unreference(&obj->base);
+unlock:
+	DRM_UNLOCK();
 	return ret;
 }
 
@@ -2485,7 +2513,7 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 {
 	struct drm_i915_gem_madvise *args = data;
 	struct drm_i915_gem_object *obj;
-	int ret = 0;
+	int ret;
 
 	switch (args->madv) {
 	case I915_MADV_DONTNEED:
@@ -2495,9 +2523,15 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 		return (EINVAL);
 	}
 
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
+
 	obj = to_intel_bo(drm_gem_object_lookup(dev, file_priv, args->handle));
-	if (&obj->base == NULL)
-		return (EBADF);
+	if (&obj->base == NULL) {
+		ret = EBADF;
+		goto unlock;
+	}
 
 	drm_hold_object(&obj->base);
 
@@ -2519,8 +2553,9 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 
 out:
 	drm_unhold_and_unref(&obj->base);
-
-	return (ret);
+unlock:
+	DRM_UNLOCK();
+	return ret;
 }
 
 struct drm_i915_gem_object *

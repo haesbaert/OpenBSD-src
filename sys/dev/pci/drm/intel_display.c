@@ -8080,7 +8080,9 @@ intel_crtc_page_flip(struct drm_crtc *crtc,
 		flush_workqueue(dev_priv->wq);
 #endif
 
-	DRM_LOCK();
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		goto cleanup;
 
 	/* Reference the objects for the scheduled work. */
 	drm_gem_object_reference(&work->old_fb_obj->base);
@@ -8117,6 +8119,7 @@ cleanup_pending:
 	drm_gem_object_unreference(&obj->base);
 	DRM_UNLOCK();
 
+cleanup:
 	mtx_enter(&dev->event_lock);
 	intel_crtc->unpin_work = NULL;
 	mtx_leave(&dev->event_lock);
