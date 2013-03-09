@@ -1899,10 +1899,10 @@ i965_do_reset(struct drm_device *dev)
 	reg |= ((GRDOM_RENDER | GRDOM_RESET_ENABLE) << 24);
 	pci_conf_write(dev_priv->pc, dev_priv->tag, I965_GDRST, reg);
 
-	for (retries = 50; retries > 0 ; retries--) {
+	for (retries = 500; retries > 0 ; retries--) {
 		if (i965_reset_complete(dev))
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_ERROR("965 reset timed out\n");
@@ -1914,10 +1914,10 @@ i965_do_reset(struct drm_device *dev)
 	reg |= ((GRDOM_MEDIA | GRDOM_RESET_ENABLE) << 24);
 	pci_conf_write(dev_priv->pc, dev_priv->tag, I965_GDRST, reg);
 
-	for (retries = 50; retries > 0 ; retries--) {
+	for (retries = 500; retries > 0 ; retries--) {
 		if (i965_reset_complete(dev))
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_ERROR("965 reset 2 timed out\n");
@@ -1937,10 +1937,10 @@ ironlake_do_reset(struct drm_device *dev)
 	gdrst = I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR);
 	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
 		   gdrst | GRDOM_RENDER | GRDOM_RESET_ENABLE);
-	for (retries = 50; retries > 0 ; retries--) {
+	for (retries = 500; retries > 0 ; retries--) {
 		if (I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) & 0x1)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_ERROR("ironlake reset timed out\n");
@@ -1951,10 +1951,10 @@ ironlake_do_reset(struct drm_device *dev)
 	gdrst = I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR);
 	I915_WRITE(MCHBAR_MIRROR_BASE + ILK_GDSR,
 		   gdrst | GRDOM_MEDIA | GRDOM_RESET_ENABLE);
-	for (retries = 50; retries > 0 ; retries--) {
+	for (retries = 500; retries > 0 ; retries--) {
 		if (I915_READ(MCHBAR_MIRROR_BASE + ILK_GDSR) & 0x1)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_ERROR("ironlake reset timed out\n");
@@ -1985,10 +1985,10 @@ gen6_do_reset(struct drm_device *dev)
 	I915_WRITE_NOTRACE(GEN6_GDRST, GEN6_GRDOM_FULL);
 
 	/* Spin waiting for the device to ack the reset request */
-	for (retries = 50; retries > 0 ; retries--) {
+	for (retries = 500; retries > 0 ; retries--) {
 		if ((I915_READ_NOTRACE(GEN6_GDRST) & GEN6_GRDOM_FULL) == 0)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_ERROR("gen6 reset timed out\n");
