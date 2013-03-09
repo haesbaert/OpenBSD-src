@@ -1093,7 +1093,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		i915_load_modeset_init(dev);
 	intel_opregion_init(dev);
 
-#if 0
+#if 1
 {
 	extern int wsdisplay_console_initted;
 	struct wsemuldisplaydev_attach_args aa;
