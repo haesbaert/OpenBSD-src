@@ -679,8 +679,8 @@ int	sg_dmamap_load_buffer(bus_dma_tag_t, bus_dmamap_t, void *, bus_size_t,
 	    struct proc *, int, int *, int);
 int	sg_dmamap_load_physarray(bus_dma_tag_t, bus_dmamap_t, paddr_t *,
 	    int, int, int *, int);
+void	sg_dmamap_reload(bus_dma_tag_t, bus_dmamap_t, int);
 int	sg_dmamem_alloc(bus_dma_tag_t, bus_size_t, bus_size_t, bus_size_t,
 	    bus_dma_segment_t *, int, int *, int);
-
 
 #endif /* _MACHINE_BUS_H_ */

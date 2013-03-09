@@ -174,6 +174,12 @@ agp_bus_dma_set_alignment(bus_dma_tag_t tag, bus_dmamap_t dmam,
 	sg_dmamap_set_alignment(tag, dmam, alignment);
 }
 
+void
+agp_bus_dma_rebind(bus_dma_tag_t tag, bus_dmamap_t dmam, int flags)
+{
+	sg_dmamap_reload(tag, dmam, flags);
+}
+
 struct agp_map {
 	bus_space_tag_t		bst;
 	bus_space_handle_t	bsh;

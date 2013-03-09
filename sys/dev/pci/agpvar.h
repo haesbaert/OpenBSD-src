@@ -193,6 +193,7 @@ int	agp_bus_dma_init(struct agp_softc *, bus_addr_t, bus_addr_t,
 void	agp_bus_dma_destroy(struct agp_softc *, bus_dma_tag_t);
 void	agp_bus_dma_set_alignment(bus_dma_tag_t, bus_dmamap_t,
 	    u_long);
+void	agp_bus_dma_rebind(bus_dma_tag_t, bus_dmamap_t, int);
 
 void	*agp_map(struct agp_softc *, bus_addr_t, bus_size_t,
 	    bus_space_handle_t *);

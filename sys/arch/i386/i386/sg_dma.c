@@ -786,6 +786,18 @@ sg_dmamap_unload(bus_dma_tag_t t, bus_dmamap_t map)
 	_bus_dmamap_unload(t, map);
 }
 
+/* 
+ * Reload a dvmamap.
+ */
+void
+sg_dmamap_reload(bus_dma_tag_t t, bus_dmamap_t map, int flags)
+{
+	struct sg_cookie	*is = t->_cookie;
+	struct sg_page_map	*spm = map->_dm_cookie;
+
+	sg_iomap_load_map(is, spm, spm->spm_start, flags);
+}
+
 /*
  * Alloc dma safe memory, telling the backend that we're scatter gather
  * to ease pressure on the vm.
