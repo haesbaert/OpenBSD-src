@@ -662,7 +662,7 @@ inteldrm_alloc_screen(void *v, const struct wsscreen_descr *type,
 	struct inteldrm_softc *dev_priv = v;
 	struct rasops_info *ri = &dev_priv->ro;
 
-	if (dev_priv->nscreens > 0)
+	if (dev_priv->nscreens > 8)
 		return (ENOMEM);
 
 	*cookiep = ri;
@@ -1128,7 +1128,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	aa.scrdata = &inteldrm_screenlist;
 	aa.accessops = &inteldrm_accessops;
 	aa.accesscookie = dev_priv;
-	aa.defaultscreens = 1;
+	aa.defaultscreens = 0;
 
 	if (wsdisplay_console_initted) {
 		long defattr;
