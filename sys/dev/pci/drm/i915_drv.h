@@ -1039,7 +1039,7 @@ int	i915_gem_madvise_ioctl(struct drm_device *, void *, struct drm_file *);
 /* GEM memory manager functions */
 int	i915_gem_init_object(struct drm_obj *);
 void	i915_gem_free_object(struct drm_obj *);
-int	i915_gem_object_pin(struct drm_i915_gem_object *, uint32_t, int);
+int	i915_gem_object_pin(struct drm_i915_gem_object *, uint32_t, bool);
 void	i915_gem_object_unpin(struct drm_i915_gem_object *);
 void	i915_gem_retire_request(struct inteldrm_softc *,
 	    struct drm_i915_gem_request *);

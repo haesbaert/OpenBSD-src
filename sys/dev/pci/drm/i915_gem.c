@@ -654,17 +654,12 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 
 	if (obj->dmamap == NULL) {
 		ret = i915_gem_object_bind_to_gtt(obj, 0);
-		if (ret) {
-			printf("%s: failed to bind\n", __func__);
+		if (ret)
 			goto error;
-		}
 
 		ret = i915_gem_object_set_to_gtt_domain(obj, write);
-		if (ret) {
-			panic("%s: failed to set to gtt (%d)\n",
-			    __func__, ret);
+		if (ret)
 			goto error;
-		}
 	}
 
 	if (obj->tiling_mode == I915_TILING_NONE)
@@ -1442,6 +1437,8 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 
 	list_del_init(&obj->gtt_list);
 	list_del_init(&obj->mm_list);
+	/* Avoid an unnecessary call to unbind on rebind. */
+	obj->map_and_fenceable = true;
 
 	obj->gtt_offset = 0;
 	atomic_dec(&dev->gtt_count);
@@ -1800,17 +1797,16 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 	uint32_t flags;
 
 	DRM_ASSERT_HELD(&obj->base);
-	if (dev_priv->agpdmat == NULL)
-		return (EINVAL);
+
+	if (obj->madv != I915_MADV_WILLNEED) {
+		DRM_ERROR("Attempting to bind a purgeable object\n");
+		return EINVAL;
+	}
+
 	if (alignment == 0) {
 		alignment = i915_gem_get_gtt_alignment(&obj->base);
 	} else if (alignment & (i915_gem_get_gtt_alignment(&obj->base) - 1)) {
 		DRM_ERROR("Invalid object alignment requested %u\n", alignment);
-		return (EINVAL);
-	}
-
-	if (obj->madv != I915_MADV_WILLNEED) {
-		DRM_ERROR("Attempting to bind a purgeable object\n");
 		return (EINVAL);
 	}
 
@@ -1863,17 +1859,17 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 
 	list_move_tail(&obj->gtt_list, &dev_priv->mm.bound_list);
 
-	obj->gtt_offset = obj->dmamap->dm_segs[0].ds_addr - dev->agp->base;
-
-	atomic_inc(&dev->gtt_count);
-	atomic_add(obj->base.size, &dev->gtt_memory);
-
 	/* Assert that the object is not currently in any GPU domain. As it
 	 * wasn't in the GTT, there shouldn't be any way it could have been in
 	 * a GPU cache
 	 */
-	KASSERT((obj->base.read_domains & I915_GEM_GPU_DOMAINS) == 0);
-	KASSERT((obj->base.write_domain & I915_GEM_GPU_DOMAINS) == 0);
+	BUG_ON(obj->base.read_domains & I915_GEM_GPU_DOMAINS);
+	BUG_ON(obj->base.write_domain & I915_GEM_GPU_DOMAINS);
+
+	obj->gtt_offset = obj->dmamap->dm_segs[0].ds_addr - dev->agp->base;
+
+	atomic_inc(&dev->gtt_count);
+	atomic_add(obj->base.size, &dev->gtt_memory);
 
 	return (0);
 
@@ -2284,14 +2280,16 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 }
 
 int
-i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
-    int needs_fence)
+i915_gem_object_pin(struct drm_i915_gem_object *obj,
+		    uint32_t alignment,
+		    bool map_and_fenceable)
 {
 	struct drm_device	*dev = obj->base.dev;
 	int			 ret;
 
 	DRM_ASSERT_HELD(&obj->base);
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
+
 	/*
 	 * if already bound, but alignment is unsuitable, unbind so we can
 	 * fix it. Similarly if we have constraints due to fence registers,
@@ -2333,14 +2331,11 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj, uint32_t alignment,
 	 * With execbuf2 support we don't always need it, but if we do grab
 	 * it.
 	 */
-	if (needs_fence && obj->tiling_mode != I915_TILING_NONE &&
+	if (map_and_fenceable && obj->tiling_mode != I915_TILING_NONE &&
 	    (ret = i915_gem_object_get_fence(obj)) != 0)
 		return (ret);
 
-	/* If the object is not active and not pending a flush,
-	 * remove it from the inactive list
-	 */
-	if (++obj->pin_count == 1) {
+	if (obj->pin_count++ == 0) {
 		atomic_inc(&dev->pin_count);
 		atomic_add(obj->base.size, &dev->pin_memory);
 		if (!obj->active)
@@ -2357,15 +2352,12 @@ i915_gem_object_unpin(struct drm_i915_gem_object *obj)
 	struct drm_device	*dev = obj->base.dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 
-	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
-	KASSERT(obj->pin_count >= 1);
-	KASSERT(obj->dmamap != NULL);
 	DRM_ASSERT_HELD(&obj->base);
+	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
-	/* If the object is no longer pinned, and is
-	 * neither active nor being flushed, then stick it on
-	 * the inactive list
-	 */
+	BUG_ON(obj->pin_count == 0);
+	BUG_ON(obj->dmamap == NULL);
+
 	if (--obj->pin_count == 0) {
 		if (!obj->active)
 			list_move_tail(&obj->mm_list,
