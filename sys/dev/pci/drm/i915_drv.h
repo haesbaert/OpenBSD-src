@@ -639,6 +639,10 @@ struct inteldrm_softc {
 	bool modeset_on_lid;
 
 	struct {
+		/** List of all objects in gtt_space. Used to restore gtt
+		 * mappings on resume */
+		struct list_head bound_list;
+
 		/**
 		 * List of objects currently involved in rendering from the
 		 * ringbuffer.
@@ -846,6 +850,8 @@ struct inteldrm_file {
 /** driver private structure attached to each drm_gem_object */
 struct drm_i915_gem_object {
 	struct drm_obj				 base;
+
+	struct list_head gtt_list;
 
 	/** This object's place on the active/flushing/inactive lists */
 	struct list_head			 ring_list;
@@ -1217,6 +1223,8 @@ extern void opregion_enable_asle(struct drm_device *dev);
 /* i915_gem_gtt.c */
 void i915_gem_cleanup_aliasing_ppgtt(struct drm_device *dev);
 void i915_gem_restore_gtt_mappings(struct drm_device *dev);
+void i915_gem_gtt_rebind_object(struct drm_i915_gem_object *obj,
+				enum i915_cache_level);
 
 /* modesetting */
 extern void intel_modeset_init_hw(struct drm_device *dev);

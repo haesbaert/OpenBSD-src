@@ -992,6 +992,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	/* GEM init */
 	INIT_LIST_HEAD(&dev_priv->mm.active_list);
 	INIT_LIST_HEAD(&dev_priv->mm.inactive_list);
+	INIT_LIST_HEAD(&dev_priv->mm.bound_list);
 	INIT_LIST_HEAD(&dev_priv->mm.fence_list);
 	for (i = 0; i < I915_NUM_RINGS; i++)
 		init_ring_lists(&dev_priv->rings[i]);
