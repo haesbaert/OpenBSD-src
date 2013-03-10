@@ -1496,31 +1496,6 @@ done:
 	return (ret);
 }
 
-void
-inteldrm_purge_obj(struct drm_obj *obj)
-{
-	struct drm_i915_gem_object	*obj_priv = to_intel_bo(obj);
-
-	DRM_ASSERT_HELD(obj);
-	/*
-	 * may sleep. We free here instead of deactivate (which
-	 * the madvise() syscall would do) because in this case
-	 * (userland bo cache and GL_APPLE_object_purgeable objects in
-	 * OpenGL) the pages are defined to be freed if they were cleared
-	 * so kill them and free up the memory
-	 */
-	simple_lock(&obj->uao->vmobjlock);
-	obj->uao->pgops->pgo_flush(obj->uao, 0, obj->size,
-	    PGO_ALLPAGES | PGO_FREE);
-	simple_unlock(&obj->uao->vmobjlock);
-
-	/*
-	 * If flush failed, it may have halfway through, so just
-	 * always mark as purged
-	 */
-	obj_priv->madv = __I915_MADV_PURGED;
-}
-
 struct drm_obj *
 i915_gem_find_inactive_object(struct inteldrm_softc *dev_priv,
     size_t min_size)

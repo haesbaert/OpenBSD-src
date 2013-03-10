@@ -74,6 +74,7 @@ void i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *);
 void i915_gem_request_remove_from_client(struct drm_i915_gem_request *);
 int i915_gem_object_flush_active(struct drm_i915_gem_object *);
 int i915_gem_check_olr(struct intel_ring_buffer *, u32);
+void i915_gem_object_truncate(struct drm_i915_gem_object *obj);
 
 extern int ticks;
 
@@ -872,7 +873,20 @@ i915_gem_mmap_gtt_ioctl(struct drm_device *dev, void *data,
 	return (i915_gem_mmap_gtt(file, dev, args->handle, &args->offset));
 }
 
-// i915_gem_object_truncate
+/* Immediately discard the backing storage */
+void
+i915_gem_object_truncate(struct drm_i915_gem_object *obj)
+{
+	DRM_ASSERT_HELD(&obj->base);
+
+	simple_lock(&obj->base.uao->vmobjlock);
+	obj->base.uao->pgops->pgo_flush(obj->base.uao, 0, obj->base.size,
+	    PGO_ALLPAGES | PGO_FREE);
+	simple_unlock(&obj->base.uao->vmobjlock);
+
+	obj->madv = __I915_MADV_PURGED;
+}
+
 // i915_gem_object_is_purgeable
 // i915_gem_object_put_pages_gtt
 // i915_gem_object_put_pages
@@ -1434,7 +1448,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	atomic_sub(obj->base.size, &dev->gtt_memory);
 
 	if (i915_gem_object_is_purgeable(obj))
-		inteldrm_purge_obj(&obj->base);
+		i915_gem_object_truncate(obj);
 
 	return (0);
 }
@@ -2515,9 +2529,8 @@ i915_gem_madvise_ioctl(struct drm_device *dev, void *data,
 		obj->madv = args->madv;
 
 	/* if the object is no longer bound, discard its backing storage */
-	if (i915_gem_object_is_purgeable(obj) &&
-	    obj->dmamap == NULL)
-		inteldrm_purge_obj(&obj->base);
+	if (i915_gem_object_is_purgeable(obj) && obj->dmamap == NULL)
+		i915_gem_object_truncate(obj);
 
 	args->retained = obj->madv != __I915_MADV_PURGED;
 
