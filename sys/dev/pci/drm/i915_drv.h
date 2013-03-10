@@ -1068,8 +1068,6 @@ void	i915_dispatch_gem_execbuffer(struct intel_ring_buffer *,
 int	i915_gem_object_pin_and_relocate(struct drm_obj *,
 	    struct drm_file *, struct drm_i915_gem_exec_object2 *,
 	    struct drm_i915_gem_relocation_entry *);
-int	i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *,
-	    bus_size_t);
 
 struct drm_obj	*i915_gem_find_inactive_object(struct inteldrm_softc *,
 		     size_t);
@@ -1084,7 +1082,6 @@ int	i915_gem_object_set_to_cpu_domain(struct drm_i915_gem_object *,
 	    bool);
 int	i915_gem_object_flush_gpu_write_domain(struct drm_i915_gem_object *);
 int	i915_gem_object_wait_rendering(struct drm_i915_gem_object *, bool);
-bus_size_t	i915_gem_get_gtt_alignment(struct drm_obj *);
 
 int	i915_gem_init(struct drm_device *);
 int	i915_gem_mmap_gtt(struct drm_file *, struct drm_device *,
@@ -1208,6 +1205,12 @@ int i915_gem_object_put_fence(struct drm_i915_gem_object *);
 void i915_gem_reset(struct drm_device *);
 void i915_gem_clflush_object(struct drm_i915_gem_object *);
 void i915_gem_release(struct drm_device *, struct drm_file *);
+
+uint32_t
+i915_gem_get_unfenced_gtt_alignment(struct drm_device *dev,
+				    uint32_t size,
+				    int tiling_mode);
+
 int i915_gem_object_sync(struct drm_i915_gem_object *,
     struct intel_ring_buffer *);
 

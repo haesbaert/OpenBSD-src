@@ -57,6 +57,10 @@
 #include <sys/workq.h>
 
 void i915_gem_release_mmap(struct drm_i915_gem_object *);
+uint32_t i915_gem_get_gtt_size(struct drm_device *dev, uint32_t size,
+			       int tiling_mode);
+uint32_t i915_gem_get_gtt_alignment(struct drm_device *dev,
+				    uint32_t size, int tiling_mode);
 void i915_gem_object_finish_gtt(struct drm_i915_gem_object *);
 void i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *);
 int i915_gem_init_phys_object(struct drm_device *, int, int, int);
@@ -75,6 +79,8 @@ void i915_gem_request_remove_from_client(struct drm_i915_gem_request *);
 int i915_gem_object_flush_active(struct drm_i915_gem_object *);
 int i915_gem_check_olr(struct intel_ring_buffer *, u32);
 void i915_gem_object_truncate(struct drm_i915_gem_object *obj);
+int i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
+				unsigned alignment, bool map_and_fenceable);
 
 extern int ticks;
 
@@ -640,20 +646,15 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 	 */
 	drm_unlock_obj(&obj->base);
 
-	if (obj->dmamap != NULL &&
-	    (obj->gtt_offset & (i915_gem_get_gtt_alignment(&obj->base) - 1) ||
-	    (!i915_gem_object_fence_ok(obj, obj->tiling_mode)))) {
-		/*
-		 * pinned objects are defined to have a sane alignment which can
-		 * not change.
-		 */
-		KASSERT(obj->pin_count == 0);
-		if ((ret = i915_gem_object_unbind(obj)))
+	/* Now bind into the GTT if needed */
+	if (!obj->map_and_fenceable) {
+		ret = i915_gem_object_unbind(obj);
+		if (ret)
 			goto error;
 	}
 
 	if (obj->dmamap == NULL) {
-		ret = i915_gem_object_bind_to_gtt(obj, 0);
+		ret = i915_gem_object_bind_to_gtt(obj, 0, true);
 		if (ret)
 			goto error;
 
@@ -760,43 +761,83 @@ i915_gem_release_mmap(struct drm_i915_gem_object *obj)
 	obj->fault_mappable = false;
 }
 
-// i915_gem_get_gtt_size
-
-/*
- * return required GTT alignment for an object, taking into account potential
- * fence register needs
- */
-bus_size_t
-i915_gem_get_gtt_alignment(struct drm_obj *obj)
+uint32_t
+i915_gem_get_gtt_size(struct drm_device *dev, uint32_t size, int tiling_mode)
 {
-	struct drm_device	*dev = obj->dev;
-	struct drm_i915_gem_object *obj_priv = to_intel_bo(obj);
-	bus_size_t		 start, i;
+	uint32_t gtt_size;
 
-	/*
-	 * Minimum alignment is 4k (GTT page size), but fence registers may
-	 * modify this
-	 */
 	if (INTEL_INFO(dev)->gen >= 4 ||
-	    obj_priv->tiling_mode == I915_TILING_NONE)
-		return (4096);
+	    tiling_mode == I915_TILING_NONE)
+		return size;
 
-	/*
-	 * Older chips need to be aligned to the size of the smallest fence
-	 * register that can contain the object.
-	 */
-	if (IS_I9XX(dev))
-		start = 1024 * 1024;
+	/* Previous chips need a power-of-two fence region when tiling */
+	if (INTEL_INFO(dev)->gen == 3)
+		gtt_size = 1024*1024;
 	else
-		start = 512 * 1024;
+		gtt_size = 512*1024;
 
-	for (i = start; i < obj->size; i <<= 1)
-		;
+	while (gtt_size < size)
+		gtt_size <<= 1;
 
-	return (i);
+	return gtt_size;
 }
 
-// i915_gem_get_unfenced_gtt_alignment
+/**
+ * i915_gem_get_gtt_alignment - return required GTT alignment for an object
+ * @obj: object to check
+ *
+ * Return the required GTT alignment for an object, taking into account
+ * potential fence register mapping.
+ */
+uint32_t
+i915_gem_get_gtt_alignment(struct drm_device *dev,
+			   uint32_t size,
+			   int tiling_mode)
+{
+	/*
+	 * Minimum alignment is 4k (GTT page size), but might be greater
+	 * if a fence register is needed for the object.
+	 */
+	if (INTEL_INFO(dev)->gen >= 4 ||
+	    tiling_mode == I915_TILING_NONE)
+		return 4096;
+
+	/*
+	 * Previous chips need to be aligned to the size of the smallest
+	 * fence register that can contain the object.
+	 */
+	return i915_gem_get_gtt_size(dev, size, tiling_mode);
+}
+
+/**
+ * i915_gem_get_unfenced_gtt_alignment - return required GTT alignment for an
+ *					 unfenced object
+ * @dev: the device
+ * @size: size of the object
+ * @tiling_mode: tiling mode of the object
+ *
+ * Return the required GTT alignment for an object, only taking into account
+ * unfenced tiled surface requirements.
+ */
+uint32_t
+i915_gem_get_unfenced_gtt_alignment(struct drm_device *dev,
+				    uint32_t size,
+				    int tiling_mode)
+{
+	/*
+	 * Minimum alignment is 4k (GTT page size) for sane hw.
+	 */
+	if (INTEL_INFO(dev)->gen >= 4 || IS_G33(dev) ||
+	    tiling_mode == I915_TILING_NONE)
+		return 4096;
+
+	/* Previous hardware however needs to be aligned to a power-of-two
+	 * tile height. The simplest method for determining this is to reuse
+	 * the power-of-tile object size.
+	 */
+	return i915_gem_get_gtt_size(dev, size, tiling_mode);
+}
+
 // i915_gem_object_create_mmap_offset
 // i915_gem_object_free_mmap_offset
 
@@ -832,7 +873,7 @@ i915_gem_mmap_gtt(struct drm_file *file, struct drm_device *dev,
 		goto done;
 	}
 
-	ret = i915_gem_object_bind_to_gtt(obj, 0);
+	ret = i915_gem_object_bind_to_gtt(obj, 0, true);
 	if (ret) {
 		printf("%s: failed to bind\n", __func__);
 		goto done;
@@ -1481,7 +1522,7 @@ sandybridge_write_fence_reg(struct drm_device *dev, int reg,
 	uint64_t val;
 
 	if (obj) {
-		u32 size = obj->base.size;
+		u32 size = obj->dmamap->dm_segs[0].ds_len;
 
 		val = (uint64_t)((obj->gtt_offset + size - 4096) &
 				 0xfffff000) << 32;
@@ -1507,7 +1548,7 @@ i965_write_fence_reg(struct drm_device *dev, int reg,
 	uint64_t val;
 
 	if (obj) {
-		u32 size = obj->base.size;
+		u32 size = obj->dmamap->dm_segs[0].ds_len;
 
 		val = (uint64_t)((obj->gtt_offset + size - 4096) &
 				 0xfffff000) << 32;
@@ -1531,7 +1572,7 @@ i915_write_fence_reg(struct drm_device *dev, int reg,
 	u32 val;
 
 	if (obj) {
-		u32 size = obj->base.size;
+		u32 size = obj->dmamap->dm_segs[0].ds_len;
 		int pitch_val;
 		int tile_width;
 
@@ -1576,7 +1617,7 @@ i830_write_fence_reg(struct drm_device *dev, int reg,
 	uint32_t val;
 
 	if (obj) {
-		u32 size = obj->base.size;
+		u32 size = obj->dmamap->dm_segs[0].ds_len;
 		uint32_t pitch_val;
 
 		WARN((obj->gtt_offset & ~I830_FENCE_START_MASK) ||
@@ -1789,12 +1830,14 @@ i915_gem_object_get_fence(struct drm_i915_gem_object *obj)
  */
 int
 i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
-    bus_size_t alignment)
+    unsigned alignment, bool map_and_fenceable)
 {
 	struct drm_device *dev = obj->base.dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
+	u32 size, fence_size, fence_alignment, unfenced_alignment;
+	bool mappable, fenceable;
 	int ret;
-	uint32_t flags;
+	int flags;
 
 	DRM_ASSERT_HELD(&obj->base);
 
@@ -1803,15 +1846,40 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 		return EINVAL;
 	}
 
-	if (alignment == 0) {
-		alignment = i915_gem_get_gtt_alignment(&obj->base);
-	} else if (alignment & (i915_gem_get_gtt_alignment(&obj->base) - 1)) {
+	fence_size = i915_gem_get_gtt_size(dev,
+					   obj->base.size,
+					   obj->tiling_mode);
+	fence_alignment = i915_gem_get_gtt_alignment(dev,
+						     obj->base.size,
+						     obj->tiling_mode);
+	unfenced_alignment =
+		i915_gem_get_unfenced_gtt_alignment(dev,
+						    obj->base.size,
+						    obj->tiling_mode);
+
+	if (alignment == 0)
+		alignment = map_and_fenceable ? fence_alignment :
+						unfenced_alignment;
+	if (map_and_fenceable && alignment & (fence_alignment - 1)) {
 		DRM_ERROR("Invalid object alignment requested %u\n", alignment);
-		return (EINVAL);
+		return EINVAL;
 	}
 
-	if ((ret = bus_dmamap_create(dev_priv->agpdmat, obj->base.size, 1,
-	    obj->base.size, 0, BUS_DMA_WAITOK, &obj->dmamap)) != 0) {
+	size = map_and_fenceable ? fence_size : obj->base.size;
+
+#ifdef notyet
+	/* If the object is bigger than the entire aperture, reject it early
+	 * before evicting everything in a vain attempt to find space.
+	 */
+	if (obj->base.size >
+	    (map_and_fenceable ? dev_priv->mm.gtt_mappable_end : dev_priv->mm.gtt_total)) {
+		DRM_ERROR("Attempting to bind an object larger than the aperture\n");
+		return -E2BIG;
+	}
+#endif
+
+	if ((ret = bus_dmamap_create(dev_priv->agpdmat, size, 1,
+	    size, 0, BUS_DMA_WAITOK, &obj->dmamap)) != 0) {
 		DRM_ERROR("Failed to create dmamap\n");
 		return (ret);
 	}
@@ -1867,6 +1935,19 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 	BUG_ON(obj->base.write_domain & I915_GEM_GPU_DOMAINS);
 
 	obj->gtt_offset = obj->dmamap->dm_segs[0].ds_addr - dev->agp->base;
+
+	fenceable =
+		obj->dmamap->dm_segs[0].ds_len == fence_size &&
+		(obj->dmamap->dm_segs[0].ds_addr & (fence_alignment - 1)) == 0;
+
+#ifdef notyet
+	mappable =
+		obj->gtt_offset + obj->base.size <= dev_priv->mm.gtt_mappable_end;
+#else
+	mappable = true;
+#endif
+
+	obj->map_and_fenceable = mappable && fenceable;
 
 	atomic_inc(&dev->gtt_count);
 	atomic_add(obj->base.size, &dev->gtt_memory);
@@ -2290,28 +2371,27 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 	DRM_ASSERT_HELD(&obj->base);
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
-	/*
-	 * if already bound, but alignment is unsuitable, unbind so we can
-	 * fix it. Similarly if we have constraints due to fence registers,
-	 * adjust if needed. Note that if we are already pinned we may as well
-	 * fail because whatever depends on this alignment will render poorly
-	 * otherwise, so just fail the pin (with a printf so we can fix a
-	 * wrong userland).
-	 */
-	if (obj->dmamap != NULL &&
-	    ((alignment && obj->gtt_offset & (alignment - 1)) ||
-	    obj->gtt_offset & (i915_gem_get_gtt_alignment(&obj->base) - 1) ||
-	    !i915_gem_object_fence_ok(obj, obj->tiling_mode))) {
-		/* if it is already pinned we sanitised the alignment then */
-		KASSERT(obj->pin_count == 0);
-		if ((ret = i915_gem_object_unbind(obj)))
-			return (ret);
+	if (obj->dmamap != NULL) {
+		if ((alignment && obj->gtt_offset & (alignment - 1)) ||
+		    (map_and_fenceable && !obj->map_and_fenceable)) {
+			WARN(obj->pin_count,
+			     "bo is already pinned with incorrect alignment:"
+			     " offset=%x, req.alignment=%x, req.map_and_fenceable=%d,"
+			     " obj->map_and_fenceable=%d\n",
+			     obj->gtt_offset, alignment,
+			     map_and_fenceable,
+			     obj->map_and_fenceable);
+			ret = i915_gem_object_unbind(obj);
+			if (ret)
+				return ret;
+		}
 	}
 
 	if (obj->dmamap == NULL) {
-		ret = i915_gem_object_bind_to_gtt(obj, alignment);
-		if (ret != 0)
-			return (ret);
+		ret = i915_gem_object_bind_to_gtt(obj, alignment,
+						  map_and_fenceable);
+		if (ret)
+			return ret;
 	}
 
 	/*
