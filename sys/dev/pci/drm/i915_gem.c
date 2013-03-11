@@ -2371,7 +2371,7 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 	struct drm_i915_gem_request *request;
 	struct intel_ring_buffer *ring = NULL;
 	u32 seqno = 0;
-	int ret, retries;
+	int ret;
 
 	if (atomic_read(&dev_priv->mm.wedged))
 		return EIO;
@@ -2389,36 +2389,9 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 	if (seqno == 0)
 		return 0;
 
-	ret = 0;
-	mtx_enter(&dev_priv->irq_lock);
-	if (!i915_seqno_passed(ring->get_seqno(ring, false), seqno)) {
-		/* And wait for the seqno passing without holding any locks and
-		 * causing extra latency for others. This is safe as the irq
-		 * generation is designed to be run atomically and so is
-		 * lockless.
-		 */
-		if (ring->irq_get(ring)) {
-			while (ret == 0 &&
-			    !(i915_seqno_passed(ring->get_seqno(ring, false), seqno) ||
-			    atomic_read(&dev_priv->mm.wedged)))
-				ret = msleep(ring, &dev_priv->irq_lock, PCATCH,
-				    "915thr", 0);
-			ring->irq_put(ring);
-		} else {
-			for (retries = 300; retries > 0; retries--) {
-				if (i915_seqno_passed(ring->get_seqno(ring, false), seqno) ||
-				    atomic_read(&dev_priv->mm.wedged))
-					break;
-				DELAY(1000);
-			}
-			if (retries == 0)
-				ret = EBUSY;
-		}
-	}
-	mtx_leave(&dev_priv->irq_lock);
-
+	ret = __wait_seqno(ring, seqno, true, NULL);
 	if (ret == 0)
-		inteldrm_timeout(dev_priv);
+		timeout_add_sec(&dev_priv->mm.retire_timer, 0);
 
 	return ret;
 }
