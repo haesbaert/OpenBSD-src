@@ -56,6 +56,9 @@
 #include <sys/queue.h>
 #include <sys/workq.h>
 
+int i915_gem_object_needs_bit17_swizzle(struct drm_i915_gem_object *obj);
+int i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj);
+void i915_gem_object_put_pages_gtt(struct drm_i915_gem_object *obj);
 uint32_t i915_gem_get_gtt_size(struct drm_device *dev, uint32_t size,
 			       int tiling_mode);
 uint32_t i915_gem_get_gtt_alignment(struct drm_device *dev,
@@ -302,7 +305,15 @@ i915_gem_create_ioctl(struct drm_device *dev, void *data,
 	return (ret);
 }
 
-// i915_gem_object_needs_bit17_swizzle
+int
+i915_gem_object_needs_bit17_swizzle(struct drm_i915_gem_object *obj)
+{
+	drm_i915_private_t *dev_priv = obj->base.dev->dev_private;
+
+	return dev_priv->mm.bit_6_swizzle_x == I915_BIT_6_SWIZZLE_9_10_17 &&
+		obj->tiling_mode != I915_TILING_NONE;
+}
+
 // __copy_to_user_swizzled
 // __copy_from_user_swizzled
 // shmem_pread_fast
@@ -986,15 +997,94 @@ i915_gem_object_truncate(struct drm_i915_gem_object *obj)
 }
 
 // i915_gem_object_is_purgeable
-// i915_gem_object_put_pages_gtt
 // i915_gem_object_put_pages
 // __i915_gem_shrink
 // i915_gem_purge
 // i915_gem_shrink_all
-// i915_gem_object_get_pages_gtt
 // i915_gem_object_get_pages
 
-/* called locked */
+int
+i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
+{
+#if 0
+	int page_count, i;
+	struct address_space *mapping;
+	struct inode *inode;
+	struct page *page;
+
+	/* Get the list of pages out of our struct file.  They'll be pinned
+	 * at this point until we release them.
+	 */
+	page_count = obj->base.size / PAGE_SIZE;
+	BUG_ON(obj->pages != NULL);
+	obj->pages = drm_malloc_ab(page_count, sizeof(struct page *));
+	if (obj->pages == NULL)
+		return -ENOMEM;
+
+	inode = obj->base.filp->f_path.dentry->d_inode;
+	mapping = inode->i_mapping;
+	gfpmask |= mapping_gfp_mask(mapping);
+
+	for (i = 0; i < page_count; i++) {
+		page = shmem_read_mapping_page_gfp(mapping, i, gfpmask);
+		if (IS_ERR(page))
+			goto err_pages;
+
+		obj->pages[i] = page;
+	}
+#endif
+
+	if (i915_gem_object_needs_bit17_swizzle(obj))
+		i915_gem_object_do_bit_17_swizzle(obj);
+
+	return 0;
+
+#if 0
+err_pages:
+	while (i--)
+		page_cache_release(obj->pages[i]);
+
+	drm_free_large(obj->pages);
+	obj->pages = NULL;
+	return PTR_ERR(page);
+#endif
+}
+
+void
+i915_gem_object_put_pages_gtt(struct drm_i915_gem_object *obj)
+{
+#if 0
+	int page_count = obj->base.size / PAGE_SIZE;
+	int i;
+#endif
+
+	BUG_ON(obj->madv == __I915_MADV_PURGED);
+
+	if (i915_gem_object_needs_bit17_swizzle(obj))
+		i915_gem_object_save_bit_17_swizzle(obj);
+
+	if (obj->madv == I915_MADV_DONTNEED)
+		obj->dirty = 0;
+
+#if 0
+	for (i = 0; i < page_count; i++) {
+		if (obj->dirty)
+			set_page_dirty(obj->pages[i]);
+
+		if (obj->madv == I915_MADV_WILLNEED)
+			mark_page_accessed(obj->pages[i]);
+
+		page_cache_release(obj->pages[i]);
+	}
+#endif
+	obj->dirty = 0;
+
+#if 0
+	drm_free_large(obj->pages);
+	obj->pages = NULL;
+#endif
+}
+
 void
 i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 			       struct intel_ring_buffer *ring)
@@ -1519,15 +1609,11 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	if (ret == ERESTART || ret == EINTR)
 		return ret;
 
-	KASSERT(!obj->active);
+	i915_gem_object_put_pages_gtt(obj);
 
-	/* if it's purgeable don't bother dirtying the pages */
-	if (i915_gem_object_is_purgeable(obj))
-		obj->dirty = 0;
 	/*
 	 * unload the map, then unwire the backing object.
 	 */
-	i915_gem_object_save_bit_17_swizzle(obj);
 	bus_dmamap_unload(dev_priv->agpdmat, obj->dmamap);
 	uvm_objunwire(obj->base.uao, 0, obj->base.size);
 	/* XXX persistent dmamap worth the memory? */
@@ -1535,8 +1621,6 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	obj->dmamap = NULL;
 	free(obj->dma_segs, M_DRM);
 	obj->dma_segs = NULL;
-	/* XXX this should change whether we tell uvm the page is dirty */
-	obj->dirty = 0;
 
 	list_del_init(&obj->gtt_list);
 	list_del_init(&obj->mm_list);
@@ -1550,7 +1634,7 @@ i915_gem_object_unbind(struct drm_i915_gem_object *obj)
 	if (i915_gem_object_is_purgeable(obj))
 		i915_gem_object_truncate(obj);
 
-	return (0);
+	return ret;
 }
 
 int
@@ -1985,7 +2069,8 @@ i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 			goto error;
 		goto search_free;
 	}
-	i915_gem_object_save_bit_17_swizzle(obj);
+
+	i915_gem_object_get_pages_gtt(obj);
 
 	list_move_tail(&obj->gtt_list, &dev_priv->mm.bound_list);
 
