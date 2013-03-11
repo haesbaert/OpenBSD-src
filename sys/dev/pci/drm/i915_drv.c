@@ -72,7 +72,7 @@ int i915_panel_ignore_lid = 1;
 unsigned int i915_powersave = 1;
 
 /* Use semaphores for inter-ring sync (default: -1 (use per-chip defaults)) */
-int i915_semaphores = 0;
+int i915_semaphores = -1;
 
 /*
  * Enable frame buffer compression for power savings
