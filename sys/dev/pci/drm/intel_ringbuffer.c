@@ -797,10 +797,7 @@ gen6_ring_get_seqno(struct intel_ring_buffer *ring, bool lazy_coherency)
 	/* Workaround to force correct ordering between irq and seqno writes on
 	 * ivb (and maybe also on snb) by reading from a CS register (like
 	 * ACTHD) before reading the status page. */
-#ifdef notyet
-	/* XXX conditionally doing this seems to make everything laggy */
 	if (!lazy_coherency)
-#endif
 		intel_ring_get_active_head(ring);
 	return intel_read_status_page(ring, I915_GEM_HWS_INDEX);
 }
