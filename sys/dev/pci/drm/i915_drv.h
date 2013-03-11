@@ -439,9 +439,8 @@ struct intel_gen6_power_mgmt {
 	u8 min_delay;
 	u8 max_delay;
 
-#if 0
-	struct delayed_work delayed_resume_work;
-#endif
+	struct workq_task delayed_resume_task;
+	struct timeout delayed_resume_to;
 
 	/*
 	 * Protects RPS/RC6 register access and PCU communication.

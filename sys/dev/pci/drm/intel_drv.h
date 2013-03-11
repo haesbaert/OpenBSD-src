@@ -376,7 +376,8 @@ struct intel_unpin_work {
 };
 
 struct intel_fbc_work {
-//	struct delayed_work work;
+	struct workq_task task;
+	struct timeout to;
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb;
 	int interval;

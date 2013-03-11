@@ -147,6 +147,12 @@ void	 vlv_force_wake_get(struct inteldrm_softc *);
 void	 vlv_force_wake_put(struct inteldrm_softc *);
 void	 intel_gt_reset(struct drm_device *);
 void	 intel_gt_init(struct drm_device *);
+void	 intel_fbc_work_tick(void *);
+void	 intel_fbc_work_fn(void *, void *);
+void	 intel_gen6_powersave_tick(void *);
+void	 intel_gen6_powersave_work(void *, void *);
+
+extern int ticks;
 
 bool
 intel_crtc_active(struct drm_crtc *crtc)
@@ -385,13 +391,19 @@ intel_fbc_enabled(struct drm_device *dev)
 	return dev_priv->display.fbc_enabled(dev);
 }
 
-#ifdef notyet
 void
-intel_fbc_work_fn(struct work_struct *__work)
+intel_fbc_work_tick(void *arg)
 {
-	struct intel_fbc_work *work =
-		container_of(to_delayed_work(__work),
-			     struct intel_fbc_work, work);
+	struct intel_fbc_work *work = arg;
+
+	workq_queue_task(NULL, &work->task, 0,
+	    intel_fbc_work_fn, work, NULL);
+}
+
+void
+intel_fbc_work_fn(void *arg1, void *arg2)
+{
+	struct intel_fbc_work *work = arg1;
 	struct drm_device *dev = work->crtc->dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 
@@ -415,7 +427,6 @@ intel_fbc_work_fn(struct work_struct *__work)
 
 	free(work, M_DRM);
 }
-#endif
 
 void
 intel_cancel_fbc_work(struct inteldrm_softc *dev_priv)
@@ -429,11 +440,9 @@ intel_cancel_fbc_work(struct inteldrm_softc *dev_priv)
 	 * dev_priv->fbc_work, so we can perform the cancellation
 	 * entirely asynchronously.
 	 */
-#ifdef notyet
-	if (cancel_delayed_work(&dev_priv->fbc_work->work))
+	if (timeout_del(&dev_priv->fbc_work->to))
 		/* tasklet was killed before being run, clean up */
 		free(dev_priv->fbc_work, M_DRM);
-#endif
 
 	/* Mark the work as no longer wanted so that if it does
 	 * wake-up (because the work was already running and waiting
@@ -464,7 +473,7 @@ intel_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	work->crtc = crtc;
 	work->fb = crtc->fb;
 	work->interval = interval;
-//	INIT_DELAYED_WORK(&work->work, intel_fbc_work_fn);
+	timeout_set(&work->to, intel_fbc_work_tick, work);
 
 	dev_priv->fbc_work = work;
 
@@ -481,7 +490,7 @@ intel_enable_fbc(struct drm_crtc *crtc, unsigned long interval)
 	 * and indeed performing the enable as a co-routine and not
 	 * waiting synchronously upon the vblank.
 	 */
-//	schedule_delayed_work(&work->work, msecs_to_jiffies(50));
+	timeout_add_msec(&work->to, 50);
 }
 
 void
@@ -2420,9 +2429,6 @@ intel_update_sprite_watermarks(struct drm_device *dev, int pipe,
 struct drm_i915_gem_object *
 intel_alloc_context_page(struct drm_device *dev)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
 	struct drm_i915_gem_object *ctx;
 	int ret;
 
@@ -2436,7 +2442,7 @@ intel_alloc_context_page(struct drm_device *dev)
 		return NULL;
 	}
 
-	ret = i915_gem_object_pin(ctx, 4096, true, false);
+	ret = i915_gem_object_pin(ctx, 4096, true /*, false */);
 	if (ret) {
 		DRM_ERROR("failed to pin power context: %d\n", ret);
 		goto err_unref;
@@ -2454,9 +2460,8 @@ err_unpin:
 	i915_gem_object_unpin(ctx);
 err_unref:
 	drm_gem_object_unreference(&ctx->base);
-	mutex_unlock(&dev->struct_mutex);
+	DRM_UNLOCK();
 	return NULL;
-#endif
 }
 
 struct mutex mchdev_lock;
@@ -2555,7 +2560,7 @@ ironlake_enable_drps(struct drm_device *dev)
 
 	dev_priv->ips.last_count1 = I915_READ(0x112e4) + I915_READ(0x112e8) +
 		I915_READ(0x112e0);
-//	dev_priv->ips.last_time1 = jiffies_to_msecs(jiffies);
+	dev_priv->ips.last_time1 = jiffies_to_msecs(ticks);
 	dev_priv->ips.last_count2 = I915_READ(0x112f4);
 	nanotime(&dev_priv->ips.last_time2);
 
@@ -2845,8 +2850,6 @@ gen6_enable_rps(struct drm_device *dev)
 void
 gen6_update_ring_freq(struct drm_device *dev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	int min_freq = 15;
 	int gpu_freq;
@@ -2855,6 +2858,7 @@ gen6_update_ring_freq(struct drm_device *dev)
 
 	rw_assert_wrlock(&dev_priv->rps.hw_lock);
 
+#ifdef notyet
 	max_ia_freq = cpufreq_quick_get_max(0);
 	/*
 	 * Default to measured freq if none found, PCU will ensure we don't go
@@ -2865,6 +2869,10 @@ gen6_update_ring_freq(struct drm_device *dev)
 
 	/* Convert from kHz to MHz */
 	max_ia_freq /= 1000;
+#else
+	/* we ideally want the max so avoid cpuspeed */
+	max_ia_freq = (curcpu()->ci_tsc_freq + 4999) / 1000000;
+#endif
 
 	/*
 	 * For each potential GPU frequency, load a ring frequency we'd like
@@ -2874,6 +2882,7 @@ gen6_update_ring_freq(struct drm_device *dev)
 	for (gpu_freq = dev_priv->rps.max_delay; gpu_freq >= dev_priv->rps.min_delay;
 	     gpu_freq--) {
 		int diff = dev_priv->rps.max_delay - gpu_freq;
+		int d;
 
 		/*
 		 * For GPU frequencies less than 750MHz, just use the lowest
@@ -2883,14 +2892,14 @@ gen6_update_ring_freq(struct drm_device *dev)
 			ia_freq = 800;
 		else
 			ia_freq = max_ia_freq - ((diff * scaling_factor) / 2);
-		ia_freq = DIV_ROUND_CLOSEST(ia_freq, 100);
+		d = 100;
+		ia_freq = (ia_freq + d / 2) / d;
 		ia_freq <<= GEN6_PCODE_FREQ_IA_RATIO_SHIFT;
 
 		sandybridge_pcode_write(dev_priv,
 					GEN6_PCODE_WRITE_MIN_FREQ_TABLE,
 					ia_freq | gpu_freq);
 	}
-#endif
 }
 
 void
@@ -3052,12 +3061,9 @@ static const struct cparams {
 unsigned long
 __i915_chipset_val(struct inteldrm_softc *dev_priv)
 {
-	printf("%s stub\n", __func__);
-	return 0;
-#ifdef notyet
 	u64 total_count, diff, ret;
 	u32 count1, count2, count3, m = 0, c = 0;
-	unsigned long now = jiffies_to_msecs(jiffies), diff1;
+	unsigned long now = jiffies_to_msecs(ticks), diff1;
 	int i;
 
 //	assert_spin_locked(&mchdev_lock);
@@ -3095,9 +3101,9 @@ __i915_chipset_val(struct inteldrm_softc *dev_priv)
 		}
 	}
 
-	diff = div_u64(diff, diff1);
+	diff = diff / diff1;
 	ret = ((m * diff) + c);
-	ret = div_u64(ret, 10);
+	ret = ret / 10;
 
 	dev_priv->ips.last_count1 = total_count;
 	dev_priv->ips.last_time1 = now;
@@ -3105,7 +3111,6 @@ __i915_chipset_val(struct inteldrm_softc *dev_priv)
 	dev_priv->ips.chipset_power = ret;
 
 	return ret;
-#endif
 }
 
 unsigned long
@@ -3286,8 +3291,6 @@ pvid_to_extvid(struct inteldrm_softc *dev_priv, u8 pxvid)
 void
 __i915_update_gfx_val(struct inteldrm_softc *dev_priv)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct timespec now, diff1;
 	u64 diff;
 	unsigned long diffms;
@@ -3296,7 +3299,7 @@ __i915_update_gfx_val(struct inteldrm_softc *dev_priv)
 //	assert_spin_locked(&mchdev_lock);
 
 	nanotime(&now);
-	diff1 = timespec_sub(now, dev_priv->ips.last_time2);
+	timespecsub(&now, &dev_priv->ips.last_time2, &diff1);
 
 	/* Don't divide by 0 */
 	diffms = diff1.tv_sec * 1000 + diff1.tv_nsec / 1000000;
@@ -3317,9 +3320,8 @@ __i915_update_gfx_val(struct inteldrm_softc *dev_priv)
 
 	/* More magic constants... */
 	diff = diff * 1181;
-	diff = div_u64(diff, diffms * 10);
+	diff = diff / (diffms * 10);
 	dev_priv->ips.gfx_power = diff;
-#endif
 }
 
 void
@@ -3654,22 +3656,26 @@ intel_disable_gt_powersave(struct drm_device *dev)
 		ironlake_disable_drps(dev);
 		ironlake_disable_rc6(dev);
 	} else if (INTEL_INFO(dev)->gen >= 6 && !IS_VALLEYVIEW(dev)) {
-#ifdef notyet
-		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
-#endif
+		timeout_del(&dev_priv->rps.delayed_resume_to);
 		rw_enter_write(&dev_priv->rps.hw_lock);
 		gen6_disable_rps(dev);
 		rw_exit_write(&dev_priv->rps.hw_lock);
 	}
 }
 
-#ifdef notyet
 void
-intel_gen6_powersave_work(struct work_struct *work)
+intel_gen6_powersave_tick(void *arg)
 {
-	struct inteldrm_softc *dev_priv =
-		container_of(work, struct inteldrm_softc,
-			     rps.delayed_resume_work.work);
+	drm_i915_private_t *dev_priv = arg;
+
+	workq_queue_task(NULL, &dev_priv->rps.delayed_resume_task, 0,
+	    intel_gen6_powersave_work, dev_priv, NULL);
+}
+
+void
+intel_gen6_powersave_work(void *arg1, void *arg2)
+{
+	drm_i915_private_t *dev_priv = arg1;
 	struct drm_device *dev = (struct drm_device *)dev_priv->drmdev;
 
 	rw_enter_write(&dev_priv->rps.hw_lock);
@@ -3677,12 +3683,11 @@ intel_gen6_powersave_work(struct work_struct *work)
 	gen6_update_ring_freq(dev);
 	rw_exit_write(&dev_priv->rps.hw_lock);
 }
-#endif
 
 void
 intel_enable_gt_powersave(struct drm_device *dev)
 {
-//	struct inteldrm_softc *dev_priv = dev->dev_private;
+	struct inteldrm_softc *dev_priv = dev->dev_private;
 
 	if (IS_IRONLAKE_M(dev)) {
 		ironlake_enable_drps(dev);
@@ -3694,10 +3699,7 @@ intel_enable_gt_powersave(struct drm_device *dev)
 		 * done at any specific time, so do this out of our fast path
 		 * to make resume and init faster.
 		 */
-#ifdef notyet
-		schedule_delayed_work(&dev_priv->rps.delayed_resume_work,
-				      round_jiffies_up_relative(HZ));
-#endif
+		timeout_add_sec(&dev_priv->rps.delayed_resume_to, 1);
 	}
 }
 
@@ -4685,10 +4687,8 @@ intel_gt_init(struct drm_device *dev)
 		dev_priv->gt.force_wake_get = __gen6_gt_force_wake_get;
 		dev_priv->gt.force_wake_put = __gen6_gt_force_wake_put;
 	}
-#ifdef notyet
-	INIT_DELAYED_WORK(&dev_priv->rps.delayed_resume_work,
-			  intel_gen6_powersave_work);
-#endif
+	timeout_set(&dev_priv->rps.delayed_resume_to, intel_gen6_powersave_tick,
+	    dev_priv);
 }
 
 int
