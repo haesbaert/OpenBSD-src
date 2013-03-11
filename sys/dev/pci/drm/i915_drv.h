@@ -1208,6 +1208,7 @@ int i915_gem_object_put_fence(struct drm_i915_gem_object *);
 void i915_gem_reset(struct drm_device *);
 void i915_gem_clflush_object(struct drm_i915_gem_object *);
 void i915_gem_release(struct drm_device *, struct drm_file *);
+void i915_gem_release_mmap(struct drm_i915_gem_object *);
 
 uint32_t
 i915_gem_get_unfenced_gtt_alignment(struct drm_device *dev,
