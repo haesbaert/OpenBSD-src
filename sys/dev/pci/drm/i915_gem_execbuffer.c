@@ -342,7 +342,9 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 	if (ret != 0)
 		goto pre_mutex_err;
 
-	DRM_LOCK();
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		goto pre_mutex_err;
 	inteldrm_verify_inactive(dev_priv, __FILE__, __LINE__);
 
 	/* XXX check these before we copyin... but we do need the lock */
