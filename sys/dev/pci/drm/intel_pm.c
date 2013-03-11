@@ -2557,7 +2557,7 @@ ironlake_enable_drps(struct drm_device *dev)
 		I915_READ(0x112e0);
 //	dev_priv->ips.last_time1 = jiffies_to_msecs(jiffies);
 	dev_priv->ips.last_count2 = I915_READ(0x112f4);
-//	getrawmonotonic(&dev_priv->ips.last_time2);
+	nanotime(&dev_priv->ips.last_time2);
 
 //	spin_unlock_irq(&mchdev_lock);
 }
@@ -3295,7 +3295,7 @@ __i915_update_gfx_val(struct inteldrm_softc *dev_priv)
 
 //	assert_spin_locked(&mchdev_lock);
 
-	getrawmonotonic(&now);
+	nanotime(&now);
 	diff1 = timespec_sub(now, dev_priv->ips.last_time2);
 
 	/* Don't divide by 0 */
