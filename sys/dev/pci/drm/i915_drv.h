@@ -1170,7 +1170,7 @@ void	i915_gem_detect_bit_6_swizzle(struct inteldrm_softc *,
 void	i915_gem_object_do_bit_17_swizzle(struct drm_i915_gem_object *);
 void	i915_gem_object_save_bit_17_swizzle(struct drm_i915_gem_object *);
 int	i915_gem_swizzle_page(struct vm_page *page);
-int	i915_tiling_ok(struct drm_device *, int, int, int);
+bool	i915_tiling_ok(struct drm_device *, int, int, int);
 bool	i915_gem_object_fence_ok(struct drm_i915_gem_object *, int);
 
 /* i915_gem_debug.c */
