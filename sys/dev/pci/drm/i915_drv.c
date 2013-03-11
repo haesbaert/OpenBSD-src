@@ -1000,6 +1000,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	timeout_set(&dev_priv->hangcheck_timer, i915_hangcheck_elapsed, dev_priv);
 	dev_priv->next_seqno = 1;
 	dev_priv->mm.suspended = 1;
+	dev_priv->error_completion = 0;
 
 	/* On GEN3 we really need to make sure the ARB C3 LP bit is set */
 	if (IS_GEN3(dev)) {
@@ -1068,6 +1069,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	mtx_init(&dev_priv->rps.lock, IPL_NONE);
 	mtx_init(&dev_priv->dpio_lock, IPL_NONE);
 	mtx_init(&mchdev_lock, IPL_NONE);
+	mtx_init(&dev_priv->error_completion_lock, IPL_NONE);
 
 	rw_init(&dev_priv->rps.hw_lock, "rpshw");
 

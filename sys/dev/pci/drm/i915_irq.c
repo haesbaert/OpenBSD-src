@@ -943,7 +943,10 @@ i915_error_work_func(void *arg1, void *arg2)
 			atomic_set(&dev_priv->mm.wedged, 0);
 //			kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, reset_done_event);
 		}
-//		complete_all(&dev_priv->error_completion);
+		mtx_enter(&dev_priv->error_completion_lock);
+		dev_priv->error_completion++;
+		wakeup(&dev_priv->error_completion);
+		mtx_leave(&dev_priv->error_completion_lock);
 	}
 }
 

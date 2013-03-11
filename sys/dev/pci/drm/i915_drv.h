@@ -776,6 +776,9 @@ struct inteldrm_softc {
 
 	unsigned int fsb_freq, mem_freq, is_ddr3;
 
+	int error_completion;
+	struct mutex error_completion_lock;
+
 	time_t last_gpu_reset;
 
 	struct intel_fbdev *fbdev;

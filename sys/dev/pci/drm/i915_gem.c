@@ -81,6 +81,7 @@ int i915_gem_check_olr(struct intel_ring_buffer *, u32);
 void i915_gem_object_truncate(struct drm_i915_gem_object *obj);
 int i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 				unsigned alignment, bool map_and_fenceable);
+int i915_gem_wait_for_error(struct drm_device *);
 
 extern int ticks;
 
@@ -99,18 +100,48 @@ i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
 
 // i915_gem_info_add_obj
 // i915_gem_info_remove_obj
-// i915_gem_wait_for_error
+
+int
+i915_gem_wait_for_error(struct drm_device *dev)
+{
+	drm_i915_private_t *dev_priv= dev->dev_private;
+	int ret;
+
+	if (!atomic_read(&dev_priv->mm.wedged))
+		return (0);
+
+	/*
+	 * Only wait 10 seconds for the gpu reset to complete to avoid hanging
+	 * userspace. If it takes that long something really bad is going on and
+	 * we should simply try to bail out and fail as gracefully as possible.
+	 */
+	mtx_enter(&dev_priv->error_completion_lock);
+	while (dev_priv->error_completion == 0) {
+		ret = -msleep(&dev_priv->error_completion,
+		    &dev_priv->error_completion_lock, PCATCH, "915wco", 10*hz);
+		if (ret != 0) {
+			mtx_leave(&dev_priv->error_completion_lock);
+			return (ret);
+		}
+	}
+	mtx_leave(&dev_priv->error_completion_lock);
+
+	if (atomic_read(&dev_priv->mm.wedged)) {
+		mtx_enter(&dev_priv->error_completion_lock);
+		dev_priv->error_completion++;
+		mtx_leave(&dev_priv->error_completion_lock);
+	}
+	return (0);
+}
 
 int
 i915_mutex_lock_interruptible(struct drm_device *dev)
 {
 	int ret;
 
-#ifdef notyet
 	ret = i915_gem_wait_for_error(dev);
 	if (ret)
 		return ret;
-#endif
 
 	ret = rw_enter(&dev->dev_lock, RW_WRITE | RW_INTR);
 	if (ret)
@@ -426,8 +457,26 @@ int
 i915_gem_check_wedge(struct inteldrm_softc *dev_priv,
 		     bool interruptible)
 {
-	if (dev_priv->mm.wedged)
-		return (EIO);
+	if (atomic_read(&dev_priv->mm.wedged) != 0) {
+		bool recovery_complete;
+
+		/* Give the error handler a chance to run. */
+		mtx_enter(&dev_priv->error_completion_lock);
+		recovery_complete = (&dev_priv->error_completion) > 0;
+		mtx_leave(&dev_priv->error_completion_lock);
+		
+		/* Non-interruptible callers can't handle -EAGAIN, hence return
+		 * -EIO unconditionally for these. */
+		if (!interruptible)
+			return -EIO;
+
+		/* Recovery complete, but still wedged means reset failure. */
+		if (recovery_complete)
+			return -EIO;
+
+		return -EAGAIN;
+	}
+
 	return 0;
 }
 
@@ -465,8 +514,9 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	int ret = 0;
 
 	/* Check first because poking a wedged chip is bad. */
-	if (dev_priv->mm.wedged)
-		return (EIO);
+	ret = i915_gem_check_wedge(dev_priv, dev_priv->mm.interruptible);
+	if (ret)
+		return (ret);
 
 	ret = i915_gem_check_olr(ring, seqno);
 	if (ret)
