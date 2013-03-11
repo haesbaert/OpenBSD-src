@@ -56,7 +56,6 @@
 #include <sys/queue.h>
 #include <sys/workq.h>
 
-void i915_gem_release_mmap(struct drm_i915_gem_object *);
 uint32_t i915_gem_get_gtt_size(struct drm_device *dev, uint32_t size,
 			       int tiling_mode);
 uint32_t i915_gem_get_gtt_alignment(struct drm_device *dev,
