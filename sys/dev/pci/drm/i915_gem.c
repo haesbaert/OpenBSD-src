@@ -438,6 +438,10 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 	if (ret)
 		goto unpin;
 
+	ret = i915_gem_object_put_fence(obj);
+	if (ret)
+		goto unpin;
+
 	offset = obj->gtt_offset + args->offset;
 	bsize = round_page(offset + args->size) - trunc_page(offset);
 
@@ -736,10 +740,7 @@ i915_gem_fault(struct drm_obj *gem_obj, struct uvm_faultinfo *ufi,
 			goto error;
 	}
 
-	if (obj->tiling_mode == I915_TILING_NONE)
-		ret = i915_gem_object_put_fence(obj);
-	else
-		ret = i915_gem_object_get_fence(obj);
+	ret = i915_gem_object_get_fence(obj);
 	if (ret)
 		goto error;
 
@@ -2513,27 +2514,6 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 		if (ret)
 			return ret;
 	}
-
-	/*
-	 * due to lazy fence destruction we may have an invalid fence now.
-	 * So if so, nuke it before we do anything with the gpu.
-	 * XXX 965+ can put this off.. and be faster
-	 */
-	if (obj->fence_dirty) {
-		ret= i915_gem_object_put_fence(obj);
-		if (ret)
-			return (ret);
-	}
-	/*
-	 * Pre-965 chips may need a fence register set up in order to
-	 * handle tiling properly. GTT mapping may have blown it away so
-	 * restore.
-	 * With execbuf2 support we don't always need it, but if we do grab
-	 * it.
-	 */
-	if (map_and_fenceable && obj->tiling_mode != I915_TILING_NONE &&
-	    (ret = i915_gem_object_get_fence(obj)) != 0)
-		return (ret);
 
 	if (obj->pin_count++ == 0) {
 		atomic_inc(&dev->pin_count);
