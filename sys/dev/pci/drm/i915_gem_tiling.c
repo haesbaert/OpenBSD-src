@@ -381,15 +381,43 @@ i915_gem_set_tiling(struct drm_device *dev, void *data,
 		 * fence register.
 		 */
 		/* fence may no longer be correct, wipe it */
-		inteldrm_wipe_mappings(obj);
-		obj_priv->fence_dirty =
-		        obj_priv->fenced_gpu_access ||
-		        obj_priv->fence_reg != I915_FENCE_REG_NONE;
 
-		obj_priv->tiling_mode = args->tiling_mode;
-		obj_priv->stride = args->stride;
+		obj_priv->map_and_fenceable = 
+		    obj_priv->dmamap == NULL ||
+#ifdef notyet
+		    (obj_priv->gtt_offset + obj->size <=
+		    dev_priv->mm.gtt_mappable_end &&
+#else
+		    (
+#endif
+		    i915_gem_object_fence_ok(obj_priv, args->tiling_mode));
+
+		/* Rebind if we need a change of alignment */
+		if (!obj_priv->map_and_fenceable) {
+			u32 unfenced_alignment =
+			    i915_gem_get_unfenced_gtt_alignment(dev,
+								obj_priv->base.size,
+								args->tiling_mode);
+			if (obj_priv->gtt_offset & (unfenced_alignment - 1))
+				ret = i915_gem_object_unbind(obj_priv);
+		}
+
+		if (ret == 0) {
+			obj_priv->fence_dirty =
+				obj_priv->fenced_gpu_access ||
+				obj_priv->fence_reg != I915_FENCE_REG_NONE;
+
+			obj_priv->tiling_mode = args->tiling_mode;
+			obj_priv->stride = args->stride;
+			
+			/* Force the fence to be reacquired for GTT access */
+			i915_gem_release_mmap(obj_priv);
+		}
+
 	}
-
+	/* we have to maintain this existing ABI... */
+	args->stride = obj_priv->stride;
+	args->tiling_mode = obj_priv->tiling_mode;
 out:
 	drm_unhold_and_unref(obj);
 
