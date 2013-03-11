@@ -82,6 +82,7 @@ void i915_gem_object_truncate(struct drm_i915_gem_object *obj);
 int i915_gem_object_bind_to_gtt(struct drm_i915_gem_object *obj,
 				unsigned alignment, bool map_and_fenceable);
 int i915_gem_wait_for_error(struct drm_device *);
+int __wait_seqno(struct intel_ring_buffer *, uint32_t, bool, struct timespec *);
 
 extern int ticks;
 
@@ -498,29 +499,23 @@ i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno)
 	return ret;
 }
 
-// __wait_seqno
-
 /**
- * Waits for a sequence number to be signaled, and cleans up the
- * request and object lists appropriately for that event.
+ * __wait_seqno - wait until execution of seqno has finished
+ * @ring: the ring expected to report seqno
+ * @seqno: duh!
+ * @interruptible: do an interruptible wait (normally yes)
+ * @timeout: in - how long to wait (NULL forever); out - how much time remaining
  *
- * Called locked, sleeps with it.
+ * Returns 0 if the seqno was found within the alloted time. Else returns the
+ * errno with remaining time filled in timeout argument.
  */
 int
-i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
+__wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno,
+		bool interruptible, struct timespec *timeout)
 {
 	struct drm_device *dev = ring->dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
 	int ret = 0;
-
-	/* Check first because poking a wedged chip is bad. */
-	ret = i915_gem_check_wedge(dev_priv, dev_priv->mm.interruptible);
-	if (ret)
-		return (ret);
-
-	ret = i915_gem_check_olr(ring, seqno);
-	if (ret)
-		return ret;
 
 	mtx_enter(&dev_priv->irq_lock);
 	if (!i915_seqno_passed(ring->get_seqno(ring, true), seqno)) {
@@ -530,7 +525,7 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 			    seqno) || dev_priv->mm.wedged)
 				break;
 			ret = msleep(ring, &dev_priv->irq_lock,
-			    PZERO | (dev_priv->mm.interruptible ? PCATCH : 0),
+			    PZERO | (interruptible ? PCATCH : 0),
 			    "gemwt", 0);
 		}
 		ring->irq_put(ring);
@@ -539,15 +534,33 @@ i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
 	if (dev_priv->mm.wedged)
 		ret = EIO;
 
-	/* Directly dispatch request retiring.  While we have the work queue
-	 * to handle this, the waiter on a request often wants an associated
-	 * buffer to have made it to the inactive list, and we would need
-	 * a separate wait queue to handle that.
-	 */
-	if (ret == 0)
-		i915_gem_retire_requests_ring(ring);
-
 	return (ret);
+}
+
+/**
+ * Waits for a sequence number to be signaled, and cleans up the
+ * request and object lists appropriately for that event.
+ */
+int
+i915_wait_seqno(struct intel_ring_buffer *ring, uint32_t seqno)
+{
+	struct drm_device *dev = ring->dev;
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	bool interruptible = dev_priv->mm.interruptible;
+	int ret;
+
+//	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
+	BUG_ON(seqno == 0);
+
+	ret = i915_gem_check_wedge(dev_priv, interruptible);
+	if (ret)
+		return (ret);
+
+	ret = i915_gem_check_olr(ring, seqno);
+	if (ret)
+		return ret;
+
+	return __wait_seqno(ring, seqno, interruptible, NULL);
 }
 
 int
