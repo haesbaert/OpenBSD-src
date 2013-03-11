@@ -2870,8 +2870,8 @@ gen6_update_ring_freq(struct drm_device *dev)
 	/* Convert from kHz to MHz */
 	max_ia_freq /= 1000;
 #else
-	/* we ideally want the max so avoid cpuspeed */
-	max_ia_freq = (curcpu()->ci_tsc_freq + 4999) / 1000000;
+	/* XXX we ideally want the max not cpuspeed... */
+	max_ia_freq = cpuspeed;
 #endif
 
 	/*
