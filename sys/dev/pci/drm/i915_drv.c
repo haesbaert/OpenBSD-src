@@ -69,7 +69,7 @@ extern struct mutex mchdev_lock;
 int i915_panel_ignore_lid = 1;
 
 /* Enable powersavings, fbc, downclocking, etc. (default: true) */
-unsigned int i915_powersave = 0;
+unsigned int i915_powersave = 1;
 
 /* Use semaphores for inter-ring sync (default: -1 (use per-chip defaults)) */
 int i915_semaphores = 0;
@@ -78,7 +78,7 @@ int i915_semaphores = 0;
  * Enable frame buffer compression for power savings
  * (default: -1 (use per-chip default))
  */
-int i915_enable_fbc = 0;
+int i915_enable_fbc = -1;
 
 /*
  * Enable power-saving render C-state 6.
@@ -87,7 +87,7 @@ int i915_enable_fbc = 0;
  * For example, 3 would enable rc6 and deep rc6, and 7 would enable everything.
  * default: -1 (use per-chip default)
  */
-int i915_enable_rc6 = 0;
+int i915_enable_rc6 = -1;
 
 const struct intel_device_info *
 	i915_get_device_id(int);
