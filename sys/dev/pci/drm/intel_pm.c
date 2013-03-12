@@ -182,7 +182,7 @@ i8xx_disable_fbc(struct drm_device *dev)
 	for (retries = 10; retries > 0; retries--) {
 		if ((I915_READ(FBC_STATUS) & FBC_STAT_COMPRESSING) == 0)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_DEBUG_KMS("FBC idle timed out\n");
@@ -2547,10 +2547,10 @@ ironlake_enable_drps(struct drm_device *dev)
 	rgvmodectl |= MEMMODE_SWMODE_EN;
 	I915_WRITE(MEMMODECTL, rgvmodectl);
 
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 10; retries > 0; retries--) {
 		if ((I915_READ(MEMSWCTL) & MEMCTL_CMD_STS) == 0)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("stuck trying to change perf mode\n");
@@ -2932,7 +2932,7 @@ ironlake_disable_rc6(struct drm_device *dev)
 		for (retries = 50; retries > 0; retries--) {
 			if ((I915_READ(RSTDBYCTL) & RSX_STATUS_MASK) == RSX_STATUS_ON)
 				break;
-			DELAY(500);
+			DELAY(1000);
 		}
 
 		I915_WRITE(PWRCTXA, 0);
@@ -4312,10 +4312,10 @@ intel_init_power_wells(struct drm_device *dev)
 
 		if ((well & HSW_PWR_WELL_STATE) == 0) {
 			I915_WRITE(power_wells[i], well & HSW_PWR_WELL_ENABLE);
-			for (retries = 100; retries > 0; retries--) {
+			for (retries = 20; retries > 0; retries--) {
 				if (I915_READ(power_wells[i]) & HSW_PWR_WELL_STATE)
 					break;
-				DELAY(200);
+				DELAY(1000);
 			}
 			if (retries == 0)
 				DRM_ERROR("Error enabling power well %lx\n", power_wells[i]);
@@ -4465,11 +4465,11 @@ __gen6_gt_wait_for_thread_c0(struct inteldrm_softc *dev_priv)
 	/* w/a for a sporadic read returning 0 by waiting for the GT
 	 * thread to wake up.
 	 */
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 500; retries > 0; retries--) {
 		if ((I915_READ_NOTRACE(GEN6_GT_THREAD_STATUS_REG) &
 		    gt_thread_status_mask) == 0)
 			break;
-		DELAY(50);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("GT thread status wait timed out\n");
@@ -4705,7 +4705,7 @@ sandybridge_pcode_read(struct inteldrm_softc *dev_priv, u8 mbox, u32 *val)
 	I915_WRITE(GEN6_PCODE_DATA, *val);
 	I915_WRITE(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
 
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 500; retries > 0; retries--) {
 		if ((I915_READ(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) == 0)
 			break;
 		DELAY(1000);
@@ -4735,7 +4735,7 @@ sandybridge_pcode_write(struct inteldrm_softc *dev_priv, u8 mbox, u32 val)
 	I915_WRITE(GEN6_PCODE_DATA, val);
 	I915_WRITE(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
 
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 500; retries > 0; retries--) {
 		if ((I915_READ(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) == 0)
 			break;
 		DELAY(1000);

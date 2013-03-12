@@ -461,7 +461,7 @@ init_ring_common(struct intel_ring_buffer *ring)
 			| RING_VALID);
 
 	/* If the head is still not zero, the ring is dead */
-	for (retries = 1000; retries > 0; retries--) {
+	for (retries = 50; retries > 0; retries--) {
 		if ((I915_READ_CTL(ring) & RING_VALID) != 0 &&
 		    I915_READ_START(ring) == obj->gtt_offset &&
 		    (I915_READ_HEAD(ring) & HEAD_ADDR) == 0)

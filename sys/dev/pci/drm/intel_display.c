@@ -1307,7 +1307,7 @@ ironlake_wait_for_vblank(struct drm_device *dev, int pipe)
 	for (retries = 50; retries > 0; retries--) {
 		if (I915_READ_NOTRACE(frame_reg) != frame)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_DEBUG_KMS("vblank wait timed out\n");
@@ -1353,7 +1353,7 @@ intel_wait_for_vblank(struct drm_device *dev, int pipe)
 	for (retries = 50; retries > 0; retries--) {
 		if (I915_READ(pipestat_reg) & PIPE_VBLANK_INTERRUPT_STATUS)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_DEBUG_KMS("vblank wait timed out\n");
@@ -2212,10 +2212,10 @@ ironlake_disable_pch_transcoder(struct inteldrm_softc *dev_priv,
 	val &= ~TRANS_ENABLE;
 	I915_WRITE(reg, val);
 	/* wait for PCH transcoder off, transcoder state */
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 50; retries > 0; retries--) {
 		if ((I915_READ(reg) & TRANS_STATE_ENABLE) == 0)
 			break;
-		DELAY(500);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("failed to disable transcoder %d\n", pipe);
@@ -2239,10 +2239,10 @@ lpt_disable_pch_transcoder(struct inteldrm_softc *dev_priv)
 	val &= ~TRANS_ENABLE;
 	I915_WRITE(_TRANSACONF, val);
 	/* wait for PCH transcoder off, transcoder state */
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 50; retries > 0; retries--) {
 		if ((I915_READ(_TRANSACONF) & TRANS_STATE_ENABLE) == 0)
 			break;
-		DELAY(500);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("Failed to disable PCH transcoder\n");
@@ -3809,10 +3809,10 @@ intel_cpt_verify_modeset(struct drm_device *dev, int pipe)
 
 	temp = I915_READ(dslreg);
 	DELAY(500);
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 10; retries > 0; retries--) {
 		if (I915_READ(dslreg) != temp)
 			break;
-		DELAY(500);
+		DELAY(1000);
 	}
 	if (retries == 0) {
 		DRM_ERROR("mode set failed: pipe %d stuck\n", pipe);
@@ -4946,10 +4946,10 @@ vlv_update_pll(struct drm_crtc *crtc,
 	dpll |= DPLL_VCO_ENABLE;
 	I915_WRITE(DPLL(pipe), dpll);
 	POSTING_READ(DPLL(pipe));
-	for (retries = 100; retries > 0; retries--) {
+	for (retries = 1; retries > 0; retries--) {
 		if ((I915_READ(DPLL(pipe)) & DPLL_LOCK_VLV) == DPLL_LOCK_VLV)
 			break;
-		DELAY(100);
+		DELAY(1000);
 	}
 	if (retries == 0)
 		DRM_ERROR("DPLL %d failed to lock\n", pipe);
