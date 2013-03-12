@@ -2820,15 +2820,11 @@ i915_gem_idle(struct inteldrm_softc *dev_priv)
 		DRM_UNLOCK();
 		return (ret);
 	}
+	i915_gem_retire_requests(dev_priv);
 
 	/* Under UMS, be paranoid and evict. */
-	if (!drm_core_check_feature(dev, DRIVER_MODESET)) {
-		ret = i915_gem_evict_inactive(dev_priv);
-		if (ret) {
-			DRM_UNLOCK();
-			return (ret);
-		}
-	}
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		i915_gem_evict_everything(dev_priv);
 
 	i915_gem_reset_fences(dev);
 
