@@ -94,6 +94,8 @@ int	 blt_ring_flush(struct intel_ring_buffer *, u32, u32);
 int	 intel_ring_flush_all_caches(struct intel_ring_buffer *);
 int	 intel_ring_invalidate_all_caches(struct intel_ring_buffer *);
 
+extern int ticks;
+
 static inline int
 ring_space(struct intel_ring_buffer *ring)
 {
@@ -1449,8 +1451,8 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 {
 	struct drm_device *dev = ring->dev;
 	drm_i915_private_t *dev_priv = dev->dev_private;
-//	unsigned long end;
-	int ret, i;
+	unsigned long end;
+	int ret;
 
 	ret = intel_ring_wait_request(ring, n);
 	if (ret != -ENOSPC)
@@ -1462,10 +1464,9 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 	 * to running on almost untested codepaths). But on resume
 	 * timers don't work yet, so prevent a complete hang in that
 	 * case by choosing an insanely large timeout. */
-//	end = jiffies + 60 * HZ;
+	end = ticks + 60 * hz;
 
-	/* ugh. Could really do with a proper, resettable timer here. */
-	for (i = 0; i < 100000; i++) {
+	do {
 		ring->head = I915_READ_HEAD(ring);
 		ring->space = ring_space(ring);
 		if (ring->space >= n) {
@@ -1486,7 +1487,7 @@ ring_wait_for_space(struct intel_ring_buffer *ring, int n)
 		ret = i915_gem_check_wedge(dev_priv, dev_priv->mm.interruptible);
 		if (ret)
 			return ret;
-	}
+	} while (!time_after(ticks, end));
 //	trace_i915_ring_wait_end(ring);
 	return -EBUSY;
 }
