@@ -1503,9 +1503,12 @@ read64(struct inteldrm_softc *dev_priv, bus_size_t off)
 #define INTEL_RC6pp_ENABLE			(1<<2)
 
 extern unsigned int i915_lvds_downclock;
+extern int i915_lvds_channel_mode;
+extern int i915_panel_use_ssc;
 extern int i915_panel_ignore_lid;
 extern unsigned int i915_powersave;
 extern int i915_semaphores;
+extern int i915_vbt_sdvo_panel_type;
 extern int i915_enable_rc6;
 extern int i915_enable_fbc;
 

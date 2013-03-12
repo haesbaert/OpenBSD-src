@@ -64,8 +64,6 @@ const struct lvds_fp_timing *
 bool	 dmi_found(const struct dmi_system_id *);
 
 static int panel_type;
-unsigned int i915_lvds_downclock = 0;
-static int i915_vbt_sdvo_panel_type = -1;
 
 void *
 find_section(struct bdb_header *bdb, int section_id)

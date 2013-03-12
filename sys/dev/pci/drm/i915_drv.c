@@ -89,6 +89,27 @@ int i915_enable_fbc = -1;
  */
 int i915_enable_rc6 = -1;
 
+/* Use panel (LVDS/eDP) downclocking for power savings (default: false) */
+unsigned int i915_lvds_downclock = 0;
+
+/*
+ * Specify LVDS channel mode
+ * (0=probe BIOS [default], 1=single-channel, 2=dual-channel)
+ */
+int i915_lvds_channel_mode = 0;
+
+/*
+ * Use Spread Spectrum Clock with panels [LVDS/eDP]
+ * (default: auto from VBT)
+ */
+int i915_panel_use_ssc = -1;
+
+/*
+ * Override/Ignore selection of SDVO panel mode in the VBT
+ * (-2=ignore, -1=auto [default], index in VBT BIOS table)
+ */
+int i915_vbt_sdvo_panel_type = -1;
+
 const struct intel_device_info *
 	i915_get_device_id(int);
 int	inteldrm_probe(struct device *, void *, void *);

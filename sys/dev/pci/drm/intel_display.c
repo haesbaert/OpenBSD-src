@@ -395,9 +395,6 @@ bool	 intel_check_plane_mapping(struct intel_crtc *);
 void	 intel_sanitize_crtc(struct intel_crtc *);
 void	 intel_sanitize_encoder(struct intel_encoder *);
 
-int i915_lvds_channel_mode;
-int i915_panel_use_ssc = -1;
-
 int
 intel_pch_rawclk(struct drm_device *dev)
 {
