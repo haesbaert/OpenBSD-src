@@ -75,9 +75,6 @@
 #include "drm_atomic.h"
 #include "agp.h"
 
-#define DRMDEBUG
-#define DRM_DEBUG_KMS
-
 #define	DRM_DEBUGBITS_DEBUG		0x1
 #define	DRM_DEBUGBITS_KMS		0x2
 #define	DRM_DEBUGBITS_FAILED_IOCTL	0x4
