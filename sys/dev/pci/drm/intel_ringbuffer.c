@@ -1504,10 +1504,8 @@ intel_wrap_ring_buffer(struct intel_ring_buffer *ring)
 			return ret;
 	}
 
-	ring->space -= rem;
-
 	bus_space_set_region_4(dev_priv->bst, ring->bsh,
-	    ring->woffset, MI_NOOP, rem / 4);
+	    ring->tail, MI_NOOP, rem / 4);
 
 	ring->tail = 0;
 	ring->space = ring_space(ring);

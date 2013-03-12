@@ -52,7 +52,6 @@ struct  intel_ring_buffer {
 	struct		drm_i915_gem_object *obj;
 
 	bus_space_handle_t	 bsh;
-	uint32_t		 woffset;
 
 	u32		head;
 	u32		tail;
