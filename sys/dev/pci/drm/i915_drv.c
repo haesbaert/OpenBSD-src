@@ -523,9 +523,7 @@ i915_drm_freeze(struct drm_device *dev)
 			return (error);
 		}
 
-#ifdef notyet
-		cancel_delayed_work_sync(&dev_priv->rps.delayed_resume_work);
-#endif
+		timeout_del(&dev_priv->rps.delayed_resume_to);
 
 		intel_modeset_disable(dev);
 
