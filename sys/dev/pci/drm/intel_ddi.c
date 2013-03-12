@@ -690,11 +690,13 @@ intel_ddi_mode_set(struct drm_encoder *encoder,
 			       struct drm_display_mode *mode,
 			       struct drm_display_mode *adjusted_mode)
 {
+	struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
+#ifdef DRMDEBUG
 	struct drm_crtc *crtc = encoder->crtc;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_encoder *intel_encoder = to_intel_encoder(encoder);
 	int port = intel_ddi_get_encoder_port(intel_encoder);
 	int pipe = intel_crtc->pipe;
+#endif
 	int type = intel_encoder->type;
 
 	DRM_DEBUG_KMS("Preparing DDI mode for Haswell on port %c, pipe %c\n",
@@ -857,7 +859,9 @@ intel_ddi_pll_mode_set(struct drm_crtc *crtc, int clock)
 	struct inteldrm_softc *dev_priv = crtc->dev->dev_private;
 	struct intel_ddi_plls *plls = &dev_priv->ddi_plls;
 	int type = intel_encoder->type;
+#ifdef DRMDEBUG
 	enum pipe pipe = intel_crtc->pipe;
+#endif
 	uint32_t reg, val;
 
 	/* TODO: reuse PLLs when possible (compare values) */
