@@ -1,3 +1,4 @@
+/*	$OpenBSD$	*/
 /*
  * Copyright © 1997-2003 by The XFree86 Project, Inc.
  * Copyright © 2007 Dave Airlie

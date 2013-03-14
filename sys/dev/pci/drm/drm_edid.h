@@ -1,3 +1,4 @@
+/*	$OpenBSD$	*/
 /*
  * Copyright © 2007-2008 Intel Corporation
  *   Jesse Barnes <jesse.barnes@intel.com>

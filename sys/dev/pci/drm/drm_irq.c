@@ -1,3 +1,4 @@
+/*	$OpenBSD$	*/
 /**
  * \file drm_irq.c
  * IRQ support

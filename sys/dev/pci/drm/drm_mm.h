@@ -1,3 +1,4 @@
+/*	$OpenBSD$	*/
 /**************************************************************************
  *
  * Copyright 2006-2008 Tungsten Graphics, Inc., Cedar Park, TX. USA.

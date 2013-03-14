@@ -1,3 +1,4 @@
+/*	$OpenBSD$	*/
 /*
  *
  * Copyright 2008 (c) Intel Corporation
