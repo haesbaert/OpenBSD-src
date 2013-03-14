@@ -30,11 +30,11 @@
  * registers; newer ones are much simpler and we can use the new DRM plane
  * support.
  */
-#include "drmP.h"
-#include "drm_crtc.h"
-#include "drm_fourcc.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm_crtc.h>
+#include <dev/pci/drm/drm_fourcc.h>
 #include "intel_drv.h"
-#include "i915_drm.h"
+#include <dev/pci/drm/i915_drm.h>
 #include "i915_drv.h"
 
 void	 ivb_disable_plane(struct drm_plane *);

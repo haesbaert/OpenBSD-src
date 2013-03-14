@@ -27,11 +27,11 @@
  *	Jesse Barnes <jesse.barnes@intel.com>
  */
 
-#include "drmP.h"
-#include "drm_crtc.h"
-#include "drm_edid.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm_crtc.h>
+#include <dev/pci/drm/drm_edid.h>
 #include "intel_drv.h"
-#include "i915_drm.h"
+#include <dev/pci/drm/i915_drm.h>
 #include "i915_drv.h"
 
 struct intel_hdmi	*enc_to_intel_hdmi(struct drm_encoder *);

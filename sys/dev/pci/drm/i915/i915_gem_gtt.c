@@ -23,8 +23,8 @@
  *
  */
 
-#include "drmP.h"
-#include "drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
 

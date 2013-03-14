@@ -32,7 +32,7 @@
 #define _I915_DRV_H_
 
 #include "i915_reg.h"
-#include "i915_drm.h"
+#include <dev/pci/drm/i915_drm.h>
 #include "intel_bios.h"
 #include "intel_ringbuffer.h"
 

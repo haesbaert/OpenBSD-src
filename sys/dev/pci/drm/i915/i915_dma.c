@@ -27,12 +27,12 @@
  *
  */
 
-#include "drmP.h"
-#include "drm.h"
-#include "i915_drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
+#include <dev/pci/drm/i915_drm.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
-#include "drm_crtc_helper.h"
+#include <dev/pci/drm/drm_crtc_helper.h>
 
 void
 i915_kernel_lost_context(struct drm_device * dev)

@@ -23,34 +23,34 @@ file   dev/pci/drm/drm_fb_helper.c	drm
 
 device	inteldrm: drmbase, wsemuldisplaydev, rasops32
 attach	inteldrm at drmdev
-file	dev/pci/drm/i915_dma.c		inteldrm
-file	dev/pci/drm/i915_drv.c		inteldrm
-file	dev/pci/drm/i915_gem.c		inteldrm
-file	dev/pci/drm/i915_gem_evict.c	inteldrm
-file	dev/pci/drm/i915_gem_execbuffer.c	inteldrm
-file	dev/pci/drm/i915_gem_gtt.c	inteldrm
-file	dev/pci/drm/i915_gem_tiling.c	inteldrm
-file	dev/pci/drm/i915_irq.c		inteldrm
-file	dev/pci/drm/i915_suspend.c	inteldrm
-file	dev/pci/drm/intel_bios.c	inteldrm
-file	dev/pci/drm/intel_crt.c		inteldrm
-file	dev/pci/drm/intel_ddi.c		inteldrm
-file	dev/pci/drm/intel_display.c	inteldrm
-file	dev/pci/drm/intel_dp.c		inteldrm
-file	dev/pci/drm/intel_dvo.c		inteldrm
-file	dev/pci/drm/intel_fb.c		inteldrm
-file	dev/pci/drm/intel_hdmi.c	inteldrm
-file	dev/pci/drm/intel_i2c.c		inteldrm
-file	dev/pci/drm/intel_lvds.c	inteldrm
-file	dev/pci/drm/intel_modes.c	inteldrm
-file	dev/pci/drm/intel_opregion.c	inteldrm
-file	dev/pci/drm/intel_overlay.c	inteldrm
-file	dev/pci/drm/intel_panel.c	inteldrm
-file	dev/pci/drm/intel_pm.c		inteldrm
-file	dev/pci/drm/intel_ringbuffer.c	inteldrm
-file	dev/pci/drm/intel_sdvo.c	inteldrm
-file	dev/pci/drm/intel_sprite.c	inteldrm
-file	dev/pci/drm/intel_tv.c		inteldrm
+file	dev/pci/drm/i915/i915_dma.c		inteldrm
+file	dev/pci/drm/i915/i915_drv.c		inteldrm
+file	dev/pci/drm/i915/i915_gem.c		inteldrm
+file	dev/pci/drm/i915/i915_gem_evict.c	inteldrm
+file	dev/pci/drm/i915/i915_gem_execbuffer.c	inteldrm
+file	dev/pci/drm/i915/i915_gem_gtt.c		inteldrm
+file	dev/pci/drm/i915/i915_gem_tiling.c	inteldrm
+file	dev/pci/drm/i915/i915_irq.c		inteldrm
+file	dev/pci/drm/i915/i915_suspend.c		inteldrm
+file	dev/pci/drm/i915/intel_bios.c		inteldrm
+file	dev/pci/drm/i915/intel_crt.c		inteldrm
+file	dev/pci/drm/i915/intel_ddi.c		inteldrm
+file	dev/pci/drm/i915/intel_display.c	inteldrm
+file	dev/pci/drm/i915/intel_dp.c		inteldrm
+file	dev/pci/drm/i915/intel_dvo.c		inteldrm
+file	dev/pci/drm/i915/intel_fb.c		inteldrm
+file	dev/pci/drm/i915/intel_hdmi.c		inteldrm
+file	dev/pci/drm/i915/intel_i2c.c		inteldrm
+file	dev/pci/drm/i915/intel_lvds.c		inteldrm
+file	dev/pci/drm/i915/intel_modes.c		inteldrm
+file	dev/pci/drm/i915/intel_opregion.c	inteldrm
+file	dev/pci/drm/i915/intel_overlay.c	inteldrm
+file	dev/pci/drm/i915/intel_panel.c		inteldrm
+file	dev/pci/drm/i915/intel_pm.c		inteldrm
+file	dev/pci/drm/i915/intel_ringbuffer.c	inteldrm
+file	dev/pci/drm/i915/intel_sdvo.c		inteldrm
+file	dev/pci/drm/i915/intel_sprite.c		inteldrm
+file	dev/pci/drm/i915/intel_tv.c		inteldrm
 
 device	radeondrm: drmbase
 attach	radeondrm at drmdev

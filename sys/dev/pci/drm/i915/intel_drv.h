@@ -27,12 +27,12 @@
 #define __INTEL_DRV_H__
 
 #include <dev/i2c/i2cvar.h>
-#include "i915_drm.h"
+#include <dev/pci/drm/i915_drm.h>
 #include "i915_drv.h"
-#include "drm_crtc.h"
-#include "drm_crtc_helper.h"
-#include "drm_fb_helper.h"
-#include "drm_dp_helper.h"
+#include <dev/pci/drm/drm_crtc.h>
+#include <dev/pci/drm/drm_crtc_helper.h>
+#include <dev/pci/drm/drm_fb_helper.h>
+#include <dev/pci/drm/drm_dp_helper.h>
 
 #define KHz(x) (1000*x)
 #define MHz(x) KHz(1000*x)

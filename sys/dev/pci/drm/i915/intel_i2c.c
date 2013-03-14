@@ -15,8 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "drmP.h"
-#include "drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
 #include "i915_drv.h"
 #include "i915_reg.h"
 

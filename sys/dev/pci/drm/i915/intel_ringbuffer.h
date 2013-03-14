@@ -3,7 +3,7 @@
 #ifndef _INTEL_RINGBUFFER_H_
 #define _INTEL_RINGBUFFER_H_
 
-#include "drm_linux_list.h"
+#include <dev/pci/drm/drm_linux_list.h>
 
 /*
  * Gen2 BSpec "1. Programming Environment" / 1.4.4.6 "Ring Buffer Use"
