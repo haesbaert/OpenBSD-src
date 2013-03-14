@@ -2394,7 +2394,11 @@ i915_irq_postinstall(struct drm_device *dev)
 
 	/* Unmask the interrupts that we always want on. */
 	dev_priv->irq_mask =
+#ifdef notyet
 		~(I915_ASLE_INTERRUPT |
+#else
+		~(
+#endif
 		  I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		  I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
 		  I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
@@ -2402,7 +2406,9 @@ i915_irq_postinstall(struct drm_device *dev)
 		  I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT);
 
 	enable_mask =
+#ifdef notyet
 		I915_ASLE_INTERRUPT |
+#endif
 		I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
 		I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT |
@@ -2614,7 +2620,11 @@ i965_irq_postinstall(struct drm_device *dev)
 	u32 error_mask;
 
 	/* Unmask the interrupts that we always want on. */
+#ifdef notyet
 	dev_priv->irq_mask = ~(I915_ASLE_INTERRUPT |
+#else
+	dev_priv->irq_mask = ~(
+#endif
 			       I915_DISPLAY_PORT_INTERRUPT |
 			       I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 			       I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
