@@ -522,12 +522,24 @@ vga_extended_attach(struct device *self, bus_space_tag_t iot,
 	int console;
 	struct vga_config *vc;
 	struct wsemuldisplaydev_attach_args aa;
+	extern struct cfdriver wsdisplay_cd;
+	struct device *dev;
 
 	console = vga_is_console(iot, type);
+	if (console)
+		vga_console_attached = 1;
+
+	/* Bail if a drm driver already attached a wsdisplay. */
+	for (dev = TAILQ_NEXT(self, dv_list); dev != NULL;
+	     dev = TAILQ_NEXT(dev, dv_list)) {
+		if (dev->dv_parent != self)
+			continue;
+		if (dev->dv_cfdata->cf_driver == &wsdisplay_cd)
+			return NULL;
+	}
 
 	if (console) {
 		vc = &vga_console_vc;
-		vga_console_attached = 1;
 	} else {
 		vc = malloc(sizeof(*vc), M_DEVBUF, M_NOWAIT | M_ZERO);
 		if (vc == NULL)
