@@ -104,12 +104,9 @@ mmopen(dev_t dev, int flag, int mode, struct proc *p)
 	        if (suser(p, 0) != 0 || !allowaperture)
 			return (EPERM);
 
-#if 0
-	/* XXX disabled for kms debugging */
 		/* authorize only one simultaneous open() */
 		if (ap_open_count > 0)
 			return(EPERM);
-#endif
 		ap_open_count++;
 		break;
 #endif
