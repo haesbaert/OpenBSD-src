@@ -28,7 +28,8 @@
 #include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/drm.h>
 #include <dev/pci/drm/i915_drm.h>
-#include "i915_drv.h"
+#include "intel_drv.h"
+#include "i915_reg.h"
 
 bool	i915_pipe_enabled(struct drm_device *, enum pipe);
 void	i915_save_palette(struct drm_device *, enum pipe);
@@ -866,9 +867,7 @@ i915_save_state(struct drm_device *dev)
 		}
 	}
 
-#ifdef notyet
 	intel_disable_gt_powersave(dev);
-#endif
 
 	/* Cache mode state */
 	dev_priv->regfile.saveCACHE_MODE_0 = I915_READ(CACHE_MODE_0);
