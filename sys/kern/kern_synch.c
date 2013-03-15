@@ -350,13 +350,13 @@ unsleep(struct proc *p)
 /*
  * Make a number of processes sleeping on the specified identifier runnable.
  */
-void
+int
 wakeup_n(const volatile void *ident, int n)
 {
 	struct slpque *qp;
 	struct proc *p;
 	struct proc *pnext;
-	int s;
+	int s, woken = 0;
 
 	SCHED_LOCK(s);
 	qp = &slpque[LOOKUP(ident)];
@@ -370,20 +370,24 @@ wakeup_n(const volatile void *ident, int n)
 			--n;
 			p->p_wchan = 0;
 			TAILQ_REMOVE(qp, p, p_runq);
-			if (p->p_stat == SSLEEP)
+			if (p->p_stat == SSLEEP) {
 				setrunnable(p);
+				woken++;
+			}
 		}
 	}
 	SCHED_UNLOCK(s);
+
+	return (woken);
 }
 
 /*
  * Make all processes sleeping on the specified identifier runnable.
  */
-void
+int
 wakeup(const volatile void *chan)
 {
-	wakeup_n(chan, -1);
+	return (wakeup_n(chan, -1));
 }
 
 int
