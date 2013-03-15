@@ -1782,10 +1782,9 @@ i915_hangcheck_ring_idle(struct intel_ring_buffer *ring, bool *err)
 	    i915_seqno_passed(ring->get_seqno(ring, false),
 			      ring_last_seqno(ring))) {
 		/* Issue a wake-up to catch stuck h/w. */
-		if (wakeup_pending(ring)) {
+		if (wakeup(ring) > 0) {
 			DRM_ERROR("Hangcheck timer elapsed... %s idle\n",
 				  ring->name);
-			wakeup(ring);
 			*err = true;
 		}
 		return true;
