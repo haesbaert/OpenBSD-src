@@ -289,23 +289,42 @@ i915_load_modeset_init(struct drm_device *dev)
 	if (IS_GEN3(dev) && (I915_READ(ECOSKPD) & ECO_FLIP_DONE))
 		dev_priv->flip_pending_is_done = true;
 
+#ifdef notyet
+	ret = vga_switcheroo_register_client(dev->pdev, &i915_switcheroo_ops);
+	if (ret)
+		goto cleanup_vga_client;
+
+	/* Initialise stolen first so that we may reserve preallocated
+	 * objects for the BIOS to KMS transition.
+	 */
+	ret = i915_gem_init_stolen(dev);
+	if (ret)
+		goto cleanup_vga_switcheroo;
+#endif
+	ret = drm_irq_install(dev);
+	if (ret)
+		goto cleanup_gem_stolen;
+
+	/* Important: The output setup functions called by modeset_init need
+	 * working irqs for e.g. gmbus and dp aux transfers. */
 	intel_modeset_init(dev);
 
 	ret = i915_gem_init(dev);
-	if (ret != 0)
-		goto cleanup_gem;
+	if (ret)
+		goto cleanup_irq;
 
 	intel_modeset_gem_init(dev);
 
-	ret = drm_irq_install(dev);
-	if (ret)
-		goto cleanup_gem;
-
+	/* Always safe in the mode setting case. */
+	/* FIXME: do pre/post-mode set stuff in core KMS code */
 	dev->vblank_disable_allowed = 1;
 
 	ret = intel_fbdev_init(dev);
 	if (ret)
-		goto cleanup_irq;
+		goto cleanup_gem;
+
+	/* Only enable hotplug handling once the fbdev is fully set up. */
+	dev_priv->enable_hotplug_processing = true;
 
 	drm_kms_helper_poll_init(dev);
 
@@ -314,13 +333,17 @@ i915_load_modeset_init(struct drm_device *dev)
 
 	return (0);
 
-cleanup_irq:
-	drm_irq_uninstall(dev);
 cleanup_gem:
 	DRM_LOCK();
 	i915_gem_cleanup_ringbuffer(dev);
 	DRM_UNLOCK();
 	i915_gem_cleanup_aliasing_ppgtt(dev);
+cleanup_irq:
+	drm_irq_uninstall(dev);
+cleanup_gem_stolen:
+#ifdef notyet
+	i915_gem_cleanup_stolen(dev);
+#endif
 	return (ret);
 }
 

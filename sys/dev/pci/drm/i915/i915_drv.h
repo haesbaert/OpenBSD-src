@@ -560,6 +560,7 @@ struct inteldrm_softc {
 
 	u_int32_t		 hotplug_supported_mask;
 	struct workq_task	 hotplug_task;
+	bool			 enable_hotplug_processing;
 
 	int			 num_pipe;
 	int			 num_pch_pll;

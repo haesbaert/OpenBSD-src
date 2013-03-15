@@ -348,6 +348,10 @@ i915_hotplug_work_func(void *arg1, void *arg2)
 	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct intel_encoder *encoder;
 
+	/* HPD irq before everything is fully set up. */
+	if (!dev_priv->enable_hotplug_processing)
+		return;
+
 	rw_enter_write(&mode_config->rwl);
 	DRM_DEBUG_KMS("running encoder hotplug functions\n");
 
