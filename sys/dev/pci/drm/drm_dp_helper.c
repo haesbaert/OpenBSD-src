@@ -39,7 +39,6 @@ int	 i2c_algo_dp_aux_address(struct i2c_controller *, u16, bool);
 void	 i2c_algo_dp_aux_stop(struct i2c_controller *, bool);
 int	 i2c_algo_dp_aux_put_byte(struct i2c_controller *, u8);
 int	 i2c_algo_dp_aux_get_byte(struct i2c_controller *, u8 *);
-u32	 i2c_algo_dp_aux_functionality(struct i2c_controller *);
 void	 i2c_dp_aux_reset_bus(struct i2c_controller *);
 int	 i2c_dp_aux_prepare_bus(struct i2c_controller *);
 int	 i2c_dp_aux_add_bus(struct i2c_controller *);
@@ -75,10 +74,7 @@ i2c_algo_dp_aux_transaction(struct i2c_controller *adapter, int mode,
 int
 i2c_algo_dp_aux_address(struct i2c_controller *adapter, u16 address, bool reading)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
-	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	int mode = MODE_I2C_START;
 	int ret;
 
@@ -90,7 +86,6 @@ i2c_algo_dp_aux_address(struct i2c_controller *adapter, u16 address, bool readin
 	algo_data->running = true;
 	ret = i2c_algo_dp_aux_transaction(adapter, mode, 0, NULL);
 	return ret;
-#endif
 }
 
 /*
@@ -100,9 +95,7 @@ i2c_algo_dp_aux_address(struct i2c_controller *adapter, u16 address, bool readin
 void
 i2c_algo_dp_aux_stop(struct i2c_controller *adapter, bool reading)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
-	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	int mode = MODE_I2C_STOP;
 
 	if (reading)
@@ -113,7 +106,6 @@ i2c_algo_dp_aux_stop(struct i2c_controller *adapter, bool reading)
 		(void) i2c_algo_dp_aux_transaction(adapter, mode, 0, NULL);
 		algo_data->running = false;
 	}
-#endif
 }
 
 /*
@@ -123,10 +115,7 @@ i2c_algo_dp_aux_stop(struct i2c_controller *adapter, bool reading)
 int
 i2c_algo_dp_aux_put_byte(struct i2c_controller *adapter, u8 byte)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
-	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	int ret;
 
 	if (!algo_data->running)
@@ -134,7 +123,6 @@ i2c_algo_dp_aux_put_byte(struct i2c_controller *adapter, u8 byte)
 
 	ret = i2c_algo_dp_aux_transaction(adapter, MODE_I2C_WRITE, byte, NULL);
 	return ret;
-#endif
 }
 
 /*
@@ -144,10 +132,7 @@ i2c_algo_dp_aux_put_byte(struct i2c_controller *adapter, u8 byte)
 int
 i2c_algo_dp_aux_get_byte(struct i2c_controller *adapter, u8 *byte_ret)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
-	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	int ret;
 
 	if (!algo_data->running)
@@ -155,7 +140,6 @@ i2c_algo_dp_aux_get_byte(struct i2c_controller *adapter, u8 *byte_ret)
 
 	ret = i2c_algo_dp_aux_transaction(adapter, MODE_I2C_READ, 0, byte_ret);
 	return ret;
-#endif
 }
 
 #ifdef notyet
@@ -200,25 +184,6 @@ i2c_algo_dp_aux_xfer(struct i2c_controller *adapter,
 }
 #endif
 
-u32
-i2c_algo_dp_aux_functionality(struct i2c_controller *adapter)
-{
-	return 0;
-#ifdef notyet
-	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL |
-	       I2C_FUNC_SMBUS_READ_BLOCK_DATA |
-	       I2C_FUNC_SMBUS_BLOCK_PROC_CALL |
-	       I2C_FUNC_10BIT_ADDR;
-#endif
-}
-
-#ifdef notyet
-static const struct i2c_algorithm i2c_dp_aux_algo = {
-	.master_xfer	= i2c_algo_dp_aux_xfer,
-	.functionality	= i2c_algo_dp_aux_functionality,
-};
-#endif
-
 void
 i2c_dp_aux_reset_bus(struct i2c_controller *adapter)
 {
@@ -232,8 +197,8 @@ i2c_dp_aux_prepare_bus(struct i2c_controller *adapter)
 #ifdef notyet
 	adapter->algo = &i2c_dp_aux_algo;
 	adapter->retries = 3;
-	i2c_dp_aux_reset_bus(adapter);
 #endif
+	i2c_dp_aux_reset_bus(adapter);
 	return 0;
 }
 
