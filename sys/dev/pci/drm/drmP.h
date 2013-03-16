@@ -273,6 +273,8 @@ do {									\
 #define DRM_DEBUG_KMS(fmt, arg...) do { } while(/* CONSTCOND */ 0)
 #endif
 
+#define DRM_LOG_KMS DRM_DEBUG_KMS
+
 #ifdef DRMDEBUG
 #undef DRM_DEBUG_DRIVER
 #define DRM_DEBUG_DRIVER(fmt, arg...) do {					\
