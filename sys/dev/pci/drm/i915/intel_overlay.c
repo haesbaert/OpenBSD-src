@@ -756,13 +756,13 @@ intel_overlay_do_put_image(struct intel_overlay *overlay,
 	int ret, tmp_width;
 	struct overlay_registers *regs;
 	bool scale_changed = false;
-//	struct drm_device *dev = overlay->dev;
+	struct drm_device *dev = overlay->dev;
 	u32 swidth, swidthsw, sheight, ostride;
 
 #ifdef notyet
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
-	BUG_ON(!mutex_is_locked(&dev->mode_config.mutex));
 #endif
+	rw_assert_wrlock(&dev->mode_config.rwl);
 	BUG_ON(!overlay);
 
 	ret = intel_overlay_release_old_vid(overlay);
@@ -864,13 +864,13 @@ int
 intel_overlay_switch_off(struct intel_overlay *overlay)
 {
 	struct overlay_registers *regs;
-//	struct drm_device *dev = overlay->dev;
+	struct drm_device *dev = overlay->dev;
 	int ret;
 
 #ifdef notyet
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
-	BUG_ON(!mutex_is_locked(&dev->mode_config.mutex));
 #endif
+	rw_assert_wrlock(&dev->mode_config.rwl);
 
 	ret = intel_overlay_recover_from_interrupt(overlay);
 	if (ret != 0)

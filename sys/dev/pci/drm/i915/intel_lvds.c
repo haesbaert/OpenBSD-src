@@ -586,9 +586,9 @@ intel_lid_notify(struct notifier_block *nb, unsigned long val,
 
 	dev_priv->modeset_on_lid = 0;
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	intel_modeset_setup_hw_state(dev, true);
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 
 	return NOTIFY_OK;
 }
