@@ -50,16 +50,12 @@ int
 i2c_algo_dp_aux_transaction(struct i2c_controller *adapter, int mode,
 			    uint8_t write_byte, uint8_t *read_byte)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#ifdef notyet
-	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	int ret;
 
 	ret = (*algo_data->aux_ch)(adapter, mode,
 				   write_byte, read_byte);
 	return ret;
-#endif
 }
 
 /*
