@@ -154,6 +154,7 @@ void	 intel_dp_init_panel_power_sequencer_registers(struct drm_device *,
 	     struct intel_dp *, struct edp_power_seq *);
 void	 ironlake_panel_vdd_tick(void *);
 void	 ironlake_panel_vdd_work(void *, void *);
+int	 intel_dp_i2c_aux_ch(struct i2c_controller *, int, uint8_t, uint8_t *);
 
 /**
  * is_edp - is the given port attached to an eDP panel (either CPU or PCH)
@@ -688,11 +689,11 @@ intel_dp_aux_native_read(struct intel_dp *intel_dp,
 	}
 }
 
-#ifdef notyet
 int
 intel_dp_i2c_aux_ch(struct i2c_controller *adapter, int mode,
 		    uint8_t write_byte, uint8_t *read_byte)
 {
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	struct intel_dp *intel_dp = container_of(adapter,
 						struct intel_dp,
 						adapter);
@@ -784,15 +785,11 @@ intel_dp_i2c_aux_ch(struct i2c_controller *adapter, int mode,
 	DRM_ERROR("too many retries, giving up\n");
 	return EIO;
 }
-#endif
 
 int
 intel_dp_i2c_init(struct intel_dp *intel_dp,
 		  struct intel_connector *intel_connector, const char *name)
 {
-	printf("%s stub\n", __func__);
-	return EINVAL;
-#if 0
 	int	ret;
 
 	DRM_DEBUG_KMS("i2c_init %s\n", name);
@@ -801,18 +798,21 @@ intel_dp_i2c_init(struct intel_dp *intel_dp,
 	intel_dp->algo.aux_ch = intel_dp_i2c_aux_ch;
 
 	memset(&intel_dp->adapter, '\0', sizeof(intel_dp->adapter));
+#if 0
 	intel_dp->adapter.owner = THIS_MODULE;
 	intel_dp->adapter.class = I2C_CLASS_DDC;
 	strncpy(intel_dp->adapter.name, name, sizeof(intel_dp->adapter.name) - 1);
 	intel_dp->adapter.name[sizeof(intel_dp->adapter.name) - 1] = '\0';
-	intel_dp->adapter.algo_data = &intel_dp->algo;
+#endif
+	intel_dp->adapter.ic_cookie = &intel_dp->algo;
+#if 0
 	intel_dp->adapter.dev.parent = &intel_connector->base.kdev;
+#endif
 
 	ironlake_edp_panel_vdd_on(intel_dp);
 	ret = i2c_dp_aux_add_bus(&intel_dp->adapter);
 	ironlake_edp_panel_vdd_off(intel_dp, false);
 	return ret;
-#endif
 }
 
 bool

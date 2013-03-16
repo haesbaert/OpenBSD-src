@@ -317,18 +317,16 @@
  * @address: i2c target address for the currently ongoing transfer
  * @aux_ch: driver callback to transfer a single byte of the i2c payload
  */
-#ifdef notyet
 struct i2c_algo_dp_aux_data {
 	bool running;
 	u16 address;
-	int (*aux_ch) (struct i2c_adapter *adapter,
+	int (*aux_ch) (struct i2c_controller *adapter,
 		       int mode, uint8_t write_byte,
 		       uint8_t *read_byte);
 };
 
 int
-i2c_dp_aux_add_bus(struct i2c_adapter *adapter);
-#endif
+i2c_dp_aux_add_bus(struct i2c_controller *adapter);
 
 
 #define DP_LINK_STATUS_SIZE	   6
