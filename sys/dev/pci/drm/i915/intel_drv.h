@@ -336,7 +336,8 @@ struct intel_dp {
 	int panel_power_cycle_delay;
 	int backlight_on_delay;
 	int backlight_off_delay;
-//	struct delayed_work panel_vdd_work;
+	struct workq_task panel_vdd_task;
+	struct timeout panel_vdd_to;
 	bool want_panel_vdd;
 	struct intel_connector *attached_connector;
 };

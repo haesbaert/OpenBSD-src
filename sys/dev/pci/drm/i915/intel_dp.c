@@ -152,6 +152,8 @@ void	 intel_dp_init_panel_power_sequencer(struct drm_device *,
 	     struct intel_dp *, struct edp_power_seq *);
 void	 intel_dp_init_panel_power_sequencer_registers(struct drm_device *,
 	     struct intel_dp *, struct edp_power_seq *);
+void	 ironlake_panel_vdd_tick(void *);
+void	 ironlake_panel_vdd_work(void *, void *);
 
 /**
  * is_edp - is the given port attached to an eDP panel (either CPU or PCH)
@@ -1204,19 +1206,25 @@ ironlake_panel_vdd_off_sync(struct intel_dp *intel_dp)
 	}
 }
 
-#ifdef notyet
 void
-ironlake_panel_vdd_work(struct work_struct *__work)
+ironlake_panel_vdd_tick(void *arg)
 {
-	struct intel_dp *intel_dp = container_of(to_delayed_work(__work),
-						 struct intel_dp, panel_vdd_work);
+	struct intel_dp *intel_dp = arg;
+
+	workq_queue_task(NULL, &intel_dp->panel_vdd_task, 0,
+	    ironlake_panel_vdd_work, intel_dp, NULL);
+}
+
+void
+ironlake_panel_vdd_work(void *arg1, void *arg2)
+{
+	struct intel_dp *intel_dp = arg1;
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 
-	mtx_enter(&dev->mode_config.mutex);
+	rw_enter_write(&dev->mode_config.rwl);
 	ironlake_panel_vdd_off_sync(intel_dp);
-	mtx_leave(&dev->mode_config.mutex);
+	rw_exit_write(&dev->mode_config.rwl);
 }
-#endif
 
 void
 ironlake_edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
@@ -1237,12 +1245,7 @@ ironlake_edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
 		 * time from now (relative to the power down delay)
 		 * to keep the panel power up across a sequence of operations
 		 */
-#ifdef notyet
-		schedule_delayed_work(&intel_dp->panel_vdd_work,
-				      msecs_to_jiffies(intel_dp->panel_power_cycle_delay * 5));
-#else
-		printf("%s: todo convert timeout\n", __func__);
-#endif
+		timeout_add_msec(&intel_dp->panel_vdd_to, intel_dp->panel_power_cycle_delay * 5);
 	}
 }
 
@@ -1529,14 +1532,12 @@ void
 intel_enable_dp(struct intel_encoder *encoder)
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
-#ifdef notyet
 	struct drm_device *dev = encoder->base.dev;
 	struct inteldrm_softc *dev_priv = dev->dev_private;
 	uint32_t dp_reg = I915_READ(intel_dp->output_reg);
 
 	if (WARN_ON(dp_reg & DP_PORT_EN))
 		return;
-#endif
 
 	ironlake_edp_panel_vdd_on(intel_dp);
 	intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_ON);
@@ -2653,9 +2654,7 @@ intel_dp_encoder_destroy(struct drm_encoder *encoder)
 #endif
 	drm_encoder_cleanup(encoder);
 	if (is_edp(intel_dp)) {
-#ifdef notyet
-		cancel_delayed_work_sync(&intel_dp->panel_vdd_work);
-#endif
+		timeout_del(&intel_dp->panel_vdd_to);
 		ironlake_panel_vdd_off_sync(intel_dp);
 	}
 	free(intel_dig_port, M_DRM);
@@ -2923,10 +2922,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	connector->interlace_allowed = true;
 	connector->doublescan_allowed = 0;
 
-#ifdef notyet
-	INIT_DELAYED_WORK(&intel_dp->panel_vdd_work,
-			  ironlake_panel_vdd_work);
-#endif
+	timeout_set(&intel_dp->panel_vdd_to, ironlake_panel_vdd_tick, intel_dp);
 
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 #ifdef notyet
