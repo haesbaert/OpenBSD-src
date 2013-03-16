@@ -209,8 +209,8 @@ read_err:
 	iic_release_bus(adapter, 0);
 	if (!priv->quiet) {
 		DRM_DEBUG_KMS("Unable to read register 0x%02x from "
-				"%s:%02x.\n",
-			  addr, adapter->name, dvo->slave_addr);
+				"%02x.\n",
+			  addr, dvo->slave_addr);
 	}
 	return false;
 }
@@ -240,8 +240,8 @@ ivch_write(struct intel_dvo_device *dvo, int addr, uint16_t data)
 
 write_err:
 	if (!priv->quiet) {
-		DRM_DEBUG_KMS("Unable to write register 0x%02x to %s:%d.\n",
-			  addr, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("Unable to write register 0x%02x to %d.\n",
+			  addr, dvo->slave_addr);
 	}
 
 	return false;

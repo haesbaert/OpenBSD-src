@@ -135,8 +135,8 @@ tfp410_readb(struct intel_dvo_device *dvo, int addr, uint8_t *ch)
 read_err:
 	iic_release_bus(adapter, 0);
 	if (!tfp->quiet) {
-		DRM_DEBUG_KMS("Unable to read register 0x%02x from %s:%02x.\n",
-			  addr, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("Unable to read register 0x%02x from %02x.\n",
+			  addr, dvo->slave_addr);
 	}
 	return false;
 }
@@ -164,8 +164,8 @@ tfp410_writeb(struct intel_dvo_device *dvo, int addr, uint8_t ch)
 
 write_err:
 	if (!tfp->quiet) {
-		DRM_DEBUG_KMS("Unable to write register 0x%02x to %s:%d.\n",
-			  addr, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("Unable to write register 0x%02x to %d.\n",
+			  addr, dvo->slave_addr);
 	}
 
 	return false;
@@ -201,16 +201,16 @@ tfp410_init(struct intel_dvo_device *dvo,
 	tfp->quiet = true;
 
 	if ((id = tfp410_getid(dvo, TFP410_VID_LO)) != TFP410_VID) {
-		DRM_DEBUG_KMS("tfp410 not detected got VID %X: from %s "
+		DRM_DEBUG_KMS("tfp410 not detected got VID %X: from "
 				"Slave %d.\n",
-			  id, adapter->name, dvo->slave_addr);
+			  id, dvo->slave_addr);
 		goto out;
 	}
 
 	if ((id = tfp410_getid(dvo, TFP410_DID_LO)) != TFP410_DID) {
-		DRM_DEBUG_KMS("tfp410 not detected got DID %X: from %s "
+		DRM_DEBUG_KMS("tfp410 not detected got DID %X: from "
 				"Slave %d.\n",
-			  id, adapter->name, dvo->slave_addr);
+			  id, dvo->slave_addr);
 		goto out;
 	}
 	tfp->quiet = false;

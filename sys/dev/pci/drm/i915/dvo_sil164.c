@@ -109,8 +109,8 @@ sil164_readb(struct intel_dvo_device *dvo, int addr, uint8_t *ch)
 read_err:
 	iic_release_bus(adapter, 0);
 	if (!sil->quiet) {
-		DRM_DEBUG_KMS("Unable to read register 0x%02x from %s:%02x.\n",
-			  addr, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("Unable to read register 0x%02x from %02x.\n",
+			  addr, dvo->slave_addr);
 	}
 	return false;
 }
@@ -138,8 +138,8 @@ sil164_writeb(struct intel_dvo_device *dvo, int addr, uint8_t ch)
 
 write_err:
 	if (!sil->quiet) {
-		DRM_DEBUG_KMS("Unable to write register 0x%02x to %s:%d.\n",
-			  addr, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("Unable to write register 0x%02x to %d.\n",
+			  addr, dvo->slave_addr);
 	}
 
 	return false;
@@ -166,8 +166,8 @@ sil164_init(struct intel_dvo_device *dvo,
 		goto out;
 
 	if (ch != (SIL164_VID & 0xff)) {
-		DRM_DEBUG_KMS("sil164 not detected got %d: from %s Slave %d.\n",
-			  ch, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("sil164 not detected got %d: from Slave %d.\n",
+			  ch, dvo->slave_addr);
 		goto out;
 	}
 
@@ -175,8 +175,8 @@ sil164_init(struct intel_dvo_device *dvo,
 		goto out;
 
 	if (ch != (SIL164_DID & 0xff)) {
-		DRM_DEBUG_KMS("sil164 not detected got %d: from %s Slave %d.\n",
-			  ch, adapter->name, dvo->slave_addr);
+		DRM_DEBUG_KMS("sil164 not detected got %d: from Slave %d.\n",
+			  ch, dvo->slave_addr);
 		goto out;
 	}
 	sil->quiet = false;
