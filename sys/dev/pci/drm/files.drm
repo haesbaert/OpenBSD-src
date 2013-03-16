@@ -51,6 +51,12 @@ file	dev/pci/drm/i915/intel_ringbuffer.c	inteldrm
 file	dev/pci/drm/i915/intel_sdvo.c		inteldrm
 file	dev/pci/drm/i915/intel_sprite.c		inteldrm
 file	dev/pci/drm/i915/intel_tv.c		inteldrm
+file	dev/pci/drm/i915/dvo_ch7017.c		inteldrm
+file	dev/pci/drm/i915/dvo_ch7xxx.c		inteldrm
+file	dev/pci/drm/i915/dvo_ivch.c		inteldrm
+file	dev/pci/drm/i915/dvo_ns2501.c		inteldrm
+file	dev/pci/drm/i915/dvo_sil164.c		inteldrm
+file	dev/pci/drm/i915/dvo_tfp410.c		inteldrm
 
 device	radeondrm: drmbase
 attach	radeondrm at drmdev

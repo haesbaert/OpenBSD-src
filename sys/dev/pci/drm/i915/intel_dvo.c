@@ -56,7 +56,6 @@ struct drm_display_mode *intel_dvo_get_current_mode(struct drm_connector *);
 #define NS2501_ADDR     0x38
 
 static const struct intel_dvo_device intel_dvo_devices[] = {
-#ifdef notyet
 	{
 		.type = INTEL_DVO_CHIP_TMDS,
 		.name = "sil164",
@@ -100,7 +99,6 @@ static const struct intel_dvo_device intel_dvo_devices[] = {
 		.slave_addr = NS2501_ADDR,
 		.dev_ops = &ns2501_ops,
        }
-#endif
 };
 
 struct intel_dvo {
