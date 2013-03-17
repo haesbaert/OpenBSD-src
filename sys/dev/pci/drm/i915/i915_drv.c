@@ -759,8 +759,9 @@ inteldrm_copycols(void *cookie, int row, int src, int dst, int num)
 {
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
+	struct drm_device *dev = (struct drm_device *)sc->drmdev;
 
-	if (sc->noaccel)
+	if (dev->open_count > 0 || sc->noaccel)
 		return sc->noaccel_ops.copycols(cookie, row, src, dst, num);
 
 	num *= ri->ri_font->fontwidth;
@@ -780,9 +781,10 @@ inteldrm_erasecols(void *cookie, int row, int col, int num, long attr)
 {
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
+	struct drm_device *dev = (struct drm_device *)sc->drmdev;
 	int bg, fg;
 
-	if (sc->noaccel)
+	if (dev->open_count > 0 || sc->noaccel)
 		return sc->noaccel_ops.erasecols(cookie, row, col, num, attr);
 
 	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
@@ -802,8 +804,9 @@ inteldrm_copyrows(void *cookie, int src, int dst, int num)
 {
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
+	struct drm_device *dev = (struct drm_device *)sc->drmdev;
 
-	if (sc->noaccel)
+	if (dev->open_count > 0 || sc->noaccel)
 		return sc->noaccel_ops.copyrows(cookie, src, dst, num);
 
 	num *= ri->ri_font->fontheight;
@@ -821,10 +824,11 @@ inteldrm_eraserows(void *cookie, int row, int num, long attr)
 {
 	struct rasops_info *ri = cookie;
 	struct inteldrm_softc *sc = ri->ri_hw;
+	struct drm_device *dev = (struct drm_device *)sc->drmdev;
 	int bg, fg;
 	int x, y, w;
 
-	if (sc->noaccel)
+	if (dev->open_count > 0 || sc->noaccel)
 		return sc->noaccel_ops.eraserows(cookie, row, num, attr);
 
 	ri->ri_ops.unpack_attr(cookie, attr, &fg, &bg, NULL);
@@ -1161,13 +1165,11 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 
 	dev_priv->noaccel_ops = ri->ri_ops;
 
-#ifdef notyet
 	ri->ri_hw = dev_priv;
 	ri->ri_ops.copyrows = inteldrm_copyrows;
 	ri->ri_ops.copycols = inteldrm_copycols;
 	ri->ri_ops.eraserows = inteldrm_eraserows;
 	ri->ri_ops.erasecols = inteldrm_erasecols;
-#endif
 
 	inteldrm_stdscreen.capabilities = ri->ri_caps;
 	inteldrm_stdscreen.nrows = ri->ri_rows;
