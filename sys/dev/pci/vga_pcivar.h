@@ -55,6 +55,7 @@ struct vga_pci_bar {
 struct vga_pci_softc {
 	struct device sc_dev;
 	struct vga_config *sc_vc;
+	int sc_type;
 
 	struct pci_attach_args pa;
 	struct vga_pci_bar *bars[VGA_PCI_MAX_BARS];
@@ -79,7 +80,6 @@ struct vga_pci_softc {
 	u_char sc_cmap_red[256];	/* saved color map */
 	u_char sc_cmap_green[256];
 	u_char sc_cmap_blue[256];
-
 #endif
 };
 

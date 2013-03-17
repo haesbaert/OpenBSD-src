@@ -947,6 +947,7 @@ void
 inteldrm_attach(struct device *parent, struct device *self, void *aux)
 {
 	struct inteldrm_softc	*dev_priv = (struct inteldrm_softc *)self;
+	struct vga_pci_softc	*vga_sc = (struct vga_pci_softc *)parent;
 	struct pci_attach_args	*pa = aux, bpa;
 	struct vga_pci_bar	*bar;
 	struct drm_device	*dev;
@@ -971,15 +972,13 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 	dev = (struct drm_device *)dev_priv->drmdev;
 
 	/* we need to use this api for now due to sharing with intagp */
-	bar = vga_pci_bar_info((struct vga_pci_softc *)parent,
-	    (IS_I9XX(dev) ? 0 : 1));
+	bar = vga_pci_bar_info(vga_sc, (IS_I9XX(dev) ? 0 : 1));
 	if (bar == NULL) {
 		printf(": can't get BAR info\n");
 		return;
 	}
 
-	dev_priv->regs = vga_pci_bar_map((struct vga_pci_softc *)parent,
-	    bar->addr, 0, 0);
+	dev_priv->regs = vga_pci_bar_map(vga_sc, bar->addr, 0, 0);
 	if (dev_priv->regs == NULL) {
 		printf(": can't map mmio space\n");
 		return;
@@ -1191,6 +1190,7 @@ inteldrm_attach(struct device *parent, struct device *self, void *aux)
 		aa.console = 1;
 	}
 
+	vga_sc->sc_type = -1;
 	config_found(parent, &aa, wsemuldisplaydevprint);
 }
 #endif
