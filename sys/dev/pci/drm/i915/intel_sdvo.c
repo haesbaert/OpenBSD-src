@@ -317,6 +317,10 @@ uint16_t intel_sdvo_get_hotplug_support(struct intel_sdvo *);
 void	 intel_sdvo_unselect_i2c_bus(struct intel_sdvo *);
 u8	 intel_sdvo_get_slave_addr(struct drm_device *, struct intel_sdvo *);
 void	 intel_sdvo_output_cleanup(struct intel_sdvo *);
+int	 intel_sdvo_ddc_proxy_acquire_bus(void *, int);
+void	 intel_sdvo_ddc_proxy_release_bus(void *, int);
+int	 intel_sdvo_ddc_proxy_exec(void *, i2c_op_t, i2c_addr_t,
+	     const void *, size_t, void *, size_t, int);
 
 struct intel_sdvo *
 to_intel_sdvo(struct drm_encoder *encoder)
@@ -551,16 +555,21 @@ static const char *cmd_status_names[] = {
 	"Scaling not supported"
 };
 
+struct i2c_msg {
+	i2c_op_t	 op;
+	i2c_addr_t	 addr;
+	void		*buf;
+	size_t		 len;
+};
+
 bool
 intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd,
 				 const void *args, int args_len)
 {
-	printf("%s stub\n", __func__);
-	return false;
-#ifdef notyet
 	u8 *buf, status;
 	struct i2c_msg *msgs;
-	int i, ret = true;
+	int i, ret = true, x;
+	uint8_t c = 0;
 
         /* Would be simpler to allocate both in one go ? */        
 	buf = (u8 *)malloc(args_len * 2 + 2, M_DRM,
@@ -578,15 +587,15 @@ intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd,
 	intel_sdvo_debug_write(intel_sdvo, cmd, args, args_len);
 
 	for (i = 0; i < args_len; i++) {
+		msgs[i].op = I2C_OP_WRITE_WITH_STOP;
 		msgs[i].addr = intel_sdvo->slave_addr;
-		msgs[i].flags = 0;
 		msgs[i].len = 2;
 		msgs[i].buf = buf + 2 *i;
 		buf[2*i + 0] = SDVO_I2C_ARG_0 - i;
 		buf[2*i + 1] = ((u8*)args)[i];
 	}
+	msgs[i].op = I2C_OP_WRITE_WITH_STOP;
 	msgs[i].addr = intel_sdvo->slave_addr;
-	msgs[i].flags = 0;
 	msgs[i].len = 2;
 	msgs[i].buf = buf + 2*i;
 	buf[2*i + 0] = SDVO_I2C_OPCODE;
@@ -594,33 +603,31 @@ intel_sdvo_write_cmd(struct intel_sdvo *intel_sdvo, u8 cmd,
 
 	/* the following two are to read the response */
 	status = SDVO_I2C_CMD_STATUS;
+	msgs[i+1].op = I2C_OP_WRITE_WITH_STOP;
 	msgs[i+1].addr = intel_sdvo->slave_addr;
-	msgs[i+1].flags = 0;
 	msgs[i+1].len = 1;
 	msgs[i+1].buf = &status;
 
+	msgs[i+2].op = I2C_OP_READ_WITH_STOP;
 	msgs[i+2].addr = intel_sdvo->slave_addr;
-	msgs[i+2].flags = I2C_M_RD;
 	msgs[i+2].len = 1;
 	msgs[i+2].buf = &status;
 
-	ret = i2c_transfer(intel_sdvo->i2c, msgs, i+3);
-	if (ret < 0) {
-		DRM_DEBUG_KMS("I2c transfer returned %d\n", ret);
-		ret = false;
-		goto out;
+	iic_acquire_bus(intel_sdvo->i2c, 0);
+	for (x = 0; x < i+3; x++) {
+		ret = iic_exec(intel_sdvo->i2c, msgs[x].op, msgs[x].addr,
+		    &c, 1, msgs[x].buf, msgs[x].len, 0);
+		if (ret) {
+			DRM_DEBUG_KMS("sdvo i2c transfer failed\n");
+			ret = false;
+			break;
+		}
 	}
-	if (ret != i+3) {
-		/* failure in I2C transfer */
-		DRM_DEBUG_KMS("I2c transfer returned %d/%d\n", ret, i+3);
-		ret = false;
-	}
+	iic_release_bus(intel_sdvo->i2c, 0);
 
-out:
 	free(msgs, M_DRM);
 	free(buf, M_DRM);
 	return ret;
-#endif
 }
 
 bool
@@ -2287,8 +2294,6 @@ void
 intel_sdvo_select_i2c_bus(struct inteldrm_softc *dev_priv,
 			  struct intel_sdvo *sdvo, u32 reg)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct sdvo_device_mapping *mapping;
 	u8 pin;
 
@@ -2304,6 +2309,7 @@ intel_sdvo_select_i2c_bus(struct inteldrm_softc *dev_priv,
 
 	sdvo->i2c = intel_gmbus_get_adapter(dev_priv, pin);
 
+#ifdef notyet
 	/* With gmbus we should be able to drive sdvo i2c at 2MHz, but somehow
 	 * our code totally fails once we start using gmbus. Hence fall back to
 	 * bit banging for now. */
@@ -2858,40 +2864,43 @@ intel_sdvo_create_enhance_property(struct intel_sdvo *intel_sdvo,
 		return true;
 }
 
-#ifdef notyet
 int
-intel_sdvo_ddc_proxy_xfer(struct i2c_adapter *adapter,
-				     struct i2c_msg *msgs,
-				     int num)
+intel_sdvo_ddc_proxy_acquire_bus(void *cookie, int flags)
 {
-	struct intel_sdvo *sdvo = adapter->algo_data;
+	struct intel_sdvo *sdvo = cookie;
+	struct i2c_controller *i2c = sdvo->i2c;
+
+	return ((i2c->ic_acquire_bus)(i2c->ic_cookie, flags));
+}
+
+void
+intel_sdvo_ddc_proxy_release_bus(void *cookie, int flags)
+{
+	struct intel_sdvo *sdvo = cookie;
+	struct i2c_controller *i2c = sdvo->i2c;
+
+	(i2c->ic_release_bus)(i2c->ic_cookie, flags);
+}
+
+int
+intel_sdvo_ddc_proxy_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
+    const void *cmdbuf, size_t cmdlen, void *buffer, size_t len, int flags)
+{
+	struct intel_sdvo *sdvo = cookie;
+	struct i2c_controller *i2c = sdvo->i2c;
 
 	if (!intel_sdvo_set_control_bus_switch(sdvo, sdvo->ddc_bus))
 		return -EIO;
 
-	return sdvo->i2c->algo->master_xfer(sdvo->i2c, msgs, num);
+	return ((i2c->ic_exec)(i2c->ic_cookie,
+	    op, addr, cmdbuf, cmdlen, buffer, len, flags));
 }
-
-u32
-intel_sdvo_ddc_proxy_func(struct i2c_adapter *adapter)
-{
-	struct intel_sdvo *sdvo = adapter->algo_data;
-	return sdvo->i2c->algo->functionality(sdvo->i2c);
-}
-
-static const struct i2c_algorithm intel_sdvo_ddc_proxy = {
-	.master_xfer	= intel_sdvo_ddc_proxy_xfer,
-	.functionality	= intel_sdvo_ddc_proxy_func
-};
-#endif
 
 bool
 intel_sdvo_init_ddc_proxy(struct intel_sdvo *sdvo,
 			  struct drm_device *dev)
 {
-	printf("%s stub\n", __func__);
-	return false;
-#ifdef notyet
+#if 0
 	sdvo->ddc.owner = THIS_MODULE;
 	sdvo->ddc.class = I2C_CLASS_DDC;
 	snprintf(sdvo->ddc.name, I2C_NAME_SIZE, "SDVO DDC proxy");
@@ -2900,6 +2909,13 @@ intel_sdvo_init_ddc_proxy(struct intel_sdvo *sdvo,
 	sdvo->ddc.algo = &intel_sdvo_ddc_proxy;
 
 	return i2c_add_adapter(&sdvo->ddc) == 0;
+#else
+	sdvo->ddc.ic_cookie = sdvo;
+	sdvo->ddc.ic_acquire_bus = intel_sdvo_ddc_proxy_acquire_bus;
+	sdvo->ddc.ic_release_bus = intel_sdvo_ddc_proxy_release_bus;
+	sdvo->ddc.ic_exec = intel_sdvo_ddc_proxy_exec;
+
+	return true;
 #endif
 }
 
