@@ -318,6 +318,7 @@
  * @aux_ch: driver callback to transfer a single byte of the i2c payload
  */
 struct i2c_algo_dp_aux_data {
+	struct i2c_controller *adapter;
 	bool running;
 	u16 address;
 	int (*aux_ch) (struct i2c_controller *adapter,

@@ -796,6 +796,7 @@ intel_dp_i2c_init(struct intel_dp *intel_dp,
 	intel_dp->algo.running = false;
 	intel_dp->algo.address = 0;
 	intel_dp->algo.aux_ch = intel_dp_i2c_aux_ch;
+	intel_dp->algo.adapter = &intel_dp->adapter;
 
 	memset(&intel_dp->adapter, '\0', sizeof(intel_dp->adapter));
 #if 0

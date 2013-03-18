@@ -44,6 +44,10 @@ int	 i2c_dp_aux_prepare_bus(struct i2c_controller *);
 int	 i2c_dp_aux_add_bus(struct i2c_controller *);
 u8	 dp_link_status(u8 link_status[DP_LINK_STATUS_SIZE], int);
 u8	 dp_get_lane_status(u8 link_status[DP_LINK_STATUS_SIZE], int);
+int	 i2c_algo_dp_aux_exec(void *, i2c_op_t, i2c_addr_t,
+	    const void *, size_t, void *, size_t, int);
+void	 i2c_dp_aux_release_bus(void *, int);
+int	 i2c_dp_aux_acquire_bus(void *, int);
 
 /* Run a single AUX_CH I2C transaction, writing/reading data as necessary */
 int
@@ -138,47 +142,40 @@ i2c_algo_dp_aux_get_byte(struct i2c_controller *adapter, u8 *byte_ret)
 	return ret;
 }
 
-#ifdef notyet
 int
-i2c_algo_dp_aux_xfer(struct i2c_controller *adapter,
-		     struct i2c_msg *msgs,
-		     int num)
+i2c_algo_dp_aux_exec(void *cookie, i2c_op_t op, i2c_addr_t addr,
+    const void *cmdbuf, size_t cmdlen, void *buffer, size_t len, int flags)
 {
+	struct i2c_algo_dp_aux_data *algo_data = cookie;
+	struct i2c_controller *adapter = algo_data->adapter;
 	int ret = 0;
 	bool reading = false;
-	int m;
 	int b;
+	uint8_t *buf = buffer;
 
-	for (m = 0; m < num; m++) {
-		u16 len = msgs[m].len;
-		u8 *buf = msgs[m].buf;
-		reading = (msgs[m].flags & I2C_M_RD) != 0;
-		ret = i2c_algo_dp_aux_address(adapter, msgs[m].addr, reading);
-		if (ret < 0)
-			break;
-		if (reading) {
-			for (b = 0; b < len; b++) {
-				ret = i2c_algo_dp_aux_get_byte(adapter, &buf[b]);
-				if (ret < 0)
-					break;
-			}
-		} else {
-			for (b = 0; b < len; b++) {
-				ret = i2c_algo_dp_aux_put_byte(adapter, buf[b]);
-				if (ret < 0)
-					break;
-			}
+	reading = I2C_OP_READ_P(op);
+	ret = i2c_algo_dp_aux_address(adapter, addr, reading);
+	if (ret < 0)
+		goto out;
+	if (reading) {
+		for (b = 0; b < len; b++) {
+			ret = i2c_algo_dp_aux_get_byte(adapter, &buf[b]);
+			if (ret < 0)
+				break;
 		}
-		if (ret < 0)
-			break;
+	} else if (I2C_OP_WRITE_P(op)) {
+		for (b = 0; b < len; b++) {
+			ret = i2c_algo_dp_aux_put_byte(adapter, buf[b]);
+			if (ret < 0)
+				break;
+		}
 	}
-	if (ret >= 0)
-		ret = num;
+
+out:
 	i2c_algo_dp_aux_stop(adapter, reading);
 	DRM_DEBUG_KMS("dp_aux_xfer return %d\n", ret);
 	return ret;
 }
-#endif
 
 void
 i2c_dp_aux_reset_bus(struct i2c_controller *adapter)
@@ -188,12 +185,30 @@ i2c_dp_aux_reset_bus(struct i2c_controller *adapter)
 }
 
 int
+i2c_dp_aux_acquire_bus(void *cookie, int flags)
+{
+	return (0);
+}
+
+void
+i2c_dp_aux_release_bus(void *cookie, int flags)
+{
+	struct i2c_algo_dp_aux_data *algo_data = cookie;
+
+	i2c_dp_aux_reset_bus(algo_data->adapter);
+}
+
+int
 i2c_dp_aux_prepare_bus(struct i2c_controller *adapter)
 {
 #ifdef notyet
 	adapter->algo = &i2c_dp_aux_algo;
 	adapter->retries = 3;
 #endif
+	/* cookie set in driver */
+	adapter->ic_acquire_bus = i2c_dp_aux_acquire_bus;
+	adapter->ic_release_bus = i2c_dp_aux_release_bus;
+	adapter->ic_exec = i2c_algo_dp_aux_exec;
 	i2c_dp_aux_reset_bus(adapter);
 	return 0;
 }
