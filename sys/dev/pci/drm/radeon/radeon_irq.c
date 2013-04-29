@@ -31,9 +31,9 @@
  *    Michel D�zer <michel@daenzer.net>
  */
 
-#include "drmP.h"
-#include "drm.h"
-#include "radeon_drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 
 int		radeondrm_intr(void *);

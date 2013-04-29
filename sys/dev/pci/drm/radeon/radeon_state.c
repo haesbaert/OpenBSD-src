@@ -28,10 +28,10 @@
  *    Kevin E. Martin <martin@valinux.com>
  */
 
-#include "drmP.h"
-#include "drm.h"
-#include "drm_sarea.h"
-#include "radeon_drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
+#include <dev/pci/drm/drm_sarea.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 
 int	radeon_check_and_fixup_offset(drm_radeon_private_t *, struct drm_file *,

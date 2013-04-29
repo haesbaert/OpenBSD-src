@@ -26,8 +26,8 @@
  *    Jerome Glisse <glisse@freedesktop.org>
  */
 
-#include "drmP.h"
-#include "radeon_drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 
 /* regs */

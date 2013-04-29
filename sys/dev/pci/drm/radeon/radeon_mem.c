@@ -29,9 +29,9 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "drmP.h"
-#include "drm.h"
-#include "radeon_drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 
 struct drm_heap *radeon_get_heap(drm_radeon_private_t *, int);

@@ -33,9 +33,9 @@
  *    Alex Deucher <alexander.deucher@amd.com>
  */
 
-#include "drmP.h"
-#include "drm.h"
-#include "radeon_drm.h"
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 #include "r300_reg.h"
 
