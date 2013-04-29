@@ -130,7 +130,7 @@ struct ttm_pool_opts {
 
 /*
  * Contains the list of all of the 'struct device' and their corresponding
- * DMA pools. Guarded by _mutex->lock.
+ * DMA pools. Guarded by _rwlock->lock.
  * @pools: The link to 'struct ttm_pool_manager->pools'
  * @dev: The 'struct device' associated with the 'pool'
  * @pool: The 'struct dma_pool' associated with the 'dev'
@@ -151,7 +151,7 @@ struct device_pools {
  * @shrinker: The structure used by [un|]register_shrinker
  */
 struct ttm_pool_manager {
-	struct mutex		lock;
+	struct rwlock		lock;
 	struct list_head	pools;
 	struct ttm_pool_opts	options;
 	unsigned		npools;
@@ -497,7 +497,7 @@ static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 	if (!dev)
 		return;
 
-	mutex_lock(&_manager->lock);
+	rw_enter_write(&_manager->lock);
 	list_for_each_entry_reverse(p, &_manager->pools, pools) {
 		if (p->dev != dev)
 			continue;
@@ -519,12 +519,12 @@ static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 		/* This code path is called after _all_ references to the
 		 * struct device has been dropped - so nobody should be
 		 * touching it. In case somebody is trying to _add_ we are
-		 * guarded by the mutex. */
+		 * guarded by the rwlock. */
 		list_del(&pool->pools);
 		kfree(pool);
 		break;
 	}
-	mutex_unlock(&_manager->lock);
+	rw_exit_write(&_manager->lock);
 }
 
 /*
@@ -601,13 +601,13 @@ static struct dma_pool *ttm_dma_pool_init(struct device *dev, gfp_t flags,
 	 * - the kobj->name has already been deallocated.*/
 	snprintf(pool->dev_name, sizeof(pool->dev_name), "%s %s",
 		 dev_driver_string(dev), dev_name(dev));
-	mutex_lock(&_manager->lock);
+	rw_enter_write(&_manager->lock);
 	/* You can get the dma_pool from either the global: */
 	list_add(&sec_pool->pools, &_manager->pools);
 	_manager->npools++;
 	/* or from 'struct device': */
 	list_add(&pool->pools, &dev->dma_pools);
-	mutex_unlock(&_manager->lock);
+	rw_exit_write(&_manager->lock);
 
 	*ptr = pool;
 	devres_add(dev, ptr);
@@ -909,10 +909,10 @@ static int ttm_dma_pool_get_num_unused_pages(void)
 	struct device_pools *p;
 	unsigned total = 0;
 
-	mutex_lock(&_manager->lock);
+	rw_enter_write(&_manager->lock);
 	list_for_each_entry(p, &_manager->pools, pools)
 		total += p->pool->npages_free;
-	mutex_unlock(&_manager->lock);
+	rw_exit_write(&_manager->lock);
 	return total;
 }
 
@@ -1000,7 +1000,7 @@ static int ttm_dma_pool_mm_shrink(struct shrinker *shrink,
 	if (list_empty(&_manager->pools))
 		return 0;
 
-	mutex_lock(&_manager->lock);
+	rw_enter_write(&_manager->lock);
 	pool_offset = pool_offset % _manager->npools;
 	list_for_each_entry(p, &_manager->pools, pools) {
 		unsigned nr_free;
@@ -1018,7 +1018,7 @@ static int ttm_dma_pool_mm_shrink(struct shrinker *shrink,
 			 p->pool->dev_name, p->pool->name, current->pid,
 			 nr_free, shrink_pages);
 	}
-	mutex_unlock(&_manager->lock);
+	rw_exit_write(&_manager->lock);
 	/* return estimated number of unused pages in pool */
 	return ttm_dma_pool_get_num_unused_pages();
 }
@@ -1047,7 +1047,7 @@ int ttm_dma_page_alloc_init(struct ttm_mem_global *glob, unsigned max_pages)
 	if (!_manager)
 		goto err;
 
-	mutex_init(&_manager->lock);
+	rw_init(&_manager->lock, "ttm_mgr");
 	INIT_LIST_HEAD(&_manager->pools);
 
 	_manager->options.max_size = max_pages;
@@ -1098,7 +1098,7 @@ int ttm_dma_page_alloc_debugfs(struct seq_file *m, void *data)
 	}
 	seq_printf(m, "%13s %12s %13s %8s %8s %8s\n",
 		   h[0], h[1], h[2], h[3], h[4], h[5]);
-	mutex_lock(&_manager->lock);
+	rw_enter_write(&_manager->lock);
 	list_for_each_entry(p, &_manager->pools, pools) {
 		struct device *dev = p->dev;
 		if (!dev)
@@ -1110,7 +1110,7 @@ int ttm_dma_page_alloc_debugfs(struct seq_file *m, void *data)
 				pool->npages_free,
 				pool->dev_name);
 	}
-	mutex_unlock(&_manager->lock);
+	rw_exit_write(&_manager->lock);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ttm_dma_page_alloc_debugfs);

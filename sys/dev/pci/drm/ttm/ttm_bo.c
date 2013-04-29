@@ -312,7 +312,7 @@ void ttm_bo_unreserve(struct ttm_buffer_object *bo)
 EXPORT_SYMBOL(ttm_bo_unreserve);
 
 /*
- * Call bo->mutex locked.
+ * Call bo->rwlock locked.
  */
 static int ttm_bo_add_ttm(struct ttm_buffer_object *bo, bool zero_alloc)
 {
@@ -321,7 +321,7 @@ static int ttm_bo_add_ttm(struct ttm_buffer_object *bo, bool zero_alloc)
 	int ret = 0;
 	uint32_t page_flags = 0;
 
-	TTM_ASSERT_LOCKED(&bo->mutex);
+	rw_assert_wrlock(&bo->rwlock);
 	bo->ttm = NULL;
 
 	if (bdev->need_dma32)
@@ -1395,7 +1395,7 @@ int ttm_bo_init_mm(struct ttm_bo_device *bdev, unsigned type,
 	BUG_ON(man->has_type);
 	man->io_reserve_fastpath = true;
 	man->use_io_reserve_lru = false;
-	mutex_init(&man->io_reserve_mutex);
+	rw_init(&man->io_reserve_rwlock, "ttm_iores");
 	INIT_LIST_HEAD(&man->io_reserve_lru);
 
 	ret = bdev->driver->init_mem_type(bdev, type, man);
@@ -1445,7 +1445,7 @@ int ttm_bo_global_init(struct drm_global_reference *ref)
 	struct ttm_bo_global *glob = ref->object;
 	int ret;
 
-	mutex_init(&glob->device_list_mutex);
+	rw_init(&glob->device_list_rwlock, "ttm_devlist");
 	spin_lock_init(&glob->lru_lock);
 	glob->mem_glob = bo_ref->mem_glob;
 	glob->dummy_read_page = alloc_page(__GFP_ZERO | GFP_DMA32);
@@ -1501,9 +1501,9 @@ int ttm_bo_device_release(struct ttm_bo_device *bdev)
 		}
 	}
 
-	mutex_lock(&glob->device_list_mutex);
+	rw_enter_write(&glob->device_list_rwlock);
 	list_del(&bdev->device_list);
-	mutex_unlock(&glob->device_list_mutex);
+	rw_exit_write(&glob->device_list_rwlock);
 
 	cancel_delayed_work_sync(&bdev->wq);
 
@@ -1560,9 +1560,9 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 	bdev->need_dma32 = need_dma32;
 	bdev->val_seq = 0;
 	spin_lock_init(&bdev->fence_lock);
-	mutex_lock(&glob->device_list_mutex);
+	rw_enter_write(&glob->device_list_rwlock);
 	list_add_tail(&bdev->device_list, &glob->device_list);
-	mutex_unlock(&glob->device_list_mutex);
+	rw_exit_write(&glob->device_list_rwlock);
 
 	return 0;
 out_no_addr_mm:

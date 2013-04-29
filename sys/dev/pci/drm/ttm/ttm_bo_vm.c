@@ -156,7 +156,7 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	 * since the mmap_sem is only held in read mode. However, we
 	 * modify only the caching bits of vma->vm_page_prot and
 	 * consider those bits protected by
-	 * the bo->mutex, as we should be the only writers.
+	 * the bo->rwlock, as we should be the only writers.
 	 * There shouldn't really be any readers of these bits except
 	 * within vm_insert_mixed()? fork?
 	 *

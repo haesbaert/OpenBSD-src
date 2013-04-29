@@ -194,7 +194,7 @@ struct ttm_mem_type_manager_func {
 	 * which has knowledge of the underlying type.
 	 *
 	 * This function may not be called from within atomic context, so
-	 * an implementation can and must use either a mutex or a spinlock to
+	 * an implementation can and must use either a rwlock or a mutex to
 	 * protect any data structures managing the space.
 	 */
 	int  (*get_node)(struct ttm_mem_type_manager *man,
@@ -244,7 +244,7 @@ struct ttm_mem_type_manager_func {
  * placed in this memory type if the user doesn't provide one.
  * @func: structure pointer implementing the range manager. See above
  * @priv: Driver private closure for @func.
- * @io_reserve_mutex: Mutex optionally protecting shared io_reserve structures
+ * @io_reserve_rwlock: Mutex optionally protecting shared io_reserve structures
  * @use_io_reserve_lru: Use an lru list to try to unreserve io_mem_regions
  * reserved by the TTM vm system.
  * @io_reserve_lru: Optional lru list for unreserving io mem regions.
@@ -274,12 +274,12 @@ struct ttm_mem_type_manager {
 	uint32_t default_caching;
 	const struct ttm_mem_type_manager_func *func;
 	void *priv;
-	struct mutex io_reserve_mutex;
+	struct rwlock io_reserve_rwlock;
 	bool use_io_reserve_lru;
 	bool io_reserve_fastpath;
 
 	/*
-	 * Protected by @io_reserve_mutex:
+	 * Protected by @io_reserve_rwlock:
 	 */
 
 	struct list_head io_reserve_lru;
@@ -465,8 +465,8 @@ struct ttm_bo_global_ref {
  * @dummy_read_page: Pointer to a dummy page used for mapping requests
  * of unpopulated pages.
  * @shrink: A shrink callback object used for buffer object swap.
- * @device_list_mutex: Mutex protecting the device list.
- * This mutex is held while traversing the device list for pm options.
+ * @device_list_rwlock: Mutex protecting the device list.
+ * This rwlock is held while traversing the device list for pm options.
  * @lru_lock: Spinlock protecting the bo subsystem lru lists.
  * @device_list: List of buffer object devices.
  * @swap_lru: Lru list of buffer objects used for swapping.
@@ -482,11 +482,11 @@ struct ttm_bo_global {
 	struct ttm_mem_global *mem_glob;
 	struct page *dummy_read_page;
 	struct ttm_mem_shrink shrink;
-	struct mutex device_list_mutex;
+	struct rwlock device_list_rwlock;
 	spinlock_t lru_lock;
 
 	/**
-	 * Protected by device_list_mutex.
+	 * Protected by device_list_rwlock.
 	 */
 	struct list_head device_list;
 

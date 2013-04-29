@@ -34,7 +34,7 @@
 #include <dev/pci/drm/drm_mm.h>
 
 /**
- * Currently we use a spinlock for the lock, but a mutex *may* be
+ * Currently we use a mutex for the lock, but a rwlock *may* be
  * more appropriate to reduce scheduling latency if the range manager
  * ends up with very fragmented allocation patterns.
  */
