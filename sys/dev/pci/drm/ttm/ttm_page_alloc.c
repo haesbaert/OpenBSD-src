@@ -58,7 +58,7 @@
  * @npages: Number of pages in pool.
  */
 struct ttm_page_pool {
-	spinlock_t		lock;
+	struct mutex		lock;
 	bool			fill_lock;
 	struct list_head	list;
 	gfp_t			gfp_flags;
@@ -288,7 +288,6 @@ static void ttm_pool_update_free_locked(struct ttm_page_pool *pool,
  **/
 static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free)
 {
-	unsigned long irq_flags;
 	struct page *p;
 	struct page **pages_to_free;
 	unsigned freed_pages = 0,
@@ -305,7 +304,7 @@ static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free)
 	}
 
 restart:
-	spin_lock_irqsave(&pool->lock, irq_flags);
+	mtx_enter(&pool->lock);
 
 	list_for_each_entry_reverse(p, &pool->list, lru) {
 		if (freed_pages >= npages_to_free)
@@ -322,7 +321,7 @@ restart:
 			 * Because changing page caching is costly
 			 * we unlock the pool to prevent stalling.
 			 */
-			spin_unlock_irqrestore(&pool->lock, irq_flags);
+			mtx_leave(&pool->lock);
 
 			ttm_pages_put(pages_to_free, freed_pages);
 			if (likely(nr_free != FREE_ALL_PAGES))
@@ -340,7 +339,7 @@ restart:
 				goto restart;
 
 			/* Not allowed to fall through or break because
-			 * following context is inside spinlock while we are
+			 * following context is inside mutex while we are
 			 * outside here.
 			 */
 			goto out;
@@ -356,7 +355,7 @@ restart:
 		nr_free -= freed_pages;
 	}
 
-	spin_unlock_irqrestore(&pool->lock, irq_flags);
+	mtx_leave(&pool->lock);
 
 	if (freed_pages)
 		ttm_pages_put(pages_to_free, freed_pages);
@@ -539,8 +538,7 @@ out:
  * pages is small.
  */
 static void ttm_page_pool_fill_locked(struct ttm_page_pool *pool,
-		int ttm_flags, enum ttm_caching_state cstate, unsigned count,
-		unsigned long *irq_flags)
+		int ttm_flags, enum ttm_caching_state cstate, unsigned count)
 {
 	struct page *p;
 	int r;
@@ -566,12 +564,12 @@ static void ttm_page_pool_fill_locked(struct ttm_page_pool *pool,
 		 * Can't change page caching if in irqsave context. We have to
 		 * drop the pool->lock.
 		 */
-		spin_unlock_irqrestore(&pool->lock, *irq_flags);
+		mtx_leave(&pool->lock);
 
 		INIT_LIST_HEAD(&new_pages);
 		r = ttm_alloc_new_pages(&new_pages, pool->gfp_flags, ttm_flags,
 				cstate,	alloc_size);
-		spin_lock_irqsave(&pool->lock, *irq_flags);
+		mtx_enter(&pool->lock);
 
 		if (!r) {
 			list_splice(&new_pages, &pool->list);
@@ -602,12 +600,11 @@ static unsigned ttm_page_pool_get_pages(struct ttm_page_pool *pool,
 					enum ttm_caching_state cstate,
 					unsigned count)
 {
-	unsigned long irq_flags;
 	struct list_head *p;
 	unsigned i;
 
-	spin_lock_irqsave(&pool->lock, irq_flags);
-	ttm_page_pool_fill_locked(pool, ttm_flags, cstate, count, &irq_flags);
+	mtx_enter(&pool->lock);
+	ttm_page_pool_fill_locked(pool, ttm_flags, cstate, count);
 
 	if (count >= pool->npages) {
 		/* take all pages from the pool */
@@ -636,7 +633,7 @@ static unsigned ttm_page_pool_get_pages(struct ttm_page_pool *pool,
 	pool->npages -= count;
 	count = 0;
 out:
-	spin_unlock_irqrestore(&pool->lock, irq_flags);
+	mtx_leave(&pool->lock);
 	return count;
 }
 
@@ -644,7 +641,6 @@ out:
 static void ttm_put_pages(struct page **pages, unsigned npages, int flags,
 			  enum ttm_caching_state cstate)
 {
-	unsigned long irq_flags;
 	struct ttm_page_pool *pool = ttm_get_pool(flags, cstate);
 	unsigned i;
 
@@ -661,7 +657,7 @@ static void ttm_put_pages(struct page **pages, unsigned npages, int flags,
 		return;
 	}
 
-	spin_lock_irqsave(&pool->lock, irq_flags);
+	mtx_enter(&pool->lock);
 	for (i = 0; i < npages; i++) {
 		if (pages[i]) {
 			if (page_count(pages[i]) != 1)
@@ -680,7 +676,7 @@ static void ttm_put_pages(struct page **pages, unsigned npages, int flags,
 		if (npages < NUM_PAGES_TO_ALLOC)
 			npages = NUM_PAGES_TO_ALLOC;
 	}
-	spin_unlock_irqrestore(&pool->lock, irq_flags);
+	mtx_leave(&pool->lock);
 	if (npages)
 		ttm_page_pool_free(pool, npages);
 }
@@ -769,7 +765,7 @@ static int ttm_get_pages(struct page **pages, unsigned npages, int flags,
 static void ttm_page_pool_init_locked(struct ttm_page_pool *pool, int flags,
 		char *name)
 {
-	spin_lock_init(&pool->lock);
+	mtx_init(&pool->lock, IPL_NONE);
 	pool->fill_lock = false;
 	INIT_LIST_HEAD(&pool->list);
 	pool->npages = pool->nfrees = 0;

@@ -75,7 +75,7 @@ struct ttm_object_file {
  */
 
 struct ttm_object_device {
-	spinlock_t object_lock;
+	struct mutex object_lock;
 	struct drm_open_hash object_hash;
 	atomic_t object_count;
 	struct ttm_mem_global *mem_glob;
@@ -153,11 +153,11 @@ int ttm_base_object_init(struct ttm_object_file *tfile,
 	base->ref_obj_release = ref_obj_release;
 	base->object_type = object_type;
 	kref_init(&base->refcount);
-	spin_lock(&tdev->object_lock);
+	mtx_enter(&tdev->object_lock);
 	ret = drm_ht_just_insert_please_rcu(&tdev->object_hash,
 					    &base->hash,
 					    (unsigned long)base, 31, 0, 0);
-	spin_unlock(&tdev->object_lock);
+	mtx_leave(&tdev->object_lock);
 	if (unlikely(ret != 0))
 		goto out_err0;
 
@@ -169,9 +169,9 @@ int ttm_base_object_init(struct ttm_object_file *tfile,
 
 	return 0;
 out_err1:
-	spin_lock(&tdev->object_lock);
+	mtx_enter(&tdev->object_lock);
 	(void)drm_ht_remove_item_rcu(&tdev->object_hash, &base->hash);
-	spin_unlock(&tdev->object_lock);
+	mtx_leave(&tdev->object_lock);
 out_err0:
 	return ret;
 }
@@ -183,9 +183,9 @@ static void ttm_release_base(struct kref *kref)
 	    container_of(kref, struct ttm_base_object, refcount);
 	struct ttm_object_device *tdev = base->tfile->tdev;
 
-	spin_lock(&tdev->object_lock);
+	mtx_enter(&tdev->object_lock);
 	(void)drm_ht_remove_item_rcu(&tdev->object_hash, &base->hash);
-	spin_unlock(&tdev->object_lock);
+	mtx_leave(&tdev->object_lock);
 
 	/*
 	 * Note: We don't use synchronize_rcu() here because it's far
@@ -422,7 +422,7 @@ struct ttm_object_device *ttm_object_device_init(struct ttm_mem_global
 		return NULL;
 
 	tdev->mem_glob = mem_glob;
-	spin_lock_init(&tdev->object_lock);
+	mtx_init(&tdev->object_lock, IPL_NONE);
 	atomic_set(&tdev->object_count, 0);
 	ret = drm_ht_create(&tdev->object_hash, hash_order);
 
@@ -440,9 +440,9 @@ void ttm_object_device_release(struct ttm_object_device **p_tdev)
 
 	*p_tdev = NULL;
 
-	spin_lock(&tdev->object_lock);
+	mtx_enter(&tdev->object_lock);
 	drm_ht_remove(&tdev->object_hash);
-	spin_unlock(&tdev->object_lock);
+	mtx_leave(&tdev->object_lock);
 
 	kfree(tdev);
 }

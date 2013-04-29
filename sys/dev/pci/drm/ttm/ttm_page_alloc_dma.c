@@ -87,7 +87,7 @@ enum pool_type {
 struct dma_pool {
 	struct list_head pools; /* The 'struct device->dma_pools link */
 	enum pool_type type;
-	spinlock_t lock;
+	struct mutex lock;
 	struct list_head inuse_list;
 	struct list_head free_list;
 	struct device *dev;
@@ -398,7 +398,6 @@ static void ttm_dma_page_put(struct dma_pool *pool, struct dma_page *d_page)
  **/
 static unsigned ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 {
-	unsigned long irq_flags;
 	struct dma_page *dma_p, *tmp;
 	struct page **pages_to_free;
 	struct list_head d_pages;
@@ -424,7 +423,7 @@ static unsigned ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 	}
 	INIT_LIST_HEAD(&d_pages);
 restart:
-	spin_lock_irqsave(&pool->lock, irq_flags);
+	mtx_enter(&pool->lock);
 
 	/* We picking the oldest ones off the list */
 	list_for_each_entry_safe_reverse(dma_p, tmp, &pool->free_list,
@@ -444,7 +443,7 @@ restart:
 			 * Because changing page caching is costly
 			 * we unlock the pool to prevent stalling.
 			 */
-			spin_unlock_irqrestore(&pool->lock, irq_flags);
+			mtx_leave(&pool->lock);
 
 			ttm_dma_pages_put(pool, &d_pages, pages_to_free,
 					  freed_pages);
@@ -466,7 +465,7 @@ restart:
 				goto restart;
 
 			/* Not allowed to fall through or break because
-			 * following context is inside spinlock while we are
+			 * following context is inside mutex while we are
 			 * outside here.
 			 */
 			goto out;
@@ -480,7 +479,7 @@ restart:
 		nr_free -= freed_pages;
 	}
 
-	spin_unlock_irqrestore(&pool->lock, irq_flags);
+	mtx_leave(&pool->lock);
 
 	if (freed_pages)
 		ttm_dma_pages_put(pool, &d_pages, pages_to_free, freed_pages);
@@ -513,7 +512,7 @@ static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 	list_for_each_entry_reverse(pool, &dev->dma_pools, pools) {
 		if (pool->type != type)
 			continue;
-		/* Takes a spinlock.. */
+		/* Takes a mutex.. */
 		ttm_dma_page_pool_free(pool, FREE_ALL_PAGES);
 		WARN_ON(((pool->npages_in_use + pool->npages_free) != 0));
 		/* This code path is called after _all_ references to the
@@ -581,7 +580,7 @@ static struct dma_pool *ttm_dma_pool_init(struct device *dev, gfp_t flags,
 	INIT_LIST_HEAD(&pool->free_list);
 	INIT_LIST_HEAD(&pool->inuse_list);
 	INIT_LIST_HEAD(&pool->pools);
-	spin_lock_init(&pool->lock);
+	mtx_init(&pool->lock, IPL_NONE);
 	pool->dev = dev;
 	pool->npages_free = pool->npages_in_use = 0;
 	pool->nfrees = 0;
@@ -628,7 +627,7 @@ static struct dma_pool *ttm_dma_find_pool(struct device *dev,
 	if (type == IS_UNDEFINED)
 		return found;
 
-	/* NB: We iterate on the 'struct dev' which has no spinlock, but
+	/* NB: We iterate on the 'struct dev' which has no mutex, but
 	 * it does have a kref which we have taken. The kref is taken during
 	 * graphic driver loading - in the drm_pci_init it calls either
 	 * pci_dev_get or pci_register_driver which both end up taking a kref
@@ -741,7 +740,7 @@ static int ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
 		{
 			caching_array[cpages++] = p;
 			if (cpages == max_cpages) {
-				/* Note: Cannot hold the spinlock */
+				/* Note: Cannot hold the mutex */
 				r = ttm_set_pages_caching(pool, caching_array,
 						 cpages);
 				if (r) {
@@ -770,8 +769,7 @@ out:
 /*
  * @return count of pages still required to fulfill the request.
  */
-static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool,
-					 unsigned long *irq_flags)
+static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool)
 {
 	unsigned count = _manager->options.small;
 	int r = pool->npages_free;
@@ -781,13 +779,13 @@ static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool,
 
 		INIT_LIST_HEAD(&d_pages);
 
-		spin_unlock_irqrestore(&pool->lock, *irq_flags);
+		mtx_leave(&pool->lock);
 
 		/* Returns how many more are neccessary to fulfill the
 		 * request. */
 		r = ttm_dma_pool_alloc_new_pages(pool, &d_pages, count);
 
-		spin_lock_irqsave(&pool->lock, *irq_flags);
+		mtx_enter(&pool->lock);
 		if (!r) {
 			/* Add the fresh to the end.. */
 			list_splice(&d_pages, &pool->free_list);
@@ -823,11 +821,10 @@ static int ttm_dma_pool_get_pages(struct dma_pool *pool,
 {
 	struct dma_page *d_page;
 	struct ttm_tt *ttm = &ttm_dma->ttm;
-	unsigned long irq_flags;
 	int count, r = -ENOMEM;
 
-	spin_lock_irqsave(&pool->lock, irq_flags);
-	count = ttm_dma_page_pool_fill_locked(pool, &irq_flags);
+	mtx_enter(&pool->lock);
+	count = ttm_dma_page_pool_fill_locked(pool);
 	if (count) {
 		d_page = list_first_entry(&pool->free_list, struct dma_page, page_list);
 		ttm->pages[index] = d_page->p;
@@ -837,7 +834,7 @@ static int ttm_dma_pool_get_pages(struct dma_pool *pool,
 		pool->npages_in_use += 1;
 		pool->npages_free -= 1;
 	}
-	spin_unlock_irqrestore(&pool->lock, irq_flags);
+	mtx_leave(&pool->lock);
 	return r;
 }
 
@@ -925,7 +922,6 @@ void ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 	enum pool_type type;
 	bool is_cached = false;
 	unsigned count = 0, i, npages = 0;
-	unsigned long irq_flags;
 
 	type = ttm_to_type(ttm->page_flags, ttm->caching_state);
 	pool = ttm_dma_find_pool(dev, type);
@@ -941,7 +937,7 @@ void ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 		count++;
 	}
 
-	spin_lock_irqsave(&pool->lock, irq_flags);
+	mtx_enter(&pool->lock);
 	pool->npages_in_use -= count;
 	if (is_cached) {
 		pool->nfrees += count;
@@ -957,7 +953,7 @@ void ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 				npages = NUM_PAGES_TO_ALLOC;
 		}
 	}
-	spin_unlock_irqrestore(&pool->lock, irq_flags);
+	mtx_leave(&pool->lock);
 
 	if (is_cached) {
 		list_for_each_entry_safe(d_page, next, &ttm_dma->pages_list, page_list) {

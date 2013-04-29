@@ -483,7 +483,7 @@ struct ttm_bo_global {
 	struct page *dummy_read_page;
 	struct ttm_mem_shrink shrink;
 	struct rwlock device_list_rwlock;
-	spinlock_t lru_lock;
+	struct mutex lru_lock;
 
 	/**
 	 * Protected by device_list_rwlock.
@@ -534,7 +534,7 @@ struct ttm_bo_device {
 	struct ttm_bo_driver *driver;
 	rwlock_t vm_lock;
 	struct ttm_mem_type_manager man[TTM_NUM_MEM_TYPES];
-	spinlock_t fence_lock;
+	struct mutex fence_lock;
 	/*
 	 * Protected by the vm lock.
 	 */
@@ -787,9 +787,9 @@ extern void ttm_mem_io_unlock(struct ttm_mem_type_manager *man);
  * to make room for a buffer already reserved. (Buffers are reserved before
  * they are evicted). The following algorithm prevents such deadlocks from
  * occurring:
- * 1) Buffers are reserved with the lru spinlock held. Upon successful
+ * 1) Buffers are reserved with the lru mutex held. Upon successful
  * reservation they are removed from the lru list. This stops a reserved buffer
- * from being evicted. However the lru spinlock is released between the time
+ * from being evicted. However the lru mutex is released between the time
  * a buffer is selected for eviction and the time it is reserved.
  * Therefore a check is made when a buffer is reserved for eviction, that it
  * is still the first buffer in the lru list, before it is removed from the
@@ -839,7 +839,7 @@ extern int ttm_bo_reserve(struct ttm_buffer_object *bo,
  *
  * Must be called with struct ttm_bo_global::lru_lock held,
  * and will not remove reserved buffers from the lru lists.
- * The function may release the LRU spinlock if it needs to sleep.
+ * The function may release the LRU mutex if it needs to sleep.
  * Otherwise identical to ttm_bo_reserve.
  *
  * Returns:

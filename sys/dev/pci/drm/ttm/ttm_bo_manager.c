@@ -41,7 +41,7 @@
 
 struct ttm_range_manager {
 	struct drm_mm mm;
-	spinlock_t lock;
+	struct mutex lock;
 };
 
 static int ttm_bo_man_get_node(struct ttm_mem_type_manager *man,
@@ -63,19 +63,19 @@ static int ttm_bo_man_get_node(struct ttm_mem_type_manager *man,
 		if (unlikely(ret))
 			return ret;
 
-		spin_lock(&rman->lock);
+		mtx_enter(&rman->lock);
 		node = drm_mm_search_free_in_range(mm,
 					mem->num_pages, mem->page_alignment,
 					placement->fpfn, lpfn, 1);
 		if (unlikely(node == NULL)) {
-			spin_unlock(&rman->lock);
+			mtx_leave(&rman->lock);
 			return 0;
 		}
 		node = drm_mm_get_block_atomic_range(node, mem->num_pages,
 						     mem->page_alignment,
 						     placement->fpfn,
 						     lpfn);
-		spin_unlock(&rman->lock);
+		mtx_leave(&rman->lock);
 	} while (node == NULL);
 
 	mem->mm_node = node;
@@ -89,9 +89,9 @@ static void ttm_bo_man_put_node(struct ttm_mem_type_manager *man,
 	struct ttm_range_manager *rman = (struct ttm_range_manager *) man->priv;
 
 	if (mem->mm_node) {
-		spin_lock(&rman->lock);
+		mtx_enter(&rman->lock);
 		drm_mm_put_block(mem->mm_node);
-		spin_unlock(&rman->lock);
+		mtx_leave(&rman->lock);
 		mem->mm_node = NULL;
 	}
 }
@@ -112,7 +112,7 @@ static int ttm_bo_man_init(struct ttm_mem_type_manager *man,
 		return ret;
 	}
 
-	spin_lock_init(&rman->lock);
+	mtx_init(&rman->lock, IPL_NONE);
 	man->priv = rman;
 	return 0;
 }
@@ -122,15 +122,15 @@ static int ttm_bo_man_takedown(struct ttm_mem_type_manager *man)
 	struct ttm_range_manager *rman = (struct ttm_range_manager *) man->priv;
 	struct drm_mm *mm = &rman->mm;
 
-	spin_lock(&rman->lock);
+	mtx_enter(&rman->lock);
 	if (drm_mm_clean(mm)) {
 		drm_mm_takedown(mm);
-		spin_unlock(&rman->lock);
+		mtx_leave(&rman->lock);
 		kfree(rman);
 		man->priv = NULL;
 		return 0;
 	}
-	spin_unlock(&rman->lock);
+	mtx_leave(&rman->lock);
 	return -EBUSY;
 }
 
@@ -139,9 +139,9 @@ static void ttm_bo_man_debug(struct ttm_mem_type_manager *man,
 {
 	struct ttm_range_manager *rman = (struct ttm_range_manager *) man->priv;
 
-	spin_lock(&rman->lock);
+	mtx_enter(&rman->lock);
 	drm_mm_debug_table(&rman->mm, prefix);
-	spin_unlock(&rman->lock);
+	mtx_leave(&rman->lock);
 }
 
 const struct ttm_mem_type_manager_func ttm_bo_manager_func = {
