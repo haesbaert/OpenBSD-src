@@ -37,11 +37,8 @@
 #ifndef _TTM_OBJECT_H_
 #define _TTM_OBJECT_H_
 
-#include <linux/list.h>
-#include <drm/drm_hashtab.h>
-#include <linux/kref.h>
-#include <linux/rcupdate.h>
-#include <ttm/ttm_memory.h>
+#include <dev/pci/drm/drm_hashtab.h>
+#include <dev/pci/drm/ttm/ttm_memory.h>
 
 /**
  * enum ttm_ref_type

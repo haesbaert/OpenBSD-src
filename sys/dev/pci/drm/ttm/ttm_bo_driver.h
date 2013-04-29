@@ -30,14 +30,11 @@
 #ifndef _TTM_BO_DRIVER_H_
 #define _TTM_BO_DRIVER_H_
 
-#include <ttm/ttm_bo_api.h>
-#include <ttm/ttm_memory.h>
-#include <ttm/ttm_module.h>
-#include <drm/drm_mm.h>
-#include <drm/drm_global.h>
-#include <linux/workqueue.h>
-#include <linux/fs.h>
-#include <linux/spinlock.h>
+#include <dev/pci/drm/ttm/ttm_bo_api.h>
+#include <dev/pci/drm/ttm/ttm_memory.h>
+#include <dev/pci/drm/ttm/ttm_module.h>
+#include <dev/pci/drm/drm_mm.h>
+#include <dev/pci/drm/drm_global.h>
 
 struct ttm_backend_func {
 	/**
@@ -984,7 +981,6 @@ extern const struct ttm_mem_type_manager_func ttm_bo_manager_func;
 
 #if (defined(CONFIG_AGP) || (defined(CONFIG_AGP_MODULE) && defined(MODULE)))
 #define TTM_HAS_AGP
-#include <linux/agp_backend.h>
 
 /**
  * ttm_agp_tt_create

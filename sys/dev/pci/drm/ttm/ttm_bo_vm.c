@@ -30,13 +30,9 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
-#include <ttm/ttm_module.h>
-#include <ttm/ttm_bo_driver.h>
-#include <ttm/ttm_placement.h>
-#include <linux/mm.h>
-#include <linux/rbtree.h>
-#include <linux/module.h>
-#include <linux/uaccess.h>
+#include <dev/pci/drm/ttm/ttm_module.h>
+#include <dev/pci/drm/ttm/ttm_bo_driver.h>
+#include <dev/pci/drm/ttm/ttm_placement.h>
 
 #define TTM_BO_VM_NUM_PREFAULT 16
 

@@ -31,14 +31,7 @@
 #ifndef _TTM_BO_API_H_
 #define _TTM_BO_API_H_
 
-#include <drm/drm_hashtab.h>
-#include <linux/kref.h>
-#include <linux/list.h>
-#include <linux/wait.h>
-#include <linux/mutex.h>
-#include <linux/mm.h>
-#include <linux/rbtree.h>
-#include <linux/bitmap.h>
+#include <dev/pci/drm/drm_hashtab.h>
 
 struct ttm_bo_device;
 
