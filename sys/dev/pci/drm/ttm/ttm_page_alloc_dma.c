@@ -35,23 +35,8 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
-#include <linux/dma-mapping.h>
-#include <linux/list.h>
-#include <linux/seq_file.h> /* for seq_printf */
-#include <linux/slab.h>
-#include <linux/spinlock.h>
-#include <linux/highmem.h>
-#include <linux/mm_types.h>
-#include <linux/module.h>
-#include <linux/mm.h>
-#include <linux/atomic.h>
-#include <linux/device.h>
-#include <linux/kthread.h>
-#include <drm/ttm/ttm_bo_driver.h>
-#include <drm/ttm/ttm_page_alloc.h>
-#ifdef TTM_HAS_AGP
-#include <asm/agp.h>
-#endif
+#include <dev/pci/drm/ttm/ttm_bo_driver.h>
+#include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
 #define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct page *))
 #define SMALL_ALLOCATION		4

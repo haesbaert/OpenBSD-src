@@ -33,20 +33,8 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
-#include <linux/list.h>
-#include <linux/spinlock.h>
-#include <linux/highmem.h>
-#include <linux/mm_types.h>
-#include <linux/module.h>
-#include <linux/mm.h>
-#include <linux/seq_file.h> /* for seq_printf */
-#include <linux/slab.h>
-#include <linux/dma-mapping.h>
-
-#include <linux/atomic.h>
-
-#include <drm/ttm/ttm_bo_driver.h>
-#include <drm/ttm/ttm_page_alloc.h>
+#include <dev/pci/drm/ttm/ttm_bo_driver.h>
+#include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
 #ifdef TTM_HAS_AGP
 #include <asm/agp.h>

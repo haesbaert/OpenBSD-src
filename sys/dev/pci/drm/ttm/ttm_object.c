@@ -51,13 +51,8 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
-#include <drm/ttm/ttm_object.h>
-#include <drm/ttm/ttm_module.h>
-#include <linux/list.h>
-#include <linux/spinlock.h>
-#include <linux/slab.h>
-#include <linux/module.h>
-#include <linux/atomic.h>
+#include <dev/pci/drm/ttm/ttm_object.h>
+#include <dev/pci/drm/ttm/ttm_module.h>
 
 struct ttm_object_file {
 	struct ttm_object_device *tdev;

@@ -28,13 +28,8 @@
  * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
-#include <drm/ttm/ttm_lock.h>
-#include <drm/ttm/ttm_module.h>
-#include <linux/atomic.h>
-#include <linux/errno.h>
-#include <linux/wait.h>
-#include <linux/sched.h>
-#include <linux/module.h>
+#include <dev/pci/drm/ttm/ttm_lock.h>
+#include <dev/pci/drm/ttm/ttm_module.h>
 
 #define TTM_WRITE_LOCK_PENDING    (1 << 0)
 #define TTM_VT_LOCK_PENDING       (1 << 1)

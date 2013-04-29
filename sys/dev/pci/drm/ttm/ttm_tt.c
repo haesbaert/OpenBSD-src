@@ -30,20 +30,12 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
-#include <linux/sched.h>
-#include <linux/highmem.h>
-#include <linux/pagemap.h>
-#include <linux/shmem_fs.h>
-#include <linux/file.h>
-#include <linux/swap.h>
-#include <linux/slab.h>
-#include <linux/export.h>
-#include <drm/drm_cache.h>
-#include <drm/drm_mem_util.h>
-#include <drm/ttm/ttm_module.h>
-#include <drm/ttm/ttm_bo_driver.h>
-#include <drm/ttm/ttm_placement.h>
-#include <drm/ttm/ttm_page_alloc.h>
+#include <dev/pci/drm/drm_cache.h>
+#include <dev/pci/drm/drm_mem_util.h>
+#include <dev/pci/drm/ttm/ttm_module.h>
+#include <dev/pci/drm/ttm/ttm_bo_driver.h>
+#include <dev/pci/drm/ttm/ttm_placement.h>
+#include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
 /**
  * Allocates storage for pointers to the pages that back the ttm.
