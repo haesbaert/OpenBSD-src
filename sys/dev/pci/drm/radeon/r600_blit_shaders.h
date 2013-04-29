@@ -1,6 +1,7 @@
 /* $OpenBSD: r600_blit_shaders.h,v 1.3 2011/06/02 18:22:00 weerd Exp $ */
 /*
  * Copyright 2009 Advanced Micro Devices, Inc.
+ * Copyright 2009 Red Hat Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,9 +22,8 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  *
- * Authors:
- *     Alex Deucher <alexander.deucher@amd.com>
  */
+
 #ifndef R600_BLIT_SHADERS_H
 #define R600_BLIT_SHADERS_H
 
@@ -36,4 +36,5 @@ extern const u32 r6xx_default_state[];
 extern const u32 r6xx_ps_size, r6xx_vs_size;
 extern const u32 r6xx_default_size, r7xx_default_size;
 
+__pure uint32_t int2float(uint32_t x);
 #endif
