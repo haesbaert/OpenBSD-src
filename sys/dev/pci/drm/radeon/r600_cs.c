@@ -25,8 +25,7 @@
  *          Alex Deucher
  *          Jerome Glisse
  */
-#include <linux/kernel.h>
-#include <drm/drmP.h>
+#include <dev/pci/drm/drmP.h>
 #include "radeon.h"
 #include "r600d.h"
 #include "r600_reg_safe.h"

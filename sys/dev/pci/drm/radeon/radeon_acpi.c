@@ -21,21 +21,11 @@
  *
  */
 
-#include <linux/pci.h>
-#include <linux/acpi.h>
-#include <linux/slab.h>
-#include <linux/power_supply.h>
-#include <acpi/acpi_drivers.h>
-#include <acpi/acpi_bus.h>
-#include <acpi/video.h>
-
-#include <drm/drmP.h>
-#include <drm/drm_crtc_helper.h>
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm_crtc_helper.h>
 #include "radeon.h"
 #include "radeon_acpi.h"
 #include "atom.h"
-
-#include <linux/vga_switcheroo.h>
 
 #define ACPI_AC_CLASS           "ac_adapter"
 

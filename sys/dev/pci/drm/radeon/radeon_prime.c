@@ -23,12 +23,10 @@
  *
  * Authors: Alex Deucher
  */
-#include <drm/drmP.h>
+#include <dev/pci/drm/drmP.h>
 
 #include "radeon.h"
-#include <drm/radeon_drm.h>
-
-#include <linux/dma-buf.h>
+#include <dev/pci/drm/radeon_drm.h>
 
 static struct sg_table *radeon_gem_map_dma_buf(struct dma_buf_attachment *attachment,
 					       enum dma_data_direction dir)

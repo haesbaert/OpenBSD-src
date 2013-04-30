@@ -25,15 +25,13 @@
  *          Alex Deucher
  *          Jerome Glisse
  */
-#include <linux/seq_file.h>
-#include <linux/slab.h>
-#include <drm/drmP.h>
-#include <drm/drm.h>
-#include <drm/drm_crtc_helper.h>
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm.h>
+#include <dev/pci/drm/drm_crtc_helper.h>
 #include "radeon_reg.h"
 #include "radeon.h"
 #include "radeon_asic.h"
-#include <drm/radeon_drm.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "r100_track.h"
 #include "r300d.h"
 #include "rv350d.h"

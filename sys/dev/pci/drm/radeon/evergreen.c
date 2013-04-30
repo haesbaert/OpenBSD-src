@@ -21,13 +21,10 @@
  *
  * Authors: Alex Deucher
  */
-#include <linux/firmware.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <drm/drmP.h>
+#include <dev/pci/drm/drmP.h>
 #include "radeon.h"
 #include "radeon_asic.h"
-#include <drm/radeon_drm.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "evergreend.h"
 #include "atom.h"
 #include "avivod.h"

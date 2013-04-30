@@ -24,9 +24,7 @@
  *     Alex Deucher <alexander.deucher@amd.com>
  */
 
-#include <linux/bug.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
+#include <sys/types.h>
 
 /*
  * evergreen cards need to use the 3D engine to blit data which requires

@@ -23,15 +23,11 @@
  * Authors: Dave Airlie
  *          Alex Deucher
  */
-#include <drm/drmP.h>
-#include <drm/drm_crtc_helper.h>
-#include <drm/radeon_drm.h>
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm_crtc_helper.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon.h"
 #include "atom.h"
-#include <linux/backlight.h>
-#ifdef CONFIG_PMAC_BACKLIGHT
-#include <asm/backlight.h>
-#endif
 
 static void radeon_legacy_encoder_disable(struct drm_encoder *encoder)
 {

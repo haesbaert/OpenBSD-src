@@ -28,7 +28,7 @@
 #ifndef __RADEON_OBJECT_H__
 #define __RADEON_OBJECT_H__
 
-#include <drm/radeon_drm.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon.h"
 
 /**

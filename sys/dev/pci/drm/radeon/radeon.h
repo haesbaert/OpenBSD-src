@@ -60,16 +60,11 @@
  *                          are considered as fatal)
  */
 
-#include <linux/atomic.h>
-#include <linux/wait.h>
-#include <linux/list.h>
-#include <linux/kref.h>
-
-#include <ttm/ttm_bo_api.h>
-#include <ttm/ttm_bo_driver.h>
-#include <ttm/ttm_placement.h>
-#include <ttm/ttm_module.h>
-#include <ttm/ttm_execbuf_util.h>
+#include <dev/pci/drm/ttm/ttm_bo_api.h>
+#include <dev/pci/drm/ttm/ttm_bo_driver.h>
+#include <dev/pci/drm/ttm/ttm_placement.h>
+#include <dev/pci/drm/ttm/ttm_module.h>
+#include <dev/pci/drm/ttm/ttm_execbuf_util.h>
 
 #include "radeon_family.h"
 #include "radeon_mode.h"

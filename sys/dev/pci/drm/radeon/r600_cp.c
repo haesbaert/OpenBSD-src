@@ -26,10 +26,8 @@
  *     Alex Deucher <alexander.deucher@amd.com>
  */
 
-#include <linux/module.h>
-
-#include <drm/drmP.h>
-#include <drm/radeon_drm.h>
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 
 #define PFP_UCODE_SIZE 576

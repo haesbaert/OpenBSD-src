@@ -28,13 +28,7 @@
  *    Jerome Glisse <glisse@freedesktop.org>
  *    Dave Airlie
  */
-#include <linux/seq_file.h>
-#include <linux/atomic.h>
-#include <linux/wait.h>
-#include <linux/list.h>
-#include <linux/kref.h>
-#include <linux/slab.h>
-#include <drm/drmP.h>
+#include <dev/pci/drm/drmP.h>
 #include "radeon_reg.h"
 #include "radeon.h"
 #include "radeon_trace.h"

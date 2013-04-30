@@ -24,18 +24,10 @@
  * Authors: Dave Airlie
  *          Alex Deucher
  */
-#include <drm/drmP.h>
-#include <drm/radeon_drm.h>
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/radeon_drm.h>
 #include "radeon.h"
 #include "atom.h"
-
-#ifdef CONFIG_PPC_PMAC
-/* not sure which of these are needed */
-#include <asm/machdep.h>
-#include <asm/pmac_feature.h>
-#include <asm/prom.h>
-#include <asm/pci-bridge.h>
-#endif /* CONFIG_PPC_PMAC */
 
 /* from radeon_encoder.c */
 extern uint32_t
