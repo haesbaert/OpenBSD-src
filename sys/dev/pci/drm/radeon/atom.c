@@ -1221,7 +1221,7 @@ int atom_execute_table(struct atom_context *ctx, int index, uint32_t * params)
 {
 	int r;
 
-	mutex_lock(&ctx->mutex);
+	rw_enter_write(&ctx->rwlock);
 	/* reset reg block */
 	ctx->reg_block = 0;
 	/* reset fb window */
@@ -1229,7 +1229,7 @@ int atom_execute_table(struct atom_context *ctx, int index, uint32_t * params)
 	/* reset io mode */
 	ctx->io_mode = ATOM_IO_MM;
 	r = atom_execute_table_locked(ctx, index, params);
-	mutex_unlock(&ctx->mutex);
+	rw_exit_write(&ctx->rwlock);
 	return r;
 }
 

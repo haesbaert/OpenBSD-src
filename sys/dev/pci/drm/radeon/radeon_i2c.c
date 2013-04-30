@@ -111,7 +111,7 @@ static int pre_xfer(struct i2c_adapter *i2c_adap)
 			else
 				reg = RADEON_GPIO_CRT2_DDC;
 
-			mutex_lock(&rdev->dc_hw_i2c_mutex);
+			rw_enter_write(&rdev->dc_hw_i2c_rwlock);
 			if (rec->a_clk_reg == reg) {
 				WREG32(RADEON_DVI_I2C_CNTL_0, (RADEON_I2C_SOFT_RST |
 							       R200_DVI_I2C_PIN_SEL(R200_SEL_DDC1)));
@@ -119,7 +119,7 @@ static int pre_xfer(struct i2c_adapter *i2c_adap)
 				WREG32(RADEON_DVI_I2C_CNTL_0, (RADEON_I2C_SOFT_RST |
 							       R200_DVI_I2C_PIN_SEL(R200_SEL_DDC3)));
 			}
-			mutex_unlock(&rdev->dc_hw_i2c_mutex);
+			rw_exit_write(&rdev->dc_hw_i2c_rwlock);
 		}
 	}
 
@@ -332,9 +332,9 @@ static int r100_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
 	u32 i2c_cntl_0, i2c_cntl_1, i2c_data;
 	u32 tmp, reg;
 
-	mutex_lock(&rdev->dc_hw_i2c_mutex);
+	rw_enter_write(&rdev->dc_hw_i2c_rwlock);
 	/* take the pm lock since we need a constant sclk */
-	mutex_lock(&rdev->pm.mutex);
+	rw_enter_write(&rdev->pm.rwlock);
 
 	prescale = radeon_get_i2c_prescale(rdev);
 
@@ -564,8 +564,8 @@ done:
 		WREG32(RADEON_BIOS_6_SCRATCH, tmp);
 	}
 
-	mutex_unlock(&rdev->pm.mutex);
-	mutex_unlock(&rdev->dc_hw_i2c_mutex);
+	rw_exit_write(&rdev->pm.rwlock);
+	rw_exit_write(&rdev->dc_hw_i2c_rwlock);
 
 	return ret;
 }
@@ -585,9 +585,9 @@ static int r500_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
 	u32 tmp, reg;
 	u32 saved1, saved2;
 
-	mutex_lock(&rdev->dc_hw_i2c_mutex);
+	rw_enter_write(&rdev->dc_hw_i2c_rwlock);
 	/* take the pm lock since we need a constant sclk */
-	mutex_lock(&rdev->pm.mutex);
+	rw_enter_write(&rdev->pm.rwlock);
 
 	prescale = radeon_get_i2c_prescale(rdev);
 
@@ -800,8 +800,8 @@ done:
 	tmp &= ~ATOM_S6_HW_I2C_BUSY_STATE;
 	WREG32(RADEON_BIOS_6_SCRATCH, tmp);
 
-	mutex_unlock(&rdev->pm.mutex);
-	mutex_unlock(&rdev->dc_hw_i2c_mutex);
+	rw_exit_write(&rdev->pm.rwlock);
+	rw_exit_write(&rdev->dc_hw_i2c_rwlock);
 
 	return ret;
 }

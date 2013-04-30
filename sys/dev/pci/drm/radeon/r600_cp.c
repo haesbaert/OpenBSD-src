@@ -1984,7 +1984,7 @@ int r600_do_init_cp(struct drm_device *dev, drm_radeon_init_t *init,
 
 	DRM_DEBUG("\n");
 
-	mutex_init(&dev_priv->cs_mutex);
+	rw_init(&dev_priv->cs_rwlock, "r600cs");
 	r600_cs_legacy_init();
 	/* if we require new memory map but we don't have it fail */
 	if ((dev_priv->flags & RADEON_NEW_MEMMAP) && !dev_priv->new_memmap) {
@@ -2625,7 +2625,7 @@ int r600_cs_legacy_ioctl(struct drm_device *dev, void *data, struct drm_file *fp
 		DRM_ERROR("cs ioctl valid only for R6XX & R7XX in legacy mode\n");
 		return -EINVAL;
 	}
-	mutex_lock(&dev_priv->cs_mutex);
+	rw_enter_write(&dev_priv->cs_rwlock);
 	/* get ib */
 	r = r600_ib_get(dev, fpriv, &buf);
 	if (r) {
@@ -2644,7 +2644,7 @@ out:
 	/* emit cs id sequence */
 	r600_cs_id_emit(dev_priv, &cs_id);
 	cs->cs_id = cs_id;
-	mutex_unlock(&dev_priv->cs_mutex);
+	rw_exit_write(&dev_priv->cs_rwlock);
 	return r;
 }
 

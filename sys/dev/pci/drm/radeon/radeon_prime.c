@@ -39,10 +39,10 @@ static struct sg_table *radeon_gem_map_dma_buf(struct dma_buf_attachment *attach
 	struct sg_table *sg;
 	int nents;
 
-	mutex_lock(&dev->struct_mutex);
+	rw_enter_write(&dev->struct_rwlock);
 	sg = drm_prime_pages_to_sg(bo->tbo.ttm->pages, npages);
 	nents = dma_map_sg(attachment->dev, sg->sgl, sg->nents, dir);
-	mutex_unlock(&dev->struct_mutex);
+	rw_exit_write(&dev->struct_rwlock);
 	return sg;
 }
 
@@ -95,7 +95,7 @@ static void *radeon_gem_prime_vmap(struct dma_buf *dma_buf)
 	struct drm_device *dev = bo->rdev->ddev;
 	int ret;
 
-	mutex_lock(&dev->struct_mutex);
+	rw_enter_write(&dev->struct_rwlock);
 	if (bo->vmapping_count) {
 		bo->vmapping_count++;
 		goto out_unlock;
@@ -104,12 +104,12 @@ static void *radeon_gem_prime_vmap(struct dma_buf *dma_buf)
 	ret = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.num_pages,
 			  &bo->dma_buf_vmap);
 	if (ret) {
-		mutex_unlock(&dev->struct_mutex);
+		rw_exit_write(&dev->struct_rwlock);
 		return ERR_PTR(ret);
 	}
 	bo->vmapping_count = 1;
 out_unlock:
-	mutex_unlock(&dev->struct_mutex);
+	rw_exit_write(&dev->struct_rwlock);
 	return bo->dma_buf_vmap.virtual;
 }
 
@@ -118,12 +118,12 @@ static void radeon_gem_prime_vunmap(struct dma_buf *dma_buf, void *vaddr)
 	struct radeon_bo *bo = dma_buf->priv;
 	struct drm_device *dev = bo->rdev->ddev;
 
-	mutex_lock(&dev->struct_mutex);
+	rw_enter_write(&dev->struct_rwlock);
 	bo->vmapping_count--;
 	if (bo->vmapping_count == 0) {
 		ttm_bo_kunmap(&bo->dma_buf_vmap);
 	}
-	mutex_unlock(&dev->struct_mutex);
+	rw_exit_write(&dev->struct_rwlock);
 }
 const static struct dma_buf_ops radeon_dmabuf_ops =  {
 	.map_dma_buf = radeon_gem_map_dma_buf,
@@ -154,9 +154,9 @@ static int radeon_prime_create(struct drm_device *dev,
 	bo = *pbo;
 	bo->gem_base.driver_private = bo;
 
-	mutex_lock(&rdev->gem.mutex);
+	rw_enter_write(&rdev->gem.rwlock);
 	list_add_tail(&bo->list, &rdev->gem.objects);
-	mutex_unlock(&rdev->gem.mutex);
+	rw_exit_write(&rdev->gem.rwlock);
 
 	return 0;
 }

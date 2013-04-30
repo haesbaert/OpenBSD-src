@@ -61,9 +61,9 @@ static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
 	struct radeon_bo *bo;
 
 	bo = container_of(tbo, struct radeon_bo, tbo);
-	mutex_lock(&bo->rdev->gem.mutex);
+	rw_enter_write(&bo->rdev->gem.rwlock);
 	list_del_init(&bo->list);
-	mutex_unlock(&bo->rdev->gem.mutex);
+	rw_exit_write(&bo->rdev->gem.rwlock);
 	radeon_bo_clear_surface_reg(bo);
 	radeon_bo_clear_va(bo);
 	drm_gem_object_release(&bo->gem_base);
@@ -305,16 +305,16 @@ void radeon_bo_force_delete(struct radeon_device *rdev)
 	}
 	dev_err(rdev->dev, "Userspace still has active objects !\n");
 	list_for_each_entry_safe(bo, n, &rdev->gem.objects, list) {
-		mutex_lock(&rdev->ddev->struct_mutex);
+		rw_enter_write(&rdev->ddev->struct_rwlock);
 		dev_err(rdev->dev, "%p %p %lu %lu force free\n",
 			&bo->gem_base, bo, (unsigned long)bo->gem_base.size,
 			*((unsigned long *)&bo->gem_base.refcount));
-		mutex_lock(&bo->rdev->gem.mutex);
+		rw_enter_write(&bo->rdev->gem.rwlock);
 		list_del_init(&bo->list);
-		mutex_unlock(&bo->rdev->gem.mutex);
+		rw_exit_write(&bo->rdev->gem.rwlock);
 		/* this should unref the ttm bo */
 		drm_gem_object_unreference(&bo->gem_base);
-		mutex_unlock(&rdev->ddev->struct_mutex);
+		rw_exit_write(&rdev->ddev->struct_rwlock);
 	}
 }
 

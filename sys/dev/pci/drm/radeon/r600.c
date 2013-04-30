@@ -4329,10 +4329,10 @@ uint64_t r600_get_gpu_clock(struct radeon_device *rdev)
 {
 	uint64_t clock;
 
-	mutex_lock(&rdev->gpu_clock_mutex);
+	rw_enter_write(&rdev->gpu_clock_rwlock);
 	WREG32(RLC_CAPTURE_GPU_CLOCK_COUNT, 1);
 	clock = (uint64_t)RREG32(RLC_GPU_CLOCK_COUNT_LSB) |
 	        ((uint64_t)RREG32(RLC_GPU_CLOCK_COUNT_MSB) << 32ULL);
-	mutex_unlock(&rdev->gpu_clock_mutex);
+	rw_exit_write(&rdev->gpu_clock_rwlock);
 	return clock;
 }

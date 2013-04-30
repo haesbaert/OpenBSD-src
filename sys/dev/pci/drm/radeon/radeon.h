@@ -49,7 +49,7 @@
  *  situation the init path must succeed up to the memory controller
  *  initialization point. Failure before this point are considered as
  *  fatal error. Here is the init callchain :
- *      radeon_device_init  perform common structure, mutex initialization
+ *      radeon_device_init  perform common structure, rwlock initialization
  *      asic_init           setup the GPU memory layout and perform all
  *                          one time initialization (failure in this
  *                          function are considered fatal)
@@ -311,7 +311,7 @@ struct radeon_bo_va {
 	bool				valid;
 	unsigned			ref_count;
 
-	/* protected by vm mutex */
+	/* protected by vm rwlock */
 	struct list_head		vm_list;
 
 	/* constant after initialization */
@@ -320,7 +320,7 @@ struct radeon_bo_va {
 };
 
 struct radeon_bo {
-	/* Protected by gem.mutex */
+	/* Protected by gem.rwlock */
 	struct list_head		list;
 	/* Protected by tbo.reserved */
 	u32				placements[3];
@@ -405,7 +405,7 @@ struct radeon_sa_bo {
  * GEM objects.
  */
 struct radeon_gem {
-	struct mutex		mutex;
+	struct rwlock		rwlock;
 	struct list_head	objects;
 };
 
@@ -684,7 +684,7 @@ struct radeon_vm {
 	/* array of page tables, one for each page directory entry */
 	struct radeon_sa_bo		**page_tables;
 
-	struct mutex			mutex;
+	struct rwlock			rwlock;
 	/* last fence for cs using this vm */
 	struct radeon_fence		*fence;
 	/* last flush or NULL if we still need to flush */
@@ -692,7 +692,7 @@ struct radeon_vm {
 };
 
 struct radeon_vm_manager {
-	struct mutex			lock;
+	struct rwlock			lock;
 	struct list_head		lru_vm;
 	struct radeon_fence		*active[RADEON_NUM_VM];
 	struct radeon_sa_manager	sa_manager;
@@ -1052,7 +1052,7 @@ struct radeon_power_state {
 #define RADEON_MODE_OVERCLOCK_MARGIN 500 /* 5 MHz */
 
 struct radeon_pm {
-	struct mutex		mutex;
+	struct rwlock 		rwlock;
 	/* write locked while reprogramming mclk */
 	struct rw_semaphore	mclk_lock;
 	u32			active_crtcs;
@@ -1585,7 +1585,7 @@ struct radeon_device {
 	struct radeon_mman		mman;
 	struct radeon_fence_driver	fence_drv[RADEON_NUM_RINGS];
 	wait_queue_head_t		fence_queue;
-	struct mutex			ring_lock;
+	struct rwlock 			ring_lock;
 	struct radeon_ring		ring[RADEON_NUM_RINGS];
 	bool				ib_pool_ready;
 	struct radeon_sa_manager	ring_tmp_bo;
@@ -1614,7 +1614,7 @@ struct radeon_device {
 	struct work_struct hotplug_work;
 	struct work_struct audio_work;
 	int num_crtc; /* number of crtcs */
-	struct mutex dc_hw_i2c_mutex; /* display controller hw i2c mutex */
+	struct rwlock dc_hw_i2c_rwlock; /* display controller hw i2c rwlock */
 	bool audio_enabled;
 	struct r600_audio audio_status; /* audio stuff */
 	struct notifier_block acpi_nb;
@@ -1628,7 +1628,7 @@ struct radeon_device {
 	unsigned 		debugfs_count;
 	/* virtual memory */
 	struct radeon_vm_manager	vm_manager;
-	struct mutex			gpu_clock_mutex;
+	struct rwlock		gpu_clock_rwlock;
 	/* ACPI interface */
 	struct radeon_atif		atif;
 	struct radeon_atcs		atcs;

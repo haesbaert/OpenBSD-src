@@ -85,9 +85,9 @@ retry:
 	}
 	*obj = &robj->gem_base;
 
-	mutex_lock(&rdev->gem.mutex);
+	rw_enter_write(&rdev->gem.rwlock);
 	list_add_tail(&robj->list, &rdev->gem.objects);
-	mutex_unlock(&rdev->gem.mutex);
+	rw_exit_write(&rdev->gem.rwlock);
 
 	return 0;
 }

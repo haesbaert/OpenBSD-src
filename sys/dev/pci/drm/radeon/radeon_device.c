@@ -758,7 +758,7 @@ int radeon_atombios_init(struct radeon_device *rdev)
 	atom_card_info->pll_write = cail_pll_write;
 
 	rdev->mode_info.atom_context = atom_parse(atom_card_info, rdev->bios);
-	mutex_init(&rdev->mode_info.atom_context->mutex);
+	rwlock_init(&rdev->mode_info.atom_context->rwlock, "atomcon");
 	radeon_atom_initialize_bios_scratch_regs(rdev->ddev);
 	atom_allocate_fb_scratch(rdev->mode_info.atom_context);
 	return 0;
@@ -1019,14 +1019,14 @@ int radeon_device_init(struct radeon_device *rdev,
 		radeon_family_name[rdev->family], pdev->vendor, pdev->device,
 		pdev->subsystem_vendor, pdev->subsystem_device);
 
-	/* mutex initialization are all done here so we
+	/* rwlock initialization are all done here so we
 	 * can recall function without having locking issues */
-	mutex_init(&rdev->ring_lock);
-	mutex_init(&rdev->dc_hw_i2c_mutex);
+	rw_init(&rdev->ring_lock, "ring");
+	rw_init(&rdev->dc_hw_i2c_rwlock, "dciic");
 	atomic_set(&rdev->ih.lock, 0);
-	mutex_init(&rdev->gem.mutex);
-	mutex_init(&rdev->pm.mutex);
-	mutex_init(&rdev->gpu_clock_mutex);
+	rw_init(&rdev->gem.rwlock, "gem");
+	rw_init(&rdev->pm.rwlock, "pm");
+	rw_init(&rdev->gpu_clock_rwlock, "gpuclk");
 	init_rwsem(&rdev->pm.mclk_lock);
 	init_rwsem(&rdev->exclusive_lock);
 	init_waitqueue_head(&rdev->irq.vblank_queue);
@@ -1034,7 +1034,7 @@ int radeon_device_init(struct radeon_device *rdev,
 	if (r)
 		return r;
 	/* initialize vm here */
-	mutex_init(&rdev->vm_manager.lock);
+	rw_init(&rdev->vm_manager.lock, "vmmgr");
 	/* Adjust VM size here.
 	 * Currently set to 4GB ((1 << 20) 4k pages).
 	 * Max GPUVM size for cayman and SI is 40 bits.
@@ -1234,7 +1234,7 @@ int radeon_suspend_kms(struct drm_device *dev, pm_message_t state)
 	/* evict vram memory */
 	radeon_bo_evict_vram(rdev);
 
-	mutex_lock(&rdev->ring_lock);
+	rw_enter_write(&rdev->ring_lock);
 	/* wait for gpu to finish processing current batch */
 	for (i = 0; i < RADEON_NUM_RINGS; i++) {
 		r = radeon_fence_wait_empty_locked(rdev, i);
@@ -1246,7 +1246,7 @@ int radeon_suspend_kms(struct drm_device *dev, pm_message_t state)
 	if (force_completion) {
 		radeon_fence_driver_force_completion(rdev);
 	}
-	mutex_unlock(&rdev->ring_lock);
+	rw_exit_write(&rdev->ring_lock);
 
 	radeon_save_bios_scratch_regs(rdev);
 
