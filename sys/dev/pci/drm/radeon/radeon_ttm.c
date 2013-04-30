@@ -843,9 +843,9 @@ static int radeon_mm_dump_table(struct seq_file *m, void *data)
 	int ret;
 	struct ttm_bo_global *glob = rdev->mman.bdev.glob;
 
-	spin_lock(&glob->lru_lock);
+	mtx_enter(&glob->lru_lock);
 	ret = drm_mm_dump_table(m, mm);
-	spin_unlock(&glob->lru_lock);
+	mtx_leave(&glob->lru_lock);
 	return ret;
 }
 #endif

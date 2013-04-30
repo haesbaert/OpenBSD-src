@@ -549,7 +549,6 @@ u32 radeon_get_vblank_counter_kms(struct drm_device *dev, int crtc)
 int radeon_enable_vblank_kms(struct drm_device *dev, int crtc)
 {
 	struct radeon_device *rdev = dev->dev_private;
-	unsigned long irqflags;
 	int r;
 
 	if (crtc < 0 || crtc >= rdev->num_crtc) {
@@ -557,10 +556,10 @@ int radeon_enable_vblank_kms(struct drm_device *dev, int crtc)
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&rdev->irq.lock, irqflags);
+	mtx_enter(&rdev->irq.lock);
 	rdev->irq.crtc_vblank_int[crtc] = true;
 	r = radeon_irq_set(rdev);
-	spin_unlock_irqrestore(&rdev->irq.lock, irqflags);
+	mtx_leave(&rdev->irq.lock);
 	return r;
 }
 
@@ -575,17 +574,16 @@ int radeon_enable_vblank_kms(struct drm_device *dev, int crtc)
 void radeon_disable_vblank_kms(struct drm_device *dev, int crtc)
 {
 	struct radeon_device *rdev = dev->dev_private;
-	unsigned long irqflags;
 
 	if (crtc < 0 || crtc >= rdev->num_crtc) {
 		DRM_ERROR("Invalid crtc %d\n", crtc);
 		return;
 	}
 
-	spin_lock_irqsave(&rdev->irq.lock, irqflags);
+	mtx_enter(&rdev->irq.lock);
 	rdev->irq.crtc_vblank_int[crtc] = false;
 	radeon_irq_set(rdev);
-	spin_unlock_irqrestore(&rdev->irq.lock, irqflags);
+	mtx_leave(&rdev->irq.lock);
 }
 
 /**

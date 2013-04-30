@@ -273,15 +273,14 @@ void radeon_crtc_handle_flip(struct radeon_device *rdev, int crtc_id)
 	struct radeon_unpin_work *work;
 	struct drm_pending_vblank_event *e;
 	struct timeval now;
-	unsigned long flags;
 	u32 update_pending;
 	int vpos, hpos;
 
-	spin_lock_irqsave(&rdev->ddev->event_lock, flags);
+	mtx_enter(&rdev->ddev->event_lock);
 	work = radeon_crtc->unpin_work;
 	if (work == NULL ||
 	    (work->fence && !radeon_fence_signaled(work->fence))) {
-		spin_unlock_irqrestore(&rdev->ddev->event_lock, flags);
+		mtx_leave(&rdev->ddev->event_lock);
 		return;
 	}
 	/* New pageflip, or just completion of a previous one? */
@@ -320,7 +319,7 @@ void radeon_crtc_handle_flip(struct radeon_device *rdev, int crtc_id)
 		 * next vblank irq.
 		 */
 		radeon_crtc->deferred_flip_completion = 1;
-		spin_unlock_irqrestore(&rdev->ddev->event_lock, flags);
+		mtx_leave(&rdev->ddev->event_lock);
 		return;
 	}
 
@@ -336,7 +335,7 @@ void radeon_crtc_handle_flip(struct radeon_device *rdev, int crtc_id)
 		list_add_tail(&e->base.link, &e->base.file_priv->event_list);
 		wake_up_interruptible(&e->base.file_priv->event_wait);
 	}
-	spin_unlock_irqrestore(&rdev->ddev->event_lock, flags);
+	mtx_leave(&rdev->ddev->event_lock);
 
 	drm_vblank_put(rdev->ddev, radeon_crtc->crtc_id);
 	radeon_fence_unref(&work->fence);
@@ -356,7 +355,6 @@ static int radeon_crtc_page_flip(struct drm_crtc *crtc,
 	struct drm_gem_object *obj;
 	struct radeon_bo *rbo;
 	struct radeon_unpin_work *work;
-	unsigned long flags;
 	u32 tiling_flags, pitch_pixels;
 	u64 base;
 	int r;
@@ -379,15 +377,15 @@ static int radeon_crtc_page_flip(struct drm_crtc *crtc,
 	obj = new_radeon_fb->obj;
 	rbo = gem_to_radeon_bo(obj);
 
-	spin_lock(&rbo->tbo.bdev->fence_lock);
+	mtx_enter(&rbo->tbo.bdev->fence_lock);
 	if (rbo->tbo.sync_obj)
 		work->fence = radeon_fence_ref(rbo->tbo.sync_obj);
-	spin_unlock(&rbo->tbo.bdev->fence_lock);
+	mtx_leave(&rbo->tbo.bdev->fence_lock);
 
 	INIT_WORK(&work->work, radeon_unpin_work_func);
 
 	/* We borrow the event spin lock for protecting unpin_work */
-	spin_lock_irqsave(&dev->event_lock, flags);
+	mtx_enter(&dev->event_lock);
 	if (radeon_crtc->unpin_work) {
 		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		r = -EBUSY;
@@ -395,7 +393,7 @@ static int radeon_crtc_page_flip(struct drm_crtc *crtc,
 	}
 	radeon_crtc->unpin_work = work;
 	radeon_crtc->deferred_flip_completion = 0;
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	mtx_leave(&dev->event_lock);
 
 	/* pin the new buffer */
 	DRM_DEBUG_DRIVER("flip-ioctl() cur_fbo = %p, cur_bbo = %p\n",
@@ -454,9 +452,9 @@ static int radeon_crtc_page_flip(struct drm_crtc *crtc,
 		base &= ~7;
 	}
 
-	spin_lock_irqsave(&dev->event_lock, flags);
+	mtx_enter(&dev->event_lock);
 	work->new_crtc_base = base;
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	mtx_leave(&dev->event_lock);
 
 	/* update crtc fb */
 	crtc->fb = fb;
@@ -483,10 +481,10 @@ pflip_cleanup1:
 	radeon_bo_unreserve(rbo);
 
 pflip_cleanup:
-	spin_lock_irqsave(&dev->event_lock, flags);
+	mtx_enter(&dev->event_lock);
 	radeon_crtc->unpin_work = NULL;
 unlock_free:
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	mtx_leave(&dev->event_lock);
 	drm_gem_object_unreference_unlocked(old_radeon_fb->obj);
 	radeon_fence_unref(&work->fence);
 	kfree(work);

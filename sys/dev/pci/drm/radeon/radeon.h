@@ -590,7 +590,7 @@ union radeon_irq_stat_regs {
 
 struct radeon_irq {
 	bool				installed;
-	spinlock_t			lock;
+	struct mutex			lock;
 	atomic_t			ring_int[RADEON_NUM_RINGS];
 	bool				crtc_vblank_int[RADEON_MAX_CRTCS];
 	atomic_t			pflip[RADEON_MAX_CRTCS];
@@ -1565,7 +1565,7 @@ struct radeon_device {
 	resource_size_t			rmmio_base;
 	resource_size_t			rmmio_size;
 	/* protects concurrent MM_INDEX/DATA based register access */
-	spinlock_t mmio_idx_lock;
+	struct mutex			mmio_idx_lock;
 	void __iomem			*rmmio;
 	radeon_rreg_t			mc_rreg;
 	radeon_wreg_t			mc_wreg;
