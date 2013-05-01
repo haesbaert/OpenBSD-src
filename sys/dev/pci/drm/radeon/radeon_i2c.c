@@ -909,7 +909,7 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 	if (rec->mm_i2c && (radeon_hw_i2c == 0))
 		return NULL;
 
-	i2c = kzalloc(sizeof(struct radeon_i2c_chan), GFP_KERNEL);
+	i2c = malloc(sizeof(struct radeon_i2c_chan), M_DRM, M_WAITOK | M_ZERO);
 	if (i2c == NULL)
 		return NULL;
 
@@ -980,7 +980,7 @@ struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 	struct radeon_i2c_chan *i2c;
 	int ret;
 
-	i2c = kzalloc(sizeof(struct radeon_i2c_chan), GFP_KERNEL);
+	i2c = malloc(sizeof(struct radeon_i2c_chan), M_DRM, M_WAITOK | M_ZERO);
 	if (i2c == NULL)
 		return NULL;
 

@@ -1249,7 +1249,7 @@ int r300_cs_parse(struct radeon_cs_parser *p)
 	struct r100_cs_track *track;
 	int r;
 
-	track = kzalloc(sizeof(*track), GFP_KERNEL);
+	track = malloc(sizeof(*track), M_DRM, M_WAITOK | M_ZERO);
 	if (track == NULL)
 		return -ENOMEM;
 	r100_cs_track_clear(p->rdev, track);

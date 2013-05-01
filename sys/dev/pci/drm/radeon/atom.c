@@ -1176,7 +1176,7 @@ static int atom_execute_table_locked(struct atom_context *ctx, int index, uint32
 	ectx.abort = false;
 	ectx.last_jump = 0;
 	if (ws)
-		ectx.ws = kzalloc(4 * ws, GFP_KERNEL);
+		ectx.ws = malloc(4 * ws, M_DRM, M_WAITOK | M_ZERO);
 	else
 		ectx.ws = NULL;
 
@@ -1232,7 +1232,7 @@ static int atom_iio_len[] = { 1, 2, 3, 3, 3, 3, 4, 4, 4, 3 };
 
 static void atom_index_iio(struct atom_context *ctx, int base)
 {
-	ctx->iio = kzalloc(2 * 256, GFP_KERNEL);
+	ctx->iio = malloc(2 * 256, M_DRM, M_WAITOK | M_ZERO);
 	while (CU8(base) == ATOM_IIO_START) {
 		ctx->iio[CU8(base + 1)] = base + 2;
 		base += 2;
@@ -1246,7 +1246,7 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 {
 	int base;
 	struct atom_context *ctx =
-	    kzalloc(sizeof(struct atom_context), GFP_KERNEL);
+	    malloc(sizeof(struct atom_context), M_DRM, M_WAITOK | M_ZERO);
 	char *str;
 	char name[512];
 	int i;
@@ -1393,7 +1393,7 @@ int atom_allocate_fb_scratch(struct atom_context *ctx)
 	if (usage_bytes == 0)
 		usage_bytes = 20 * 1024;
 	/* allocate some scratch memory */
-	ctx->scratch = kzalloc(usage_bytes, GFP_KERNEL);
+	ctx->scratch = malloc(usage_bytes, M_DRM, M_WAITOK | M_ZERO);
 	if (!ctx->scratch)
 		return -ENOMEM;
 	ctx->scratch_size_bytes = usage_bytes;

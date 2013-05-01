@@ -641,7 +641,7 @@ retry:
 	memset(pd_addr, 0, pd_size);
 
 	pts_size = radeon_vm_num_pdes(rdev) * sizeof(struct radeon_sa_bo *);
-	vm->page_tables = kzalloc(pts_size, GFP_KERNEL);
+	vm->page_tables = malloc(pts_size, M_DRM, M_WAITOK | M_ZERO);
 
 	if (vm->page_tables == NULL) {
 		DRM_ERROR("Cannot allocate memory for page table array\n");
@@ -789,7 +789,7 @@ struct radeon_bo_va *radeon_vm_bo_add(struct radeon_device *rdev,
 {
 	struct radeon_bo_va *bo_va;
 
-	bo_va = kzalloc(sizeof(struct radeon_bo_va), GFP_KERNEL);
+	bo_va = malloc(sizeof(struct radeon_bo_va), M_DRM, M_WAITOK | M_ZERO);
 	if (bo_va == NULL) {
 		return NULL;
 	}

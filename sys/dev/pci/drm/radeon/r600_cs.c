@@ -2393,7 +2393,7 @@ int r600_cs_parse(struct radeon_cs_parser *p)
 
 	if (p->track == NULL) {
 		/* initialize tracker, we are in kms */
-		track = kzalloc(sizeof(*track), GFP_KERNEL);
+		track = malloc(sizeof(*track), M_DRM, M_WAITOK | M_ZERO);
 		if (track == NULL)
 			return -ENOMEM;
 		r600_cs_track_init(track);
@@ -2453,7 +2453,7 @@ static int r600_cs_parser_relocs_legacy(struct radeon_cs_parser *p)
 	if (p->chunk_relocs_idx == -1) {
 		return 0;
 	}
-	p->relocs = kzalloc(sizeof(struct radeon_cs_reloc), GFP_KERNEL);
+	p->relocs = malloc(sizeof(struct radeon_cs_reloc), M_DRM, M_WAITOK | M_ZERO);
 	if (p->relocs == NULL) {
 		return -ENOMEM;
 	}
@@ -2493,7 +2493,7 @@ int r600_cs_legacy(struct drm_device *dev, void *data, struct drm_file *filp,
 	int r;
 
 	/* initialize tracker */
-	track = kzalloc(sizeof(*track), GFP_KERNEL);
+	track = malloc(sizeof(*track), M_DRM, M_WAITOK | M_ZERO);
 	if (track == NULL)
 		return -ENOMEM;
 	r600_cs_track_init(track);

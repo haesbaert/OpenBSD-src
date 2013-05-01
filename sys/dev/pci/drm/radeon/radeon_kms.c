@@ -73,7 +73,7 @@ int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	struct radeon_device *rdev;
 	int r, acpi_status;
 
-	rdev = kzalloc(sizeof(struct radeon_device), GFP_KERNEL);
+	rdev = malloc(sizeof(struct radeon_device), M_DRM, M_WAITOK | M_ZERO);
 	if (rdev == NULL) {
 		return -ENOMEM;
 	}
@@ -435,7 +435,7 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 		struct radeon_bo_va *bo_va;
 		int r;
 
-		fpriv = kzalloc(sizeof(*fpriv), GFP_KERNEL);
+		fpriv = malloc(sizeof(*fpriv), M_DRM, M_WAITOK | M_ZERO);
 		if (unlikely(!fpriv)) {
 			return -ENOMEM;
 		}

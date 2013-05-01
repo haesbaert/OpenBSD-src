@@ -355,7 +355,7 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 	if (ASIC_IS_RN50(rdev) || rdev->mc.real_vram_size <= (32*1024*1024))
 		bpp_sel = 8;
 
-	rfbdev = kzalloc(sizeof(struct radeon_fbdev), GFP_KERNEL);
+	rfbdev = malloc(sizeof(struct radeon_fbdev), M_DRM, M_WAITOK | M_ZERO);
 	if (!rfbdev)
 		return -ENOMEM;
 

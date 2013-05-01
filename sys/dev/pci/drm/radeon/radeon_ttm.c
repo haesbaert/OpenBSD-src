@@ -562,7 +562,7 @@ static struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 	}
 #endif
 
-	gtt = kzalloc(sizeof(struct radeon_ttm_tt), GFP_KERNEL);
+	gtt = malloc(sizeof(struct radeon_ttm_tt), M_DRM, M_WAITOK | M_ZERO);
 	if (gtt == NULL) {
 		return NULL;
 	}

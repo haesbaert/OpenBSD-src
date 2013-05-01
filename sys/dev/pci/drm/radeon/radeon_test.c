@@ -66,7 +66,7 @@ static void radeon_do_test_moves(struct radeon_device *rdev, int flag)
 		n -= rdev->ih.ring_size;
 	n /= size;
 
-	gtt_obj = kzalloc(n * sizeof(*gtt_obj), GFP_KERNEL);
+	gtt_obj = malloc(n * sizeof(*gtt_obj), M_DRM, M_WAITOK | M_ZERO);
 	if (!gtt_obj) {
 		DRM_ERROR("Failed to allocate %d pointers\n", n);
 		r = 1;

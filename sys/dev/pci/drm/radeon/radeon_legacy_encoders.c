@@ -1690,7 +1690,7 @@ static struct radeon_encoder_int_tmds *radeon_legacy_get_tmds_info(struct radeon
 	struct radeon_encoder_int_tmds *tmds = NULL;
 	bool ret;
 
-	tmds = kzalloc(sizeof(struct radeon_encoder_int_tmds), GFP_KERNEL);
+	tmds = malloc(sizeof(struct radeon_encoder_int_tmds), M_DRM, M_WAITOK | M_ZERO);
 
 	if (!tmds)
 		return NULL;
@@ -1716,7 +1716,7 @@ static struct radeon_encoder_ext_tmds *radeon_legacy_get_ext_tmds_info(struct ra
 	if (rdev->is_atom_bios)
 		return NULL;
 
-	tmds = kzalloc(sizeof(struct radeon_encoder_ext_tmds), GFP_KERNEL);
+	tmds = malloc(sizeof(struct radeon_encoder_ext_tmds), M_DRM, M_WAITOK | M_ZERO);
 
 	if (!tmds)
 		return NULL;
@@ -1747,7 +1747,7 @@ radeon_add_legacy_encoder(struct drm_device *dev, uint32_t encoder_enum, uint32_
 	}
 
 	/* add a new one */
-	radeon_encoder = kzalloc(sizeof(struct radeon_encoder), GFP_KERNEL);
+	radeon_encoder = malloc(sizeof(struct radeon_encoder), M_DRM, M_WAITOK | M_ZERO);
 	if (!radeon_encoder)
 		return;
 

@@ -925,7 +925,7 @@ bool radeon_get_atom_connector_info_from_supported_devices_table(struct
 	router.ddc_valid = false;
 	router.cd_valid = false;
 
-	bios_connectors = kzalloc(bc_size, GFP_KERNEL);
+	bios_connectors = malloc(bc_size, M_DRM, M_WAITOK | M_ZERO);
 	if (!bios_connectors)
 		return false;
 
@@ -1552,7 +1552,7 @@ struct radeon_encoder_atom_dig *radeon_atombios_get_lvds_info(struct
 		lvds_info =
 			(union lvds_info *)(mode_info->atom_context->bios + data_offset);
 		lvds =
-		    kzalloc(sizeof(struct radeon_encoder_atom_dig), GFP_KERNEL);
+		    malloc(sizeof(struct radeon_encoder_atom_dig), M_DRM, M_WAITOK | M_ZERO);
 
 		if (!lvds)
 			return NULL;
@@ -1690,7 +1690,8 @@ radeon_atombios_get_primary_dac_info(struct radeon_encoder *encoder)
 		dac_info = (struct _COMPASSIONATE_DATA *)
 			(mode_info->atom_context->bios + data_offset);
 
-		p_dac = kzalloc(sizeof(struct radeon_encoder_primary_dac), GFP_KERNEL);
+		p_dac = malloc(sizeof(struct radeon_encoder_primary_dac),
+		    M_DRM, M_WAITOK | M_ZERO);
 
 		if (!p_dac)
 			return NULL;
@@ -1875,7 +1876,8 @@ radeon_atombios_get_tv_dac_info(struct radeon_encoder *encoder)
 		dac_info = (struct _COMPASSIONATE_DATA *)
 			(mode_info->atom_context->bios + data_offset);
 
-		tv_dac = kzalloc(sizeof(struct radeon_encoder_tv_dac), GFP_KERNEL);
+		tv_dac = malloc(sizeof(struct radeon_encoder_tv_dac),
+		    M_DRM, M_WAITOK | M_ZERO);
 
 		if (!tv_dac)
 			return NULL;
@@ -2028,13 +2030,15 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 	num_modes = power_info->info.ucNumOfPowerModeEntries;
 	if (num_modes > ATOM_MAX_NUMBEROF_POWER_BLOCK)
 		num_modes = ATOM_MAX_NUMBEROF_POWER_BLOCK;
-	rdev->pm.power_state = kzalloc(sizeof(struct radeon_power_state) * num_modes, GFP_KERNEL);
+	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) * num_modes,
+	    M_DRM, M_WAITOK | M_ZERO);
 	if (!rdev->pm.power_state)
 		return state_index;
 	/* last mode is usually default, array is low to high */
 	for (i = 0; i < num_modes; i++) {
 		rdev->pm.power_state[state_index].clock_info =
-			kzalloc(sizeof(struct radeon_pm_clock_info) * 1, GFP_KERNEL);
+			malloc(sizeof(struct radeon_pm_clock_info) * 1,
+			    M_DRM, M_WAITOK | M_ZERO);
 		if (!rdev->pm.power_state[state_index].clock_info)
 			return state_index;
 		rdev->pm.power_state[state_index].num_clock_modes = 1;
@@ -2432,8 +2436,8 @@ static int radeon_atombios_parse_power_table_4_5(struct radeon_device *rdev)
 	power_info = (union power_info *)(mode_info->atom_context->bios + data_offset);
 
 	radeon_atombios_add_pplib_thermal_controller(rdev, &power_info->pplib.sThermalController);
-	rdev->pm.power_state = kzalloc(sizeof(struct radeon_power_state) *
-				       power_info->pplib.ucNumStates, GFP_KERNEL);
+	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) *
+				       power_info->pplib.ucNumStates, M_DRM, M_WAITOK | M_ZERO);
 	if (!rdev->pm.power_state)
 		return state_index;
 	/* first mode is usually default, followed by low to high */
@@ -2448,10 +2452,10 @@ static int radeon_atombios_parse_power_table_4_5(struct radeon_device *rdev)
 			 le16_to_cpu(power_info->pplib.usNonClockInfoArrayOffset) +
 			 (power_state->v1.ucNonClockStateIndex *
 			  power_info->pplib.ucNonClockSize));
-		rdev->pm.power_state[i].clock_info = kzalloc(sizeof(struct radeon_pm_clock_info) *
+		rdev->pm.power_state[i].clock_info = malloc(sizeof(struct radeon_pm_clock_info) *
 							     ((power_info->pplib.ucStateEntrySize - 1) ?
 							      (power_info->pplib.ucStateEntrySize - 1) : 1),
-							     GFP_KERNEL);
+							     M_DRM, M_WAITOK | M_ZERO);
 		if (!rdev->pm.power_state[i].clock_info)
 			return state_index;
 		if (power_info->pplib.ucStateEntrySize - 1) {
@@ -2530,8 +2534,8 @@ static int radeon_atombios_parse_power_table_6(struct radeon_device *rdev)
 	non_clock_info_array = (struct _NonClockInfoArray *)
 		(mode_info->atom_context->bios + data_offset +
 		 le16_to_cpu(power_info->pplib.usNonClockInfoArrayOffset));
-	rdev->pm.power_state = kzalloc(sizeof(struct radeon_power_state) *
-				       state_array->ucNumEntries, GFP_KERNEL);
+	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) *
+				       state_array->ucNumEntries, M_DRM, M_WAITOK | M_ZERO);
 	if (!rdev->pm.power_state)
 		return state_index;
 	for (i = 0; i < state_array->ucNumEntries; i++) {
@@ -2541,10 +2545,10 @@ static int radeon_atombios_parse_power_table_6(struct radeon_device *rdev)
 		non_clock_array_index = i; /* power_state->v2.nonClockInfoIndex */
 		non_clock_info = (struct _ATOM_PPLIB_NONCLOCK_INFO *)
 			&non_clock_info_array->nonClockInfo[non_clock_array_index];
-		rdev->pm.power_state[i].clock_info = kzalloc(sizeof(struct radeon_pm_clock_info) *
+		rdev->pm.power_state[i].clock_info = malloc(sizeof(struct radeon_pm_clock_info) *
 							     (power_state->v2.ucNumDPMLevels ?
 							      power_state->v2.ucNumDPMLevels : 1),
-							     GFP_KERNEL);
+							     M_DRM, M_WAITOK | M_ZERO);
 		if (!rdev->pm.power_state[i].clock_info)
 			return state_index;
 		if (power_state->v2.ucNumDPMLevels) {
@@ -2621,10 +2625,12 @@ void radeon_atombios_get_power_modes(struct radeon_device *rdev)
 			break;
 		}
 	} else {
-		rdev->pm.power_state = kzalloc(sizeof(struct radeon_power_state), GFP_KERNEL);
+		rdev->pm.power_state = malloc(sizeof(struct radeon_power_state),
+		    M_DRM, M_WAITOK | M_ZERO);
 		if (rdev->pm.power_state) {
 			rdev->pm.power_state[0].clock_info =
-				kzalloc(sizeof(struct radeon_pm_clock_info) * 1, GFP_KERNEL);
+				malloc(sizeof(struct radeon_pm_clock_info) * 1,
+				    M_DRM, M_WAITOK | M_ZERO);
 			if (rdev->pm.power_state[0].clock_info) {
 				/* add the default mode */
 				rdev->pm.power_state[state_index].type =

@@ -938,8 +938,8 @@ struct radeon_encoder_primary_dac *radeon_combios_get_primary_dac_info(struct
 	struct radeon_encoder_primary_dac *p_dac = NULL;
 	int found = 0;
 
-	p_dac = kzalloc(sizeof(struct radeon_encoder_primary_dac),
-			GFP_KERNEL);
+	p_dac = malloc(sizeof(struct radeon_encoder_primary_dac),
+			M_DRM, M_WAITOK | M_ZERO);
 
 	if (!p_dac)
 		return NULL;
@@ -1083,7 +1083,8 @@ struct radeon_encoder_tv_dac *radeon_combios_get_tv_dac_info(struct
 	struct radeon_encoder_tv_dac *tv_dac = NULL;
 	int found = 0;
 
-	tv_dac = kzalloc(sizeof(struct radeon_encoder_tv_dac), GFP_KERNEL);
+	tv_dac = malloc(sizeof(struct radeon_encoder_tv_dac),
+	    M_DRM, M_WAITOK | M_ZERO);
 	if (!tv_dac)
 		return NULL;
 
@@ -1171,7 +1172,7 @@ static struct radeon_encoder_lvds *radeon_legacy_get_lvds_info_from_regs(struct
 	uint32_t ppll_div_sel, ppll_val;
 	uint32_t lvds_ss_gen_cntl = RREG32(RADEON_LVDS_SS_GEN_CNTL);
 
-	lvds = kzalloc(sizeof(struct radeon_encoder_lvds), GFP_KERNEL);
+	lvds = malloc(sizeof(struct radeon_encoder_lvds), M_DRM, M_WAITOK | M_ZERO);
 
 	if (!lvds)
 		return NULL;
@@ -1246,7 +1247,8 @@ struct radeon_encoder_lvds *radeon_combios_get_lvds_info(struct radeon_encoder
 	lcd_info = combios_get_table_offset(dev, COMBIOS_LCD_INFO_TABLE);
 
 	if (lcd_info) {
-		lvds = kzalloc(sizeof(struct radeon_encoder_lvds), GFP_KERNEL);
+		lvds = malloc(sizeof(struct radeon_encoder_lvds),
+		    M_DRM, M_WAITOK | M_ZERO);
 
 		if (!lvds)
 			return NULL;
@@ -2703,13 +2705,16 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev)
 	rdev->pm.default_power_state_index = -1;
 
 	/* allocate 2 power states */
-	rdev->pm.power_state = kzalloc(sizeof(struct radeon_power_state) * 2, GFP_KERNEL);
+	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) * 2,
+	    M_DRM, M_WAITOK | M_ZERO);
 	if (rdev->pm.power_state) {
 		/* allocate 1 clock mode per state */
 		rdev->pm.power_state[0].clock_info =
-			kzalloc(sizeof(struct radeon_pm_clock_info) * 1, GFP_KERNEL);
+			malloc(sizeof(struct radeon_pm_clock_info) * 1,
+			    M_DRM, M_WAITOK | M_ZERO);
 		rdev->pm.power_state[1].clock_info =
-			kzalloc(sizeof(struct radeon_pm_clock_info) * 1, GFP_KERNEL);
+			malloc(sizeof(struct radeon_pm_clock_info) * 1,
+			    M_DRM, M_WAITOK | M_ZERO);
 		if (!rdev->pm.power_state[0].clock_info ||
 		    !rdev->pm.power_state[1].clock_info)
 			goto pm_failed;
