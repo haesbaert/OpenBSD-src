@@ -28,13 +28,11 @@
  * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
-#include <linux/mutex.h>
-#include <linux/slab.h>
-#include <linux/module.h>
-#include <drm/drm_global.h>
+#include <sys/rwlock.h>
+#include <dev/pci/drm/drm_global.h>
 
 struct drm_global_item {
-	struct mutex mutex;
+	struct rwlock rwlock;
 	void *object;
 	int refcount;
 };
@@ -47,7 +45,7 @@ void drm_global_init(void)
 
 	for (i = 0; i < DRM_GLOBAL_NUM; ++i) {
 		struct drm_global_item *item = &glob[i];
-		mutex_init(&item->mutex);
+		rw_init(&item->rwlock, "gblitm");
 		item->object = NULL;
 		item->refcount = 0;
 	}
@@ -69,9 +67,9 @@ int drm_global_item_ref(struct drm_global_reference *ref)
 	struct drm_global_item *item = &glob[ref->global_type];
 	void *object;
 
-	mutex_lock(&item->mutex);
+	rw_enter_write(&item->rwlock);
 	if (item->refcount == 0) {
-		item->object = kzalloc(ref->size, GFP_KERNEL);
+		item->object = malloc(ref->size, M_DRM, M_WAITOK | M_ZERO);
 		if (unlikely(item->object == NULL)) {
 			ret = -ENOMEM;
 			goto out_err;
@@ -86,10 +84,10 @@ int drm_global_item_ref(struct drm_global_reference *ref)
 	++item->refcount;
 	ref->object = item->object;
 	object = item->object;
-	mutex_unlock(&item->mutex);
+	rw_exit_write(&item->rwlock);
 	return 0;
 out_err:
-	mutex_unlock(&item->mutex);
+	rw_exit_write(&item->rwlock);
 	item->object = NULL;
 	return ret;
 }
@@ -99,14 +97,14 @@ void drm_global_item_unref(struct drm_global_reference *ref)
 {
 	struct drm_global_item *item = &glob[ref->global_type];
 
-	mutex_lock(&item->mutex);
+	rw_enter_write(&item->rwlock);
 	BUG_ON(item->refcount == 0);
 	BUG_ON(ref->object != item->object);
 	if (--item->refcount == 0) {
 		ref->release(ref);
 		item->object = NULL;
 	}
-	mutex_unlock(&item->mutex);
+	rw_exit_write(&item->rwlock);
 }
 EXPORT_SYMBOL(drm_global_item_unref);
 
