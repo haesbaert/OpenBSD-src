@@ -49,6 +49,7 @@
 #ifndef _TTM_LOCK_H_
 #define _TTM_LOCK_H_
 
+#include <sys/mutex.h>
 #include <dev/pci/drm/ttm/ttm_object.h>
 
 /**
@@ -66,7 +67,7 @@
 
 struct ttm_lock {
 	struct ttm_base_object base;
-	wait_queue_head_t queue;
+	int queue;
 	struct mutex lock;
 	int32_t rw;
 	uint32_t flags;

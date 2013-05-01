@@ -31,7 +31,7 @@
 #ifndef _TTM_BO_API_H_
 #define _TTM_BO_API_H_
 
-#include <dev/pci/drm/drm_hashtab.h>
+#include <dev/pci/drm/drmP.h>
 
 struct ttm_bo_device;
 
@@ -200,9 +200,9 @@ struct ttm_buffer_object {
 	* Members not needing protection.
 	*/
 
-	struct kref kref;
-	struct kref list_kref;
-	wait_queue_head_t event_queue;
+	atomic_t kref;
+	atomic_t list_kref;
+	int event_queue;
 
 	/**
 	 * Members protected by the bo::reserved lock.
@@ -251,7 +251,7 @@ struct ttm_buffer_object {
 	 * Members protected by the bdev::vm_lock
 	 */
 
-	struct rb_node vm_rb;
+	RB_ENTRY(ttm_buffer_object) vm_rb;
 	struct drm_mm_node *vm_node;
 
 
@@ -304,7 +304,7 @@ struct ttm_bo_kmap_obj {
 static inline struct ttm_buffer_object *
 ttm_bo_reference(struct ttm_buffer_object *bo)
 {
-	kref_get(&bo->kref);
+	bo->kref++;
 	return bo;
 }
 
@@ -674,6 +674,7 @@ extern void ttm_bo_kunmap(struct ttm_bo_kmap_obj *map);
  * if the fbdev address space is to be backed by a bo.
  */
 
+#ifdef notyet
 extern int ttm_fbdev_mmap(struct vm_area_struct *vma,
 			  struct ttm_buffer_object *bo);
 
@@ -690,6 +691,7 @@ extern int ttm_fbdev_mmap(struct vm_area_struct *vma,
 
 extern int ttm_bo_mmap(struct file *filp, struct vm_area_struct *vma,
 		       struct ttm_bo_device *bdev);
+#endif
 
 /**
  * ttm_bo_io
@@ -713,8 +715,8 @@ extern int ttm_bo_mmap(struct file *filp, struct vm_area_struct *vma,
  */
 
 extern ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
-			 const char __user *wbuf, char __user *rbuf,
-			 size_t count, loff_t *f_pos, bool write);
+			 const char *wbuf, char *rbuf,
+			 size_t count, off_t *f_pos, bool write);
 
 extern void ttm_bo_swapout_all(struct ttm_bo_device *bdev);
 

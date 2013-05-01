@@ -136,7 +136,7 @@ struct ttm_tt {
  */
 struct ttm_dma_tt {
 	struct ttm_tt ttm;
-	dma_addr_t *dma_address;
+	bus_addr_t *dma_address;
 	struct list_head pages_list;
 };
 
@@ -478,7 +478,9 @@ struct ttm_bo_global {
 	 * Constant after init.
 	 */
 
+#ifdef notyet
 	struct kobject kobj;
+#endif
 	struct ttm_mem_global *mem_glob;
 	struct page *dummy_read_page;
 	struct ttm_mem_shrink shrink;
@@ -532,13 +534,15 @@ struct ttm_bo_device {
 	struct list_head device_list;
 	struct ttm_bo_global *glob;
 	struct ttm_bo_driver *driver;
+#ifdef notyet
 	rwlock_t vm_lock;
+#endif
 	struct ttm_mem_type_manager man[TTM_NUM_MEM_TYPES];
 	struct mutex fence_lock;
 	/*
 	 * Protected by the vm lock.
 	 */
-	struct rb_root addr_space_rb;
+	RB_HEAD(ttm_bo_device_buffer_objects, ttm_buffer_object) adr_space_rb;
 	struct drm_mm addr_space_mm;
 
 	/*
@@ -557,7 +561,9 @@ struct ttm_bo_device {
 	 * Internal protection.
 	 */
 
+#ifdef notyet
 	struct delayed_work wq;
+#endif
 
 	bool need_dma32;
 };
@@ -975,7 +981,9 @@ extern int ttm_bo_move_accel_cleanup(struct ttm_buffer_object *bo,
  * Utility function that returns the pgprot_t that should be used for
  * setting up a PTE with the caching model indicated by @c_state.
  */
+#ifdef notyet
 extern pgprot_t ttm_io_prot(uint32_t caching_flags, pgprot_t tmp);
+#endif
 
 extern const struct ttm_mem_type_manager_func ttm_bo_manager_func;
 

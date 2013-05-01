@@ -67,10 +67,14 @@ struct ttm_mem_shrink {
 #define TTM_MEM_MAX_ZONES 2
 struct ttm_mem_zone;
 struct ttm_mem_global {
+#ifdef notyet
 	struct kobject kobj;
+#endif
 	struct ttm_mem_shrink *shrink;
+#ifdef notyet
 	struct workqueue_struct *swap_queue;
 	struct work_struct work;
+#endif
 	struct mutex lock;
 	struct ttm_mem_zone *zones[TTM_MEM_MAX_ZONES];
 	unsigned int num_zones;
@@ -141,10 +145,12 @@ extern int ttm_mem_global_alloc(struct ttm_mem_global *glob, uint64_t memory,
 				bool no_wait, bool interruptible);
 extern void ttm_mem_global_free(struct ttm_mem_global *glob,
 				uint64_t amount);
+#ifdef notyet
 extern int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 				     struct page *page,
 				     bool no_wait, bool interruptible);
 extern void ttm_mem_global_free_page(struct ttm_mem_global *glob,
 				     struct page *page);
+#endif
 extern size_t ttm_round_pot(size_t size);
 #endif

@@ -27,6 +27,7 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
+#include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/ttm/ttm_memory.h>
 #include <dev/pci/drm/ttm/ttm_module.h>
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
@@ -34,7 +35,9 @@
 #define TTM_MEMORY_ALLOC_RETRIES 4
 
 struct ttm_mem_zone {
+#ifdef notyet
 	struct kobject kobj;
+#endif
 	struct ttm_mem_global *glob;
 	const char *name;
 	uint64_t zone_mem;
@@ -44,6 +47,7 @@ struct ttm_mem_zone {
 	uint64_t used_mem;
 };
 
+#ifdef notyet
 static struct attribute ttm_mem_sys = {
 	.name = "zone_memory",
 	.mode = S_IRUGO
@@ -64,7 +68,9 @@ static struct attribute ttm_mem_used = {
 	.name = "used_memory",
 	.mode = S_IRUGO
 };
+#endif
 
+#ifdef notyet
 static void ttm_mem_zone_kobj_release(struct kobject *kobj)
 {
 	struct ttm_mem_zone *zone =
@@ -99,9 +105,11 @@ static ssize_t ttm_mem_zone_show(struct kobject *kobj,
 	return snprintf(buffer, PAGE_SIZE, "%llu\n",
 			(unsigned long long) val >> 10);
 }
+#endif
 
 static void ttm_check_swapping(struct ttm_mem_global *glob);
 
+#ifdef notyet
 static ssize_t ttm_mem_zone_store(struct kobject *kobj,
 				  struct attribute *attr,
 				  const char *buffer,
@@ -139,7 +147,9 @@ static ssize_t ttm_mem_zone_store(struct kobject *kobj,
 
 	return size;
 }
+#endif
 
+#ifdef notyet
 static struct attribute *ttm_mem_zone_attrs[] = {
 	&ttm_mem_sys,
 	&ttm_mem_emer,
@@ -159,7 +169,9 @@ static struct kobj_type ttm_mem_zone_kobj_type = {
 	.sysfs_ops = &ttm_mem_zone_ops,
 	.default_attrs = ttm_mem_zone_attrs,
 };
+#endif
 
+#ifdef notyet
 static void ttm_mem_global_kobj_release(struct kobject *kobj)
 {
 	struct ttm_mem_global *glob =
@@ -171,6 +183,7 @@ static void ttm_mem_global_kobj_release(struct kobject *kobj)
 static struct kobj_type ttm_mem_glob_kobj_type = {
 	.release = &ttm_mem_global_kobj_release,
 };
+#endif
 
 static bool ttm_zones_above_swap_target(struct ttm_mem_global *glob,
 					bool from_wq, uint64_t extra)
@@ -184,7 +197,7 @@ static bool ttm_zones_above_swap_target(struct ttm_mem_global *glob,
 
 		if (from_wq)
 			target = zone->swap_limit;
-		else if (capable(CAP_SYS_ADMIN))
+		else if (DRM_SUSER(curproc))
 			target = zone->emer_mem;
 		else
 			target = zone->max_mem;
@@ -228,6 +241,7 @@ out:
 
 
 
+#ifdef notyet
 static void ttm_shrink_work(struct work_struct *work)
 {
 	struct ttm_mem_global *glob =
@@ -235,11 +249,13 @@ static void ttm_shrink_work(struct work_struct *work)
 
 	ttm_shrink(glob, true, 0ULL);
 }
+#endif
 
+#ifdef notyet
 static int ttm_mem_init_kernel_zone(struct ttm_mem_global *glob,
 				    const struct sysinfo *si)
 {
-	struct ttm_mem_zone *zone = kzalloc(sizeof(*zone), GFP_KERNEL);
+	struct ttm_mem_zone *zone = malloc(sizeof(*zone), M_DRM, M_WAITOK | M_ZERO);
 	uint64_t mem;
 	int ret;
 
@@ -266,7 +282,9 @@ static int ttm_mem_init_kernel_zone(struct ttm_mem_global *glob,
 	glob->zones[glob->num_zones++] = zone;
 	return 0;
 }
+#endif
 
+#ifdef notyet
 #ifdef CONFIG_HIGHMEM
 static int ttm_mem_init_highmem_zone(struct ttm_mem_global *glob,
 				     const struct sysinfo *si)
@@ -278,7 +296,7 @@ static int ttm_mem_init_highmem_zone(struct ttm_mem_global *glob,
 	if (si->totalhigh == 0)
 		return 0;
 
-	zone = kzalloc(sizeof(*zone), GFP_KERNEL);
+	zone = malloc(sizeof(*zone), M_DRM, M_WAITOK | M_ZERO);
 	if (unlikely(!zone))
 		return -ENOMEM;
 
@@ -306,7 +324,7 @@ static int ttm_mem_init_highmem_zone(struct ttm_mem_global *glob,
 static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
 				   const struct sysinfo *si)
 {
-	struct ttm_mem_zone *zone = kzalloc(sizeof(*zone), GFP_KERNEL);
+	struct ttm_mem_zone *zone = malloc(sizeof(*zone), M_DRM, M_WAITOK | M_ZERO);
 	uint64_t mem;
 	int ret;
 
@@ -350,9 +368,13 @@ static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
 	return 0;
 }
 #endif
+#endif // notyet
 
 int ttm_mem_global_init(struct ttm_mem_global *glob)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct sysinfo si;
 	int ret;
 	int i;
@@ -393,11 +415,14 @@ int ttm_mem_global_init(struct ttm_mem_global *glob)
 out_no_zone:
 	ttm_mem_global_release(glob);
 	return ret;
+#endif
 }
 EXPORT_SYMBOL(ttm_mem_global_init);
 
 void ttm_mem_global_release(struct ttm_mem_global *glob)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	unsigned int i;
 	struct ttm_mem_zone *zone;
 
@@ -415,11 +440,14 @@ void ttm_mem_global_release(struct ttm_mem_global *glob)
 			}
 	kobject_del(&glob->kobj);
 	kobject_put(&glob->kobj);
+#endif
 }
 EXPORT_SYMBOL(ttm_mem_global_release);
 
 static void ttm_check_swapping(struct ttm_mem_global *glob)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	bool needs_swapping = false;
 	unsigned int i;
 	struct ttm_mem_zone *zone;
@@ -438,6 +466,7 @@ static void ttm_check_swapping(struct ttm_mem_global *glob)
 	if (unlikely(needs_swapping))
 		(void)queue_work(glob->swap_queue, &glob->work);
 
+#endif
 }
 
 static void ttm_mem_global_free_zone(struct ttm_mem_global *glob,
@@ -479,7 +508,7 @@ static int ttm_mem_global_reserve(struct ttm_mem_global *glob,
 		if (single_zone && zone != single_zone)
 			continue;
 
-		limit = (capable(CAP_SYS_ADMIN)) ?
+		limit = (DRM_SUSER(curproc)) ?
 			zone->emer_mem : zone->max_mem;
 
 		if (zone->used_mem > limit)
@@ -538,6 +567,7 @@ int ttm_mem_global_alloc(struct ttm_mem_global *glob, uint64_t memory,
 }
 EXPORT_SYMBOL(ttm_mem_global_alloc);
 
+#ifdef notyet
 int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 			      struct page *page,
 			      bool no_wait, bool interruptible)
@@ -560,7 +590,9 @@ int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 	return ttm_mem_global_alloc_zone(glob, zone, PAGE_SIZE, no_wait,
 					 interruptible);
 }
+#endif
 
+#ifdef notyet
 void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct page *page)
 {
 	struct ttm_mem_zone *zone = NULL;
@@ -574,6 +606,7 @@ void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct page *page)
 #endif
 	ttm_mem_global_free_zone(glob, zone, PAGE_SIZE);
 }
+#endif
 
 
 size_t ttm_round_pot(size_t size)

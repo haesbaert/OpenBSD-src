@@ -51,15 +51,18 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
+#include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/ttm/ttm_object.h>
 #include <dev/pci/drm/ttm/ttm_module.h>
 
 struct ttm_object_file {
 	struct ttm_object_device *tdev;
+#ifdef notyet
 	rwlock_t lock;
+#endif
 	struct list_head ref_list;
 	struct drm_open_hash ref_hash[TTM_REF_NUM];
-	struct kref refcount;
+	int refcount;
 };
 
 /**
@@ -105,7 +108,9 @@ struct ttm_object_device {
 struct ttm_ref_object {
 	struct drm_hash_item hash;
 	struct list_head head;
+#ifdef notyet
 	struct kref kref;
+#endif
 	enum ttm_ref_type ref_type;
 	struct ttm_base_object *obj;
 	struct ttm_object_file *tfile;
@@ -114,10 +119,15 @@ struct ttm_ref_object {
 static inline struct ttm_object_file *
 ttm_object_file_ref(struct ttm_object_file *tfile)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	kref_get(&tfile->refcount);
 	return tfile;
+#endif
 }
 
+#ifdef notyet
 static void ttm_object_file_destroy(struct kref *kref)
 {
 	struct ttm_object_file *tfile =
@@ -125,14 +135,17 @@ static void ttm_object_file_destroy(struct kref *kref)
 
 	free(tfile, M_DRM);
 }
-
+#endif
 
 static inline void ttm_object_file_unref(struct ttm_object_file **p_tfile)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct ttm_object_file *tfile = *p_tfile;
 
 	*p_tfile = NULL;
 	kref_put(&tfile->refcount, ttm_object_file_destroy);
+#endif
 }
 
 
@@ -152,7 +165,9 @@ int ttm_base_object_init(struct ttm_object_file *tfile,
 	base->refcount_release = refcount_release;
 	base->ref_obj_release = ref_obj_release;
 	base->object_type = object_type;
+#ifdef notyet
 	kref_init(&base->refcount);
+#endif
 	mtx_enter(&tdev->object_lock);
 	ret = drm_ht_just_insert_please_rcu(&tdev->object_hash,
 					    &base->hash,
@@ -177,6 +192,7 @@ out_err0:
 }
 EXPORT_SYMBOL(ttm_base_object_init);
 
+#ifdef notyet
 static void ttm_release_base(struct kref *kref)
 {
 	struct ttm_base_object *base =
@@ -198,20 +214,27 @@ static void ttm_release_base(struct kref *kref)
 		base->refcount_release(&base);
 	}
 }
+#endif
 
 void ttm_base_object_unref(struct ttm_base_object **p_base)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct ttm_base_object *base = *p_base;
 
 	*p_base = NULL;
 
 	kref_put(&base->refcount, ttm_release_base);
+#endif
 }
 EXPORT_SYMBOL(ttm_base_object_unref);
 
 struct ttm_base_object *ttm_base_object_lookup(struct ttm_object_file *tfile,
 					       uint32_t key)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct ttm_object_device *tdev = tfile->tdev;
 	struct ttm_base_object *base;
 	struct drm_hash_item *hash;
@@ -236,6 +259,7 @@ struct ttm_base_object *ttm_base_object_lookup(struct ttm_object_file *tfile,
 	}
 
 	return base;
+#endif
 }
 EXPORT_SYMBOL(ttm_base_object_lookup);
 
@@ -243,6 +267,9 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 		       struct ttm_base_object *base,
 		       enum ttm_ref_type ref_type, bool *existed)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct drm_open_hash *ht = &tfile->ref_hash[ref_type];
 	struct ttm_ref_object *ref;
 	struct drm_hash_item *hash;
@@ -300,9 +327,11 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 	}
 
 	return ret;
+#endif
 }
 EXPORT_SYMBOL(ttm_ref_object_add);
 
+#ifdef notyet
 static void ttm_ref_object_release(struct kref *kref)
 {
 	struct ttm_ref_object *ref =
@@ -325,10 +354,14 @@ static void ttm_ref_object_release(struct kref *kref)
 	free(ref, M_DRM);
 	write_lock(&tfile->lock);
 }
+#endif
 
 int ttm_ref_object_base_unref(struct ttm_object_file *tfile,
 			      unsigned long key, enum ttm_ref_type ref_type)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct drm_open_hash *ht = &tfile->ref_hash[ref_type];
 	struct ttm_ref_object *ref;
 	struct drm_hash_item *hash;
@@ -344,11 +377,14 @@ int ttm_ref_object_base_unref(struct ttm_object_file *tfile,
 	kref_put(&ref->kref, ttm_ref_object_release);
 	write_unlock(&tfile->lock);
 	return 0;
+#endif
 }
 EXPORT_SYMBOL(ttm_ref_object_base_unref);
 
 void ttm_object_file_release(struct ttm_object_file **p_tfile)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct ttm_ref_object *ref;
 	struct list_head *list;
 	unsigned int i;
@@ -373,12 +409,16 @@ void ttm_object_file_release(struct ttm_object_file **p_tfile)
 
 	write_unlock(&tfile->lock);
 	ttm_object_file_unref(&tfile);
+#endif
 }
 EXPORT_SYMBOL(ttm_object_file_release);
 
 struct ttm_object_file *ttm_object_file_init(struct ttm_object_device *tdev,
 					     unsigned int hash_order)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct ttm_object_file *tfile = malloc(sizeof(*tfile), M_DRM, M_WAITOK);
 	unsigned int i;
 	unsigned int j = 0;
@@ -408,6 +448,7 @@ out_err:
 	free(tfile, M_DRM);
 
 	return NULL;
+#endif
 }
 EXPORT_SYMBOL(ttm_object_file_init);
 

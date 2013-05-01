@@ -59,7 +59,9 @@ extern void ttm_pool_unpopulate(struct ttm_tt *ttm);
 /**
  * Output the state of pools to debugfs file
  */
+#ifdef notyet
 extern int ttm_page_alloc_debugfs(struct seq_file *m, void *data);
+#endif
 
 
 #ifdef CONFIG_SWIOTLB
@@ -90,10 +92,12 @@ static inline int ttm_dma_page_alloc_init(struct ttm_mem_global *glob,
 
 static inline void ttm_dma_page_alloc_fini(void) { return; }
 
+#ifdef notyet
 static inline int ttm_dma_page_alloc_debugfs(struct seq_file *m, void *data)
 {
 	return 0;
 }
+#endif
 #endif
 
 #endif

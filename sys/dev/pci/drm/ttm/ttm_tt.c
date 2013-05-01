@@ -30,6 +30,7 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
+#include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/drm_cache.h>
 #include <dev/pci/drm/drm_mem_util.h>
 #include <dev/pci/drm/ttm/ttm_module.h>
@@ -95,6 +96,9 @@ static inline int ttm_tt_set_page_caching(struct page *p,
 static int ttm_tt_set_caching(struct ttm_tt *ttm,
 			      enum ttm_caching_state c_state)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i, j;
 	struct page *cur_page;
 	int ret;
@@ -136,6 +140,7 @@ out_err:
 	}
 
 	return ret;
+#endif
 }
 
 int ttm_tt_set_placement_caching(struct ttm_tt *ttm, uint32_t placement)
@@ -155,6 +160,8 @@ EXPORT_SYMBOL(ttm_tt_set_placement_caching);
 
 void ttm_tt_destroy(struct ttm_tt *ttm)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	if (unlikely(ttm == NULL))
 		return;
 
@@ -172,6 +179,7 @@ void ttm_tt_destroy(struct ttm_tt *ttm)
 
 	ttm->swap_storage = NULL;
 	ttm->func->destroy(ttm);
+#endif
 }
 
 int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
@@ -190,7 +198,7 @@ int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
 	ttm_tt_alloc_page_directory(ttm);
 	if (!ttm->pages) {
 		ttm_tt_destroy(ttm);
-		pr_err("Failed allocating page table\n");
+		DRM_ERROR("Failed allocating page table\n");
 		return -ENOMEM;
 	}
 	return 0;
@@ -223,7 +231,7 @@ int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
 	ttm_dma_tt_alloc_page_directory(ttm_dma);
 	if (!ttm->pages || !ttm_dma->dma_address) {
 		ttm_tt_destroy(ttm);
-		pr_err("Failed allocating page table\n");
+		DRM_ERROR("Failed allocating page table\n");
 		return -ENOMEM;
 	}
 	return 0;
@@ -278,6 +286,9 @@ EXPORT_SYMBOL(ttm_tt_bind);
 
 int ttm_tt_swapin(struct ttm_tt *ttm)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct address_space *swap_space;
 	struct file *swap_storage;
 	struct page *from_page;
@@ -312,10 +323,14 @@ int ttm_tt_swapin(struct ttm_tt *ttm)
 	return 0;
 out_err:
 	return ret;
+#endif
 }
 
 int ttm_tt_swapout(struct ttm_tt *ttm, struct file *persistent_swap_storage)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct address_space *swap_space;
 	struct file *swap_storage;
 	struct page *from_page;
@@ -366,4 +381,5 @@ out_err:
 		fput(swap_storage);
 
 	return ret;
+#endif
 }

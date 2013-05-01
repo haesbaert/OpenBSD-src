@@ -35,6 +35,7 @@
 
 #define pr_fmt(fmt) "[TTM] " fmt
 
+#include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/ttm/ttm_bo_driver.h>
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
@@ -96,7 +97,9 @@ struct dma_pool {
 	unsigned npages_in_use;
 	unsigned long nfrees; /* Stats when shrunk. */
 	unsigned long nrefills; /* Stats when grown. */
+#ifdef notyet
 	gfp_t gfp_flags;
+#endif
 	char name[13]; /* "cached dma32" */
 	char dev_name[64]; /* Constructed from dev */
 };
@@ -113,7 +116,7 @@ struct dma_page {
 	struct list_head page_list;
 	void *vaddr;
 	struct page *p;
-	dma_addr_t dma;
+	bus_addr_t dma;
 };
 
 /*
@@ -155,12 +158,15 @@ struct ttm_pool_manager {
 	struct list_head	pools;
 	struct ttm_pool_opts	options;
 	unsigned		npools;
+#ifdef notyet
 	struct shrinker		mm_shrink;
 	struct kobject		kobj;
+#endif
 };
 
 static struct ttm_pool_manager *_manager;
 
+#ifdef notyet
 static struct attribute ttm_page_pool_max = {
 	.name = "pool_max_size",
 	.mode = S_IRUGO | S_IWUSR
@@ -180,7 +186,30 @@ static struct attribute *ttm_pool_attrs[] = {
 	&ttm_page_pool_alloc_size,
 	NULL
 };
+#endif
 
+int	 ttm_dma_populate(struct ttm_dma_tt *, struct device *);
+void	 ttm_dma_unpopulate(struct ttm_dma_tt *, struct device *);
+enum pool_type
+	 ttm_to_type(int, enum ttm_caching_state);
+void	 ttm_dma_pool_update_free_locked(struct dma_pool *, unsigned);
+void	 ttm_dma_pages_put(struct dma_pool *, struct list_head *,
+	     struct page *[], unsigned);
+void	 ttm_dma_page_put(struct dma_pool *, struct dma_page *);
+unsigned ttm_dma_page_pool_free(struct dma_pool *, unsigned);
+void	 ttm_dma_pool_release(struct device *, void *);
+int	 ttm_dma_pool_match(struct device *, void *, void *);
+struct dma_pool *
+	 ttm_dma_find_pool(struct device *, enum pool_type);
+int	 ttm_dma_pool_alloc_new_pages(struct dma_pool *, struct list_head *,
+	     unsigned);
+int	 ttm_dma_pool_get_pages(struct dma_pool *, struct ttm_dma_tt *,
+	     unsigned);
+int	 ttm_dma_pool_get_num_unused_pages(void);
+void	 ttm_dma_pool_mm_shrink_init(struct ttm_pool_manager *);
+void	 ttm_dma_pool_mm_shrink_fini(struct ttm_pool_manager *);
+
+#ifdef notyet
 static void ttm_pool_kobj_release(struct kobject *kobj)
 {
 	struct ttm_pool_manager *m =
@@ -251,6 +280,7 @@ static struct kobj_type ttm_pool_kobj_type = {
 	.sysfs_ops = &ttm_pool_sysfs_ops,
 	.default_attrs = ttm_pool_attrs,
 };
+#endif // notyet
 
 #ifndef CONFIG_X86
 static int set_pages_array_wb(struct page **pages, int addrinarray)
@@ -295,13 +325,13 @@ static int ttm_set_pages_caching(struct dma_pool *pool,
 	if (pool->type & IS_UC) {
 		r = set_pages_array_uc(pages, cpages);
 		if (r)
-			pr_err("%s: Failed to set %d pages to uc!\n",
+			printf("%s: Failed to set %d pages to uc!\n",
 			       pool->dev_name, cpages);
 	}
 	if (pool->type & IS_WC) {
 		r = set_pages_array_wc(pages, cpages);
 		if (r)
-			pr_err("%s: Failed to set %d pages to wc!\n",
+			printf("%s: Failed to set %d pages to wc!\n",
 			       pool->dev_name, cpages);
 	}
 	return r;
@@ -309,14 +339,20 @@ static int ttm_set_pages_caching(struct dma_pool *pool,
 
 static void __ttm_dma_free_page(struct dma_pool *pool, struct dma_page *d_page)
 {
-	dma_addr_t dma = d_page->dma;
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	bus_addr_t dma = d_page->dma;
 	dma_free_coherent(pool->dev, pool->size, d_page->vaddr, dma);
 
 	free(d_page, M_DRM);
 	d_page = NULL;
+#endif
 }
 static struct dma_page *__ttm_dma_alloc_page(struct dma_pool *pool)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct dma_page *d_page;
 
 	d_page = malloc(sizeof(struct dma_page), M_DRM, M_WAITOK);
@@ -333,8 +369,10 @@ static struct dma_page *__ttm_dma_alloc_page(struct dma_pool *pool)
 		d_page = NULL;
 	}
 	return d_page;
+#endif
 }
-static enum pool_type ttm_to_type(int flags, enum ttm_caching_state cstate)
+enum pool_type
+ttm_to_type(int flags, enum ttm_caching_state cstate)
 {
 	enum pool_type type = IS_UNDEFINED;
 
@@ -350,7 +388,8 @@ static enum pool_type ttm_to_type(int flags, enum ttm_caching_state cstate)
 	return type;
 }
 
-static void ttm_pool_update_free_locked(struct dma_pool *pool,
+void
+ttm_dma_pool_update_free_locked(struct dma_pool *pool,
 					unsigned freed_pages)
 {
 	pool->npages_free -= freed_pages;
@@ -359,28 +398,33 @@ static void ttm_pool_update_free_locked(struct dma_pool *pool,
 }
 
 /* set memory back to wb and free the pages. */
-static void ttm_dma_pages_put(struct dma_pool *pool, struct list_head *d_pages,
+void
+ttm_dma_pages_put(struct dma_pool *pool, struct list_head *d_pages,
 			      struct page *pages[], unsigned npages)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct dma_page *d_page, *tmp;
 
 	/* Don't set WB on WB page pool. */
 	if (npages && !(pool->type & IS_CACHED) &&
 	    set_pages_array_wb(pages, npages))
-		pr_err("%s: Failed to set %d pages to wb!\n",
+		printf("%s: Failed to set %d pages to wb!\n",
 		       pool->dev_name, npages);
 
 	list_for_each_entry_safe(d_page, tmp, d_pages, page_list) {
 		list_del(&d_page->page_list);
 		__ttm_dma_free_page(pool, d_page);
 	}
+#endif
 }
 
-static void ttm_dma_page_put(struct dma_pool *pool, struct dma_page *d_page)
+void
+ttm_dma_page_put(struct dma_pool *pool, struct dma_page *d_page)
 {
 	/* Don't set WB on WB page pool. */
 	if (!(pool->type & IS_CACHED) && set_pages_array_wb(&d_page->p, 1))
-		pr_err("%s: Failed to set %d pages to wb!\n",
+		printf("%s: Failed to set %d pages to wb!\n",
 		       pool->dev_name, 1);
 
 	list_del(&d_page->page_list);
@@ -396,8 +440,12 @@ static void ttm_dma_page_put(struct dma_pool *pool, struct dma_page *d_page)
  * @pool: to free the pages from
  * @nr_free: If set to true will free all pages in pool
  **/
-static unsigned ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
+unsigned
+ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 {
+	printf("%s stub\n", __func__);
+	return 0;
+#ifdef notyet
 	struct dma_page *dma_p, *tmp;
 	struct page **pages_to_free;
 	struct list_head d_pages;
@@ -417,7 +465,7 @@ static unsigned ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 			M_DRM, M_WAITOK);
 
 	if (!pages_to_free) {
-		pr_err("%s: Failed to allocate memory for pool free operation\n",
+		printf("%s: Failed to allocate memory for pool free operation\n",
 		       pool->dev_name);
 		return 0;
 	}
@@ -438,7 +486,7 @@ restart:
 		/* We can only remove NUM_PAGES_TO_ALLOC at a time. */
 		if (freed_pages >= NUM_PAGES_TO_ALLOC) {
 
-			ttm_pool_update_free_locked(pool, freed_pages);
+			ttm_dma_pool_update_free_locked(pool, freed_pages);
 			/**
 			 * Because changing page caching is costly
 			 * we unlock the pool to prevent stalling.
@@ -475,7 +523,7 @@ restart:
 
 	/* remove range of pages from the pool */
 	if (freed_pages) {
-		ttm_pool_update_free_locked(pool, freed_pages);
+		ttm_dma_pool_update_free_locked(pool, freed_pages);
 		nr_free -= freed_pages;
 	}
 
@@ -486,10 +534,13 @@ restart:
 out:
 	free(pages_to_free, M_DRM);
 	return nr_free;
+#endif
 }
 
 static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct device_pools *p;
 	struct dma_pool *pool;
 
@@ -524,13 +575,15 @@ static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 		break;
 	}
 	rw_exit_write(&_manager->lock);
+#endif
 }
 
 /*
  * On free-ing of the 'struct device' this deconstructor is run.
  * Albeit the pool might have already been freed earlier.
  */
-static void ttm_dma_pool_release(struct device *dev, void *res)
+void
+ttm_dma_pool_release(struct device *dev, void *res)
 {
 	struct dma_pool *pool = *(struct dma_pool **)res;
 
@@ -538,11 +591,13 @@ static void ttm_dma_pool_release(struct device *dev, void *res)
 		ttm_dma_free_pool(dev, pool->type);
 }
 
-static int ttm_dma_pool_match(struct device *dev, void *res, void *match_data)
+int
+ttm_dma_pool_match(struct device *dev, void *res, void *match_data)
 {
 	return *(struct dma_pool **)res == match_data;
 }
 
+#ifdef notyet
 static struct dma_pool *ttm_dma_pool_init(struct device *dev, gfp_t flags,
 					  enum pool_type type)
 {
@@ -618,10 +673,15 @@ err_mem:
 	free(pool, M_DRM);
 	return ERR_PTR(ret);
 }
+#endif
 
-static struct dma_pool *ttm_dma_find_pool(struct device *dev,
+struct dma_pool *
+ttm_dma_find_pool(struct device *dev,
 					  enum pool_type type)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct dma_pool *pool, *tmp, *found = NULL;
 
 	if (type == IS_UNDEFINED)
@@ -645,6 +705,7 @@ static struct dma_pool *ttm_dma_find_pool(struct device *dev,
 		break;
 	}
 	return found;
+#endif
 }
 
 /*
@@ -685,7 +746,8 @@ static void ttm_dma_handle_caching_state_failure(struct dma_pool *pool,
  * The full list of pages should also be on 'd_pages'.
  * We return zero for success, and negative numbers as errors.
  */
-static int ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
+int
+ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
 					struct list_head *d_pages,
 					unsigned count)
 {
@@ -701,20 +763,20 @@ static int ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
 	caching_array = malloc(max_cpages*sizeof(struct page *), M_DRM, M_WAITOK);
 
 	if (!caching_array) {
-		pr_err("%s: Unable to allocate table for new pages\n",
+		printf("%s: Unable to allocate table for new pages\n",
 		       pool->dev_name);
 		return -ENOMEM;
 	}
 
 	if (count > 1) {
-		pr_debug("%s: (%s:%d) Getting %d pages\n",
-			 pool->dev_name, pool->name, current->pid, count);
+		printf("%s: (%s:%d) Getting %d pages\n",
+			 pool->dev_name, pool->name, DRM_CURRENTPID, count);
 	}
 
 	for (i = 0, cpages = 0; i < count; ++i) {
 		dma_p = __ttm_dma_alloc_page(pool);
 		if (!dma_p) {
-			pr_err("%s: Unable to get page %u\n",
+			DRM_ERROR("%s: Unable to get page %u\n",
 			       pool->dev_name, i);
 
 			/* store already allocated pages in the pool after
@@ -771,6 +833,9 @@ out:
  */
 static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	unsigned count = _manager->options.small;
 	int r = pool->npages_free;
 
@@ -796,7 +861,7 @@ static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool)
 			struct dma_page *d_page;
 			unsigned cpages = 0;
 
-			pr_err("%s: Failed to fill %s pool (r:%d)!\n",
+			DRM_ERROR("%s: Failed to fill %s pool (r:%d)!\n",
 			       pool->dev_name, pool->name, r);
 
 			list_for_each_entry(d_page, &d_pages, page_list) {
@@ -808,6 +873,7 @@ static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool)
 		}
 	}
 	return r;
+#endif
 }
 
 /*
@@ -815,7 +881,8 @@ static int ttm_dma_page_pool_fill_locked(struct dma_pool *pool)
  * The populate list is actually a stack (not that is matters as TTM
  * allocates one page at a time.
  */
-static int ttm_dma_pool_get_pages(struct dma_pool *pool,
+int
+ttm_dma_pool_get_pages(struct dma_pool *pool,
 				  struct ttm_dma_tt *ttm_dma,
 				  unsigned index)
 {
@@ -842,8 +909,12 @@ static int ttm_dma_pool_get_pages(struct dma_pool *pool,
  * On success pages list will hold count number of correctly
  * cached pages. On failure will hold the negative return value (-ENOMEM, etc).
  */
-int ttm_dma_populate(struct ttm_dma_tt *ttm_dma, struct device *dev)
+int
+ttm_dma_populate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct ttm_tt *ttm = &ttm_dma->ttm;
 	struct ttm_mem_global *mem_glob = ttm->glob->mem_glob;
 	struct dma_pool *pool;
@@ -897,11 +968,12 @@ int ttm_dma_populate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 
 	ttm->state = tt_unbound;
 	return 0;
+#endif
 }
-EXPORT_SYMBOL_GPL(ttm_dma_populate);
 
 /* Get good estimation how many pages are free in pools */
-static int ttm_dma_pool_get_num_unused_pages(void)
+int
+ttm_dma_pool_get_num_unused_pages(void)
 {
 	struct device_pools *p;
 	unsigned total = 0;
@@ -914,8 +986,11 @@ static int ttm_dma_pool_get_num_unused_pages(void)
 }
 
 /* Put all pages in pages list to correct pool to wait for reuse */
-void ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev)
+void
+ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct ttm_tt *ttm = &ttm_dma->ttm;
 	struct dma_pool *pool;
 	struct dma_page *d_page, *next;
@@ -978,12 +1053,13 @@ void ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev)
 	if (npages)
 		ttm_dma_page_pool_free(pool, npages);
 	ttm->state = tt_unpopulated;
+#endif
 }
-EXPORT_SYMBOL_GPL(ttm_dma_unpopulate);
 
 /**
  * Callback for mm to request pool to reduce number of page held.
  */
+#ifdef notyet
 static int ttm_dma_pool_mm_shrink(struct shrinker *shrink,
 				  struct shrink_control *sc)
 {
@@ -1010,7 +1086,7 @@ static int ttm_dma_pool_mm_shrink(struct shrinker *shrink,
 			continue;
 		nr_free = shrink_pages;
 		shrink_pages = ttm_dma_page_pool_free(p->pool, nr_free);
-		pr_debug("%s: (%s:%d) Asked to shrink %d, have %d more to go\n",
+		DRM_DEBUG("%s: (%s:%d) Asked to shrink %d, have %d more to go\n",
 			 p->pool->dev_name, p->pool->name, current->pid,
 			 nr_free, shrink_pages);
 	}
@@ -1018,20 +1094,31 @@ static int ttm_dma_pool_mm_shrink(struct shrinker *shrink,
 	/* return estimated number of unused pages in pool */
 	return ttm_dma_pool_get_num_unused_pages();
 }
+#endif
 
-static void ttm_dma_pool_mm_shrink_init(struct ttm_pool_manager *manager)
+void
+ttm_dma_pool_mm_shrink_init(struct ttm_pool_manager *manager)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	manager->mm_shrink.shrink = &ttm_dma_pool_mm_shrink;
 	manager->mm_shrink.seeks = 1;
 	register_shrinker(&manager->mm_shrink);
+#endif
 }
 
-static void ttm_dma_pool_mm_shrink_fini(struct ttm_pool_manager *manager)
+void
+ttm_dma_pool_mm_shrink_fini(struct ttm_pool_manager *manager)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	unregister_shrinker(&manager->mm_shrink);
+#endif
 }
 
-int ttm_dma_page_alloc_init(struct ttm_mem_global *glob, unsigned max_pages)
+#ifdef CONFIG_SWIOTLB
+int
+ttm_dma_page_alloc_init(struct ttm_mem_global *glob, unsigned max_pages)
 {
 	int ret = -ENOMEM;
 
@@ -1080,7 +1167,9 @@ void ttm_dma_page_alloc_fini(void)
 	kobject_put(&_manager->kobj);
 	_manager = NULL;
 }
+#endif
 
+#ifdef notyet
 int ttm_dma_page_alloc_debugfs(struct seq_file *m, void *data)
 {
 	struct device_pools *p;
@@ -1109,4 +1198,4 @@ int ttm_dma_page_alloc_debugfs(struct seq_file *m, void *data)
 	rw_exit_write(&_manager->lock);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ttm_dma_page_alloc_debugfs);
+#endif

@@ -102,7 +102,7 @@ static int ttm_bo_man_init(struct ttm_mem_type_manager *man,
 	struct ttm_range_manager *rman;
 	int ret;
 
-	rman = kzalloc(sizeof(*rman), GFP_KERNEL);
+	rman = malloc(sizeof(*rman), M_DRM, M_WAITOK | M_ZERO);
 	if (!rman)
 		return -ENOMEM;
 
@@ -137,11 +137,14 @@ static int ttm_bo_man_takedown(struct ttm_mem_type_manager *man)
 static void ttm_bo_man_debug(struct ttm_mem_type_manager *man,
 			     const char *prefix)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct ttm_range_manager *rman = (struct ttm_range_manager *) man->priv;
 
 	mtx_enter(&rman->lock);
 	drm_mm_debug_table(&rman->mm, prefix);
 	mtx_leave(&rman->lock);
+#endif
 }
 
 const struct ttm_mem_type_manager_func ttm_bo_manager_func = {

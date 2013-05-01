@@ -36,10 +36,20 @@
 
 #define TTM_BO_VM_NUM_PREFAULT 16
 
-static struct ttm_buffer_object *ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
+ssize_t	 ttm_bo_fbdev_io(struct ttm_buffer_object *, const char __user *,
+	     char __user *, size_t, off_t *, bool);
+struct ttm_buffer_object *
+	 ttm_bo_vm_lookup_rb(struct ttm_bo_device *, unsigned long,
+	     unsigned long);
+
+struct ttm_buffer_object *
+ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 						     unsigned long page_start,
 						     unsigned long num_pages)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct rb_node *cur = bdev->addr_space_rb.rb_node;
 	unsigned long cur_offset;
 	struct ttm_buffer_object *bo;
@@ -65,8 +75,10 @@ static struct ttm_buffer_object *ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 		return NULL;
 
 	return best_bo;
+#endif
 }
 
+#ifdef notyet
 static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct ttm_buffer_object *bo = (struct ttm_buffer_object *)
@@ -222,7 +234,9 @@ out_unlock:
 	ttm_bo_unreserve(bo);
 	return retval;
 }
+#endif
 
+#ifdef notyet
 static void ttm_bo_vm_open(struct vm_area_struct *vma)
 {
 	struct ttm_buffer_object *bo =
@@ -238,13 +252,17 @@ static void ttm_bo_vm_close(struct vm_area_struct *vma)
 	ttm_bo_unref(&bo);
 	vma->vm_private_data = NULL;
 }
+#endif
 
+#ifdef notyet
 static const struct vm_operations_struct ttm_bo_vm_ops = {
 	.fault = ttm_bo_vm_fault,
 	.open = ttm_bo_vm_open,
 	.close = ttm_bo_vm_close
 };
+#endif
 
+#ifdef notyet
 int ttm_bo_mmap(struct file *filp, struct vm_area_struct *vma,
 		struct ttm_bo_device *bdev)
 {
@@ -287,8 +305,10 @@ out_unref:
 	ttm_bo_unref(&bo);
 	return ret;
 }
+#endif
 EXPORT_SYMBOL(ttm_bo_mmap);
 
+#ifdef notyet
 int ttm_fbdev_mmap(struct vm_area_struct *vma, struct ttm_buffer_object *bo)
 {
 	if (vma->vm_pgoff != 0)
@@ -299,13 +319,17 @@ int ttm_fbdev_mmap(struct vm_area_struct *vma, struct ttm_buffer_object *bo)
 	vma->vm_flags |= VM_IO | VM_MIXEDMAP | VM_DONTEXPAND;
 	return 0;
 }
+#endif
 EXPORT_SYMBOL(ttm_fbdev_mmap);
 
 
 ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
 		  const char __user *wbuf, char __user *rbuf, size_t count,
-		  loff_t *f_pos, bool write)
+		  off_t *f_pos, bool write)
 {
+	printf("%s stub\n", __func__);
+	return -1;
+#ifdef notyet
 	struct ttm_buffer_object *bo;
 	struct ttm_bo_driver *driver;
 	struct ttm_bo_kmap_obj map;
@@ -393,12 +417,16 @@ ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
 out_unref:
 	ttm_bo_unref(&bo);
 	return ret;
+#endif
 }
 
 ssize_t ttm_bo_fbdev_io(struct ttm_buffer_object *bo, const char __user *wbuf,
-			char __user *rbuf, size_t count, loff_t *f_pos,
+			char __user *rbuf, size_t count, off_t *f_pos,
 			bool write)
 {
+	printf("%s stub\n", __func__);
+	return -1;
+#ifdef notyet
 	struct ttm_bo_kmap_obj map;
 	unsigned long kmap_offset;
 	unsigned long kmap_end;
@@ -458,4 +486,5 @@ ssize_t ttm_bo_fbdev_io(struct ttm_buffer_object *bo, const char __user *wbuf,
 	*f_pos += io_size;
 
 	return io_size;
+#endif
 }

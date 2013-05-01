@@ -27,10 +27,14 @@
 #ifndef _DRM_MEM_UTIL_H_
 #define _DRM_MEM_UTIL_H_
 
-#include <linux/vmalloc.h>
+#include <sys/types.h>
+#include <sys/malloc.h>
 
 static __inline__ void *drm_calloc_large(size_t nmemb, size_t size)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	if (size != 0 && nmemb > SIZE_MAX / size)
 		return NULL;
 
@@ -39,27 +43,35 @@ static __inline__ void *drm_calloc_large(size_t nmemb, size_t size)
 
 	return __vmalloc(size * nmemb,
 			 GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL);
+#endif
 }
 
 /* Modeled after cairo's malloc_ab, it's like calloc but without the zeroing. */
 static __inline__ void *drm_malloc_ab(size_t nmemb, size_t size)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	if (size != 0 && nmemb > SIZE_MAX / size)
 		return NULL;
 
 	if (size * nmemb <= PAGE_SIZE)
-	    return kmalloc(nmemb * size, GFP_KERNEL);
+	    return malloc(nmemb * size, M_DRM, M_WAITOK);
 
 	return __vmalloc(size * nmemb,
 			 GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL);
+#endif
 }
 
 static __inline void drm_free_large(void *ptr)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	if (!is_vmalloc_addr(ptr))
-		return kfree(ptr);
+		return free(ptr, M_DRM);
 
 	vfree(ptr);
+#endif
 }
 
 #endif

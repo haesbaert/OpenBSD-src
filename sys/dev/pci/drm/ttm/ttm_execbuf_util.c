@@ -45,7 +45,7 @@ static void ttm_eu_backoff_reservation_locked(struct list_head *list)
 		}
 		entry->reserved = false;
 		atomic_set(&bo->reserved, 0);
-		wake_up_all(&bo->event_queue);
+		wakeup(&bo->event_queue);
 	}
 }
 
