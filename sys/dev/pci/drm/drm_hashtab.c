@@ -32,11 +32,8 @@
  * Thomas Hellström <thomas-at-tungstengraphics-dot-com>
  */
 
-#include <drm/drmP.h>
-#include <drm/drm_hashtab.h>
-#include <linux/hash.h>
-#include <linux/slab.h>
-#include <linux/export.h>
+#include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/drm_hashtab.h>
 
 int drm_ht_create(struct drm_open_hash *ht, unsigned int order)
 {
@@ -202,7 +199,7 @@ void drm_ht_remove(struct drm_open_hash *ht)
 {
 	if (ht->table) {
 		if ((PAGE_SIZE / sizeof(*ht->table)) >> ht->order)
-			kfree(ht->table);
+			free(ht->table, M_DRM);
 		else
 			vfree(ht->table);
 		ht->table = NULL;

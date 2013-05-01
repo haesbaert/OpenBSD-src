@@ -35,18 +35,19 @@
 #ifndef DRM_HASHTAB_H
 #define DRM_HASHTAB_H
 
-#include <linux/list.h>
+#include <sys/types.h>
+#include <sys/queue.h>
 
 #define drm_hash_entry(_ptr, _type, _member) container_of(_ptr, _type, _member)
 
 struct drm_hash_item {
-	struct hlist_node head;
+	LIST_ENTRY(drm_hash_item) head;
 	unsigned long key;
 };
 
 struct drm_open_hash {
-	struct hlist_head *table;
-	u8 order;
+	LIST_HEAD(drm_hash_item_list, drm_hash_item) *table;
+	uint8_t order;
 };
 
 extern int drm_ht_create(struct drm_open_hash *ht, unsigned int order);
