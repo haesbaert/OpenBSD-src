@@ -320,7 +320,7 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 	BUG_ON(align > RADEON_GPU_PAGE_SIZE);
 	BUG_ON(size > sa_manager->size);
 
-	*sa_bo = kmalloc(sizeof(struct radeon_sa_bo), GFP_KERNEL);
+	*sa_bo = malloc(sizeof(struct radeon_sa_bo), M_DRM, M_WAITOK);
 	if ((*sa_bo) == NULL) {
 		return -ENOMEM;
 	}

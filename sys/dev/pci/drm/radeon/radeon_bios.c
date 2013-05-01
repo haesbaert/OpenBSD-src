@@ -61,7 +61,7 @@ static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 		iounmap(bios);
 		return false;
 	}
-	rdev->bios = kmalloc(size, GFP_KERNEL);
+	rdev->bios = malloc(size, M_DRM, M_WAITOK);
 	if (rdev->bios == NULL) {
 		iounmap(bios);
 		return false;
@@ -173,7 +173,7 @@ static bool radeon_atrm_get_bios(struct radeon_device *rdev)
 	if (!found)
 		return false;
 
-	rdev->bios = kmalloc(size, GFP_KERNEL);
+	rdev->bios = malloc(size, M_DRM, M_WAITOK);
 	if (!rdev->bios) {
 		DRM_ERROR("Unable to allocate bios\n");
 		return false;

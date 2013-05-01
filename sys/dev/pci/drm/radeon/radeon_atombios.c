@@ -1639,7 +1639,7 @@ struct radeon_encoder_atom_dig *radeon_atombios_get_lvds_info(struct
 						struct edid *edid;
 						int edid_size =
 							max((int)EDID_LENGTH, (int)fake_edid_record->ucFakeEDIDLength);
-						edid = kmalloc(edid_size, GFP_KERNEL);
+						edid = malloc(edid_size, M_DRM, M_WAITOK);
 						if (edid) {
 							memcpy((u8 *)edid, (u8 *)&fake_edid_record->ucFakeEDIDString[0],
 							       fake_edid_record->ucFakeEDIDLength);

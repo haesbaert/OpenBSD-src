@@ -377,7 +377,7 @@ void radeon_legacy_backlight_init(struct radeon_encoder *radeon_encoder,
 		return;
 #endif
 
-	pdata = kmalloc(sizeof(struct radeon_backlight_privdata), GFP_KERNEL);
+	pdata = malloc(sizeof(struct radeon_backlight_privdata), M_DRM, M_WAITOK);
 	if (!pdata) {
 		DRM_ERROR("Memory allocation failed\n");
 		goto error;

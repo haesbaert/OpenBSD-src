@@ -100,7 +100,7 @@ int radeon_fence_emit(struct radeon_device *rdev,
 		      int ring)
 {
 	/* we are protected by the ring emission rwlock */
-	*fence = kmalloc(sizeof(struct radeon_fence), GFP_KERNEL);
+	*fence = malloc(sizeof(struct radeon_fence), M_DRM, M_WAITOK);
 	if ((*fence) == NULL) {
 		return -ENOMEM;
 	}

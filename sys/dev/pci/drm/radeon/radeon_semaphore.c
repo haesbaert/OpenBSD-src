@@ -36,7 +36,7 @@ int radeon_semaphore_create(struct radeon_device *rdev,
 {
 	int r;
 
-	*semaphore = kmalloc(sizeof(struct radeon_semaphore), GFP_KERNEL);
+	*semaphore = malloc(sizeof(struct radeon_semaphore), M_DRM, M_WAITOK);
 	if (*semaphore == NULL) {
 		return -ENOMEM;
 	}
