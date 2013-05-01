@@ -135,7 +135,7 @@ static void ttm_pool_kobj_release(struct kobject *kobj)
 {
 	struct ttm_pool_manager *m =
 		container_of(kobj, struct ttm_pool_manager, kobj);
-	kfree(m);
+	free(m, M_DRM);
 }
 
 static ssize_t ttm_pool_store(struct kobject *kobj,
@@ -360,7 +360,7 @@ restart:
 	if (freed_pages)
 		ttm_pages_put(pages_to_free, freed_pages);
 out:
-	kfree(pages_to_free);
+	free(pages_to_free, M_DRM);
 	return nr_free;
 }
 
@@ -528,7 +528,7 @@ static int ttm_alloc_new_pages(struct list_head *pages, gfp_t gfp_flags,
 					caching_array, cpages);
 	}
 out:
-	kfree(caching_array);
+	free(caching_array, M_DRM);
 
 	return r;
 }

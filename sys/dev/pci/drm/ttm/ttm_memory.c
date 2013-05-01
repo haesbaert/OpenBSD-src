@@ -72,7 +72,7 @@ static void ttm_mem_zone_kobj_release(struct kobject *kobj)
 
 	pr_info("Zone %7s: Used memory at exit: %llu kiB\n",
 		zone->name, (unsigned long long)zone->used_mem >> 10);
-	kfree(zone);
+	free(zone, M_DRM);
 }
 
 static ssize_t ttm_mem_zone_show(struct kobject *kobj,
@@ -165,7 +165,7 @@ static void ttm_mem_global_kobj_release(struct kobject *kobj)
 	struct ttm_mem_global *glob =
 		container_of(kobj, struct ttm_mem_global, kobj);
 
-	kfree(glob);
+	free(glob, M_DRM);
 }
 
 static struct kobj_type ttm_mem_glob_kobj_type = {
@@ -321,7 +321,7 @@ static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
 	 */
 
 	if (mem <= ((uint64_t) 1ULL << 32)) {
-		kfree(zone);
+		free(zone, M_DRM);
 		return 0;
 	}
 

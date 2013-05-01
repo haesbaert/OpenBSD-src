@@ -185,7 +185,7 @@ static void ttm_pool_kobj_release(struct kobject *kobj)
 {
 	struct ttm_pool_manager *m =
 		container_of(kobj, struct ttm_pool_manager, kobj);
-	kfree(m);
+	free(m, M_DRM);
 }
 
 static ssize_t ttm_pool_store(struct kobject *kobj, struct attribute *attr,
@@ -312,7 +312,7 @@ static void __ttm_dma_free_page(struct dma_pool *pool, struct dma_page *d_page)
 	dma_addr_t dma = d_page->dma;
 	dma_free_coherent(pool->dev, pool->size, d_page->vaddr, dma);
 
-	kfree(d_page);
+	free(d_page, M_DRM);
 	d_page = NULL;
 }
 static struct dma_page *__ttm_dma_alloc_page(struct dma_pool *pool)
@@ -329,7 +329,7 @@ static struct dma_page *__ttm_dma_alloc_page(struct dma_pool *pool)
 	if (d_page->vaddr)
 		d_page->p = virt_to_page(d_page->vaddr);
 	else {
-		kfree(d_page);
+		free(d_page, M_DRM);
 		d_page = NULL;
 	}
 	return d_page;
@@ -484,7 +484,7 @@ restart:
 	if (freed_pages)
 		ttm_dma_pages_put(pool, &d_pages, pages_to_free, freed_pages);
 out:
-	kfree(pages_to_free);
+	free(pages_to_free, M_DRM);
 	return nr_free;
 }
 
@@ -505,7 +505,7 @@ static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 			continue;
 
 		list_del(&p->pools);
-		kfree(p);
+		free(p, M_DRM);
 		_manager->npools--;
 		break;
 	}
@@ -520,7 +520,7 @@ static void ttm_dma_free_pool(struct device *dev, enum pool_type type)
 		 * touching it. In case somebody is trying to _add_ we are
 		 * guarded by the rwlock. */
 		list_del(&pool->pools);
-		kfree(pool);
+		free(pool, M_DRM);
 		break;
 	}
 	rw_exit_write(&_manager->lock);
@@ -614,8 +614,8 @@ static struct dma_pool *ttm_dma_pool_init(struct device *dev, gfp_t flags,
 	return pool;
 err_mem:
 	devres_free(ptr);
-	kfree(sec_pool);
-	kfree(pool);
+	free(sec_pool, M_DRM);
+	free(pool, M_DRM);
 	return ERR_PTR(ret);
 }
 
@@ -762,7 +762,7 @@ static int ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
 					caching_array, cpages);
 	}
 out:
-	kfree(caching_array);
+	free(caching_array, M_DRM);
 	return r;
 }
 

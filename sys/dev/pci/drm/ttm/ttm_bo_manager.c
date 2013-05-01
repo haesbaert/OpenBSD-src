@@ -108,7 +108,7 @@ static int ttm_bo_man_init(struct ttm_mem_type_manager *man,
 
 	ret = drm_mm_init(&rman->mm, 0, p_size);
 	if (ret) {
-		kfree(rman);
+		free(rman, M_DRM);
 		return ret;
 	}
 
@@ -126,7 +126,7 @@ static int ttm_bo_man_takedown(struct ttm_mem_type_manager *man)
 	if (drm_mm_clean(mm)) {
 		drm_mm_takedown(mm);
 		mtx_leave(&rman->lock);
-		kfree(rman);
+		free(rman, M_DRM);
 		man->priv = NULL;
 		return 0;
 	}

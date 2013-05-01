@@ -267,6 +267,6 @@ extern struct ttm_object_device *ttm_object_device_init
 
 extern void ttm_object_device_release(struct ttm_object_device **p_tdev);
 
-#define ttm_base_object_kfree(__object, __base)\
+#define ttm_base_object_free(__object, __base)\
 	kfree_rcu(__object, __base.rhead)
 #endif

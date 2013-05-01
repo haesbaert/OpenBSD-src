@@ -95,7 +95,7 @@ static void ttm_agp_destroy(struct ttm_tt *ttm)
 	if (agp_be->mem)
 		ttm_agp_unbind(ttm);
 	ttm_tt_fini(ttm);
-	kfree(agp_be);
+	free(agp_be, M_DRM);
 }
 
 static struct ttm_backend_func ttm_agp_func = {

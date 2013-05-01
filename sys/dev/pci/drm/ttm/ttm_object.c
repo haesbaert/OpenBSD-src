@@ -123,7 +123,7 @@ static void ttm_object_file_destroy(struct kref *kref)
 	struct ttm_object_file *tfile =
 		container_of(kref, struct ttm_object_file, refcount);
 
-	kfree(tfile);
+	free(tfile, M_DRM);
 }
 
 
@@ -190,7 +190,7 @@ static void ttm_release_base(struct kref *kref)
 	/*
 	 * Note: We don't use synchronize_rcu() here because it's far
 	 * too slow. It's up to the user to free the object using
-	 * call_rcu() or ttm_base_object_kfree().
+	 * call_rcu() or ttm_base_object_free().
 	 */
 
 	if (base->refcount_release) {
@@ -296,7 +296,7 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 		BUG_ON(ret != -EINVAL);
 
 		ttm_mem_global_free(mem_glob, sizeof(*ref));
-		kfree(ref);
+		free(ref, M_DRM);
 	}
 
 	return ret;
@@ -322,7 +322,7 @@ static void ttm_ref_object_release(struct kref *kref)
 
 	ttm_base_object_unref(&ref->obj);
 	ttm_mem_global_free(mem_glob, sizeof(*ref));
-	kfree(ref);
+	free(ref, M_DRM);
 	write_lock(&tfile->lock);
 }
 
@@ -405,7 +405,7 @@ out_err:
 	for (i = 0; i < j; ++i)
 		drm_ht_remove(&tfile->ref_hash[i]);
 
-	kfree(tfile);
+	free(tfile, M_DRM);
 
 	return NULL;
 }
@@ -429,7 +429,7 @@ struct ttm_object_device *ttm_object_device_init(struct ttm_mem_global
 	if (likely(ret == 0))
 		return tdev;
 
-	kfree(tdev);
+	free(tdev, M_DRM);
 	return NULL;
 }
 EXPORT_SYMBOL(ttm_object_device_init);
@@ -444,6 +444,6 @@ void ttm_object_device_release(struct ttm_object_device **p_tdev)
 	drm_ht_remove(&tdev->object_hash);
 	mtx_leave(&tdev->object_lock);
 
-	kfree(tdev);
+	free(tdev, M_DRM);
 }
 EXPORT_SYMBOL(ttm_object_device_release);
