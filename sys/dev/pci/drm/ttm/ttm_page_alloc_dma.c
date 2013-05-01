@@ -1039,7 +1039,7 @@ int ttm_dma_page_alloc_init(struct ttm_mem_global *glob, unsigned max_pages)
 
 	pr_info("Initializing DMA pool allocator\n");
 
-	_manager = kzalloc(sizeof(*_manager), GFP_KERNEL);
+	_manager = malloc(sizeof(*_manager), M_DRM, M_WAITOK | M_ZERO);
 	if (!_manager)
 		goto err;
 
