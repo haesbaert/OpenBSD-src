@@ -456,7 +456,7 @@ bool radeon_combios_check_hardcoded_edid(struct radeon_device *rdev)
 	memcpy((unsigned char *)edid, raw, size);
 
 	if (!drm_edid_is_valid(edid)) {
-		kfree(edid);
+		free(edid, M_DRM);
 		return false;
 	}
 

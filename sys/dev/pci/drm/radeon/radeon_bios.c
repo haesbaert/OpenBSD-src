@@ -140,7 +140,7 @@ static int radeon_atrm_call(acpi_handle atrm_handle, uint8_t *bios,
 	obj = (union acpi_object *)buffer.pointer;
 	memcpy(bios+offset, obj->buffer.pointer, obj->buffer.length);
 	len = obj->buffer.length;
-	kfree(buffer.pointer);
+	free(buffer.pointer, M_DRM);
 	return len;
 }
 
@@ -189,7 +189,7 @@ static bool radeon_atrm_get_bios(struct radeon_device *rdev)
 	}
 
 	if (i == 0 || rdev->bios[0] != 0x55 || rdev->bios[1] != 0xaa) {
-		kfree(rdev->bios);
+		free(rdev->bios, M_DRM);
 		return false;
 	}
 	return true;
@@ -648,7 +648,7 @@ bool radeon_get_bios(struct radeon_device *rdev)
 	DRM_DEBUG("%sBIOS detected\n", rdev->is_atom_bios ? "ATOM" : "COM");
 	return true;
 free_bios:
-	kfree(rdev->bios);
+	free(rdev->bios, M_DRM);
 	rdev->bios = NULL;
 	return false;
 }

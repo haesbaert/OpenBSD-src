@@ -239,7 +239,7 @@ static void radeon_crtc_destroy(struct drm_crtc *crtc)
 	struct radeon_crtc *radeon_crtc = to_radeon_crtc(crtc);
 
 	drm_crtc_cleanup(crtc);
-	kfree(radeon_crtc);
+	free(radeon_crtc, M_DRM);
 }
 
 /*
@@ -263,7 +263,7 @@ static void radeon_unpin_work_func(struct work_struct *__work)
 		DRM_ERROR("failed to reserve buffer after flip\n");
 
 	drm_gem_object_unreference_unlocked(&work->old_rbo->gem_base);
-	kfree(work);
+	free(work, M_DRM);
 }
 
 void radeon_crtc_handle_flip(struct radeon_device *rdev, int crtc_id)
@@ -486,7 +486,7 @@ unlock_free:
 	mtx_leave(&dev->event_lock);
 	drm_gem_object_unreference_unlocked(old_radeon_fb->obj);
 	radeon_fence_unref(&work->fence);
-	kfree(work);
+	free(work, M_DRM);
 
 	return r;
 }
@@ -1062,7 +1062,7 @@ static void radeon_user_framebuffer_destroy(struct drm_framebuffer *fb)
 		drm_gem_object_unreference_unlocked(radeon_fb->obj);
 	}
 	drm_framebuffer_cleanup(fb);
-	kfree(radeon_fb);
+	free(radeon_fb, M_DRM);
 }
 
 static int radeon_user_framebuffer_create_handle(struct drm_framebuffer *fb,
@@ -1120,7 +1120,7 @@ radeon_user_framebuffer_create(struct drm_device *dev,
 
 	ret = radeon_framebuffer_init(dev, radeon_fb, mode_cmd, obj);
 	if (ret) {
-		kfree(radeon_fb);
+		free(radeon_fb, M_DRM);
 		drm_gem_object_unreference_unlocked(obj);
 		return ERR_PTR(ret);
 	}
@@ -1326,7 +1326,7 @@ static void radeon_afmt_fini(struct radeon_device *rdev)
 	int i;
 
 	for (i = 0; i < RADEON_MAX_AFMT_BLOCKS; i++) {
-		kfree(rdev->mode_info.afmt[i]);
+		free(rdev->mode_info.afmt[i], M_DRM);
 		rdev->mode_info.afmt[i] = NULL;
 	}
 }
@@ -1406,7 +1406,7 @@ int radeon_modeset_init(struct radeon_device *rdev)
 void radeon_modeset_fini(struct radeon_device *rdev)
 {
 	radeon_fbdev_fini(rdev);
-	kfree(rdev->mode_info.bios_hardcoded_edid);
+	free(rdev->mode_info.bios_hardcoded_edid, M_DRM);
 	radeon_pm_fini(rdev);
 
 	if (rdev->mode_info.mode_config_initialized) {

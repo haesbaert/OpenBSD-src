@@ -196,7 +196,7 @@ static void radeon_fence_destroy(struct kref *kref)
 	struct radeon_fence *fence;
 
 	fence = container_of(kref, struct radeon_fence, kref);
-	kfree(fence);
+	free(fence, M_DRM);
 }
 
 /**

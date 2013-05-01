@@ -538,7 +538,7 @@ static void radeon_ttm_backend_destroy(struct ttm_tt *ttm)
 	struct radeon_ttm_tt *gtt = (void *)ttm;
 
 	ttm_dma_tt_fini(&gtt->ttm);
-	kfree(gtt);
+	free(gtt, M_DRM);
 }
 
 static struct ttm_backend_func radeon_backend_func = {
@@ -569,7 +569,7 @@ static struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 	gtt->ttm.ttm.func = &radeon_backend_func;
 	gtt->rdev = rdev;
 	if (ttm_dma_tt_init(&gtt->ttm, bdev, size, page_flags, dummy_read_page)) {
-		kfree(gtt);
+		free(gtt, M_DRM);
 		return NULL;
 	}
 	return &gtt->ttm.ttm;

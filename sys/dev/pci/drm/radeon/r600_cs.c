@@ -2411,7 +2411,7 @@ int r600_cs_parse(struct radeon_cs_parser *p)
 	do {
 		r = r600_cs_packet_parse(p, &pkt, p->idx);
 		if (r) {
-			kfree(p->track);
+			free(p->track, M_DRM);
 			p->track = NULL;
 			return r;
 		}
@@ -2427,12 +2427,12 @@ int r600_cs_parse(struct radeon_cs_parser *p)
 			break;
 		default:
 			DRM_ERROR("Unknown packet type %d !\n", pkt.type);
-			kfree(p->track);
+			free(p->track, M_DRM);
 			p->track = NULL;
 			return -EINVAL;
 		}
 		if (r) {
-			kfree(p->track);
+			free(p->track, M_DRM);
 			p->track = NULL;
 			return r;
 		}
@@ -2443,7 +2443,7 @@ int r600_cs_parse(struct radeon_cs_parser *p)
 		mdelay(1);
 	}
 #endif
-	kfree(p->track);
+	free(p->track, M_DRM);
 	p->track = NULL;
 	return 0;
 }
@@ -2472,16 +2472,16 @@ static void r600_cs_parser_fini(struct radeon_cs_parser *parser, int error)
 {
 	unsigned i;
 
-	kfree(parser->relocs);
+	free(parser->relocs, M_DRM);
 	for (i = 0; i < parser->nchunks; i++) {
-		kfree(parser->chunks[i].kdata);
+		free(parser->chunks[i].kdata, M_DRM);
 		if (parser->rdev && (parser->rdev->flags & RADEON_IS_AGP)) {
-			kfree(parser->chunks[i].kpage[0]);
-			kfree(parser->chunks[i].kpage[1]);
+			free(parser->chunks[i].kpage[0], M_DRM);
+			free(parser->chunks[i].kpage[1], M_DRM);
 		}
 	}
-	kfree(parser->chunks);
-	kfree(parser->chunks_array);
+	free(parser->chunks, M_DRM);
+	free(parser->chunks_array, M_DRM);
 }
 
 int r600_cs_legacy(struct drm_device *dev, void *data, struct drm_file *filp,

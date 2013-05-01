@@ -1208,7 +1208,7 @@ static int atom_execute_table_locked(struct atom_context *ctx, int index, uint32
 
 free:
 	if (ws)
-		kfree(ectx.ws);
+		free(ectx.ws, M_DRM);
 	return ret;
 }
 
@@ -1259,14 +1259,14 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 
 	if (CU16(0) != ATOM_BIOS_MAGIC) {
 		printk(KERN_INFO "Invalid BIOS magic.\n");
-		kfree(ctx);
+		free(ctx, M_DRM);
 		return NULL;
 	}
 	if (strncmp
 	    (CSTR(ATOM_ATI_MAGIC_PTR), ATOM_ATI_MAGIC,
 	     strlen(ATOM_ATI_MAGIC))) {
 		printk(KERN_INFO "Invalid ATI magic.\n");
-		kfree(ctx);
+		free(ctx, M_DRM);
 		return NULL;
 	}
 
@@ -1275,7 +1275,7 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 	    (CSTR(base + ATOM_ROM_MAGIC_PTR), ATOM_ROM_MAGIC,
 	     strlen(ATOM_ROM_MAGIC))) {
 		printk(KERN_INFO "Invalid ATOM magic.\n");
-		kfree(ctx);
+		free(ctx, M_DRM);
 		return NULL;
 	}
 
@@ -1331,8 +1331,8 @@ int atom_asic_init(struct atom_context *ctx)
 void atom_destroy(struct atom_context *ctx)
 {
 	if (ctx->iio)
-		kfree(ctx->iio);
-	kfree(ctx);
+		free(ctx->iio, M_DRM);
+	free(ctx, M_DRM);
 }
 
 bool atom_parse_data_header(struct atom_context *ctx, int index,

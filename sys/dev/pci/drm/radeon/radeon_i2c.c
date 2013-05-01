@@ -968,7 +968,7 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 
 	return i2c;
 out_free:
-	kfree(i2c);
+	free(i2c, M_DRM);
 	return NULL;
 
 }
@@ -1003,7 +1003,7 @@ struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 
 	return i2c;
 out_free:
-	kfree(i2c);
+	free(i2c, M_DRM);
 	return NULL;
 
 }
@@ -1013,7 +1013,7 @@ void radeon_i2c_destroy(struct radeon_i2c_chan *i2c)
 	if (!i2c)
 		return;
 	i2c_del_adapter(&i2c->adapter);
-	kfree(i2c);
+	free(i2c, M_DRM);
 }
 
 /* Add the default buses */

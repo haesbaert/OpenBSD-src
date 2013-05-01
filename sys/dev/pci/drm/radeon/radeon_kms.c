@@ -50,7 +50,7 @@ int radeon_driver_unload_kms(struct drm_device *dev)
 	radeon_acpi_fini(rdev);
 	radeon_modeset_fini(rdev);
 	radeon_device_fini(rdev);
-	kfree(rdev);
+	free(rdev, M_DRM);
 	dev->dev_private = NULL;
 	return 0;
 }
@@ -451,7 +451,7 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 					  RADEON_VM_PAGE_SNOOPED);
 		if (r) {
 			radeon_vm_fini(rdev, &fpriv->vm);
-			kfree(fpriv);
+			free(fpriv, M_DRM);
 			return r;
 		}
 
@@ -489,7 +489,7 @@ void radeon_driver_postclose_kms(struct drm_device *dev,
 		}
 
 		radeon_vm_fini(rdev, &fpriv->vm);
-		kfree(fpriv);
+		free(fpriv, M_DRM);
 		file_priv->driver_priv = NULL;
 	}
 }

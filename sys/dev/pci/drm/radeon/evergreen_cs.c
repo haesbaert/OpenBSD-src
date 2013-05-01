@@ -2821,7 +2821,7 @@ int evergreen_cs_parse(struct radeon_cs_parser *p)
 	do {
 		r = evergreen_cs_packet_parse(p, &pkt, p->idx);
 		if (r) {
-			kfree(p->track);
+			free(p->track, M_DRM);
 			p->track = NULL;
 			return r;
 		}
@@ -2837,12 +2837,12 @@ int evergreen_cs_parse(struct radeon_cs_parser *p)
 			break;
 		default:
 			DRM_ERROR("Unknown packet type %d !\n", pkt.type);
-			kfree(p->track);
+			free(p->track, M_DRM);
 			p->track = NULL;
 			return -EINVAL;
 		}
 		if (r) {
-			kfree(p->track);
+			free(p->track, M_DRM);
 			p->track = NULL;
 			return r;
 		}
@@ -2853,7 +2853,7 @@ int evergreen_cs_parse(struct radeon_cs_parser *p)
 		mdelay(1);
 	}
 #endif
-	kfree(p->track);
+	free(p->track, M_DRM);
 	p->track = NULL;
 	return 0;
 }

@@ -228,7 +228,7 @@ void radeon_atom_backlight_init(struct radeon_encoder *radeon_encoder,
 	return;
 
 error:
-	kfree(pdata);
+	free(pdata, M_DRM);
 	return;
 }
 
@@ -257,7 +257,7 @@ static void radeon_atom_backlight_exit(struct radeon_encoder *radeon_encoder)
 
 		pdata = bl_get_data(bd);
 		backlight_device_unregister(bd);
-		kfree(pdata);
+		free(pdata, M_DRM);
 
 		DRM_INFO("radeon atom LVDS backlight unloaded\n");
 	}
@@ -2491,9 +2491,9 @@ void radeon_enc_destroy(struct drm_encoder *encoder)
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
 	if (radeon_encoder->devices & (ATOM_DEVICE_LCD_SUPPORT))
 		radeon_atom_backlight_exit(radeon_encoder);
-	kfree(radeon_encoder->enc_priv);
+	free(radeon_encoder->enc_priv, M_DRM);
 	drm_encoder_cleanup(encoder);
-	kfree(radeon_encoder);
+	free(radeon_encoder, M_DRM);
 }
 
 static const struct drm_encoder_funcs radeon_atom_enc_funcs = {

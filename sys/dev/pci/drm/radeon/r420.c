@@ -350,7 +350,7 @@ void r420_fini(struct radeon_device *rdev)
 	} else {
 		radeon_combios_fini(rdev);
 	}
-	kfree(rdev->bios);
+	free(rdev->bios, M_DRM);
 	rdev->bios = NULL;
 }
 

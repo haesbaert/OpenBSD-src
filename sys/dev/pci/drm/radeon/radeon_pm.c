@@ -660,7 +660,7 @@ void radeon_pm_fini(struct radeon_device *rdev)
 	}
 
 	if (rdev->pm.power_state)
-		kfree(rdev->pm.power_state);
+		free(rdev->pm.power_state, M_DRM);
 
 	radeon_hwmon_fini(rdev);
 }

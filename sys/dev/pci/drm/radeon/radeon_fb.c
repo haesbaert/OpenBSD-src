@@ -289,7 +289,7 @@ out_unref:
 	if (fb && ret) {
 		drm_gem_object_unreference(gobj);
 		drm_framebuffer_cleanup(fb);
-		kfree(fb);
+		free(fb, M_DRM);
 	}
 	return ret;
 }
@@ -367,7 +367,7 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 				 rdev->num_crtc,
 				 RADEONFB_CONN_LIMIT);
 	if (ret) {
-		kfree(rfbdev);
+		free(rfbdev, M_DRM);
 		return ret;
 	}
 
@@ -382,7 +382,7 @@ void radeon_fbdev_fini(struct radeon_device *rdev)
 		return;
 
 	radeon_fbdev_destroy(rdev->ddev, rdev->mode_info.rfbdev);
-	kfree(rdev->mode_info.rfbdev);
+	free(rdev->mode_info.rfbdev, M_DRM);
 	rdev->mode_info.rfbdev = NULL;
 }
 

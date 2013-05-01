@@ -49,7 +49,7 @@ static void radeon_gem_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 	dma_unmap_sg(attachment->dev, sg->sgl, sg->nents, dir);
 	sg_free_table(sg);
-	kfree(sg);
+	free(sg, M_DRM);
 }
 
 static void radeon_gem_dmabuf_release(struct dma_buf *dma_buf)

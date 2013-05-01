@@ -653,7 +653,7 @@ int radeon_ring_restore(struct radeon_device *rdev, struct radeon_ring *ring,
 	}
 
 	radeon_ring_unlock_commit(rdev, ring);
-	kfree(data);
+	free(data, M_DRM);
 	return 0;
 }
 

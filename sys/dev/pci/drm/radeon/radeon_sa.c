@@ -147,7 +147,7 @@ static void radeon_sa_bo_remove_locked(struct radeon_sa_bo *sa_bo)
 	list_del_init(&sa_bo->olist);
 	list_del_init(&sa_bo->flist);
 	radeon_fence_unref(&sa_bo->fence);
-	kfree(sa_bo);
+	free(sa_bo, M_DRM);
 }
 
 static void radeon_sa_bo_try_free(struct radeon_sa_manager *sa_manager)
@@ -365,7 +365,7 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 	} while (!r);
 
 	mtx_leave(&sa_manager->wq.lock);
-	kfree(*sa_bo);
+	free(*sa_bo, M_DRM);
 	*sa_bo = NULL;
 	return r;
 }

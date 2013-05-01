@@ -771,10 +771,10 @@ int radeon_atombios_init(struct radeon_device *rdev)
 void radeon_atombios_fini(struct radeon_device *rdev)
 {
 	if (rdev->mode_info.atom_context) {
-		kfree(rdev->mode_info.atom_context->scratch);
-		kfree(rdev->mode_info.atom_context);
+		free(rdev->mode_info.atom_context->scratch, M_DRM);
+		free(rdev->mode_info.atom_context, M_DRM);
 	}
-	kfree(rdev->mode_info.atom_card_info);
+	free(rdev->mode_info.atom_card_info, M_DRM);
 }
 
 /* COMBIOS */
@@ -1392,7 +1392,7 @@ retry:
 	} else {
 		radeon_fence_driver_force_completion(rdev);
 		for (i = 0; i < RADEON_NUM_RINGS; ++i) {
-			kfree(ring_data[i]);
+			free(ring_data[i], M_DRM);
 		}
 	}
 

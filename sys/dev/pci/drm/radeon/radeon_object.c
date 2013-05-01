@@ -65,7 +65,7 @@ static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
 	radeon_bo_clear_surface_reg(bo);
 	radeon_bo_clear_va(bo);
 	drm_gem_object_release(&bo->gem_base);
-	kfree(bo);
+	free(bo, M_DRM);
 }
 
 bool radeon_ttm_bo_is_radeon_bo(struct ttm_buffer_object *bo)
@@ -136,7 +136,7 @@ int radeon_bo_create(struct radeon_device *rdev,
 		return -ENOMEM;
 	r = drm_gem_object_init(rdev->ddev, &bo->gem_base, size);
 	if (unlikely(r)) {
-		kfree(bo);
+		free(bo, M_DRM);
 		return r;
 	}
 	bo->rdev = rdev;

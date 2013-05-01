@@ -234,7 +234,7 @@ out_cleanup:
 				radeon_bo_unref(&gtt_obj[i]);
 			}
 		}
-		kfree(gtt_obj);
+		free(gtt_obj, M_DRM);
 	}
 	if (fence) {
 		radeon_fence_unref(&fence);

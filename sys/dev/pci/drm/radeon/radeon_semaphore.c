@@ -43,7 +43,7 @@ int radeon_semaphore_create(struct radeon_device *rdev,
 	r = radeon_sa_bo_new(rdev, &rdev->ring_tmp_bo,
 			     &(*semaphore)->sa_bo, 8, 8, true);
 	if (r) {
-		kfree(*semaphore);
+		free(*semaphore, M_DRM);
 		*semaphore = NULL;
 		return r;
 	}
@@ -114,6 +114,6 @@ void radeon_semaphore_free(struct radeon_device *rdev,
 			" hardware lockup imminent!\n", *semaphore);
 	}
 	radeon_sa_bo_free(rdev, &(*semaphore)->sa_bo, fence);
-	kfree(*semaphore);
+	free(*semaphore, M_DRM);
 	*semaphore = NULL;
 }

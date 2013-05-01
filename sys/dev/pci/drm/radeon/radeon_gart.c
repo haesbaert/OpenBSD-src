@@ -529,7 +529,7 @@ static void radeon_vm_free_pt(struct radeon_device *rdev,
 	for (i = 0; i < radeon_vm_num_pdes(rdev); i++)
 		radeon_sa_bo_free(rdev, &vm->page_tables[i], vm->fence);
 
-	kfree(vm->page_tables);
+	free(vm->page_tables, M_DRM);
 }
 
 /**
@@ -1219,7 +1219,7 @@ int radeon_vm_bo_rmv(struct radeon_device *rdev,
 	rw_exit_write(&bo_va->vm->rwlock);
 	list_del(&bo_va->bo_list);
 
-	kfree(bo_va);
+	free(bo_va, M_DRM);
 	return r;
 }
 
@@ -1287,7 +1287,7 @@ void radeon_vm_fini(struct radeon_device *rdev, struct radeon_vm *vm)
 		if (!r) {
 			list_del_init(&bo_va->bo_list);
 			radeon_bo_unreserve(bo_va->bo);
-			kfree(bo_va);
+			free(bo_va, M_DRM);
 		}
 	}
 	radeon_fence_unref(&vm->fence);

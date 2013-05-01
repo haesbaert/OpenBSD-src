@@ -931,7 +931,7 @@ bool radeon_get_atom_connector_info_from_supported_devices_table(struct
 
 	if (!atom_parse_data_header(ctx, index, &size, &frev, &crev,
 				    &data_offset)) {
-		kfree(bios_connectors);
+		free(bios_connectors, M_DRM);
 		return false;
 	}
 
@@ -1103,7 +1103,7 @@ bool radeon_get_atom_connector_info_from_supported_devices_table(struct
 
 	radeon_link_encoder_connector(dev);
 
-	kfree(bios_connectors);
+	free(bios_connectors, M_DRM);
 	return true;
 }
 
@@ -1648,7 +1648,7 @@ struct radeon_encoder_atom_dig *radeon_atombios_get_lvds_info(struct
 								rdev->mode_info.bios_hardcoded_edid = edid;
 								rdev->mode_info.bios_hardcoded_edid_size = edid_size;
 							} else
-								kfree(edid);
+								free(edid, M_DRM);
 						}
 					}
 					record += sizeof(ATOM_FAKE_EDID_PATCH_RECORD);
