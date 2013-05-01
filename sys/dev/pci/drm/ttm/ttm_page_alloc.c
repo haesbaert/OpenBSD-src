@@ -296,8 +296,8 @@ static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free)
 	if (NUM_PAGES_TO_ALLOC < nr_free)
 		npages_to_free = NUM_PAGES_TO_ALLOC;
 
-	pages_to_free = kmalloc(npages_to_free * sizeof(struct page *),
-			GFP_KERNEL);
+	pages_to_free = malloc(npages_to_free * sizeof(struct page *),
+			M_DRM, M_WAITOK);
 	if (!pages_to_free) {
 		pr_err("Failed to allocate memory for pool free operation\n");
 		return 0;
@@ -468,7 +468,7 @@ static int ttm_alloc_new_pages(struct list_head *pages, gfp_t gfp_flags,
 			(unsigned)(PAGE_SIZE/sizeof(struct page *)));
 
 	/* allocate array for page caching change */
-	caching_array = kmalloc(max_cpages*sizeof(struct page *), GFP_KERNEL);
+	caching_array = malloc(max_cpages*sizeof(struct page *), M_DRM, M_WAITOK);
 
 	if (!caching_array) {
 		pr_err("Unable to allocate table for new pages\n");

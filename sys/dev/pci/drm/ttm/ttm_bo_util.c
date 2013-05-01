@@ -423,7 +423,7 @@ static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 	struct ttm_bo_device *bdev = bo->bdev;
 	struct ttm_bo_driver *driver = bdev->driver;
 
-	fbo = kmalloc(sizeof(*fbo), GFP_KERNEL);
+	fbo = malloc(sizeof(*fbo), M_DRM, M_WAITOK);
 	if (!fbo)
 		return -ENOMEM;
 

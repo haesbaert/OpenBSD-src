@@ -319,7 +319,7 @@ static struct dma_page *__ttm_dma_alloc_page(struct dma_pool *pool)
 {
 	struct dma_page *d_page;
 
-	d_page = kmalloc(sizeof(struct dma_page), GFP_KERNEL);
+	d_page = malloc(sizeof(struct dma_page), M_DRM, M_WAITOK);
 	if (!d_page)
 		return NULL;
 
@@ -413,8 +413,8 @@ static unsigned ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 			 npages_to_free, nr_free);
 	}
 #endif
-	pages_to_free = kmalloc(npages_to_free * sizeof(struct page *),
-			GFP_KERNEL);
+	pages_to_free = malloc(npages_to_free * sizeof(struct page *),
+			M_DRM, M_WAITOK);
 
 	if (!pages_to_free) {
 		pr_err("%s: Failed to allocate memory for pool free operation\n",
@@ -698,7 +698,7 @@ static int ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
 			(unsigned)(PAGE_SIZE/sizeof(struct page *)));
 
 	/* allocate array for page caching change */
-	caching_array = kmalloc(max_cpages*sizeof(struct page *), GFP_KERNEL);
+	caching_array = malloc(max_cpages*sizeof(struct page *), M_DRM, M_WAITOK);
 
 	if (!caching_array) {
 		pr_err("%s: Unable to allocate table for new pages\n",

@@ -111,7 +111,7 @@ struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
 {
 	struct ttm_agp_backend *agp_be;
 
-	agp_be = kmalloc(sizeof(*agp_be), GFP_KERNEL);
+	agp_be = malloc(sizeof(*agp_be), M_DRM, M_WAITOK);
 	if (!agp_be)
 		return NULL;
 

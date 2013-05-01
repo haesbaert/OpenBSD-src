@@ -268,7 +268,7 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 					   false, false);
 		if (unlikely(ret != 0))
 			return ret;
-		ref = kmalloc(sizeof(*ref), GFP_KERNEL);
+		ref = malloc(sizeof(*ref), M_DRM, M_WAITOK);
 		if (unlikely(ref == NULL)) {
 			ttm_mem_global_free(mem_glob, sizeof(*ref));
 			return -ENOMEM;
@@ -379,7 +379,7 @@ EXPORT_SYMBOL(ttm_object_file_release);
 struct ttm_object_file *ttm_object_file_init(struct ttm_object_device *tdev,
 					     unsigned int hash_order)
 {
-	struct ttm_object_file *tfile = kmalloc(sizeof(*tfile), GFP_KERNEL);
+	struct ttm_object_file *tfile = malloc(sizeof(*tfile), M_DRM, M_WAITOK);
 	unsigned int i;
 	unsigned int j = 0;
 	int ret;
@@ -415,7 +415,7 @@ struct ttm_object_device *ttm_object_device_init(struct ttm_mem_global
 						 *mem_glob,
 						 unsigned int hash_order)
 {
-	struct ttm_object_device *tdev = kmalloc(sizeof(*tdev), GFP_KERNEL);
+	struct ttm_object_device *tdev = malloc(sizeof(*tdev), M_DRM, M_WAITOK);
 	int ret;
 
 	if (unlikely(tdev == NULL))
