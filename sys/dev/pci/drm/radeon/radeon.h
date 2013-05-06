@@ -1544,8 +1544,8 @@ typedef uint32_t (*radeon_rreg_t)(struct radeon_device*, uint32_t);
 typedef void (*radeon_wreg_t)(struct radeon_device*, uint32_t, uint32_t);
 
 struct radeon_device {
-	struct device			*dev;
-	struct drm_device		*ddev;
+	struct device			dev;
+	struct device			*drmdev;
 	struct pci_dev			*pdev;
 	struct rwlock 			exclusive_lock;
 	/* ASIC */

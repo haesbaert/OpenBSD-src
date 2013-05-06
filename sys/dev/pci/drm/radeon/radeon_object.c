@@ -32,12 +32,15 @@
 #include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/radeon_drm.h>
 #include "radeon.h"
+#ifdef notyet
 #include "radeon_trace.h"
+#endif
 
 
-int radeon_ttm_init(struct radeon_device *rdev);
-void radeon_ttm_fini(struct radeon_device *rdev);
-static void radeon_bo_clear_surface_reg(struct radeon_bo *bo);
+int	 radeon_ttm_init(struct radeon_device *);
+void	 radeon_ttm_fini(struct radeon_device *);
+void	 radeon_bo_clear_surface_reg(struct radeon_bo *);
+void	 radeon_bo_clear_va(struct radeon_bo *);
 
 /*
  * To exclude mutual BO access we rely on bo_reserve exclusion, as all
@@ -64,7 +67,7 @@ static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
 	rw_exit_write(&bo->rdev->gem.rwlock);
 	radeon_bo_clear_surface_reg(bo);
 	radeon_bo_clear_va(bo);
-	drm_gem_object_release(&bo->gem_base);
+	drm_unref(&bo->gem_base.uobj);
 	free(bo, M_DRM);
 }
 
@@ -110,15 +113,20 @@ int radeon_bo_create(struct radeon_device *rdev,
 		     unsigned long size, int byte_align, bool kernel, u32 domain,
 		     struct sg_table *sg, struct radeon_bo **bo_ptr)
 {
+	printf("%s stub\n", __func__);
+	return ENOSYS;
+#ifdef notyet
 	struct radeon_bo *bo;
 	enum ttm_bo_type type;
 	unsigned long page_align = roundup(byte_align, PAGE_SIZE) >> PAGE_SHIFT;
 	size_t acc_size;
 	int r;
 
-	size = ALIGN(size, PAGE_SIZE);
+	size = PAGE_ALIGN(size);
 
+#ifdef notyet
 	rdev->mman.bdev.dev_mapping = rdev->ddev->dev_mapping;
+#endif
 	if (kernel) {
 		type = ttm_bo_type_kernel;
 	} else if (sg) {
@@ -159,6 +167,7 @@ int radeon_bo_create(struct radeon_device *rdev,
 	trace_radeon_bo_create(bo);
 
 	return 0;
+#endif
 }
 
 int radeon_bo_kmap(struct radeon_bo *bo, void **ptr)
@@ -226,8 +235,10 @@ int radeon_bo_pin_restricted(struct radeon_bo *bo, u32 domain, u64 max_offset,
 				domain_start = bo->rdev->mc.vram_start;
 			else
 				domain_start = bo->rdev->mc.gtt_start;
+#ifdef notyet
 			WARN_ON_ONCE(max_offset <
 				     (radeon_bo_gpu_offset(bo) - domain_start));
+#endif
 		}
 
 		return 0;
@@ -255,7 +266,7 @@ int radeon_bo_pin_restricted(struct radeon_bo *bo, u32 domain, u64 max_offset,
 			*gpu_addr = radeon_bo_gpu_offset(bo);
 	}
 	if (unlikely(r != 0))
-		dev_err(bo->rdev->dev, "%p pin failed\n", bo);
+		DRM_ERROR("%p pin failed\n", bo);
 	return r;
 }
 
@@ -269,7 +280,7 @@ int radeon_bo_unpin(struct radeon_bo *bo)
 	int r, i;
 
 	if (!bo->pin_count) {
-		dev_warn(bo->rdev->dev, "%p unpin not necessary\n", bo);
+		DRM_ERROR("%p unpin not necessary\n", bo);
 		return 0;
 	}
 	bo->pin_count--;
@@ -279,7 +290,7 @@ int radeon_bo_unpin(struct radeon_bo *bo)
 		bo->placements[i] &= ~TTM_PL_FLAG_NO_EVICT;
 	r = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
 	if (unlikely(r != 0))
-		dev_err(bo->rdev->dev, "%p validate failed for unpin\n", bo);
+		DRM_ERROR("%p validate failed for unpin\n", bo);
 	return r;
 }
 
@@ -297,30 +308,36 @@ int radeon_bo_evict_vram(struct radeon_device *rdev)
 void radeon_bo_force_delete(struct radeon_device *rdev)
 {
 	struct radeon_bo *bo, *n;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 
 	if (list_empty(&rdev->gem.objects)) {
 		return;
 	}
-	dev_err(rdev->dev, "Userspace still has active objects !\n");
+	DRM_ERROR("Userspace still has active objects !\n");
 	list_for_each_entry_safe(bo, n, &rdev->gem.objects, list) {
-		rw_enter_write(&rdev->ddev->struct_rwlock);
-		dev_err(rdev->dev, "%p %p %lu %lu force free\n",
+		DRM_LOCK();
+#ifdef notyet
+		DRM_ERROR("%p %p %lu %lu force free\n",
 			&bo->gem_base, bo, (unsigned long)bo->gem_base.size,
 			*((unsigned long *)&bo->gem_base.refcount));
+#endif
 		rw_enter_write(&bo->rdev->gem.rwlock);
 		list_del_init(&bo->list);
 		rw_exit_write(&bo->rdev->gem.rwlock);
 		/* this should unref the ttm bo */
 		drm_gem_object_unreference(&bo->gem_base);
-		rw_exit_write(&rdev->ddev->struct_rwlock);
+		DRM_UNLOCK();
 	}
 }
 
 int radeon_bo_init(struct radeon_device *rdev)
 {
+	struct radeon_device *dev_priv = rdev;
+#ifdef notyet
 	/* Add an MTRR for the VRAM */
 	rdev->mc.vram_mtrr = mtrr_add(rdev->mc.aper_base, rdev->mc.aper_size,
 			MTRR_TYPE_WRCOMB, 1);
+#endif
 	DRM_INFO("Detected VRAM RAM=%lluM, BAR=%lluM\n",
 		rdev->mc.mc_vram_size >> 20,
 		(unsigned long long)rdev->mc.aper_size >> 20);
@@ -378,11 +395,13 @@ int radeon_bo_list_validate(struct list_head *head)
 	return 0;
 }
 
+#ifdef notyet
 int radeon_bo_fbdev_mmap(struct radeon_bo *bo,
 			     struct vm_area_struct *vma)
 {
 	return ttm_fbdev_mmap(vma, &bo->tbo);
 }
+#endif
 
 int radeon_bo_get_surface_reg(struct radeon_bo *bo)
 {
@@ -439,7 +458,8 @@ out:
 	return 0;
 }
 
-static void radeon_bo_clear_surface_reg(struct radeon_bo *bo)
+void
+radeon_bo_clear_surface_reg(struct radeon_bo *bo)
 {
 	struct radeon_device *rdev = bo->rdev;
 	struct radeon_surface_reg *reg;
@@ -629,7 +649,7 @@ int radeon_bo_reserve(struct radeon_bo *bo, bool no_intr)
 	r = ttm_bo_reserve(&bo->tbo, !no_intr, false, false, 0);
 	if (unlikely(r != 0)) {
 		if (r != -ERESTARTSYS)
-			dev_err(bo->rdev->dev, "%p reserve failed\n", bo);
+			DRM_ERROR("%p reserve failed\n", bo);
 		return r;
 	}
 	return 0;
