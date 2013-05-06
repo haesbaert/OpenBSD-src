@@ -1053,9 +1053,7 @@ struct radeon_power_state {
 struct radeon_pm {
 	struct rwlock 		rwlock;
 	/* write locked while reprogramming mclk */
-#ifdef notyet
-	struct rw_semaphore	mclk_lock;
-#endif
+	struct rwlock		mclk_lock;
 	u32			active_crtcs;
 	int			active_crtc_count;
 	int			req_vblank;
@@ -1549,9 +1547,7 @@ struct radeon_device {
 	struct device			*dev;
 	struct drm_device		*ddev;
 	struct pci_dev			*pdev;
-#ifdef notyet
-	struct rw_semaphore		exclusive_lock;
-#endif
+	struct rwlock 			exclusive_lock;
 	/* ASIC */
 	union radeon_asic_config	config;
 	enum radeon_family		family;

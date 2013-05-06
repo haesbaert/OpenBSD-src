@@ -793,9 +793,9 @@ static int radeon_ttm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		return VM_FAULT_NOPAGE;
 	}
 	rdev = radeon_get_rdev(bo->bdev);
-	down_read(&rdev->pm.mclk_lock);
+	rw_enter_read(&rdev->pm.mclk_lock);
 	r = ttm_vm_ops->fault(vma, vmf);
-	up_read(&rdev->pm.mclk_lock);
+	rw_exit_read(&rdev->pm.mclk_lock);
 	return r;
 }
 
