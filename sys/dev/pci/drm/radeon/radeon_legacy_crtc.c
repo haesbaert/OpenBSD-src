@@ -373,7 +373,7 @@ int radeon_crtc_do_set_base(struct drm_crtc *crtc,
 	struct radeon_crtc *radeon_crtc = to_radeon_crtc(crtc);
 	struct radeon_framebuffer *radeon_fb;
 	struct drm_framebuffer *target_fb;
-	struct drm_gem_object *obj;
+	struct drm_obj *obj;
 	struct radeon_bo *rbo;
 	uint64_t base;
 	uint32_t crtc_offset, crtc_offset_cntl, crtc_tile_x0_y0 = 0;

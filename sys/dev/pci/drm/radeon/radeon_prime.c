@@ -160,7 +160,7 @@ static int radeon_prime_create(struct drm_device *dev,
 }
 
 struct dma_buf *radeon_gem_prime_export(struct drm_device *dev,
-					struct drm_gem_object *obj,
+					struct drm_obj *obj,
 					int flags)
 {
 	struct radeon_bo *bo = gem_to_radeon_bo(obj);
@@ -180,7 +180,7 @@ struct dma_buf *radeon_gem_prime_export(struct drm_device *dev,
 	return dma_buf_export(bo, &radeon_dmabuf_ops, obj->size, flags);
 }
 
-struct drm_gem_object *radeon_gem_prime_import(struct drm_device *dev,
+struct drm_obj *radeon_gem_prime_import(struct drm_device *dev,
 					       struct dma_buf *dma_buf)
 {
 	struct dma_buf_attachment *attach;

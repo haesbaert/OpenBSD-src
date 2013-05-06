@@ -120,7 +120,7 @@ static void radeon_show_cursor(struct drm_crtc *crtc)
 	}
 }
 
-static void radeon_set_cursor(struct drm_crtc *crtc, struct drm_gem_object *obj,
+static void radeon_set_cursor(struct drm_crtc *crtc, struct drm_obj *obj,
 			      uint64_t gpu_addr)
 {
 	struct radeon_crtc *radeon_crtc = to_radeon_crtc(crtc);
@@ -155,7 +155,7 @@ int radeon_crtc_cursor_set(struct drm_crtc *crtc,
 {
 	struct radeon_crtc *radeon_crtc = to_radeon_crtc(crtc);
 	struct radeon_device *rdev = crtc->dev->dev_private;
-	struct drm_gem_object *obj;
+	struct drm_obj *obj;
 	struct radeon_bo *robj;
 	uint64_t gpu_addr;
 	int ret;

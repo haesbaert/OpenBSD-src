@@ -1063,7 +1063,7 @@ static int dce4_crtc_do_set_base(struct drm_crtc *crtc,
 	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_framebuffer *radeon_fb;
 	struct drm_framebuffer *target_fb;
-	struct drm_gem_object *obj;
+	struct drm_obj *obj;
 	struct radeon_bo *rbo;
 	uint64_t fb_location;
 	uint32_t fb_format, fb_pitch_pixels, tiling_flags;
@@ -1265,7 +1265,7 @@ static int avivo_crtc_do_set_base(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_framebuffer *radeon_fb;
-	struct drm_gem_object *obj;
+	struct drm_obj *obj;
 	struct radeon_bo *rbo;
 	struct drm_framebuffer *target_fb;
 	uint64_t fb_location;

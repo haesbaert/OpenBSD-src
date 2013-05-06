@@ -411,7 +411,7 @@ void radeon_gem_fini(struct radeon_device *rdev);
 int radeon_gem_object_create(struct radeon_device *rdev, int size,
 				int alignment, int initial_domain,
 				bool discardable, bool kernel,
-				struct drm_gem_object **obj);
+				struct drm_obj **obj);
 
 int radeon_mode_dumb_create(struct drm_file *file_priv,
 			    struct drm_device *dev,
@@ -812,7 +812,7 @@ void cayman_dma_fini(struct radeon_device *rdev);
  * CS.
  */
 struct radeon_cs_reloc {
-	struct drm_gem_object		*gobj;
+	struct drm_obj			*gobj;
 	struct radeon_bo		*robj;
 	struct radeon_bo_list		lobj;
 	uint32_t			handle;
