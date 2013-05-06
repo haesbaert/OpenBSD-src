@@ -43,6 +43,10 @@ int	radeon_enable_vblank_kms(struct drm_device *, int);
 void	radeon_disable_vblank_kms(struct drm_device *, int);
 int	radeon_get_vblank_timestamp_kms(struct drm_device *, int, int *,
 	    struct timeval *, unsigned);
+void	radeon_set_filp_rights(struct drm_device *, struct drm_file **,
+	    struct drm_file *, uint32_t *);
+
+int	radeondrm_ioctl_kms(struct drm_device *, u_long, caddr_t, struct drm_file *);
 int	radeon_dma_ioctl_kms(struct drm_device *, void *, struct drm_file *);
 
 int	radeon_cp_init_kms(struct drm_device *, void *, struct drm_file *);
@@ -73,7 +77,6 @@ int	radeon_cp_setparam_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_surface_alloc_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_surface_free_kms(struct drm_device *, void *, struct drm_file *);
 
-int	radeondrm_ioctl_kms(struct drm_device *, u_long, caddr_t, struct drm_file *);
 
 /**
  * radeon_driver_unload_kms - Main unload function for KMS.
@@ -88,6 +91,9 @@ int	radeondrm_ioctl_kms(struct drm_device *, u_long, caddr_t, struct drm_file *)
  */
 int radeon_driver_unload_kms(struct drm_device *dev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 
 	if (rdev == NULL)
@@ -98,6 +104,7 @@ int radeon_driver_unload_kms(struct drm_device *dev)
 	free(rdev, M_DRM);
 	dev->dev_private = NULL;
 	return 0;
+#endif
 }
 
 /**
@@ -183,7 +190,8 @@ out:
  *
  * Sets the filp rights for the device (all asics).
  */
-static void radeon_set_filp_rights(struct drm_device *dev,
+void
+radeon_set_filp_rights(struct drm_device *dev,
 				   struct drm_file **owner,
 				   struct drm_file *applier,
 				   uint32_t *value)
@@ -222,6 +230,9 @@ static void radeon_set_filp_rights(struct drm_device *dev,
  */
 int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 {
+	printf("%s stub\n", __func__);
+	return -EINVAL;
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 	struct drm_radeon_info *info = data;
 	struct radeon_mode_info *minfo = &rdev->mode_info;
@@ -435,6 +446,7 @@ int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		return -EFAULT;
 	}
 	return 0;
+#endif
 }
 
 
@@ -479,6 +491,9 @@ void radeon_driver_lastclose_kms(struct drm_device *dev)
  */
 int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 
 	file_priv->driver_priv = NULL;
@@ -512,6 +527,7 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 		file_priv->driver_priv = fpriv;
 	}
 	return 0;
+#endif
 }
 
 /**
@@ -525,6 +541,8 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 void radeon_driver_postclose_kms(struct drm_device *dev,
 				 struct drm_file *file_priv)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 
 	/* new gpu have virtual address space support */
@@ -546,6 +564,7 @@ void radeon_driver_postclose_kms(struct drm_device *dev,
 		free(fpriv, M_DRM);
 		file_priv->driver_priv = NULL;
 	}
+#endif
 }
 
 /**

@@ -49,12 +49,15 @@ void	 radeon_bo_clear_va(struct radeon_bo *);
 
 void radeon_bo_clear_va(struct radeon_bo *bo)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_bo_va *bo_va, *tmp;
 
 	list_for_each_entry_safe(bo_va, tmp, &bo->va, bo_list) {
 		/* remove from all vm address space */
 		radeon_vm_bo_rmv(bo->rdev, bo_va);
 	}
+#endif
 }
 
 static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
@@ -332,23 +335,28 @@ void radeon_bo_force_delete(struct radeon_device *rdev)
 
 int radeon_bo_init(struct radeon_device *rdev)
 {
-	struct radeon_device *dev_priv = rdev;
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
 #ifdef notyet
+	struct radeon_device *dev_priv = rdev;
 	/* Add an MTRR for the VRAM */
 	rdev->mc.vram_mtrr = mtrr_add(rdev->mc.aper_base, rdev->mc.aper_size,
 			MTRR_TYPE_WRCOMB, 1);
-#endif
 	DRM_INFO("Detected VRAM RAM=%lluM, BAR=%lluM\n",
 		rdev->mc.mc_vram_size >> 20,
 		(unsigned long long)rdev->mc.aper_size >> 20);
 	DRM_INFO("RAM width %dbits %cDR\n",
 			rdev->mc.vram_width, rdev->mc.vram_is_ddr ? 'D' : 'S');
 	return radeon_ttm_init(rdev);
+#endif
 }
 
 void radeon_bo_fini(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	radeon_ttm_fini(rdev);
+#endif
 }
 
 void radeon_bo_list_add_object(struct radeon_bo_list *lobj,
@@ -576,12 +584,15 @@ int radeon_bo_check_tiling(struct radeon_bo *bo, bool has_moved,
 void radeon_bo_move_notify(struct ttm_buffer_object *bo,
 			   struct ttm_mem_reg *mem)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_bo *rbo;
 	if (!radeon_ttm_bo_is_radeon_bo(bo))
 		return;
 	rbo = container_of(bo, struct radeon_bo, tbo);
 	radeon_bo_check_tiling(rbo, 0, 1);
 	radeon_vm_bo_invalidate(rbo->rdev, rbo);
+#endif
 }
 
 int radeon_bo_fault_reserve_notify(struct ttm_buffer_object *bo)

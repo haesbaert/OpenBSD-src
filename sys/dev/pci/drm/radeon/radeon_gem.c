@@ -147,6 +147,9 @@ void radeon_gem_fini(struct radeon_device *rdev)
  */
 int radeon_gem_object_open(struct drm_obj *obj, struct drm_file *file_priv)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_bo *rbo = gem_to_radeon_bo(obj);
 	struct radeon_device *rdev = rbo->rdev;
 	struct radeon_fpriv *fpriv = file_priv->driver_priv;
@@ -172,11 +175,14 @@ int radeon_gem_object_open(struct drm_obj *obj, struct drm_file *file_priv)
 	radeon_bo_unreserve(rbo);
 
 	return 0;
+#endif
 }
 
 void radeon_gem_object_close(struct drm_obj *obj,
 			     struct drm_file *file_priv)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_bo *rbo = gem_to_radeon_bo(obj);
 	struct radeon_device *rdev = rbo->rdev;
 	struct radeon_fpriv *fpriv = file_priv->driver_priv;
@@ -201,16 +207,21 @@ void radeon_gem_object_close(struct drm_obj *obj,
 		}
 	}
 	radeon_bo_unreserve(rbo);
+#endif
 }
 
 static int radeon_gem_handle_lockup(struct radeon_device *rdev, int r)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	if (r == -EDEADLK) {
 		r = radeon_gpu_reset(rdev);
 		if (!r)
 			r = -EAGAIN;
 	}
 	return r;
+#endif
 }
 
 /*
@@ -219,6 +230,9 @@ static int radeon_gem_handle_lockup(struct radeon_device *rdev, int r)
 int radeon_gem_info_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *filp)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 	struct drm_radeon_gem_info *args = data;
 	struct ttm_mem_type_manager *man;
@@ -235,6 +249,7 @@ int radeon_gem_info_ioctl(struct drm_device *dev, void *data,
 	for(i = 0; i < RADEON_NUM_RINGS; ++i)
 		args->gart_size -= rdev->ring[i].ring_size;
 	return 0;
+#endif
 }
 
 int radeon_gem_pread_ioctl(struct drm_device *dev, void *data,
@@ -442,6 +457,9 @@ out:
 int radeon_gem_va_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *filp)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct drm_radeon_gem_va *args = data;
 	struct drm_obj *gobj;
 	struct radeon_device *rdev = dev->dev_private;
@@ -544,12 +562,16 @@ out:
 	radeon_bo_unreserve(rbo);
 	drm_gem_object_unreference_unlocked(gobj);
 	return r;
+#endif
 }
 
 int radeon_mode_dumb_create(struct drm_file *file_priv,
 			    struct drm_device *dev,
 			    struct drm_mode_create_dumb *args)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 	struct drm_obj *gobj;
 	uint32_t handle;
@@ -574,6 +596,7 @@ int radeon_mode_dumb_create(struct drm_file *file_priv,
 	}
 	args->handle = handle;
 	return 0;
+#endif
 }
 
 int radeon_mode_dumb_destroy(struct drm_file *file_priv,
