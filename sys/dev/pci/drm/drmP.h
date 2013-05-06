@@ -139,6 +139,8 @@ typedef uint16_t __le16;
 #define ARRAY_SIZE nitems
 #define DRM_ARRAY_SIZE nitems
 
+#define ERESTARTSYS EINTR
+
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define likely(x)	__builtin_expect(!!(x), 1)
 
