@@ -91,6 +91,9 @@ static const char radeon_family_name[][16] = {
 	"LAST",
 };
 
+unsigned int	 radeon_vga_set_decode(void *, bool);
+void		 radeon_check_arguments(struct radeon_device *);
+
 /**
  * radeon_surface_init - Clear GPU surface registers.
  *
@@ -424,9 +427,11 @@ bool radeon_card_posted(struct radeon_device *rdev)
 {
 	uint32_t reg;
 
+#ifdef notyet
 	if (efi_enabled(EFI_BOOT) &&
 	    rdev->pdev->subsystem_vendor == PCI_VENDOR_ID_APPLE)
 		return false;
+#endif
 
 	/* first check CRTCs */
 	if (ASIC_IS_DCE41(rdev)) {
@@ -509,6 +514,9 @@ void radeon_update_bandwidth_info(struct radeon_device *rdev)
  */
 bool radeon_boot_test_post_card(struct radeon_device *rdev)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct radeon_device *dev_priv = rdev;
+
 	if (radeon_card_posted(rdev))
 		return true;
 
@@ -517,7 +525,7 @@ bool radeon_boot_test_post_card(struct radeon_device *rdev)
 		if (rdev->is_atom_bios)
 			atom_asic_init(rdev->mode_info.atom_context);
 		else
-			radeon_combios_asic_init(rdev->ddev);
+			radeon_combios_asic_init(dev);
 		return true;
 	} else {
 		dev_err(rdev->dev, "Card not posted and no BIOS - ignoring\n");
@@ -537,6 +545,9 @@ bool radeon_boot_test_post_card(struct radeon_device *rdev)
  */
 int radeon_dummy_page_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	if (rdev->dummy_page.page)
 		return 0;
 	rdev->dummy_page.page = alloc_page(GFP_DMA32 | GFP_KERNEL | __GFP_ZERO);
@@ -551,6 +562,7 @@ int radeon_dummy_page_init(struct radeon_device *rdev)
 		return -ENOMEM;
 	}
 	return 0;
+#endif
 }
 
 /**
@@ -562,12 +574,15 @@ int radeon_dummy_page_init(struct radeon_device *rdev)
  */
 void radeon_dummy_page_fini(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	if (rdev->dummy_page.page == NULL)
 		return;
 	pci_unmap_page(rdev->pdev, rdev->dummy_page.addr,
 			PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
 	__free_page(rdev->dummy_page.page);
 	rdev->dummy_page.page = NULL;
+#endif
 }
 
 
@@ -728,6 +743,7 @@ static uint32_t cail_ioreg_read(struct card_info *info, uint32_t reg)
  */
 int radeon_atombios_init(struct radeon_device *rdev)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct card_info *atom_card_info =
 	    malloc(sizeof(struct card_info), M_DRM, M_WAITOK | M_ZERO);
 
@@ -735,7 +751,7 @@ int radeon_atombios_init(struct radeon_device *rdev)
 		return -ENOMEM;
 
 	rdev->mode_info.atom_card_info = atom_card_info;
-	atom_card_info->dev = rdev->ddev;
+	atom_card_info->dev = dev;
 	atom_card_info->reg_read = cail_reg_read;
 	atom_card_info->reg_write = cail_reg_write;
 	/* needed for iio ops */
@@ -753,8 +769,8 @@ int radeon_atombios_init(struct radeon_device *rdev)
 	atom_card_info->pll_write = cail_pll_write;
 
 	rdev->mode_info.atom_context = atom_parse(atom_card_info, rdev->bios);
-	rwlock_init(&rdev->mode_info.atom_context->rwlock, "atomcon");
-	radeon_atom_initialize_bios_scratch_regs(rdev->ddev);
+	rw_init(&rdev->mode_info.atom_context->rwlock, "atomcon");
+	radeon_atom_initialize_bios_scratch_regs(dev);
 	atom_allocate_fb_scratch(rdev->mode_info.atom_context);
 	return 0;
 }
@@ -795,7 +811,8 @@ void radeon_atombios_fini(struct radeon_device *rdev)
  */
 int radeon_combios_init(struct radeon_device *rdev)
 {
-	radeon_combios_initialize_bios_scratch_regs(rdev->ddev);
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	radeon_combios_initialize_bios_scratch_regs(dev);
 	return 0;
 }
 
@@ -821,8 +838,12 @@ void radeon_combios_fini(struct radeon_device *rdev)
  * Enable/disable vga decode (all asics).
  * Returns VGA resource flags.
  */
-static unsigned int radeon_vga_set_decode(void *cookie, bool state)
+unsigned int
+radeon_vga_set_decode(void *cookie, bool state)
 {
+	printf("%s stub\n", __func__);
+	return -1;
+#ifdef notyet
 	struct radeon_device *rdev = cookie;
 	radeon_vga_set_state(rdev, state);
 	if (state)
@@ -830,8 +851,10 @@ static unsigned int radeon_vga_set_decode(void *cookie, bool state)
 		       VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
 	else
 		return VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
+#endif
 }
 
+#ifdef notyet
 /**
  * radeon_check_pot_argument - check that argument is a power of two
  *
@@ -853,7 +876,8 @@ static bool radeon_check_pot_argument(int arg)
  * Validates certain module parameters and updates
  * the associated values used by the driver (all asics).
  */
-static void radeon_check_arguments(struct radeon_device *rdev)
+void
+radeon_check_arguments(struct radeon_device *rdev)
 {
 	/* vramlimit must be a power of two */
 	if (!radeon_check_pot_argument(radeon_vram_limit)) {
@@ -891,7 +915,9 @@ static void radeon_check_arguments(struct radeon_device *rdev)
 		break;
 	}
 }
+#endif
 
+#ifdef notyet
 /**
  * radeon_switcheroo_quirk_long_wakeup - return true if longer d3 delay is
  * needed for waking up.
@@ -974,7 +1000,9 @@ static const struct vga_switcheroo_client_ops radeon_switcheroo_ops = {
 	.reprobe = NULL,
 	.can_switch = radeon_switcheroo_can_switch,
 };
+#endif
 
+#ifdef notyet
 /**
  * radeon_device_init - initialize the driver
  *
@@ -1142,6 +1170,7 @@ int radeon_device_init(struct radeon_device *rdev,
 }
 
 static void radeon_debugfs_remove_files(struct radeon_device *rdev);
+#endif
 
 /**
  * radeon_device_fini - tear down the driver
@@ -1153,6 +1182,10 @@ static void radeon_debugfs_remove_files(struct radeon_device *rdev);
  */
 void radeon_device_fini(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct radeon_device *dev_priv = rdev;
+
 	DRM_INFO("radeon: finishing device.\n");
 	rdev->shutdown = true;
 	/* evict vram memory */
@@ -1166,6 +1199,7 @@ void radeon_device_fini(struct radeon_device *rdev)
 	iounmap(rdev->rmmio);
 	rdev->rmmio = NULL;
 	radeon_debugfs_remove_files(rdev);
+#endif
 }
 
 
@@ -1182,6 +1216,7 @@ void radeon_device_fini(struct radeon_device *rdev)
  * Returns 0 for success or an error on failure.
  * Called at driver suspend.
  */
+#ifdef notyet
 int radeon_suspend_kms(struct drm_device *dev, pm_message_t state)
 {
 	struct radeon_device *rdev;
@@ -1328,6 +1363,7 @@ int radeon_resume_kms(struct drm_device *dev)
 	drm_kms_helper_poll_enable(dev);
 	return 0;
 }
+#endif // notyet
 
 /**
  * radeon_gpu_reset - reset the asic
@@ -1339,6 +1375,7 @@ int radeon_resume_kms(struct drm_device *dev)
  */
 int radeon_gpu_reset(struct radeon_device *rdev)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	unsigned ring_sizes[RADEON_NUM_RINGS];
 	uint32_t *ring_data[RADEON_NUM_RINGS];
 
@@ -1396,7 +1433,7 @@ retry:
 		}
 	}
 
-	drm_helper_resume_force_mode(rdev->ddev);
+	drm_helper_resume_force_mode(dev);
 
 	ttm_bo_unlock_delayed_workqueue(&rdev->mman.bdev, resched);
 	if (r) {
@@ -1409,6 +1446,7 @@ retry:
 }
 
 
+#ifdef __linux__
 /*
  * Debugfs
  */
@@ -1472,3 +1510,4 @@ void radeon_debugfs_cleanup(struct drm_minor *minor)
 {
 }
 #endif
+#endif // __linux__

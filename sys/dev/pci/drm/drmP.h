@@ -313,6 +313,18 @@ do {									\
 #define DRM_DEBUG_DRIVER(fmt, arg...) do { } while(/* CONSTCOND */ 0)
 #endif
 
+#define dev_warn(dev, fmt, arg...) do {					\
+	DRM_ERROR(fmt, ## arg);						\
+} while(0)
+
+#define dev_err(dev, fmt, arg...) do {					\
+	DRM_ERROR(fmt, ## arg);						\
+} while(0)
+
+#define dev_info(dev, fmt, arg...) do {					\
+	printf("%s: " fmt, dev.dv_xname, ## arg);			\
+} while(0)
+
 struct drm_pcidev {
 	int vendor;
 	int device;
