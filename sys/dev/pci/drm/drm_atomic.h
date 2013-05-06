@@ -37,6 +37,7 @@
 /* Many of these implementations are rather fake, but good enough. */
 
 typedef u_int32_t atomic_t;
+typedef u_int64_t atomic64_t;
 
 #ifdef __FreeBSD__
 #define atomic_set(p, v)	(*(p) = (v))

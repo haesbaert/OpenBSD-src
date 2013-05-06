@@ -43,8 +43,8 @@
 static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 {
 	uint8_t __iomem *bios;
-	resource_size_t vram_base;
-	resource_size_t size = 256 * 1024; /* ??? */
+	bus_addr_t vram_base;
+	bus_size_t size = 256 * 1024; /* ??? */
 
 	if (!(rdev->flags & RADEON_IS_IGP))
 		if (!radeon_card_posted(rdev))

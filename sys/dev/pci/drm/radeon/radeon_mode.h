@@ -186,7 +186,6 @@ struct radeon_i2c_chan {
 	struct i2c_controller adapter;
 	struct drm_device *dev;
 	union {
-		struct i2c_algo_bit_data bit;
 		struct i2c_algo_dp_aux_data dp;
 	} algo;
 	struct radeon_i2c_bus_rec rec;

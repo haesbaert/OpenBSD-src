@@ -155,7 +155,7 @@ bool radeon_get_bios(struct radeon_device *rdev);
  */
 struct radeon_dummy_page {
 	struct page	*page;
-	dma_addr_t	addr;
+	bus_addr_t	addr;
 };
 int radeon_dummy_page_init(struct radeon_device *rdev);
 void radeon_dummy_page_fini(struct radeon_device *rdev);
@@ -215,7 +215,9 @@ struct radeon_fence_driver {
 
 struct radeon_fence {
 	struct radeon_device		*rdev;
+#ifdef notyet
 	struct kref			kref;
+#endif
 	/* protected by radeon_fence.lock */
 	uint64_t			seq;
 	/* RB, DMA, etc. */
@@ -333,7 +335,7 @@ struct radeon_bo {
 	struct list_head		va;
 	/* Constant after initialization */
 	struct radeon_device		*rdev;
-	struct drm_gem_object		gem_base;
+	struct drm_obj			gem_base;
 
 	struct ttm_bo_kmap_obj dma_buf_vmap;
 	int vmapping_count;
@@ -373,7 +375,7 @@ struct radeon_bo_list {
  * alignment).
  */
 struct radeon_sa_manager {
-	wait_queue_head_t	wq;
+	int			wq;
 	struct radeon_bo	*bo;
 	struct list_head	*hole;
 	struct list_head	flist[RADEON_NUM_RINGS];
@@ -455,14 +457,14 @@ struct radeon_mc;
 #define RADEON_GPU_PAGE_ALIGN(a) (((a) + RADEON_GPU_PAGE_MASK) & ~RADEON_GPU_PAGE_MASK)
 
 struct radeon_gart {
-	dma_addr_t			table_addr;
+	bus_addr_t			table_addr;
 	struct radeon_bo		*robj;
 	void				*ptr;
 	unsigned			num_gpu_pages;
 	unsigned			num_cpu_pages;
 	unsigned			table_size;
 	struct page			**pages;
-	dma_addr_t			*pages_addr;
+	bus_addr_t			*pages_addr;
 	bool				ready;
 };
 
@@ -478,7 +480,7 @@ void radeon_gart_unbind(struct radeon_device *rdev, unsigned offset,
 			int pages);
 int radeon_gart_bind(struct radeon_device *rdev, unsigned offset,
 		     int pages, struct page **pagelist,
-		     dma_addr_t *dma_addr);
+		     bus_addr_t *dma_addr);
 void radeon_gart_restore(struct radeon_device *rdev);
 
 
@@ -486,9 +488,9 @@ void radeon_gart_restore(struct radeon_device *rdev);
  * GPU MC structures, functions & helpers
  */
 struct radeon_mc {
-	resource_size_t		aper_size;
-	resource_size_t		aper_base;
-	resource_size_t		agp_base;
+	bus_size_t		aper_size;
+	bus_addr_t		aper_base;
+	bus_addr_t		agp_base;
 	/* for some chips with <= 32MB we need to lie
 	 * about vram size near mc fb location */
 	u64			mc_vram_size;
@@ -528,7 +530,9 @@ void radeon_scratch_free(struct radeon_device *rdev, uint32_t reg);
  */
 
 struct radeon_unpin_work {
+#ifdef notyet
 	struct work_struct work;
+#endif
 	struct radeon_device *rdev;
 	int crtc_id;
 	struct radeon_fence *fence;
@@ -589,7 +593,7 @@ struct radeon_irq {
 	atomic_t			ring_int[RADEON_NUM_RINGS];
 	bool				crtc_vblank_int[RADEON_MAX_CRTCS];
 	atomic_t			pflip[RADEON_MAX_CRTCS];
-	wait_queue_head_t		vblank_queue;
+	int				vblank_queue;
 	bool				hpd[RADEON_MAX_HPD_PINS];
 	bool				afmt[RADEON_MAX_AFMT_BLOCKS];
 	union radeon_irq_stat_regs	stat_regs;
@@ -1049,7 +1053,9 @@ struct radeon_power_state {
 struct radeon_pm {
 	struct rwlock 		rwlock;
 	/* write locked while reprogramming mclk */
+#ifdef notyet
 	struct rw_semaphore	mclk_lock;
+#endif
 	u32			active_crtcs;
 	int			active_crtc_count;
 	int			req_vblank;
@@ -1086,7 +1092,9 @@ struct radeon_pm {
 	/* selected pm method */
 	enum radeon_pm_method     pm_method;
 	/* dynpm power management */
+#ifdef notyet
 	struct delayed_work	dynpm_idle_work;
+#endif
 	enum radeon_dynpm_state	dynpm_state;
 	enum radeon_dynpm_action	dynpm_planned_action;
 	unsigned long		dynpm_action_timeout;
@@ -1541,7 +1549,9 @@ struct radeon_device {
 	struct device			*dev;
 	struct drm_device		*ddev;
 	struct pci_dev			*pdev;
+#ifdef notyet
 	struct rw_semaphore		exclusive_lock;
+#endif
 	/* ASIC */
 	union radeon_asic_config	config;
 	enum radeon_family		family;
@@ -1557,8 +1567,8 @@ struct radeon_device {
 	uint16_t			bios_header_start;
 	struct radeon_bo		*stollen_vga_memory;
 	/* Register mmio */
-	resource_size_t			rmmio_base;
-	resource_size_t			rmmio_size;
+	bus_addr_t			rmmio_base;
+	bus_size_t			rmmio_size;
 	/* protects concurrent MM_INDEX/DATA based register access */
 	struct mutex			mmio_idx_lock;
 	void __iomem			*rmmio;
@@ -1571,7 +1581,7 @@ struct radeon_device {
 	radeon_wreg_t			pciep_wreg;
 	/* io port */
 	void __iomem                    *rio_mem;
-	resource_size_t			rio_mem_size;
+	bus_size_t			rio_mem_size;
 	struct radeon_clock             clock;
 	struct radeon_mc		mc;
 	struct radeon_gart		gart;
@@ -1579,7 +1589,7 @@ struct radeon_device {
 	struct radeon_scratch		scratch;
 	struct radeon_mman		mman;
 	struct radeon_fence_driver	fence_drv[RADEON_NUM_RINGS];
-	wait_queue_head_t		fence_queue;
+	int				fence_queue;
 	struct rwlock 			ring_lock;
 	struct radeon_ring		ring[RADEON_NUM_RINGS];
 	bool				ib_pool_ready;
@@ -1606,13 +1616,17 @@ struct radeon_device {
 	int msi_enabled; /* msi enabled */
 	struct r600_ih ih; /* r6/700 interrupt ring */
 	struct si_rlc rlc;
+#ifdef notyet
 	struct work_struct hotplug_work;
 	struct work_struct audio_work;
+#endif
 	int num_crtc; /* number of crtcs */
 	struct rwlock dc_hw_i2c_rwlock; /* display controller hw i2c rwlock */
 	bool audio_enabled;
 	struct r600_audio audio_status; /* audio stuff */
+#ifdef notyet
 	struct notifier_block acpi_nb;
+#endif
 	/* only one userspace can use Hyperz features or CMASK at a time */
 	struct drm_file *hyperz_filp;
 	struct drm_file *cmask_filp;
@@ -1866,7 +1880,9 @@ extern bool radeon_ttm_bo_is_radeon_bo(struct ttm_buffer_object *bo);
 extern void radeon_vram_location(struct radeon_device *rdev, struct radeon_mc *mc, u64 base);
 extern void radeon_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc);
 extern int radeon_resume_kms(struct drm_device *dev);
+#ifdef notyet
 extern int radeon_suspend_kms(struct drm_device *dev, pm_message_t state);
+#endif
 extern void radeon_ttm_set_active_vram_size(struct radeon_device *rdev, u64 size);
 
 /*
@@ -1903,7 +1919,9 @@ int radeon_vm_bo_rmv(struct radeon_device *rdev,
 		     struct radeon_bo_va *bo_va);
 
 /* audio */
+#ifdef notyet
 void r600_audio_update_hdmi(struct work_struct *work);
+#endif
 
 /*
  * R600 vram scratch functions

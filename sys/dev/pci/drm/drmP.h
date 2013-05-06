@@ -129,12 +129,15 @@ typedef u_int32_t u32;
 typedef u_int16_t u16;
 typedef u_int8_t u8;
 
+typedef int32_t s32;
 typedef int64_t s64;
 
 typedef uint16_t __le16;
 
 #define EXPORT_SYMBOL(x)
+#define __iomem
 #define ARRAY_SIZE nitems
+#define DRM_ARRAY_SIZE nitems
 
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define likely(x)	__builtin_expect(!!(x), 1)
