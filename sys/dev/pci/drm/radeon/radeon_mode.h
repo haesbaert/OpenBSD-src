@@ -183,7 +183,7 @@ struct radeon_pll {
 };
 
 struct radeon_i2c_chan {
-	struct i2c_adapter adapter;
+	struct i2c_controller adapter;
 	struct drm_device *dev;
 	union {
 		struct i2c_algo_bit_data bit;
@@ -528,7 +528,7 @@ extern void atombios_dig_transmitter_setup(struct drm_encoder *encoder,
 					   uint8_t lane_set);
 extern void radeon_atom_ext_encoder_setup_ddc(struct drm_encoder *encoder);
 extern struct drm_encoder *radeon_get_external_encoder(struct drm_encoder *encoder);
-extern int radeon_dp_i2c_aux_ch(struct i2c_adapter *adapter, int mode,
+extern int radeon_dp_i2c_aux_ch(struct i2c_controller *adapter, int mode,
 				u8 write_byte, u8 *read_byte);
 
 extern void radeon_i2c_init(struct radeon_device *rdev);

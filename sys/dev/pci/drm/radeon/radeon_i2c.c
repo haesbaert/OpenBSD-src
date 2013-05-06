@@ -30,9 +30,9 @@
 #include "radeon.h"
 #include "atom.h"
 
-extern int radeon_atom_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
+extern int radeon_atom_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 				   struct i2c_msg *msgs, int num);
-extern u32 radeon_atom_hw_i2c_func(struct i2c_adapter *adap);
+extern u32 radeon_atom_hw_i2c_func(struct i2c_controller *adap);
 
 /**
  * radeon_ddc_probe
@@ -87,7 +87,7 @@ bool radeon_ddc_probe(struct radeon_connector *radeon_connector, bool use_aux)
 
 /* bit banging i2c */
 
-static int pre_xfer(struct i2c_adapter *i2c_adap)
+static int pre_xfer(struct i2c_controller *i2c_adap)
 {
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
 	struct radeon_device *rdev = i2c->dev->dev_private;
@@ -155,7 +155,7 @@ static int pre_xfer(struct i2c_adapter *i2c_adap)
 	return 0;
 }
 
-static void post_xfer(struct i2c_adapter *i2c_adap)
+static void post_xfer(struct i2c_controller *i2c_adap)
 {
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
 	struct radeon_device *rdev = i2c->dev->dev_private;
@@ -319,7 +319,7 @@ static u32 radeon_get_i2c_prescale(struct radeon_device *rdev)
 /* hw i2c engine for r1xx-4xx hardware
  * hw can buffer up to 15 bytes
  */
-static int r100_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
+static int r100_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 			    struct i2c_msg *msgs, int num)
 {
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
@@ -572,7 +572,7 @@ done:
 /* hw i2c engine for r5xx hardware
  * hw can buffer up to 15 bytes
  */
-static int r500_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
+static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 			    struct i2c_msg *msgs, int num)
 {
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
@@ -805,7 +805,7 @@ done:
 	return ret;
 }
 
-static int radeon_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
+static int radeon_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 			      struct i2c_msg *msgs, int num)
 {
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
@@ -882,7 +882,7 @@ static int radeon_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
 	return ret;
 }
 
-static u32 radeon_hw_i2c_func(struct i2c_adapter *adap)
+static u32 radeon_hw_i2c_func(struct i2c_controller *adap)
 {
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }

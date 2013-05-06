@@ -82,7 +82,7 @@ static int radeon_process_i2c_ch(struct radeon_i2c_chan *chan,
 	return 0;
 }
 
-int radeon_atom_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
+int radeon_atom_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 			    struct i2c_msg *msgs, int num)
 {
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
@@ -132,7 +132,7 @@ int radeon_atom_hw_i2c_xfer(struct i2c_adapter *i2c_adap,
 	return num;
 }
 
-u32 radeon_atom_hw_i2c_func(struct i2c_adapter *adap)
+u32 radeon_atom_hw_i2c_func(struct i2c_controller *adap)
 {
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }

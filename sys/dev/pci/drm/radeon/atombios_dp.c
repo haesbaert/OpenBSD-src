@@ -195,7 +195,7 @@ static u8 radeon_read_dpcd_reg(struct radeon_connector *radeon_connector,
 	return val;
 }
 
-int radeon_dp_i2c_aux_ch(struct i2c_adapter *adapter, int mode,
+int radeon_dp_i2c_aux_ch(struct i2c_controller *adapter, int mode,
 			 u8 write_byte, u8 *read_byte)
 {
 	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
