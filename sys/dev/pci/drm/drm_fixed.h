@@ -60,9 +60,10 @@ static inline u32 dfixed_div(fixed20_12 A, fixed20_12 B)
 {
 	u64 tmp = ((u64)A.full << 13);
 
-	do_div(tmp, B.full);
+	tmp /= B.full;
 	tmp += 1;
 	tmp /= 2;
-	return lower_32_bits(tmp);
+
+	return ((u32)tmp);
 }
 #endif
