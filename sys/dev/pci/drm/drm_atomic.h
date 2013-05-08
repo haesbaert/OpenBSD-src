@@ -71,7 +71,20 @@ atomic_inc_not_zero(atomic_t *p)
 	return (*p);
 }
 
+#define	atomic_inc_return(v)	atomic_add_return(1, (v))
+#define	atomic_dec_return(v)	atomic_sub_return(1, (v))
+#define	atomic_dec_and_test(v)	(atomic_dec_return(v) == 0)
+#define	atomic_inc_and_test(v)	(atomic_inc_return(v) == 0)
+
 #define atomic_sub(n, p)	(*(p) -= (n))
+
+static __inline int
+atomic_sub_return(int i, atomic_t *p)
+{
+	atomic_sub(i, p);
+	return (*p);
+}
+
 /* FIXME */
 #define atomic_add_int(p, v)      *(p) += v
 #define atomic_subtract_int(p, v) *(p) -= v
