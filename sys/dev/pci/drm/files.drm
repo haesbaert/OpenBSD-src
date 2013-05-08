@@ -84,6 +84,7 @@ file	dev/pci/drm/radeon/radeon_cs.c		radeondrm
 file	dev/pci/drm/radeon/radeon_drv.c		radeondrm
 file	dev/pci/drm/radeon/radeon_gem.c		radeondrm
 file	dev/pci/drm/radeon/radeon_irq.c		radeondrm
+file	dev/pci/drm/radeon/radeon_irq_kms.c	radeondrm
 file	dev/pci/drm/radeon/radeon_kms.c		radeondrm
 file	dev/pci/drm/radeon/radeon_mem.c		radeondrm
 file	dev/pci/drm/radeon/radeon_object.c	radeondrm

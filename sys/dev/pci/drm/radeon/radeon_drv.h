@@ -433,7 +433,7 @@ int	radeon_enable_vblank_kms(struct drm_device *, int);
 void	radeon_disable_vblank_kms(struct drm_device *, int);
 int	radeon_get_vblank_timestamp_kms(struct drm_device *, int, int *,
 	    struct timeval *, unsigned);
-int	radeon_dma_ioctl_kms(struct drm_device *, void *, struct drm_file *);
+int	radeon_dma_ioctl_kms(struct drm_device *, struct drm_dma *, struct drm_file *);
 
 int	radeon_cp_init_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_cp_start_kms(struct drm_device *, void *, struct drm_file *);

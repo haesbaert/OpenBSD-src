@@ -35,13 +35,64 @@
 #include <dev/pci/drm/radeon_drm.h>
 #include "radeon_drv.h"
 
+#define KMS_DRIVER_MAJOR	2
+#define KMS_DRIVER_MINOR	29
+#define KMS_DRIVER_PATCHLEVEL	0
+
 int	radeondrm_probe(struct device *, void *, void *);
 void	radeondrm_attach(struct device *, struct device *, void *);
 int	radeondrm_detach(struct device *, int);
 int	radeondrm_activate(struct device *, int);
 int	radeondrm_ioctl(struct drm_device *, u_long, caddr_t, struct drm_file *);
 
+int	radeon_driver_irq_handler_kms(void *);
+int	radeon_dma_ioctl_kms(struct drm_device *, struct drm_dma *,
+	    struct drm_file *);
+
+int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags);
+int radeon_driver_unload_kms(struct drm_device *dev);
+int radeon_driver_firstopen_kms(struct drm_device *dev);
+void radeon_driver_lastclose_kms(struct drm_device *dev);
+int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv);
+void radeon_driver_postclose_kms(struct drm_device *dev,
+				 struct drm_file *file_priv);
+void radeon_driver_preclose_kms(struct drm_device *dev,
+				struct drm_file *file_priv);
+int radeon_resume_kms(struct drm_device *dev);
+u32 radeon_get_vblank_counter_kms(struct drm_device *dev, int crtc);
+int radeon_enable_vblank_kms(struct drm_device *dev, int crtc);
+void radeon_disable_vblank_kms(struct drm_device *dev, int crtc);
+int radeon_get_vblank_timestamp_kms(struct drm_device *dev, int crtc,
+				    int *max_error,
+				    struct timeval *vblank_time,
+				    unsigned flags);
+void radeon_driver_irq_preinstall_kms(struct drm_device *dev);
+int radeon_driver_irq_postinstall_kms(struct drm_device *dev);
+void radeon_driver_irq_uninstall_kms(struct drm_device *dev);
+int radeon_gem_object_init(struct drm_obj *obj);
+void radeon_gem_object_free(struct drm_obj *obj);
+int radeon_gem_object_open(struct drm_obj *obj,
+				struct drm_file *file_priv);
+void radeon_gem_object_close(struct drm_obj *obj,
+				struct drm_file *file_priv);
+extern int radeon_get_crtc_scanoutpos(struct drm_device *dev, int crtc,
+				      int *vpos, int *hpos);
+int radeon_mode_dumb_mmap(struct drm_file *filp,
+			  struct drm_device *dev,
+			  uint32_t handle, uint64_t *offset_p);
+int radeon_mode_dumb_create(struct drm_file *file_priv,
+			    struct drm_device *dev,
+			    struct drm_mode_create_dumb *args);
+int radeon_mode_dumb_destroy(struct drm_file *file_priv,
+			     struct drm_device *dev,
+			     uint32_t handle);
+
+/* Disable AGP writeback for scratch registers */
 int radeon_no_wb;
+/* Disable/Enable modesetting */
+int radeon_modeset = 1;
+/* MSI support (1 = enable, 0 = disable, -1 = auto) */
+int radeon_msi = -1;
 
 const static struct drm_pcidev radeondrm_pciidlist[] = {
 	{PCI_VENDOR_ATI, PCI_PRODUCT_ATI_RADEON_M241P,
@@ -709,6 +760,70 @@ static struct drm_driver_info radeondrm_driver = {
 				    DRIVER_DMA | DRIVER_IRQ,
 };
 
+static struct drm_driver_info kms_driver = {
+	.flags =
+	    DRIVER_AGP | DRIVER_MTRR | DRIVER_PCI_DMA | DRIVER_SG |
+	    DRIVER_IRQ | DRIVER_DMA | DRIVER_GEM,
+	.buf_priv_size = 0,
+#ifdef notyet
+	.load = radeon_driver_load_kms,
+#endif
+	.firstopen = radeon_driver_firstopen_kms,
+	.open = radeon_driver_open_kms,
+#ifdef notyet
+	.preclose = radeon_driver_preclose_kms,
+	.postclose = radeon_driver_postclose_kms,
+#endif
+	.lastclose = radeon_driver_lastclose_kms,
+#ifdef notyet
+	.unload = radeon_driver_unload_kms,
+	.suspend = radeon_suspend_kms,
+	.resume = radeon_resume_kms,
+#endif
+	.get_vblank_counter = radeon_get_vblank_counter_kms,
+	.enable_vblank = radeon_enable_vblank_kms,
+	.disable_vblank = radeon_disable_vblank_kms,
+	.get_vblank_timestamp = radeon_get_vblank_timestamp_kms,
+#ifdef notyet
+	.get_scanout_position = radeon_get_crtc_scanoutpos,
+#endif
+#if defined(CONFIG_DEBUG_FS)
+	.debugfs_init = radeon_debugfs_init,
+	.debugfs_cleanup = radeon_debugfs_cleanup,
+#endif
+	.irq_preinstall = radeon_driver_irq_preinstall_kms,
+	.irq_postinstall = radeon_driver_irq_postinstall_kms,
+	.irq_uninstall = radeon_driver_irq_uninstall_kms,
+	.irq_handler = radeon_driver_irq_handler_kms,
+	.gem_init_object = radeon_gem_object_init,
+	.gem_free_object = radeon_gem_object_free,
+#ifdef notyet
+	.gem_open_object = radeon_gem_object_open,
+	.gem_close_object = radeon_gem_object_close,
+#endif
+	.dma_ioctl = radeon_dma_ioctl_kms,
+	.dumb_create = radeon_mode_dumb_create,
+	.dumb_map_offset = radeon_mode_dumb_mmap,
+	.dumb_destroy = radeon_mode_dumb_destroy,
+#ifdef notyet
+	.fops = &radeon_driver_kms_fops,
+
+	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	.gem_prime_export = radeon_gem_prime_export,
+	.gem_prime_import = radeon_gem_prime_import,
+#endif
+
+	.name = DRIVER_NAME,
+	.desc = DRIVER_DESC,
+	.date = DRIVER_DATE,
+	.major = KMS_DRIVER_MAJOR,
+	.minor = KMS_DRIVER_MINOR,
+	.patchlevel = KMS_DRIVER_PATCHLEVEL,
+};
+
+static struct drm_driver_info *driver;
+
 int
 radeondrm_probe(struct device *parent, void *match, void *aux)
 {
@@ -796,6 +911,12 @@ radeondrm_attach(struct device *parent, struct device *self, void *aux)
 
 	TAILQ_INIT(&dev_priv->gart_heap);
 	TAILQ_INIT(&dev_priv->fb_heap);
+
+	if (radeon_modeset == 1) {
+		driver = &kms_driver;
+	} else {
+		driver = &radeondrm_driver;
+	}
 
 	dev_priv->drmdev = drm_attach_pci(&radeondrm_driver, pa, is_agp, self);
 

@@ -34,6 +34,12 @@
 
 #define RADEON_WAIT_IDLE_TIMEOUT 200
 
+int	 radeon_driver_irq_handler_kms(void *);
+void	 radeon_driver_irq_preinstall_kms(struct drm_device *);
+int	 radeon_driver_irq_postinstall_kms(struct drm_device *);
+void	 radeon_driver_irq_uninstall_kms(struct drm_device *);
+bool	 radeon_msi_ok(struct radeon_device *);
+
 /**
  * radeon_driver_irq_handler_kms - irq handler for KMS
  *
@@ -43,9 +49,10 @@
  * radeon_irq_process is a macro that points to the per-asic
  * irq handler callback.
  */
-irqreturn_t radeon_driver_irq_handler_kms(DRM_IRQ_ARGS)
+int
+radeon_driver_irq_handler_kms(void *arg)
 {
-	struct drm_device *dev = (struct drm_device *) arg;
+	struct drm_device *dev = arg;
 	struct radeon_device *rdev = dev->dev_private;
 
 	return radeon_irq_process(rdev);
@@ -65,6 +72,7 @@ irqreturn_t radeon_driver_irq_handler_kms(DRM_IRQ_ARGS)
  * and calls the hotplug handler for each one, then sends
  * a drm hotplug event to alert userspace.
  */
+#ifdef notyet
 static void radeon_hotplug_work_func(struct work_struct *work)
 {
 	struct radeon_device *rdev = container_of(work, struct radeon_device,
@@ -80,6 +88,7 @@ static void radeon_hotplug_work_func(struct work_struct *work)
 	/* Just fire off a uevent and let userspace tell us what to do */
 	drm_helper_hpd_irq_event(dev);
 }
+#endif
 
 /**
  * radeon_driver_irq_preinstall_kms - drm irq preinstall callback
@@ -165,8 +174,11 @@ void radeon_driver_irq_uninstall_kms(struct drm_device *dev)
  * Returns true if MSIs should be enabled, false if MSIs
  * should not be enabled.
  */
-static bool radeon_msi_ok(struct radeon_device *rdev)
+bool
+radeon_msi_ok(struct radeon_device *rdev)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
 	/* RV370/RV380 was first asic with MSI support */
 	if (rdev->family < CHIP_RV380)
 		return false;
@@ -183,27 +195,27 @@ static bool radeon_msi_ok(struct radeon_device *rdev)
 
 	/* Quirks */
 	/* HP RS690 only seems to work with MSIs. */
-	if ((rdev->pdev->device == 0x791f) &&
-	    (rdev->pdev->subsystem_vendor == 0x103c) &&
-	    (rdev->pdev->subsystem_device == 0x30c2))
+	if ((dev->pci_device == 0x791f) &&
+	    (dev->pci_subvendor == 0x103c) &&
+	    (dev->pci_subdevice == 0x30c2))
 		return true;
 
 	/* Dell RS690 only seems to work with MSIs. */
-	if ((rdev->pdev->device == 0x791f) &&
-	    (rdev->pdev->subsystem_vendor == 0x1028) &&
-	    (rdev->pdev->subsystem_device == 0x01fc))
+	if ((dev->pci_device == 0x791f) &&
+	    (dev->pci_subvendor == 0x1028) &&
+	    (dev->pci_subdevice == 0x01fc))
 		return true;
 
 	/* Dell RS690 only seems to work with MSIs. */
-	if ((rdev->pdev->device == 0x791f) &&
-	    (rdev->pdev->subsystem_vendor == 0x1028) &&
-	    (rdev->pdev->subsystem_device == 0x01fd))
+	if ((dev->pci_device == 0x791f) &&
+	    (dev->pci_subvendor == 0x1028) &&
+	    (dev->pci_subdevice == 0x01fd))
 		return true;
 
 	/* Gateway RS690 only seems to work with MSIs. */
-	if ((rdev->pdev->device == 0x791f) &&
-	    (rdev->pdev->subsystem_vendor == 0x107b) &&
-	    (rdev->pdev->subsystem_device == 0x0185))
+	if ((dev->pci_device == 0x791f) &&
+	    (dev->pci_subvendor == 0x107b) &&
+	    (dev->pci_subdevice == 0x0185))
 		return true;
 
 	/* try and enable MSIs by default on all RS690s */
@@ -237,19 +249,24 @@ static bool radeon_msi_ok(struct radeon_device *rdev)
  */
 int radeon_irq_kms_init(struct radeon_device *rdev)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct radeon_device *dev_priv = rdev;
 	int r = 0;
 
+#ifdef notyet
 	INIT_WORK(&rdev->hotplug_work, radeon_hotplug_work_func);
 	INIT_WORK(&rdev->audio_work, r600_audio_update_hdmi);
+#endif
 
 	mtx_init(&rdev->irq.lock, IPL_NONE);
-	r = drm_vblank_init(rdev->ddev, rdev->num_crtc);
+	r = drm_vblank_init(dev, rdev->num_crtc);
 	if (r) {
 		return r;
 	}
 	/* enable msi */
 	rdev->msi_enabled = 0;
 
+#ifdef notyet
 	if (radeon_msi_ok(rdev)) {
 		int ret = pci_enable_msi(rdev->pdev);
 		if (!ret) {
@@ -257,8 +274,9 @@ int radeon_irq_kms_init(struct radeon_device *rdev)
 			dev_info(rdev->dev, "radeon: using MSI.\n");
 		}
 	}
+#endif
 	rdev->irq.installed = true;
-	r = drm_irq_install(rdev->ddev);
+	r = drm_irq_install(dev);
 	if (r) {
 		rdev->irq.installed = false;
 		return r;
@@ -276,14 +294,19 @@ int radeon_irq_kms_init(struct radeon_device *rdev)
  */
 void radeon_irq_kms_fini(struct radeon_device *rdev)
 {
-	drm_vblank_cleanup(rdev->ddev);
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	drm_vblank_cleanup(dev);
 	if (rdev->irq.installed) {
-		drm_irq_uninstall(rdev->ddev);
+		drm_irq_uninstall(dev);
 		rdev->irq.installed = false;
+#ifdef notyet
 		if (rdev->msi_enabled)
 			pci_disable_msi(rdev->pdev);
+#endif
 	}
+#ifdef notyet
 	flush_work(&rdev->hotplug_work);
+#endif
 }
 
 /**
@@ -298,7 +321,9 @@ void radeon_irq_kms_fini(struct radeon_device *rdev)
  */
 void radeon_irq_kms_sw_irq_get(struct radeon_device *rdev, int ring)
 {
-	if (!rdev->ddev->irq_enabled)
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
+	if (!dev->irq_enabled)
 		return;
 
 	if (atomic_inc_return(&rdev->irq.ring_int[ring]) == 1) {
@@ -320,7 +345,9 @@ void radeon_irq_kms_sw_irq_get(struct radeon_device *rdev, int ring)
  */
 void radeon_irq_kms_sw_irq_put(struct radeon_device *rdev, int ring)
 {
-	if (!rdev->ddev->irq_enabled)
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
+	if (!dev->irq_enabled)
 		return;
 
 	if (atomic_dec_and_test(&rdev->irq.ring_int[ring])) {
@@ -341,10 +368,12 @@ void radeon_irq_kms_sw_irq_put(struct radeon_device *rdev, int ring)
  */
 void radeon_irq_kms_pflip_irq_get(struct radeon_device *rdev, int crtc)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
 	if (crtc < 0 || crtc >= rdev->num_crtc)
 		return;
 
-	if (!rdev->ddev->irq_enabled)
+	if (!dev->irq_enabled)
 		return;
 
 	if (atomic_inc_return(&rdev->irq.pflip[crtc]) == 1) {
@@ -365,10 +394,12 @@ void radeon_irq_kms_pflip_irq_get(struct radeon_device *rdev, int crtc)
  */
 void radeon_irq_kms_pflip_irq_put(struct radeon_device *rdev, int crtc)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
 	if (crtc < 0 || crtc >= rdev->num_crtc)
 		return;
 
-	if (!rdev->ddev->irq_enabled)
+	if (!dev->irq_enabled)
 		return;
 
 	if (atomic_dec_and_test(&rdev->irq.pflip[crtc])) {
@@ -388,7 +419,9 @@ void radeon_irq_kms_pflip_irq_put(struct radeon_device *rdev, int crtc)
  */
 void radeon_irq_kms_enable_afmt(struct radeon_device *rdev, int block)
 {
-	if (!rdev->ddev->irq_enabled)
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
+	if (!dev->irq_enabled)
 		return;
 
 	mtx_enter(&rdev->irq.lock);
@@ -408,7 +441,9 @@ void radeon_irq_kms_enable_afmt(struct radeon_device *rdev, int block)
  */
 void radeon_irq_kms_disable_afmt(struct radeon_device *rdev, int block)
 {
-	if (!rdev->ddev->irq_enabled)
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+
+	if (!dev->irq_enabled)
 		return;
 
 	mtx_enter(&rdev->irq.lock);
@@ -427,9 +462,10 @@ void radeon_irq_kms_disable_afmt(struct radeon_device *rdev, int block)
  */
 void radeon_irq_kms_enable_hpd(struct radeon_device *rdev, unsigned hpd_mask)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	int i;
 
-	if (!rdev->ddev->irq_enabled)
+	if (!dev->irq_enabled)
 		return;
 
 	mtx_enter(&rdev->irq.lock);
@@ -449,9 +485,10 @@ void radeon_irq_kms_enable_hpd(struct radeon_device *rdev, unsigned hpd_mask)
  */
 void radeon_irq_kms_disable_hpd(struct radeon_device *rdev, unsigned hpd_mask)
 {
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	int i;
 
-	if (!rdev->ddev->irq_enabled)
+	if (!dev->irq_enabled)
 		return;
 
 	mtx_enter(&rdev->irq.lock);
