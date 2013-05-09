@@ -40,6 +40,8 @@
 #define KMS_DRIVER_MINOR	29
 #define KMS_DRIVER_PATCHLEVEL	0
 
+#define RADEON_MODESET
+
 int	radeon_driver_irq_handler_kms(void *);
 void	radeon_driver_irq_preinstall_kms(struct drm_device *);
 int	radeon_driver_irq_postinstall_kms(struct drm_device *);
@@ -97,14 +99,25 @@ int	radeon_cp_setparam_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_surface_alloc_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_surface_free_kms(struct drm_device *, void *, struct drm_file *);
 
-struct drm_driver_info kms_driver = {
+int	radeondrm_probe(struct device *, void *, void *);
+void	radeondrm_attach_kms(struct device *, struct device *, void *);
+int	radeondrm_detach_kms(struct device *, int);
+int	radeondrm_activate_kms(struct device *, int);
+
+#ifdef RADEON_MODESET
+struct cfattach radeondrm_ca = {
+        sizeof (struct radeon_device), radeondrm_probe, radeondrm_attach_kms,
+        radeondrm_detach_kms, radeondrm_activate_kms
+};
+#endif
+
+extern const struct drm_pcidev radeondrm_pciidlist[];
+
+static struct drm_driver_info kms_driver = {
 	.flags =
 	    DRIVER_AGP | DRIVER_MTRR | DRIVER_PCI_DMA | DRIVER_SG |
 	    DRIVER_IRQ | DRIVER_DMA | DRIVER_GEM,
 	.buf_priv_size = 0,
-#ifdef notyet
-	.load = radeon_driver_load_kms,
-#endif
 	.firstopen = radeon_driver_firstopen_kms,
 	.open = radeon_driver_open_kms,
 #ifdef notyet
@@ -113,7 +126,6 @@ struct drm_driver_info kms_driver = {
 #endif
 	.lastclose = radeon_driver_lastclose_kms,
 #ifdef notyet
-	.unload = radeon_driver_unload_kms,
 	.suspend = radeon_suspend_kms,
 	.resume = radeon_resume_kms,
 #endif
@@ -160,6 +172,32 @@ struct drm_driver_info kms_driver = {
 	.patchlevel = KMS_DRIVER_PATCHLEVEL,
 };
 
+int radeon_modeset_init(struct radeon_device *rdev);
+int radeon_modeset_init(struct radeon_device *rdev)
+{
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+}
+
+void radeon_modeset_fini(struct radeon_device *rdev);
+void radeon_modeset_fini(struct radeon_device *rdev)
+{
+	printf("%s stub\n", __func__);
+}
+
+int radeon_device_init(struct radeon_device *rdev, struct drm_device *ddev);
+int radeon_device_init(struct radeon_device *rdev, struct drm_device *ddev)
+{
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+}
+
+void radeon_device_fini(struct radeon_device *rdev);
+void radeon_device_fini(struct radeon_device *rdev)
+{
+	printf("%s stub\n", __func__);
+}
+
 /**
  * radeon_driver_unload_kms - Main unload function for KMS.
  *
@@ -171,22 +209,27 @@ struct drm_driver_info kms_driver = {
  * the rest of the device (CP, writeback, etc.).
  * Returns 0 on success.
  */
-int radeon_driver_unload_kms(struct drm_device *dev)
+int
+radeondrm_detach_kms(struct device *self, int flags)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct radeon_device *rdev = dev->dev_private;
+	struct radeon_device *rdev = (struct radeon_device *)self;
 
 	if (rdev == NULL)
 		return 0;
+
 	radeon_acpi_fini(rdev);
 	radeon_modeset_fini(rdev);
 	radeon_device_fini(rdev);
-	free(rdev, M_DRM);
-	dev->dev_private = NULL;
+
+	if (rdev->drmdev != NULL) {
+		config_detach(rdev->drmdev, flags);
+		rdev->drmdev = NULL;
+	}
+
+	if (rdev->regs != NULL)
+		vga_pci_bar_unmap(rdev->regs);
+
 	return 0;
-#endif
 }
 
 /**
@@ -202,28 +245,65 @@ int radeon_driver_unload_kms(struct drm_device *dev)
  * (crtcs, encoders, hotplug detect, etc.).
  * Returns 0 on success, error on failure.
  */
-int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
+void
+radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct radeon_device *rdev;
-	int r, acpi_status;
+	struct radeon_device	*rdev = (struct radeon_device *)self;
+	struct drm_device	*dev;
+	struct pci_attach_args	*pa = aux;
+	struct vga_pci_bar	*bar;
+	int			 r, acpi_status;
+	const struct drm_pcidev *id_entry;
+	int			 is_agp;
 
-	rdev = malloc(sizeof(struct radeon_device), M_DRM, M_WAITOK | M_ZERO);
-	if (rdev == NULL) {
-		return -ENOMEM;
+	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
+	    PCI_PRODUCT(pa->pa_id), radeondrm_pciidlist);
+	rdev->flags = id_entry->driver_private;
+	rdev->pc = pa->pa_pc;
+	rdev->bst = pa->pa_memt;
+
+	bar = vga_pci_bar_info((struct vga_pci_softc *)parent, 0);
+	if (bar == NULL) {
+		printf(": can't get frambuffer info\n");
+		return;
 	}
-	dev->dev_private = (void *)rdev;
+	rdev->fb_aper_offset = bar->base;
+	rdev->fb_aper_size = bar->maxsize;
+
+	bar = vga_pci_bar_info((struct vga_pci_softc *)parent, 2);
+	if (bar == NULL) {
+		printf(": can't get BAR info\n");
+		return;
+	}
+
+	rdev->regs = vga_pci_bar_map((struct vga_pci_softc *)parent, 
+	    bar->addr, 0, 0);
+	if (rdev->regs == NULL) {
+		printf(": can't map mmio space\n");
+		return;
+	}
+
+	if (pci_intr_map(pa, &rdev->intrh) != 0) {
+		printf(": couldn't map interrupt\n");
+		return;
+	}
+	printf(": %s\n", pci_intr_string(pa->pa_pc, rdev->intrh));
+#ifdef notyet
+	mtx_init(&rdev->swi_lock, IPL_TTY);
+#endif
 
 	/* update BUS flag */
-	if (drm_pci_device_is_agp(dev)) {
-		flags |= RADEON_IS_AGP;
-	} else if (pci_is_pcie(dev->pdev)) {
-		flags |= RADEON_IS_PCIE;
+	if (pci_get_capability(pa->pa_pc, pa->pa_tag, PCI_CAP_AGP, NULL, NULL)) {
+		rdev->flags |= RADEON_IS_AGP;
+	} else if (pci_get_capability(pa->pa_pc, pa->pa_tag,
+	    PCI_CAP_PCIEXPRESS, NULL, NULL)) {
+		rdev->flags |= RADEON_IS_PCIE;
 	} else {
-		flags |= RADEON_IS_PCI;
+		rdev->flags |= RADEON_IS_PCI;
 	}
+
+	rdev->drmdev = drm_attach_pci(&kms_driver, pa, is_agp, self);
+	dev = (struct drm_device *)rdev->drmdev;
 
 	/* radeon_device_init should report only fatal error
 	 * like memory allocation failure or iomapping failure,
@@ -231,10 +311,10 @@ int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	 * properly initialize the GPU MC controller and permit
 	 * VRAM allocation
 	 */
-	r = radeon_device_init(rdev, dev, dev->pdev, flags);
+	r = radeon_device_init(rdev, dev);
 	if (r) {
-		dev_err(&dev->pdev->dev, "Fatal error during GPU init\n");
-		goto out;
+		printf(": Fatal error during GPU init\n");
+		return;
 	}
 
 	/* Again modeset_init should fail only on fatal error
@@ -243,7 +323,7 @@ int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	 */
 	r = radeon_modeset_init(rdev);
 	if (r)
-		dev_err(&dev->pdev->dev, "Fatal error during modeset init\n");
+		printf("Fatal error during modeset init\n");
 
 	/* Call ACPI methods: require modeset init
 	 * but failure is not fatal
@@ -251,15 +331,23 @@ int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	if (!r) {
 		acpi_status = radeon_acpi_init(rdev);
 		if (acpi_status)
-		dev_dbg(&dev->pdev->dev,
-				"Error during ACPI methods call\n");
+			DRM_DEBUG("Error during ACPI methods call\n");
+	}
+}
+
+int
+radeondrm_activate_kms(struct device *arg, int act)
+{
+//	struct radeon_device *rdev = (struct radeon_device *)arg;
+
+	switch (act) {
+	case DVACT_SUSPEND:
+		break;
+	case DVACT_RESUME:
+		break;
 	}
 
-out:
-	if (r)
-		radeon_driver_unload_kms(dev);
-	return r;
-#endif
+	return (0);
 }
 
 /**

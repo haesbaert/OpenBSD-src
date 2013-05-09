@@ -79,12 +79,19 @@ int radeon_mode_dumb_destroy(struct drm_file *file_priv,
 
 /* Disable AGP writeback for scratch registers */
 int radeon_no_wb;
+
 /* Disable/Enable modesetting */
+#define RADEON_MODESET
+#ifdef RADEON_MODESET
 int radeon_modeset = 1;
+#else
+int radeon_modeset = 0;
+#endif
+
 /* MSI support (1 = enable, 0 = disable, -1 = auto) */
 int radeon_msi = -1;
 
-const static struct drm_pcidev radeondrm_pciidlist[] = {
+const struct drm_pcidev radeondrm_pciidlist[] = {
 	{PCI_VENDOR_ATI, PCI_PRODUCT_ATI_RADEON_M241P,
 	    CHIP_RV380|RADEON_IS_MOBILITY},
 	{PCI_VENDOR_ATI, PCI_PRODUCT_ATI_RADEON_X300M24,
@@ -750,9 +757,6 @@ static struct drm_driver_info radeondrm_driver = {
 				    DRIVER_DMA | DRIVER_IRQ,
 };
 
-extern struct drm_driver_info kms_driver;
-static struct drm_driver_info *driver;
-
 int
 radeondrm_probe(struct device *parent, void *match, void *aux)
 {
@@ -841,13 +845,7 @@ radeondrm_attach(struct device *parent, struct device *self, void *aux)
 	TAILQ_INIT(&dev_priv->gart_heap);
 	TAILQ_INIT(&dev_priv->fb_heap);
 
-	if (radeon_modeset == 1) {
-		driver = &kms_driver;
-	} else {
-		driver = &radeondrm_driver;
-	}
-
-	dev_priv->drmdev = drm_attach_pci(driver, pa, is_agp, self);
+	dev_priv->drmdev = drm_attach_pci(&radeondrm_driver, pa, is_agp, self);
 
 	if (drm_vblank_init((struct drm_device *)dev_priv->drmdev, 2))
 		printf(": drm_vblank_init failed\n");
@@ -902,10 +900,12 @@ radeondrm_activate(struct device *arg, int act)
 	return (0);
 }
 
+#ifndef RADEON_MODESET
 struct cfattach radeondrm_ca = {
         sizeof (drm_radeon_private_t), radeondrm_probe, radeondrm_attach, 
 	radeondrm_detach, radeondrm_activate
 }; 
+#endif
 
 struct cfdriver radeondrm_cd = {
 	NULL, "radeondrm", DV_DULL

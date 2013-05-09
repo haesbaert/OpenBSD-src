@@ -1546,8 +1546,20 @@ typedef void (*radeon_wreg_t)(struct radeon_device*, uint32_t, uint32_t);
 struct radeon_device {
 	struct device			dev;
 	struct device			*drmdev;
+
+	pci_chipset_tag_t		pc;
+	pci_intr_handle_t		intrh;
+	bus_space_tag_t			bst;
+	void				*irqh;
+
+	void				*regs;
+
 	struct pci_dev			*pdev;
 	struct rwlock 			exclusive_lock;
+
+	unsigned long			fb_aper_offset;
+	unsigned long			fb_aper_size;
+
 	/* ASIC */
 	union radeon_asic_config	config;
 	enum radeon_family		family;
@@ -1640,9 +1652,7 @@ struct radeon_device {
 };
 
 int radeon_device_init(struct radeon_device *rdev,
-		       struct drm_device *ddev,
-		       struct pci_dev *pdev,
-		       uint32_t flags);
+		       struct drm_device *ddev);
 void radeon_device_fini(struct radeon_device *rdev);
 int radeon_gpu_wait_for_idle(struct radeon_device *rdev);
 

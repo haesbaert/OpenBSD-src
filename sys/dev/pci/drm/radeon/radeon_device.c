@@ -1016,9 +1016,7 @@ static const struct vga_switcheroo_client_ops radeon_switcheroo_ops = {
  * Called at driver startup.
  */
 int radeon_device_init(struct radeon_device *rdev,
-		       struct drm_device *ddev,
-		       struct pci_dev *pdev,
-		       uint32_t flags)
+		       struct drm_device *ddev)
 {
 	int r, i;
 	int dma_bits;
