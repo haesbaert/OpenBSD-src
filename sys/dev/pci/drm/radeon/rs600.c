@@ -63,12 +63,12 @@ void avivo_wait_for_vblank(struct radeon_device *rdev, int crtc)
 		for (i = 0; i < rdev->usec_timeout; i++) {
 			if (!(RREG32(AVIVO_D1CRTC_STATUS + crtc_offsets[crtc]) & AVIVO_D1CRTC_V_BLANK))
 				break;
-			udelay(1);
+			DRM_UDELAY(1);
 		}
 		for (i = 0; i < rdev->usec_timeout; i++) {
 			if (RREG32(AVIVO_D1CRTC_STATUS + crtc_offsets[crtc]) & AVIVO_D1CRTC_V_BLANK)
 				break;
-			udelay(1);
+			DRM_UDELAY(1);
 		}
 	}
 }
@@ -105,7 +105,7 @@ u32 rs600_page_flip(struct radeon_device *rdev, int crtc_id, u64 crtc_base)
 	for (i = 0; i < rdev->usec_timeout; i++) {
 		if (RREG32(AVIVO_D1GRPH_UPDATE + radeon_crtc->crtc_offset) & AVIVO_D1GRPH_SURFACE_UPDATE_PENDING)
 			break;
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 	DRM_DEBUG("Update pending now high. Unlocking vupdate_lock.\n");
 
@@ -134,7 +134,7 @@ void rs600_pm_misc(struct radeon_device *rdev)
 				tmp &= ~(voltage->gpio.mask);
 			WREG32(voltage->gpio.reg, tmp);
 			if (voltage->delay)
-				udelay(voltage->delay);
+				DRM_UDELAY(voltage->delay);
 		} else {
 			tmp = RREG32(voltage->gpio.reg);
 			if (voltage->active_high)
@@ -143,7 +143,7 @@ void rs600_pm_misc(struct radeon_device *rdev)
 				tmp |= voltage->gpio.mask;
 			WREG32(voltage->gpio.reg, tmp);
 			if (voltage->delay)
-				udelay(voltage->delay);
+				DRM_UDELAY(voltage->delay);
 		}
 	} else if (voltage->type == VOLTAGE_VDDC)
 		radeon_atom_set_voltage(rdev, voltage->vddc_id, SET_VOLTAGE_TYPE_ASIC_VDDC);
@@ -748,7 +748,7 @@ int rs600_mc_wait_for_idle(struct radeon_device *rdev)
 	for (i = 0; i < rdev->usec_timeout; i++) {
 		if (G_000000_MC_IDLE(RREG32_MC(R_000000_MC_STATUS)))
 			return 0;
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 	return -1;
 }

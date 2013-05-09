@@ -83,12 +83,12 @@ void r100_wait_for_vblank(struct radeon_device *rdev, int crtc)
 			for (i = 0; i < rdev->usec_timeout; i++) {
 				if (!(RREG32(RADEON_CRTC_STATUS) & RADEON_CRTC_VBLANK_CUR))
 					break;
-				udelay(1);
+				DRM_UDELAY(1);
 			}
 			for (i = 0; i < rdev->usec_timeout; i++) {
 				if (RREG32(RADEON_CRTC_STATUS) & RADEON_CRTC_VBLANK_CUR)
 					break;
-				udelay(1);
+				DRM_UDELAY(1);
 			}
 		}
 	} else {
@@ -96,12 +96,12 @@ void r100_wait_for_vblank(struct radeon_device *rdev, int crtc)
 			for (i = 0; i < rdev->usec_timeout; i++) {
 				if (!(RREG32(RADEON_CRTC2_STATUS) & RADEON_CRTC2_VBLANK_CUR))
 					break;
-				udelay(1);
+				DRM_UDELAY(1);
 			}
 			for (i = 0; i < rdev->usec_timeout; i++) {
 				if (RREG32(RADEON_CRTC2_STATUS) & RADEON_CRTC2_VBLANK_CUR)
 					break;
-				udelay(1);
+				DRM_UDELAY(1);
 			}
 		}
 	}
@@ -164,7 +164,7 @@ u32 r100_page_flip(struct radeon_device *rdev, int crtc_id, u64 crtc_base)
 	for (i = 0; i < rdev->usec_timeout; i++) {
 		if (RREG32(RADEON_CRTC_OFFSET + radeon_crtc->crtc_offset) & RADEON_CRTC_OFFSET__GUI_TRIG_OFFSET)
 			break;
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 	DRM_DEBUG("Update pending now high. Unlocking vupdate_lock.\n");
 
@@ -339,7 +339,7 @@ void r100_pm_misc(struct radeon_device *rdev)
 				tmp &= ~(voltage->gpio.mask);
 			WREG32(voltage->gpio.reg, tmp);
 			if (voltage->delay)
-				udelay(voltage->delay);
+				DRM_UDELAY(voltage->delay);
 		} else {
 			tmp = RREG32(voltage->gpio.reg);
 			if (voltage->active_high)
@@ -348,7 +348,7 @@ void r100_pm_misc(struct radeon_device *rdev)
 				tmp |= voltage->gpio.mask;
 			WREG32(voltage->gpio.reg, tmp);
 			if (voltage->delay)
-				udelay(voltage->delay);
+				DRM_UDELAY(voltage->delay);
 		}
 	}
 
@@ -928,7 +928,7 @@ static int r100_cp_wait_for_idle(struct radeon_device *rdev)
 		if (!G_000E40_CP_CMDSTRM_BUSY(tmp)) {
 			return 0;
 		}
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 	return -1;
 }
@@ -1136,7 +1136,7 @@ int r100_cp_init(struct radeon_device *rdev, unsigned ring_size)
 	}
 
 	WREG32(RADEON_CP_RB_CNTL, tmp);
-	udelay(10);
+	DRM_UDELAY(10);
 	ring->rptr = RREG32(RADEON_CP_RB_RPTR);
 	/* Set cp mode to bus mastering & enable cp*/
 	WREG32(RADEON_CP_CSQ_MODE,

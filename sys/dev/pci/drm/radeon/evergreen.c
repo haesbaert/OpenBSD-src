@@ -121,12 +121,12 @@ void dce4_wait_for_vblank(struct radeon_device *rdev, int crtc)
 		for (i = 0; i < rdev->usec_timeout; i++) {
 			if (!(RREG32(EVERGREEN_CRTC_STATUS + crtc_offsets[crtc]) & EVERGREEN_CRTC_V_BLANK))
 				break;
-			udelay(1);
+			DRM_UDELAY(1);
 		}
 		for (i = 0; i < rdev->usec_timeout; i++) {
 			if (RREG32(EVERGREEN_CRTC_STATUS + crtc_offsets[crtc]) & EVERGREEN_CRTC_V_BLANK)
 				break;
-			udelay(1);
+			DRM_UDELAY(1);
 		}
 	}
 }
@@ -199,7 +199,7 @@ u32 evergreen_page_flip(struct radeon_device *rdev, int crtc_id, u64 crtc_base)
 	for (i = 0; i < rdev->usec_timeout; i++) {
 		if (RREG32(EVERGREEN_GRPH_UPDATE + radeon_crtc->crtc_offset) & EVERGREEN_GRPH_SURFACE_UPDATE_PENDING)
 			break;
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 	DRM_DEBUG("Update pending now high. Unlocking vupdate_lock.\n");
 
@@ -1154,7 +1154,7 @@ int evergreen_mc_wait_for_idle(struct radeon_device *rdev)
 		tmp = RREG32(SRBM_STATUS) & 0x1F00;
 		if (!tmp)
 			return 0;
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 	return -1;
 }
@@ -1181,7 +1181,7 @@ void evergreen_pcie_gart_tlb_flush(struct radeon_device *rdev)
 		if (tmp) {
 			return;
 		}
-		udelay(1);
+		DRM_UDELAY(1);
 	}
 }
 
@@ -1342,7 +1342,7 @@ void evergreen_mc_stop(struct radeon_device *rdev, struct evergreen_mc_save *sav
 			for (j = 0; j < rdev->usec_timeout; j++) {
 				if (radeon_get_vblank_counter(rdev, i) != frame_count)
 					break;
-				udelay(1);
+				DRM_UDELAY(1);
 			}
 		} else {
 			save->crtc_enabled[i] = false;
@@ -1360,7 +1360,7 @@ void evergreen_mc_stop(struct radeon_device *rdev, struct evergreen_mc_save *sav
 		WREG32(MC_SHARED_BLACKOUT_CNTL, blackout | 1);
 	}
 	/* wait for the MC to settle */
-	udelay(100);
+	DRM_UDELAY(100);
 }
 
 void evergreen_mc_resume(struct radeon_device *rdev, struct evergreen_mc_save *save)
@@ -1409,7 +1409,7 @@ void evergreen_mc_resume(struct radeon_device *rdev, struct evergreen_mc_save *s
 			for (j = 0; j < rdev->usec_timeout; j++) {
 				if (radeon_get_vblank_counter(rdev, i) != frame_count)
 					break;
-				udelay(1);
+				DRM_UDELAY(1);
 			}
 		}
 	}
@@ -2255,7 +2255,7 @@ static void evergreen_gpu_init(struct radeon_device *rdev)
 
 	WREG32(PA_CL_ENHANCE, CLIP_VTX_REORDER_ENA | NUM_CLIP_SEQ(3));
 
-	udelay(50);
+	DRM_UDELAY(50);
 
 }
 
@@ -2381,7 +2381,7 @@ static void evergreen_gpu_soft_reset_gfx(struct radeon_device *rdev)
 	dev_info(rdev->dev, "  GRBM_SOFT_RESET=0x%08X\n", grbm_reset);
 	WREG32(GRBM_SOFT_RESET, grbm_reset);
 	(void)RREG32(GRBM_SOFT_RESET);
-	udelay(50);
+	DRM_UDELAY(50);
 	WREG32(GRBM_SOFT_RESET, 0);
 	(void)RREG32(GRBM_SOFT_RESET);
 
@@ -2421,7 +2421,7 @@ static void evergreen_gpu_soft_reset_dma(struct radeon_device *rdev)
 	/* Reset dma */
 	WREG32(SRBM_SOFT_RESET, SOFT_RESET_DMA);
 	RREG32(SRBM_SOFT_RESET);
-	udelay(50);
+	DRM_UDELAY(50);
 	WREG32(SRBM_SOFT_RESET, 0);
 
 	dev_info(rdev->dev, "  R_00D034_DMA_STATUS_REG   = 0x%08X\n",
@@ -2455,7 +2455,7 @@ static int evergreen_gpu_soft_reset(struct radeon_device *rdev, u32 reset_mask)
 		evergreen_gpu_soft_reset_dma(rdev);
 
 	/* Wait a little for things to settle down */
-	udelay(50);
+	DRM_UDELAY(50);
 
 	evergreen_mc_resume(rdev, &save);
 	return 0;

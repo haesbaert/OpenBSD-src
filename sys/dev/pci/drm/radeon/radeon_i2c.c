@@ -471,7 +471,7 @@ static int r100_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 				    (48 << RADEON_I2C_TIME_LIMIT_SHIFT)));
 		WREG32(i2c_cntl_0, reg);
 		for (k = 0; k < 32; k++) {
-			udelay(10);
+			DRM_UDELAY(10);
 			tmp = RREG32(i2c_cntl_0);
 			if (tmp & RADEON_I2C_GO)
 				continue;
@@ -503,7 +503,7 @@ static int r100_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 						    (48 << RADEON_I2C_TIME_LIMIT_SHIFT)));
 				WREG32(i2c_cntl_0, reg | RADEON_I2C_RECEIVE);
 				for (k = 0; k < 32; k++) {
-					udelay(10);
+					DRM_UDELAY(10);
 					tmp = RREG32(i2c_cntl_0);
 					if (tmp & RADEON_I2C_GO)
 						continue;
@@ -531,7 +531,7 @@ static int r100_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 						    (48 << RADEON_I2C_TIME_LIMIT_SHIFT)));
 				WREG32(i2c_cntl_0, reg);
 				for (k = 0; k < 32; k++) {
-					udelay(10);
+					DRM_UDELAY(10);
 					tmp = RREG32(i2c_cntl_0);
 					if (tmp & RADEON_I2C_GO)
 						continue;
@@ -632,7 +632,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 
 	WREG32(AVIVO_DC_I2C_ARBITRATION, AVIVO_DC_I2C_SW_WANTS_TO_USE_I2C);
 	for (i = 0; i < 50; i++) {
-		udelay(1);
+		DRM_UDELAY(1);
 		if (RREG32(AVIVO_DC_I2C_ARBITRATION) & AVIVO_DC_I2C_SW_CAN_USE_I2C)
 			break;
 	}
@@ -666,7 +666,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 					      AVIVO_DC_I2C_NACK |
 					      AVIVO_DC_I2C_HALT));
 		WREG32(AVIVO_DC_I2C_RESET, AVIVO_DC_I2C_SOFT_RESET);
-		udelay(1);
+		DRM_UDELAY(1);
 		WREG32(AVIVO_DC_I2C_RESET, 0);
 
 		WREG32(AVIVO_DC_I2C_DATA, (p->addr << 1) & 0xff);
@@ -679,7 +679,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 		WREG32(AVIVO_DC_I2C_CONTROL1, reg);
 		WREG32(AVIVO_DC_I2C_STATUS1, AVIVO_DC_I2C_GO);
 		for (j = 0; j < 200; j++) {
-			udelay(50);
+			DRM_UDELAY(50);
 			tmp = RREG32(AVIVO_DC_I2C_STATUS1);
 			if (tmp & AVIVO_DC_I2C_GO)
 				continue;
@@ -710,7 +710,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 							      AVIVO_DC_I2C_NACK |
 							      AVIVO_DC_I2C_HALT));
 				WREG32(AVIVO_DC_I2C_RESET, AVIVO_DC_I2C_SOFT_RESET);
-				udelay(1);
+				DRM_UDELAY(1);
 				WREG32(AVIVO_DC_I2C_RESET, 0);
 
 				WREG32(AVIVO_DC_I2C_DATA, ((p->addr << 1) & 0xff) | 0x1);
@@ -721,7 +721,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 				WREG32(AVIVO_DC_I2C_CONTROL1, reg | AVIVO_DC_I2C_RECEIVE);
 				WREG32(AVIVO_DC_I2C_STATUS1, AVIVO_DC_I2C_GO);
 				for (j = 0; j < 200; j++) {
-					udelay(50);
+					DRM_UDELAY(50);
 					tmp = RREG32(AVIVO_DC_I2C_STATUS1);
 					if (tmp & AVIVO_DC_I2C_GO)
 						continue;
@@ -750,7 +750,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 							      AVIVO_DC_I2C_NACK |
 							      AVIVO_DC_I2C_HALT));
 				WREG32(AVIVO_DC_I2C_RESET, AVIVO_DC_I2C_SOFT_RESET);
-				udelay(1);
+				DRM_UDELAY(1);
 				WREG32(AVIVO_DC_I2C_RESET, 0);
 
 				WREG32(AVIVO_DC_I2C_DATA, (p->addr << 1) & 0xff);
@@ -764,7 +764,7 @@ static int r500_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 				WREG32(AVIVO_DC_I2C_CONTROL1, reg);
 				WREG32(AVIVO_DC_I2C_STATUS1, AVIVO_DC_I2C_GO);
 				for (j = 0; j < 200; j++) {
-					udelay(50);
+					DRM_UDELAY(50);
 					tmp = RREG32(AVIVO_DC_I2C_STATUS1);
 					if (tmp & AVIVO_DC_I2C_GO)
 						continue;
@@ -789,7 +789,7 @@ done:
 				      AVIVO_DC_I2C_NACK |
 				      AVIVO_DC_I2C_HALT));
 	WREG32(AVIVO_DC_I2C_RESET, AVIVO_DC_I2C_SOFT_RESET);
-	udelay(1);
+	DRM_UDELAY(1);
 	WREG32(AVIVO_DC_I2C_RESET, 0);
 
 	WREG32(AVIVO_DC_I2C_ARBITRATION, AVIVO_DC_I2C_SW_DONE_USING_I2C);

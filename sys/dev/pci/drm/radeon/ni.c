@@ -268,7 +268,7 @@ int ni_mc_load_microcode(struct radeon_device *rdev)
 		for (i = 0; i < rdev->usec_timeout; i++) {
 			if (RREG32(MC_IO_PAD_CNTL_D0) & MEM_FALL_OUT_CMD)
 				break;
-			udelay(1);
+			DRM_UDELAY(1);
 		}
 
 		if (running)
@@ -729,7 +729,7 @@ static void cayman_gpu_init(struct radeon_device *rdev)
 
 	WREG32(PA_CL_ENHANCE, CLIP_VTX_REORDER_ENA | NUM_CLIP_SEQ(3));
 
-	udelay(50);
+	DRM_UDELAY(50);
 }
 
 /*
@@ -1240,7 +1240,7 @@ int cayman_dma_resume(struct radeon_device *rdev)
 	/* Reset dma */
 	WREG32(SRBM_SOFT_RESET, SOFT_RESET_DMA | SOFT_RESET_DMA1);
 	RREG32(SRBM_SOFT_RESET);
-	udelay(50);
+	DRM_UDELAY(50);
 	WREG32(SRBM_SOFT_RESET, 0);
 
 	for (i = 0; i < 2; i++) {
@@ -1371,7 +1371,7 @@ static void cayman_gpu_soft_reset_gfx(struct radeon_device *rdev)
 	dev_info(rdev->dev, "  GRBM_SOFT_RESET=0x%08X\n", grbm_reset);
 	WREG32(GRBM_SOFT_RESET, grbm_reset);
 	(void)RREG32(GRBM_SOFT_RESET);
-	udelay(50);
+	DRM_UDELAY(50);
 	WREG32(GRBM_SOFT_RESET, 0);
 	(void)RREG32(GRBM_SOFT_RESET);
 
@@ -1417,7 +1417,7 @@ static void cayman_gpu_soft_reset_dma(struct radeon_device *rdev)
 	/* Reset dma */
 	WREG32(SRBM_SOFT_RESET, SOFT_RESET_DMA | SOFT_RESET_DMA1);
 	RREG32(SRBM_SOFT_RESET);
-	udelay(50);
+	DRM_UDELAY(50);
 	WREG32(SRBM_SOFT_RESET, 0);
 
 	dev_info(rdev->dev, "  R_00D034_DMA_STATUS_REG   = 0x%08X\n",
@@ -1461,7 +1461,7 @@ static int cayman_gpu_soft_reset(struct radeon_device *rdev, u32 reset_mask)
 		cayman_gpu_soft_reset_dma(rdev);
 
 	/* Wait a little for things to settle down */
-	udelay(50);
+	DRM_UDELAY(50);
 
 	evergreen_mc_resume(rdev, &save);
 	return 0;

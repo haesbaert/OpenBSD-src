@@ -2986,7 +2986,7 @@ bool radeon_combios_external_tmds_setup(struct drm_encoder *encoder)
 					case 3:
 						val = RBIOS16(index);
 						index += 2;
-						udelay(val);
+						DRM_UDELAY(val);
 						break;
 					case 4:
 						val = RBIOS16(index);
@@ -3040,7 +3040,7 @@ bool radeon_combios_external_tmds_setup(struct drm_encoder *encoder)
 				case 4:
 					val = RBIOS16(index);
 					index += 2;
-					udelay(val);
+					DRM_UDELAY(val);
 					break;
 				case 5:
 					reg = id & 0x1fff;
@@ -3118,7 +3118,7 @@ static void combios_parse_mmio_table(struct drm_device *dev, uint16_t offset)
 			case 4:
 				val = RBIOS16(offset);
 				offset += 2;
-				udelay(val);
+				DRM_UDELAY(val);
 				break;
 			case 5:
 				val = RBIOS16(offset);
@@ -3187,7 +3187,7 @@ static void combios_parse_pll_table(struct drm_device *dev, uint16_t offset)
 				tmp = 1000;
 				switch (addr) {
 				case 1:
-					udelay(150);
+					DRM_UDELAY(150);
 					break;
 				case 2:
 					DRM_MDELAY(1);

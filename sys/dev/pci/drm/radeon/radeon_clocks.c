@@ -400,19 +400,19 @@ void radeon_legacy_set_engine_clock(struct radeon_device *rdev,
 	tmp &= ~RADEON_SCLK_SRC_SEL_MASK;
 	WREG32_PLL(RADEON_SCLK_CNTL, tmp);
 
-	udelay(10);
+	DRM_UDELAY(10);
 
 	tmp = RREG32_PLL(RADEON_SPLL_CNTL);
 	tmp |= RADEON_SPLL_SLEEP;
 	WREG32_PLL(RADEON_SPLL_CNTL, tmp);
 
-	udelay(2);
+	DRM_UDELAY(2);
 
 	tmp = RREG32_PLL(RADEON_SPLL_CNTL);
 	tmp |= RADEON_SPLL_RESET;
 	WREG32_PLL(RADEON_SPLL_CNTL, tmp);
 
-	udelay(200);
+	DRM_UDELAY(200);
 
 	tmp = RREG32_PLL(RADEON_M_SPLL_REF_FB_DIV);
 	tmp &= ~(RADEON_SPLL_FB_DIV_MASK << RADEON_SPLL_FB_DIV_SHIFT);
@@ -432,13 +432,13 @@ void radeon_legacy_set_engine_clock(struct radeon_device *rdev,
 	tmp &= ~RADEON_SPLL_SLEEP;
 	WREG32_PLL(RADEON_SPLL_CNTL, tmp);
 
-	udelay(2);
+	DRM_UDELAY(2);
 
 	tmp = RREG32_PLL(RADEON_SPLL_CNTL);
 	tmp &= ~RADEON_SPLL_RESET;
 	WREG32_PLL(RADEON_SPLL_CNTL, tmp);
 
-	udelay(200);
+	DRM_UDELAY(200);
 
 	tmp = RREG32_PLL(RADEON_SCLK_CNTL);
 	tmp &= ~RADEON_SCLK_SRC_SEL_MASK;
@@ -459,13 +459,13 @@ void radeon_legacy_set_engine_clock(struct radeon_device *rdev,
 	}
 	WREG32_PLL(RADEON_SCLK_CNTL, tmp);
 
-	udelay(20);
+	DRM_UDELAY(20);
 
 	tmp = RREG32_PLL(RADEON_CLK_PIN_CNTL);
 	tmp |= RADEON_DONT_USE_XTALIN;
 	WREG32_PLL(RADEON_CLK_PIN_CNTL, tmp);
 
-	udelay(10);
+	DRM_UDELAY(10);
 }
 
 void radeon_legacy_set_clock_gating(struct radeon_device *rdev, int enable)
