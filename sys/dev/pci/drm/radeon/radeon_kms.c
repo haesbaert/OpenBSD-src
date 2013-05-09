@@ -30,6 +30,26 @@
 #include <dev/pci/drm/radeon_drm.h>
 #include "radeon_asic.h"
 
+/* can't include radeon_drv.h due to duplicated defines in radeon_reg.h */
+
+#define DRIVER_NAME		"radeon"
+#define DRIVER_DESC		"ATI Radeon"
+#define DRIVER_DATE		"20080613"
+
+#define KMS_DRIVER_MAJOR	2
+#define KMS_DRIVER_MINOR	29
+#define KMS_DRIVER_PATCHLEVEL	0
+
+int	radeon_driver_irq_handler_kms(void *);
+void	radeon_driver_irq_preinstall_kms(struct drm_device *);
+int	radeon_driver_irq_postinstall_kms(struct drm_device *);
+void	radeon_driver_irq_uninstall_kms(struct drm_device *d);
+
+int	radeon_gem_object_init(struct drm_obj *);
+void	radeon_gem_object_free(struct drm_obj *);
+int	radeon_gem_object_open(struct drm_obj *, struct drm_file *);
+void	radeon_gem_object_close(struct drm_obj *, struct drm_file *);
+
 int	radeon_driver_unload_kms(struct drm_device *);
 int	radeon_driver_load_kms(struct drm_device *, unsigned long);
 int	radeon_info_ioctl(struct drm_device *, void *, struct drm_file *);
@@ -47,7 +67,7 @@ void	radeon_set_filp_rights(struct drm_device *, struct drm_file **,
 	    struct drm_file *, uint32_t *);
 
 int	radeondrm_ioctl_kms(struct drm_device *, u_long, caddr_t, struct drm_file *);
-int	radeon_dma_ioctl_kms(struct drm_device *, void *, struct drm_file *);
+int	radeon_dma_ioctl_kms(struct drm_device *, struct drm_dma *, struct drm_file *);
 
 int	radeon_cp_init_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_cp_start_kms(struct drm_device *, void *, struct drm_file *);
@@ -77,6 +97,68 @@ int	radeon_cp_setparam_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_surface_alloc_kms(struct drm_device *, void *, struct drm_file *);
 int	radeon_surface_free_kms(struct drm_device *, void *, struct drm_file *);
 
+struct drm_driver_info kms_driver = {
+	.flags =
+	    DRIVER_AGP | DRIVER_MTRR | DRIVER_PCI_DMA | DRIVER_SG |
+	    DRIVER_IRQ | DRIVER_DMA | DRIVER_GEM,
+	.buf_priv_size = 0,
+#ifdef notyet
+	.load = radeon_driver_load_kms,
+#endif
+	.firstopen = radeon_driver_firstopen_kms,
+	.open = radeon_driver_open_kms,
+#ifdef notyet
+	.preclose = radeon_driver_preclose_kms,
+	.postclose = radeon_driver_postclose_kms,
+#endif
+	.lastclose = radeon_driver_lastclose_kms,
+#ifdef notyet
+	.unload = radeon_driver_unload_kms,
+	.suspend = radeon_suspend_kms,
+	.resume = radeon_resume_kms,
+#endif
+	.get_vblank_counter = radeon_get_vblank_counter_kms,
+	.enable_vblank = radeon_enable_vblank_kms,
+	.disable_vblank = radeon_disable_vblank_kms,
+	.get_vblank_timestamp = radeon_get_vblank_timestamp_kms,
+#ifdef notyet
+	.get_scanout_position = radeon_get_crtc_scanoutpos,
+#endif
+#if defined(CONFIG_DEBUG_FS)
+	.debugfs_init = radeon_debugfs_init,
+	.debugfs_cleanup = radeon_debugfs_cleanup,
+#endif
+	.irq_preinstall = radeon_driver_irq_preinstall_kms,
+	.irq_postinstall = radeon_driver_irq_postinstall_kms,
+	.irq_uninstall = radeon_driver_irq_uninstall_kms,
+	.irq_handler = radeon_driver_irq_handler_kms,
+	.gem_init_object = radeon_gem_object_init,
+	.gem_free_object = radeon_gem_object_free,
+#ifdef notyet
+	.gem_open_object = radeon_gem_object_open,
+	.gem_close_object = radeon_gem_object_close,
+#endif
+	.gem_size = sizeof(struct radeon_bo),
+	.dma_ioctl = radeon_dma_ioctl_kms,
+	.dumb_create = radeon_mode_dumb_create,
+	.dumb_map_offset = radeon_mode_dumb_mmap,
+	.dumb_destroy = radeon_mode_dumb_destroy,
+#ifdef notyet
+	.fops = &radeon_driver_kms_fops,
+
+	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	.gem_prime_export = radeon_gem_prime_export,
+	.gem_prime_import = radeon_gem_prime_import,
+#endif
+
+	.name = DRIVER_NAME,
+	.desc = DRIVER_DESC,
+	.date = DRIVER_DATE,
+	.major = KMS_DRIVER_MAJOR,
+	.minor = KMS_DRIVER_MINOR,
+	.patchlevel = KMS_DRIVER_PATCHLEVEL,
+};
 
 /**
  * radeon_driver_unload_kms - Main unload function for KMS.
@@ -697,7 +779,7 @@ int radeon_get_vblank_timestamp_kms(struct drm_device *dev, int crtc,
 /*
  * IOCTL.
  */
-int radeon_dma_ioctl_kms(struct drm_device *dev, void *data,
+int radeon_dma_ioctl_kms(struct drm_device *dev, struct drm_dma *d,
 			 struct drm_file *file_priv)
 {
 	/* Not valid in KMS. */

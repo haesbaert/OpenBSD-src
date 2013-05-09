@@ -317,6 +317,7 @@ struct radeon_bo_va {
 };
 
 struct radeon_bo {
+	struct drm_obj			gem_base;
 	/* Protected by gem.rwlock */
 	struct list_head		list;
 	/* Protected by tbo.reserved */
@@ -335,7 +336,6 @@ struct radeon_bo {
 	struct list_head		va;
 	/* Constant after initialization */
 	struct radeon_device		*rdev;
-	struct drm_obj			gem_base;
 
 	struct ttm_bo_kmap_obj dma_buf_vmap;
 	int vmapping_count;
