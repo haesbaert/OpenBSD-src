@@ -32,16 +32,27 @@
 #define RADEON_BENCHMARK_ITERATIONS 1024
 #define RADEON_BENCHMARK_COMMON_MODES_N 17
 
-static int radeon_benchmark_do_move(struct radeon_device *rdev, unsigned size,
+extern int ticks;
+
+int	radeon_benchmark_do_move(struct radeon_device *, unsigned, uint64_t,
+	    uint64_t, int, int);
+void	radeon_benchmark_log_results(int, unsigned, unsigned int, unsigned,
+	    unsigned, char *);
+
+int
+radeon_benchmark_do_move(struct radeon_device *rdev, unsigned size,
 				    uint64_t saddr, uint64_t daddr,
 				    int flag, int n)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	unsigned long start_jiffies;
 	unsigned long end_jiffies;
 	struct radeon_fence *fence = NULL;
 	int i, r;
 
-	start_jiffies = jiffies;
+	start_jiffies = ticks;
 	for (i = 0; i < n; i++) {
 		switch (flag) {
 		case RADEON_BENCHMARK_COPY_DMA:
@@ -65,23 +76,25 @@ static int radeon_benchmark_do_move(struct radeon_device *rdev, unsigned size,
 			goto exit_do_move;
 		radeon_fence_unref(&fence);
 	}
-	end_jiffies = jiffies;
+	end_jiffies = ticks;
 	r = jiffies_to_msecs(end_jiffies - start_jiffies);
 
 exit_do_move:
 	if (fence)
 		radeon_fence_unref(&fence);
 	return r;
+#endif
 }
 
 
-static void radeon_benchmark_log_results(int n, unsigned size,
+void
+radeon_benchmark_log_results(int n, unsigned size,
 					 unsigned int time,
 					 unsigned sdomain, unsigned ddomain,
 					 char *kind)
 {
 	unsigned int throughput = (n * (size >> 10)) / time;
-	DRM_INFO("radeon: %s %u bo moves of %u kB from"
+	DRM_DEBUG("radeon: %s %u bo moves of %u kB from"
 		 " %d to %d in %u ms, throughput: %u Mb/s or %u MB/s\n",
 		 kind, n, size >> 10, sdomain, ddomain, time,
 		 throughput * 8, throughput);
@@ -90,6 +103,8 @@ static void radeon_benchmark_log_results(int n, unsigned size,
 static void radeon_benchmark_move(struct radeon_device *rdev, unsigned size,
 				  unsigned sdomain, unsigned ddomain)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_bo *dobj = NULL;
 	struct radeon_bo *sobj = NULL;
 	uint64_t saddr, daddr;
@@ -166,6 +181,7 @@ out_cleanup:
 	if (r) {
 		DRM_ERROR("Error while benchmarking BO move.\n");
 	}
+#endif
 }
 
 void radeon_benchmark(struct radeon_device *rdev, int test_number)
