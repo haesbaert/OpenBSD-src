@@ -229,6 +229,9 @@ IS_ERR_OR_NULL(const void *ptr)
 #define cpu_to_le32(x) htole32(x)
 
 #define DRM_UDELAY(udelay)	DELAY(udelay)
+#define DRM_MDELAY(msecs)	do { int loops = (msecs);		\
+					while (loops--) DELAY(1000);	\
+				} while (0)
 
 static __inline void
 udelay(unsigned long usecs)
