@@ -88,6 +88,9 @@ int radeon_modeset = 1;
 int radeon_modeset = 0;
 #endif
 
+/* Restrict VRAM for testing */
+int radeon_vram_limit = 0;
+
 /* MSI support (1 = enable, 0 = disable, -1 = auto) */
 int radeon_msi = -1;
 

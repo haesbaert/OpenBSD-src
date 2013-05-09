@@ -185,19 +185,6 @@ void radeon_modeset_fini(struct radeon_device *rdev)
 	printf("%s stub\n", __func__);
 }
 
-int radeon_device_init(struct radeon_device *rdev, struct drm_device *ddev);
-int radeon_device_init(struct radeon_device *rdev, struct drm_device *ddev)
-{
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-}
-
-void radeon_device_fini(struct radeon_device *rdev);
-void radeon_device_fini(struct radeon_device *rdev)
-{
-	printf("%s stub\n", __func__);
-}
-
 /**
  * radeon_driver_unload_kms - Main unload function for KMS.
  *

@@ -94,6 +94,54 @@ static const char radeon_family_name[][16] = {
 unsigned int	 radeon_vga_set_decode(void *, bool);
 void		 radeon_check_arguments(struct radeon_device *);
 
+uint32_t	 cail_pll_read(struct card_info *, uint32_t);
+void		 cail_pll_write(struct card_info *, uint32_t, uint32_t);
+uint32_t	 cail_mc_read(struct card_info *, uint32_t);
+void		 cail_mc_write(struct card_info *, uint32_t, uint32_t);
+void		 cail_reg_write(struct card_info *, uint32_t, uint32_t);
+uint32_t	 cail_reg_read(struct card_info *, uint32_t);
+void		 cail_ioreg_write(struct card_info *, uint32_t, uint32_t);
+uint32_t	 cail_ioreg_read(struct card_info *, uint32_t);
+
+uint32_t r100_mm_rreg(struct radeon_device *rdev, uint32_t reg, bool always_indirect);
+uint32_t r100_mm_rreg(struct radeon_device *rdev, uint32_t reg, bool always_indirect)
+{
+	printf("%s stub\n", __func__);
+	return 0;
+}
+
+u32 r100_io_rreg(struct radeon_device *rdev, u32 reg);
+u32 r100_io_rreg(struct radeon_device *rdev, u32 reg)
+{
+	printf("%s stub\n", __func__);
+	return 0;
+}
+
+void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v);
+void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v)
+{
+	printf("%s stub\n", __func__);
+}
+
+void r100_mm_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v, bool always_indirect);
+void r100_mm_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v, bool always_indirect)
+{
+	printf("%s stub\n", __func__);
+}
+
+int atom_asic_init(struct atom_context *ctx);
+int atom_asic_init(struct atom_context *ctx)
+{
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+}
+
+void radeon_combios_asic_init(struct drm_device *dev);
+void radeon_combios_asic_init(struct drm_device *dev)
+{
+	printf("%s stub\n", __func__);
+}
+
 /**
  * radeon_surface_init - Clear GPU surface registers.
  *
@@ -604,7 +652,8 @@ void radeon_dummy_page_fini(struct radeon_device *rdev)
  * Provides a PLL register accessor for the atom interpreter (r4xx+).
  * Returns the value of the PLL register.
  */
-static uint32_t cail_pll_read(struct card_info *info, uint32_t reg)
+uint32_t
+cail_pll_read(struct card_info *info, uint32_t reg)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 	uint32_t r;
@@ -622,7 +671,8 @@ static uint32_t cail_pll_read(struct card_info *info, uint32_t reg)
  *
  * Provides a PLL register accessor for the atom interpreter (r4xx+).
  */
-static void cail_pll_write(struct card_info *info, uint32_t reg, uint32_t val)
+void
+cail_pll_write(struct card_info *info, uint32_t reg, uint32_t val)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 
@@ -638,7 +688,8 @@ static void cail_pll_write(struct card_info *info, uint32_t reg, uint32_t val)
  * Provides an MC register accessor for the atom interpreter (r4xx+).
  * Returns the value of the MC register.
  */
-static uint32_t cail_mc_read(struct card_info *info, uint32_t reg)
+uint32_t
+cail_mc_read(struct card_info *info, uint32_t reg)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 	uint32_t r;
@@ -656,7 +707,8 @@ static uint32_t cail_mc_read(struct card_info *info, uint32_t reg)
  *
  * Provides a MC register accessor for the atom interpreter (r4xx+).
  */
-static void cail_mc_write(struct card_info *info, uint32_t reg, uint32_t val)
+void
+cail_mc_write(struct card_info *info, uint32_t reg, uint32_t val)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 
@@ -672,7 +724,8 @@ static void cail_mc_write(struct card_info *info, uint32_t reg, uint32_t val)
  *
  * Provides a MMIO register accessor for the atom interpreter (r4xx+).
  */
-static void cail_reg_write(struct card_info *info, uint32_t reg, uint32_t val)
+void
+cail_reg_write(struct card_info *info, uint32_t reg, uint32_t val)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 
@@ -688,7 +741,8 @@ static void cail_reg_write(struct card_info *info, uint32_t reg, uint32_t val)
  * Provides an MMIO register accessor for the atom interpreter (r4xx+).
  * Returns the value of the MMIO register.
  */
-static uint32_t cail_reg_read(struct card_info *info, uint32_t reg)
+uint32_t
+cail_reg_read(struct card_info *info, uint32_t reg)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 	uint32_t r;
@@ -706,7 +760,8 @@ static uint32_t cail_reg_read(struct card_info *info, uint32_t reg)
  *
  * Provides a IO register accessor for the atom interpreter (r4xx+).
  */
-static void cail_ioreg_write(struct card_info *info, uint32_t reg, uint32_t val)
+void
+cail_ioreg_write(struct card_info *info, uint32_t reg, uint32_t val)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 
@@ -722,7 +777,8 @@ static void cail_ioreg_write(struct card_info *info, uint32_t reg, uint32_t val)
  * Provides an IO register accessor for the atom interpreter (r4xx+).
  * Returns the value of the IO register.
  */
-static uint32_t cail_ioreg_read(struct card_info *info, uint32_t reg)
+uint32_t
+cail_ioreg_read(struct card_info *info, uint32_t reg)
 {
 	struct radeon_device *rdev = info->dev->dev_private;
 	uint32_t r;
@@ -743,6 +799,9 @@ static uint32_t cail_ioreg_read(struct card_info *info, uint32_t reg)
  */
 int radeon_atombios_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct card_info *atom_card_info =
 	    malloc(sizeof(struct card_info), M_DRM, M_WAITOK | M_ZERO);
@@ -773,6 +832,7 @@ int radeon_atombios_init(struct radeon_device *rdev)
 	radeon_atom_initialize_bios_scratch_regs(dev);
 	atom_allocate_fb_scratch(rdev->mode_info.atom_context);
 	return 0;
+#endif
 }
 
 /**
@@ -811,9 +871,13 @@ void radeon_atombios_fini(struct radeon_device *rdev)
  */
 int radeon_combios_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	radeon_combios_initialize_bios_scratch_regs(dev);
 	return 0;
+#endif
 }
 
 /**
@@ -1002,7 +1066,6 @@ static const struct vga_switcheroo_client_ops radeon_switcheroo_ops = {
 };
 #endif
 
-#ifdef notyet
 /**
  * radeon_device_init - initialize the driver
  *
@@ -1018,15 +1081,15 @@ static const struct vga_switcheroo_client_ops radeon_switcheroo_ops = {
 int radeon_device_init(struct radeon_device *rdev,
 		       struct drm_device *ddev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
+	struct radeon_device *dev_priv = rdev;
 	int r, i;
 	int dma_bits;
 
 	rdev->shutdown = false;
-	rdev->dev = &pdev->dev;
-	rdev->ddev = ddev;
-	rdev->pdev = pdev;
-	rdev->flags = flags;
-	rdev->family = flags & RADEON_FAMILY_MASK;
+	rdev->family = rdev->flags & RADEON_FAMILY_MASK;
 	rdev->is_atom_bios = false;
 	rdev->usec_timeout = RADEON_MAX_USEC_TIMEOUT;
 	rdev->mc.gtt_size = radeon_gart_size * 1024 * 1024;
@@ -1037,8 +1100,8 @@ int radeon_device_init(struct radeon_device *rdev,
 	}
 
 	DRM_INFO("initializing kernel modesetting (%s 0x%04X:0x%04X 0x%04X:0x%04X).\n",
-		radeon_family_name[rdev->family], pdev->vendor, pdev->device,
-		pdev->subsystem_vendor, pdev->subsystem_device);
+		radeon_family_name[rdev->family], ddev->pci_vendor, ddev->pci_device,
+		ddev->pci_subvendor, ddev->pci_subdevice);
 
 	/* rwlock initialization are all done here so we
 	 * can recall function without having locking issues */
@@ -1048,9 +1111,11 @@ int radeon_device_init(struct radeon_device *rdev,
 	rw_init(&rdev->gem.rwlock, "gem");
 	rw_init(&rdev->pm.rwlock, "pm");
 	rw_init(&rdev->gpu_clock_rwlock, "gpuclk");
-	rw_init(&rdev->pm.mclk_lock), "mclk");
+	rw_init(&rdev->pm.mclk_lock, "mclk");
 	rw_init(&rdev->exclusive_lock, "rdnexc");
+#ifdef notyet
 	init_waitqueue_head(&rdev->irq.vblank_queue);
+#endif
 	r = radeon_gem_init(rdev);
 	if (r)
 		return r;
@@ -1095,6 +1160,7 @@ int radeon_device_init(struct radeon_device *rdev,
 		rdev->need_dma32 = true;
 
 	dma_bits = rdev->need_dma32 ? 32 : 40;
+#ifdef notyet
 	r = pci_set_dma_mask(rdev->pdev, DMA_BIT_MASK(dma_bits));
 	if (r) {
 		rdev->need_dma32 = true;
@@ -1135,6 +1201,7 @@ int radeon_device_init(struct radeon_device *rdev,
 	 * ignore it */
 	vga_client_register(rdev->pdev, rdev, NULL, radeon_vga_set_decode);
 	vga_switcheroo_register_client(rdev->pdev, &radeon_switcheroo_ops);
+#endif
 
 	r = radeon_init(rdev);
 	if (r)
@@ -1165,8 +1232,10 @@ int radeon_device_init(struct radeon_device *rdev,
 		radeon_benchmark(rdev, radeon_benchmarking);
 	}
 	return 0;
+#endif
 }
 
+#ifdef __linux__
 static void radeon_debugfs_remove_files(struct radeon_device *rdev);
 #endif
 
@@ -1373,6 +1442,9 @@ int radeon_resume_kms(struct drm_device *dev)
  */
 int radeon_gpu_reset(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	unsigned ring_sizes[RADEON_NUM_RINGS];
 	uint32_t *ring_data[RADEON_NUM_RINGS];
@@ -1441,6 +1513,7 @@ retry:
 
 	rw_exit_write(&rdev->exclusive_lock);
 	return r;
+#endif
 }
 
 
