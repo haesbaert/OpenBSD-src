@@ -1076,7 +1076,7 @@ static int cayman_cp_resume(struct radeon_device *rdev)
 				 SOFT_RESET_SPI |
 				 SOFT_RESET_SX));
 	RREG32(GRBM_SOFT_RESET);
-	mdelay(15);
+	DRM_MDELAY(15);
 	WREG32(GRBM_SOFT_RESET, 0);
 	RREG32(GRBM_SOFT_RESET);
 
@@ -1126,7 +1126,7 @@ static int cayman_cp_resume(struct radeon_device *rdev)
 		WREG32(ring->rptr_reg, ring->rptr);
 		WREG32(ring->wptr_reg, ring->wptr);
 
-		mdelay(1);
+		DRM_MDELAY(1);
 		WREG32_P(cp_rb_cntl[i], 0, ~RB_RPTR_WR_ENA);
 	}
 

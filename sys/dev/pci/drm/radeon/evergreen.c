@@ -1415,7 +1415,7 @@ void evergreen_mc_resume(struct radeon_device *rdev, struct evergreen_mc_save *s
 	}
 	/* Unlock vga access */
 	WREG32(VGA_HDP_CONTROL, save->vga_hdp_control);
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(VGA_RENDER_CONTROL, save->vga_render_control);
 }
 
@@ -1647,7 +1647,7 @@ static int evergreen_cp_resume(struct radeon_device *rdev)
 				 SOFT_RESET_SPI |
 				 SOFT_RESET_SX));
 	RREG32(GRBM_SOFT_RESET);
-	mdelay(15);
+	DRM_MDELAY(15);
 	WREG32(GRBM_SOFT_RESET, 0);
 	RREG32(GRBM_SOFT_RESET);
 
@@ -1683,7 +1683,7 @@ static int evergreen_cp_resume(struct radeon_device *rdev)
 		WREG32(SCRATCH_UMSK, 0);
 	}
 
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(CP_RB_CNTL, tmp);
 
 	WREG32(CP_RB_BASE, ring->gpu_addr >> 8);
@@ -2879,7 +2879,7 @@ static void evergreen_irq_disable(struct radeon_device *rdev)
 {
 	r600_disable_interrupts(rdev);
 	/* Wait and acknowledge irq */
-	mdelay(1);
+	DRM_MDELAY(1);
 	evergreen_irq_ack(rdev);
 	evergreen_disable_interrupt_state(rdev);
 }

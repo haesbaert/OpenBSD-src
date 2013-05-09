@@ -717,7 +717,7 @@ void r100_irq_disable(struct radeon_device *rdev)
 
 	WREG32(R_000040_GEN_INT_CNTL, 0);
 	/* Wait and acknowledge irq */
-	mdelay(1);
+	DRM_MDELAY(1);
 	tmp = RREG32(R_000044_GEN_INT_STATUS);
 	WREG32(R_000044_GEN_INT_STATUS, tmp);
 }
@@ -2601,14 +2601,14 @@ void r100_bm_disable(struct radeon_device *rdev)
 	/* disable bus mastering */
 	tmp = RREG32(R_000030_BUS_CNTL);
 	WREG32(R_000030_BUS_CNTL, (tmp & 0xFFFFFFFF) | 0x00000044);
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(R_000030_BUS_CNTL, (tmp & 0xFFFFFFFF) | 0x00000042);
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(R_000030_BUS_CNTL, (tmp & 0xFFFFFFFF) | 0x00000040);
 	tmp = RREG32(RADEON_BUS_CNTL);
-	mdelay(1);
+	DRM_MDELAY(1);
 	pci_clear_master(rdev->pdev);
-	mdelay(1);
+	DRM_MDELAY(1);
 }
 
 int r100_asic_reset(struct radeon_device *rdev)
@@ -2640,17 +2640,17 @@ int r100_asic_reset(struct radeon_device *rdev)
 					S_0000F0_SOFT_RESET_PP(1) |
 					S_0000F0_SOFT_RESET_RB(1));
 	RREG32(R_0000F0_RBBM_SOFT_RESET);
-	mdelay(500);
+	DRM_MDELAY(500);
 	WREG32(R_0000F0_RBBM_SOFT_RESET, 0);
-	mdelay(1);
+	DRM_MDELAY(1);
 	status = RREG32(R_000E40_RBBM_STATUS);
 	dev_info(rdev->dev, "(%s:%d) RBBM_STATUS=0x%08X\n", __func__, __LINE__, status);
 	/* reset CP */
 	WREG32(R_0000F0_RBBM_SOFT_RESET, S_0000F0_SOFT_RESET_CP(1));
 	RREG32(R_0000F0_RBBM_SOFT_RESET);
-	mdelay(500);
+	DRM_MDELAY(500);
 	WREG32(R_0000F0_RBBM_SOFT_RESET, 0);
-	mdelay(1);
+	DRM_MDELAY(1);
 	status = RREG32(R_000E40_RBBM_STATUS);
 	dev_info(rdev->dev, "(%s:%d) RBBM_STATUS=0x%08X\n", __func__, __LINE__, status);
 	/* restore PCI & busmastering */
@@ -2916,7 +2916,7 @@ static void r100_pll_errata_after_data(struct radeon_device *rdev)
 	 * or the chip could hang on a subsequent access
 	 */
 	if (rdev->pll_errata & CHIP_ERRATA_PLL_DELAY) {
-		mdelay(5);
+		DRM_MDELAY(5);
 	}
 
 	/* This function is required to workaround a hardware bug in some (all?)

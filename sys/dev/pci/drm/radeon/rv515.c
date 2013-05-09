@@ -396,7 +396,7 @@ void rv515_mc_resume(struct radeon_device *rdev, struct rv515_mc_save *save)
 	}
 	/* Unlock vga access */
 	WREG32(R_000328_VGA_HDP_CONTROL, save->vga_hdp_control);
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(R_000300_VGA_RENDER_CONTROL, save->vga_render_control);
 }
 

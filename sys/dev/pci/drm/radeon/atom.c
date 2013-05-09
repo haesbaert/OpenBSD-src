@@ -661,7 +661,7 @@ static void atom_op_delay(atom_exec_context *ctx, int *ptr, int arg)
 	if (arg == ATOM_UNIT_MICROSEC)
 		udelay(count);
 	else if (!drm_can_sleep())
-		mdelay(count);
+		DRM_MDELAY(count);
 	else
 		msleep(count);
 }

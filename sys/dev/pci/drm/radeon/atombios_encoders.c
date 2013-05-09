@@ -1342,7 +1342,7 @@ atombios_set_edp_panel_power(struct drm_connector *connector, int action)
 		for (i = 0; i < 300; i++) {
 			if (radeon_hpd_sense(rdev, radeon_connector->hpd.hpd))
 				return true;
-			mdelay(1);
+			DRM_MDELAY(1);
 		}
 		return false;
 	}

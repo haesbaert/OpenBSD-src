@@ -1980,7 +1980,7 @@ static int si_cp_resume(struct radeon_device *rdev)
 				 SOFT_RESET_SPI |
 				 SOFT_RESET_SX));
 	RREG32(GRBM_SOFT_RESET);
-	mdelay(15);
+	DRM_MDELAY(15);
 	WREG32(GRBM_SOFT_RESET, 0);
 	RREG32(GRBM_SOFT_RESET);
 
@@ -2019,7 +2019,7 @@ static int si_cp_resume(struct radeon_device *rdev)
 		WREG32(SCRATCH_UMSK, 0);
 	}
 
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(CP_RB0_CNTL, tmp);
 
 	WREG32(CP_RB0_BASE, ring->gpu_addr >> 8);
@@ -2045,7 +2045,7 @@ static int si_cp_resume(struct radeon_device *rdev)
 	WREG32(CP_RB1_RPTR_ADDR, (rdev->wb.gpu_addr + RADEON_WB_CP1_RPTR_OFFSET) & 0xFFFFFFFC);
 	WREG32(CP_RB1_RPTR_ADDR_HI, upper_32_bits(rdev->wb.gpu_addr + RADEON_WB_CP1_RPTR_OFFSET) & 0xFF);
 
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(CP_RB1_CNTL, tmp);
 
 	WREG32(CP_RB1_BASE, ring->gpu_addr >> 8);
@@ -2071,7 +2071,7 @@ static int si_cp_resume(struct radeon_device *rdev)
 	WREG32(CP_RB2_RPTR_ADDR, (rdev->wb.gpu_addr + RADEON_WB_CP2_RPTR_OFFSET) & 0xFFFFFFFC);
 	WREG32(CP_RB2_RPTR_ADDR_HI, upper_32_bits(rdev->wb.gpu_addr + RADEON_WB_CP2_RPTR_OFFSET) & 0xFF);
 
-	mdelay(1);
+	DRM_MDELAY(1);
 	WREG32(CP_RB2_CNTL, tmp);
 
 	WREG32(CP_RB2_BASE, ring->gpu_addr >> 8);
@@ -3616,7 +3616,7 @@ static void si_irq_disable(struct radeon_device *rdev)
 {
 	si_disable_interrupts(rdev);
 	/* Wait and acknowledge irq */
-	mdelay(1);
+	DRM_MDELAY(1);
 	si_irq_ack(rdev);
 	si_disable_interrupt_state(rdev);
 }
