@@ -88,11 +88,50 @@ int radeon_modeset = 1;
 int radeon_modeset = 0;
 #endif
 
+/* Disable/Enable dynamic clocks */
+int radeon_dynclks = -1;
+
+/* Enable ATOMBIOS modesetting for R4xx */
+int radeon_r4xx_atom = 0;
+
+/* AGP Mode (-1 == PCI) */
+int radeon_agpmode = 0;
+
 /* Restrict VRAM for testing */
 int radeon_vram_limit = 0;
 
+/* Size of PCIE/IGP gart to setup in megabytes (32, 64, etc) */
+int radeon_gart_size = 512; /* default gart size */
+
+/* Run benchmark */
+int radeon_benchmarking = 0;
+
+/* Run tests */
+int radeon_testing = 0;
+
+/* Force connector table */
+int radeon_connector_table = 0;
+
+/* TV enable (0 = disable) */
+int radeon_tv = 1;
+
+/* Audio enable (1 = enable) */
+int radeon_audio = 0;
+
+/* Display Priority (0 = auto, 1 = normal, 2 = high) */
+int radeon_disp_priority = 0;
+
+/* hw i2c engine enable (0 = disable) */
+int radeon_hw_i2c = 0;
+
+/* PCIE Gen2 mode (-1 = auto, 0 = disable, 1 = enable) */
+int radeon_pcie_gen2 = -1;
+
 /* MSI support (1 = enable, 0 = disable, -1 = auto) */
 int radeon_msi = -1;
+
+/* GPU lockup timeout in ms (defaul 10000 = 10 seconds, 0 = disable) */
+int radeon_lockup_timeout = 10000;
 
 const struct drm_pcidev radeondrm_pciidlist[] = {
 	{PCI_VENDOR_ATI, PCI_PRODUCT_ATI_RADEON_M241P,
