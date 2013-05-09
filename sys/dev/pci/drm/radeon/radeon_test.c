@@ -33,6 +33,9 @@
 /* Test BO GTT->VRAM and VRAM->GTT GPU copies across the whole GTT aperture */
 static void radeon_do_test_moves(struct radeon_device *rdev, int flag)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct radeon_device *dev_priv = rdev;
 	struct radeon_bo *vram_obj = NULL;
 	struct radeon_bo **gtt_obj = NULL;
 	struct radeon_fence *fence = NULL;
@@ -240,8 +243,9 @@ out_cleanup:
 		radeon_fence_unref(&fence);
 	}
 	if (r) {
-		printk(KERN_WARNING "Error while testing BO move.\n");
+		DRM_ERROR("Error while testing BO move.\n");
 	}
+#endif
 }
 
 void radeon_test_moves(struct radeon_device *rdev)
@@ -256,6 +260,8 @@ void radeon_test_ring_sync(struct radeon_device *rdev,
 			   struct radeon_ring *ringA,
 			   struct radeon_ring *ringB)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_fence *fence1 = NULL, *fence2 = NULL;
 	struct radeon_semaphore *semaphore = NULL;
 	int r;
@@ -339,7 +345,8 @@ out_cleanup:
 		radeon_fence_unref(&fence2);
 
 	if (r)
-		printk(KERN_WARNING "Error while testing ring sync (%d).\n", r);
+		DRM_ERROR("Error while testing ring sync (%d).\n", r);
+#endif
 }
 
 static void radeon_test_ring_sync2(struct radeon_device *rdev,
@@ -347,6 +354,9 @@ static void radeon_test_ring_sync2(struct radeon_device *rdev,
 			    struct radeon_ring *ringB,
 			    struct radeon_ring *ringC)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct radeon_device *dev_priv = rdev;
 	struct radeon_fence *fenceA = NULL, *fenceB = NULL;
 	struct radeon_semaphore *semaphore = NULL;
 	bool sigA, sigB;
@@ -454,11 +464,13 @@ out_cleanup:
 		radeon_fence_unref(&fenceB);
 
 	if (r)
-		printk(KERN_WARNING "Error while testing ring sync (%d).\n", r);
+		DRM_ERROR("Error while testing ring sync (%d).\n", r);
+#endif
 }
 
 void radeon_test_syncing(struct radeon_device *rdev)
 {
+	struct radeon_device *dev_priv = rdev;
 	int i, j, k;
 
 	for (i = 1; i < RADEON_NUM_RINGS; ++i) {

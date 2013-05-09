@@ -91,4 +91,5 @@ file	dev/pci/drm/radeon/radeon_kms.c		radeondrm
 file	dev/pci/drm/radeon/radeon_mem.c		radeondrm
 file	dev/pci/drm/radeon/radeon_object.c	radeondrm
 file	dev/pci/drm/radeon/radeon_state.c	radeondrm
+file	dev/pci/drm/radeon/radeon_test.c	radeondrm
 file	dev/pci/drm/drm_heap.c          	radeondrm
