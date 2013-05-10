@@ -137,6 +137,7 @@ typedef int64_t s64;
 typedef uint16_t __le16;
 
 #define EXPORT_SYMBOL(x)
+#define MODULE_FIRMWARE(x)
 #define __iomem
 #define ARRAY_SIZE nitems
 #define DRM_ARRAY_SIZE nitems
