@@ -76,9 +76,11 @@ file	dev/pci/drm/i915/dvo_tfp410.c		inteldrm
 device	radeondrm: drmbase, ttm
 attach	radeondrm at drmdev
 file	dev/pci/drm/ati_pcigart.c		radeondrm
+file	dev/pci/drm/radeon/r100.c		radeondrm
 file	dev/pci/drm/radeon/r300_cmdbuf.c	radeondrm
 file	dev/pci/drm/radeon/r600_blit.c		radeondrm
 file	dev/pci/drm/radeon/r600_blit_shaders.c	radeondrm
+file	dev/pci/drm/radeon/radeon_asic.c	radeondrm
 file	dev/pci/drm/radeon/radeon_benchmark.c	radeondrm
 file	dev/pci/drm/radeon/radeon_cp.c		radeondrm
 file	dev/pci/drm/radeon/radeon_cs.c		radeondrm

@@ -1552,9 +1552,8 @@ struct radeon_device {
 	bus_space_tag_t			bst;
 	void				*irqh;
 
-	void				*regs;
+	struct vga_pci_bar		*regs;
 
-	struct pci_dev			*pdev;
 	struct rwlock 			exclusive_lock;
 
 	unsigned long			fb_aper_offset;
@@ -1671,10 +1670,15 @@ void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v);
 /*
  * Registers read & write functions.
  */
-#define RREG8(reg) readb((rdev->rmmio) + (reg))
-#define WREG8(reg, v) writeb(v, (rdev->rmmio) + (reg))
-#define RREG16(reg) readw((rdev->rmmio) + (reg))
-#define WREG16(reg, v) writew(v, (rdev->rmmio) + (reg))
+#define RREG8(reg) \
+    bus_space_read_1(rdev->regs->bst, rdev->regs->bsh, (reg))
+#define WREG8(reg, v) \
+    bus_space_write_1(rdev->regs->bst, rdev->regs->bsh, (reg), (v))
+#define RREG16(reg) \
+    bus_space_read_2(rdev->regs->bst, rdev->regs->bsh, (reg))
+#define WREG16(reg, v) \
+    bus_space_write_2(rdev->regs->bst, rdev->regs->bsh, (reg), (v))
+    
 #define RREG32(reg) r100_mm_rreg(rdev, (reg), false)
 #define RREG32_IDX(reg) r100_mm_rreg(rdev, (reg), true)
 #define DREG32(reg) printk(KERN_INFO "REGISTER: " #reg " : 0x%08X\n", r100_mm_rreg(rdev, (reg), false))
@@ -1732,8 +1736,8 @@ void r100_pll_errata_after_index(struct radeon_device *rdev);
 /*
  * ASICs helpers.
  */
-#define ASIC_IS_RN50(rdev) ((rdev->pdev->device == 0x515e) || \
-			    (rdev->pdev->device == 0x5969))
+#define ASIC_IS_RN50(ddev) ((ddev->pci_device == 0x515e) || \
+			    (ddev->pci_device == 0x5969))
 #define ASIC_IS_RV100(rdev) ((rdev->family == CHIP_RV100) || \
 		(rdev->family == CHIP_RV200) || \
 		(rdev->family == CHIP_RS100) || \
@@ -1750,14 +1754,14 @@ void r100_pll_errata_after_index(struct radeon_device *rdev);
 		(rdev->family == CHIP_RV410) ||			\
 		(rdev->family == CHIP_RS400) ||			\
 		(rdev->family == CHIP_RS480))
-#define ASIC_IS_X2(rdev) ((rdev->ddev->pdev->device == 0x9441) || \
-		(rdev->ddev->pdev->device == 0x9443) || \
-		(rdev->ddev->pdev->device == 0x944B) || \
-		(rdev->ddev->pdev->device == 0x9506) || \
-		(rdev->ddev->pdev->device == 0x9509) || \
-		(rdev->ddev->pdev->device == 0x950F) || \
-		(rdev->ddev->pdev->device == 0x689C) || \
-		(rdev->ddev->pdev->device == 0x689D))
+#define ASIC_IS_X2(ddev) ((ddev->pci_device == 0x9441) || \
+		(ddev->pci_device == 0x9443) || \
+		(ddev->pci_device == 0x944B) || \
+		(ddev->pci_device == 0x9506) || \
+		(ddev->pci_device == 0x9509) || \
+		(ddev->pci_device == 0x950F) || \
+		(ddev->pci_device == 0x689C) || \
+		(ddev->pci_device == 0x689D))
 #define ASIC_IS_AVIVO(rdev) ((rdev->family >= CHIP_RS600))
 #define ASIC_IS_DCE2(rdev) ((rdev->family == CHIP_RS600)  ||	\
 			    (rdev->family == CHIP_RS690)  ||	\
