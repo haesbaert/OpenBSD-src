@@ -282,7 +282,7 @@ do {									\
 	    curproc->p_pid, __func__ , ## arg)
 
 
-#define DRM_INFO(fmt, arg...)  printf("%s: " fmt, dev_priv->dev.dv_xname, ## arg)
+#define DRM_INFO(fmt, arg...)  printf("drm: " fmt, ## arg)
 
 #ifdef DRMDEBUG
 #undef DRM_DEBUG

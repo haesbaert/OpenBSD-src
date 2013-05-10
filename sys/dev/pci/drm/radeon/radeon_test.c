@@ -35,7 +35,6 @@ static void radeon_do_test_moves(struct radeon_device *rdev, int flag)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct radeon_device *dev_priv = rdev;
 	struct radeon_bo *vram_obj = NULL;
 	struct radeon_bo **gtt_obj = NULL;
 	struct radeon_fence *fence = NULL;
@@ -356,7 +355,6 @@ static void radeon_test_ring_sync2(struct radeon_device *rdev,
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct radeon_device *dev_priv = rdev;
 	struct radeon_fence *fenceA = NULL, *fenceB = NULL;
 	struct radeon_semaphore *semaphore = NULL;
 	bool sigA, sigB;
@@ -470,7 +468,6 @@ out_cleanup:
 
 void radeon_test_syncing(struct radeon_device *rdev)
 {
-	struct radeon_device *dev_priv = rdev;
 	int i, j, k;
 
 	for (i = 1; i < RADEON_NUM_RINGS; ++i) {

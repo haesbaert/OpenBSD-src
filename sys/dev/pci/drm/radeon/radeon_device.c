@@ -563,7 +563,6 @@ void radeon_update_bandwidth_info(struct radeon_device *rdev)
 bool radeon_boot_test_post_card(struct radeon_device *rdev)
 {
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
-	struct radeon_device *dev_priv = rdev;
 
 	if (radeon_card_posted(rdev))
 		return true;
@@ -1084,7 +1083,6 @@ int radeon_device_init(struct radeon_device *rdev,
 	printf("%s stub\n", __func__);
 	return -ENOSYS;
 #ifdef notyet
-	struct radeon_device *dev_priv = rdev;
 	int r, i;
 	int dma_bits;
 
@@ -1251,7 +1249,6 @@ void radeon_device_fini(struct radeon_device *rdev)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct radeon_device *dev_priv = rdev;
 
 	DRM_INFO("radeon: finishing device.\n");
 	rdev->shutdown = true;

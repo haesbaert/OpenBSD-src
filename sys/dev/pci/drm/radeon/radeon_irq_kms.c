@@ -250,7 +250,6 @@ radeon_msi_ok(struct radeon_device *rdev)
 int radeon_irq_kms_init(struct radeon_device *rdev)
 {
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
-	struct radeon_device *dev_priv = rdev;
 	int r = 0;
 
 #ifdef notyet
