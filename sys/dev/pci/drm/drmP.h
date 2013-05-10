@@ -226,8 +226,13 @@ IS_ERR_OR_NULL(const void *ptr)
 
 #define	DRM_COPY_TO_USER(user, kern, size)	copyout(kern, user, size)
 #define	DRM_COPY_FROM_USER(kern, user, size)	copyin(user, kern, size)
+
+#define le16_to_cpu(x) letoh16(x)
 #define le32_to_cpu(x) letoh32(x)
+#define cpu_to_le16(x) htole16(x)
 #define cpu_to_le32(x) htole32(x)
+
+#define be32_to_cpup(x) betoh32(*x)
 
 #define DRM_UDELAY(udelay)	DELAY(udelay)
 #define DRM_MDELAY(msecs)	do { int loops = (msecs);		\
