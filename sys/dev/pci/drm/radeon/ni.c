@@ -292,7 +292,7 @@ int ni_init_microcode(struct radeon_device *rdev)
 	pdev = platform_device_register_simple("radeon_cp", 0, NULL, 0);
 	err = IS_ERR(pdev);
 	if (err) {
-		printk(KERN_ERR "radeon_cp: Failed to register firmware\n");
+		DRM_ERROR( "radeon_cp: Failed to register firmware\n");
 		return -EINVAL;
 	}
 
@@ -348,7 +348,7 @@ int ni_init_microcode(struct radeon_device *rdev)
 	if (err)
 		goto out;
 	if (rdev->pfp_fw->size != pfp_req_size) {
-		printk(KERN_ERR
+		DRM_ERROR(
 		       "ni_cp: Bogus length %zu in firmware \"%s\"\n",
 		       rdev->pfp_fw->size, fw_name);
 		err = -EINVAL;
@@ -360,7 +360,7 @@ int ni_init_microcode(struct radeon_device *rdev)
 	if (err)
 		goto out;
 	if (rdev->me_fw->size != me_req_size) {
-		printk(KERN_ERR
+		DRM_ERROR(
 		       "ni_cp: Bogus length %zu in firmware \"%s\"\n",
 		       rdev->me_fw->size, fw_name);
 		err = -EINVAL;
@@ -371,7 +371,7 @@ int ni_init_microcode(struct radeon_device *rdev)
 	if (err)
 		goto out;
 	if (rdev->rlc_fw->size != rlc_req_size) {
-		printk(KERN_ERR
+		DRM_ERROR(
 		       "ni_rlc: Bogus length %zu in firmware \"%s\"\n",
 		       rdev->rlc_fw->size, fw_name);
 		err = -EINVAL;
@@ -384,7 +384,7 @@ int ni_init_microcode(struct radeon_device *rdev)
 		if (err)
 			goto out;
 		if (rdev->mc_fw->size != mc_req_size) {
-			printk(KERN_ERR
+			DRM_ERROR(
 			       "ni_mc: Bogus length %zu in firmware \"%s\"\n",
 			       rdev->mc_fw->size, fw_name);
 			err = -EINVAL;
@@ -395,7 +395,7 @@ out:
 
 	if (err) {
 		if (err != -EINVAL)
-			printk(KERN_ERR
+			DRM_ERROR(
 			       "ni_cp: Failed to load firmware \"%s\"\n",
 			       fw_name);
 		release_firmware(rdev->pfp_fw);

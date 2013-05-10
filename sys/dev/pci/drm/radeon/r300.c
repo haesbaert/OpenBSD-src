@@ -1130,7 +1130,7 @@ static int r300_packet0_check(struct radeon_cs_parser *p,
 	}
 	return 0;
 fail:
-	printk(KERN_ERR "Forbidden register 0x%04X in cs at %d (val=%08x)\n",
+	DRM_ERROR( "Forbidden register 0x%04X in cs at %d (val=%08x)\n",
 	       reg, idx, idx_value);
 	return -EINVAL;
 }

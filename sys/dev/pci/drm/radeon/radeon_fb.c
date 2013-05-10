@@ -125,7 +125,7 @@ static int radeonfb_create_pinned_object(struct radeon_fbdev *rfbdev,
 				       false, true,
 				       &gobj);
 	if (ret) {
-		printk(KERN_ERR "failed to allocate framebuffer (%d)\n",
+		DRM_ERROR( "failed to allocate framebuffer (%d)\n",
 		       aligned_size);
 		return -ENOMEM;
 	}
