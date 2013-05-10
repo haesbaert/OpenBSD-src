@@ -963,7 +963,7 @@ static void radeon_legacy_tmds_ext_mode_set(struct drm_encoder *encoder,
 		if (ASIC_IS_R300(rdev)) {
 			if ((dev->pci_device == 0x4850) &&
 			    (dev->pci_subvendor == 0x1028) &&
-			    (dev->pdev->subsystem_device == 0x2001)) /* Dell Inspiron 8600 */
+			    (dev->pci_subdevice == 0x2001)) /* Dell Inspiron 8600 */
 				fp2_gen_cntl |= R300_FP2_DVO_CLOCK_MODE_SINGLE;
 			else
 				fp2_gen_cntl |= RADEON_FP2_PAD_FLOP_EN | R300_FP2_DVO_CLOCK_MODE_SINGLE;

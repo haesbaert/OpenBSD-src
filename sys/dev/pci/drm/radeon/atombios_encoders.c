@@ -1935,7 +1935,7 @@ atombios_apply_encoder_quirks(struct drm_encoder *encoder,
 	/* Funky macbooks */
 	if ((dev->pci_device == 0x71C5) &&
 	    (dev->pci_subvendor == 0x106b) &&
-	    (dev->pdev->subsystem_device == 0x0080)) {
+	    (dev->pci_subdevice == 0x0080)) {
 		if (radeon_encoder->devices & ATOM_DEVICE_LCD1_SUPPORT) {
 			uint32_t lvtma_bit_depth_control = RREG32(AVIVO_LVTMA_BIT_DEPTH_CONTROL);
 

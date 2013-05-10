@@ -966,7 +966,7 @@ struct radeon_encoder_primary_dac *radeon_combios_get_primary_dac_info(struct
 	/* Radeon 9100 (R200) */
 	if ((dev->pci_device == 0x514D) &&
 	    (dev->pci_subvendor == 0x174B) &&
-	    (dev->pdev->subsystem_device == 0x7149)) {
+	    (dev->pci_subdevice == 0x7149)) {
 		/* vbios value is bad, use the default */
 		found = 0;
 	}
@@ -2297,7 +2297,7 @@ static bool radeon_apply_legacy_quirks(struct drm_device *dev,
 	/* X300 card with extra non-existent DVI port */
 	if (dev->pci_device == 0x5B60 &&
 	    dev->pci_subvendor == 0x17af &&
-	    dev->pdev->subsystem_device == 0x201e && bios_index == 2) {
+	    dev->pci_subdevice == 0x201e && bios_index == 2) {
 		if (*legacy_connector == CONNECTOR_DVI_I_LEGACY)
 			return false;
 	}
@@ -2310,19 +2310,19 @@ static bool radeon_apply_legacy_tv_quirks(struct drm_device *dev)
 	/* Acer 5102 has non-existent TV port */
 	if (dev->pci_device == 0x5975 &&
 	    dev->pci_subvendor == 0x1025 &&
-	    dev->pdev->subsystem_device == 0x009f)
+	    dev->pci_subdevice == 0x009f)
 		return false;
 
 	/* HP dc5750 has non-existent TV port */
 	if (dev->pci_device == 0x5974 &&
 	    dev->pci_subvendor == 0x103c &&
-	    dev->pdev->subsystem_device == 0x280a)
+	    dev->pci_subdevice == 0x280a)
 		return false;
 
 	/* MSI S270 has non-existent TV port */
 	if (dev->pci_device == 0x5955 &&
 	    dev->pci_subvendor == 0x1462 &&
-	    dev->pdev->subsystem_device == 0x0131)
+	    dev->pci_subdevice == 0x0131)
 		return false;
 
 	return true;
@@ -2478,7 +2478,7 @@ bool radeon_get_legacy_connector_info_from_bios(struct drm_device *dev)
 				 */
 				if (dev->pci_device == 0x5159 &&
 				    dev->pci_subvendor == 0x1014 &&
-				    dev->pdev->subsystem_device == 0x029A) {
+				    dev->pci_subdevice == 0x029A) {
 					tmp &= ~(1 << 4);
 				}
 				if ((tmp >> 4) & 0x1) {
@@ -2772,7 +2772,7 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev)
 		/* Asus 9600xt has an f75375 on the monid bus */
 		if ((dev->pci_device == 0x4152) &&
 		    (dev->pci_subvendor == 0x1043) &&
-		    (dev->pdev->subsystem_device == 0xc002)) {
+		    (dev->pci_subdevice == 0xc002)) {
 			i2c_bus = combios_setup_i2c_bus(rdev, DDC_MONID, 0, 0);
 			rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
 			if (rdev->pm.i2c_bus) {
