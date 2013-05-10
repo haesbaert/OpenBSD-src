@@ -1569,19 +1569,19 @@ bool radeon_get_legacy_connector_info_from_table(struct drm_device *dev)
 			rdev->mode_info.connector_table = CT_IMAC_G5_ISIGHT;
 		} else if ((ddev->pci_device == 0x4a48) &&
 			   (rdev->pdev->subsystem_vendor == 0x1002) &&
-			   (rdev->pdev->subsystem_device == 0x4a48)) {
+			   (ddev->pci_subdevice == 0x4a48)) {
 			/* Mac X800 */
 			rdev->mode_info.connector_table = CT_MAC_X800;
 		} else if ((of_machine_is_compatible("PowerMac7,2") ||
 			    of_machine_is_compatible("PowerMac7,3")) &&
 			   (ddev->pci_device == 0x4150) &&
 			   (rdev->pdev->subsystem_vendor == 0x1002) &&
-			   (rdev->pdev->subsystem_device == 0x4150)) {
+			   (ddev->pci_subdevice == 0x4150)) {
 			/* Mac G5 tower 9600 */
 			rdev->mode_info.connector_table = CT_MAC_G5_9600;
 		} else if ((ddev->pci_device == 0x4c66) &&
 			   (rdev->pdev->subsystem_vendor == 0x1002) &&
-			   (rdev->pdev->subsystem_device == 0x4c66)) {
+			   (ddev->pci_subdevice == 0x4c66)) {
 			/* SAM440ep RV250 embedded board */
 			rdev->mode_info.connector_table = CT_SAM440EP;
 		} else
@@ -3433,7 +3433,7 @@ void radeon_combios_asic_init(struct drm_device *dev)
 	 */
 	if (rdev->family == CHIP_RS480 &&
 	    rdev->pdev->subsystem_vendor == 0x103c &&
-	    rdev->pdev->subsystem_device == 0x308b)
+	    ddev->pci_subdevice == 0x308b)
 		return;
 
 	/* quirk for rs4xx HP dv5000 laptop to make it resume
@@ -3441,7 +3441,7 @@ void radeon_combios_asic_init(struct drm_device *dev)
 	 */
 	if (rdev->family == CHIP_RS480 &&
 	    rdev->pdev->subsystem_vendor == 0x103c &&
-	    rdev->pdev->subsystem_device == 0x30a4)
+	    ddev->pci_subdevice == 0x30a4)
 		return;
 
 	/* quirk for rs4xx Compaq Presario V5245EU laptop to make it resume
@@ -3449,7 +3449,7 @@ void radeon_combios_asic_init(struct drm_device *dev)
 	 */
 	if (rdev->family == CHIP_RS480 &&
 	    rdev->pdev->subsystem_vendor == 0x103c &&
-	    rdev->pdev->subsystem_device == 0x30ae)
+	    ddev->pci_subdevice == 0x30ae)
 		return;
 
 	/* DYN CLK 1 */
