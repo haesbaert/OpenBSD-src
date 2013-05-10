@@ -135,6 +135,9 @@ typedef int32_t s32;
 typedef int64_t s64;
 
 typedef uint16_t __le16;
+typedef uint16_t __be16;
+typedef uint32_t __le32;
+typedef uint32_t __be32;
 
 #define EXPORT_SYMBOL(x)
 #define MODULE_FIRMWARE(x)
