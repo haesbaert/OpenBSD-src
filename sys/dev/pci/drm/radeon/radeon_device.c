@@ -477,7 +477,7 @@ bool radeon_card_posted(struct radeon_device *rdev)
 
 #ifdef notyet
 	if (efi_enabled(EFI_BOOT) &&
-	    rdev->pdev->subsystem_vendor == PCI_VENDOR_ID_APPLE)
+	    ddev->pci_subvendor == PCI_VENDOR_ID_APPLE)
 		return false;
 #endif
 
