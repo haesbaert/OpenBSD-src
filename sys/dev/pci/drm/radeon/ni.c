@@ -40,6 +40,7 @@ extern void evergreen_fix_pci_max_read_req_size(struct radeon_device *rdev);
 extern void evergreen_pcie_gen2_enable(struct radeon_device *rdev);
 extern void si_rlc_fini(struct radeon_device *rdev);
 extern int si_rlc_init(struct radeon_device *rdev);
+void cayman_cp_int_cntl_setup(struct radeon_device *rdev, int ring, u32 cp_int_cntl);
 
 #define EVERGREEN_PFP_UCODE_SIZE 1120
 #define EVERGREEN_PM4_UCODE_SIZE 1376
@@ -204,6 +205,9 @@ static const u32 cayman_io_mc_regs[BTC_IO_MC_REGS_SIZE][2] = {
 
 int ni_mc_load_microcode(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	const __be32 *fw_data;
 	u32 mem_type, running, blackout = 0;
 	u32 *io_mc_regs;
@@ -276,10 +280,14 @@ int ni_mc_load_microcode(struct radeon_device *rdev)
 	}
 
 	return 0;
+#endif
 }
 
 int ni_init_microcode(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct platform_device *pdev;
 	const char *chip_name;
 	const char *rlc_chip_name;
@@ -408,6 +416,7 @@ out:
 		rdev->mc_fw = NULL;
 	}
 	return err;
+#endif
 }
 
 /*
@@ -415,6 +424,7 @@ out:
  */
 static void cayman_gpu_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 gb_addr_config = 0;
 	u32 mc_shared_chmap, mc_arb_ramcfg;
 	u32 cgts_tcc_disable;
@@ -939,6 +949,9 @@ static void cayman_cp_enable(struct radeon_device *rdev, bool enable)
 
 static int cayman_cp_load_microcode(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	const __be32 *fw_data;
 	int i;
 
@@ -962,6 +975,7 @@ static int cayman_cp_load_microcode(struct radeon_device *rdev)
 	WREG32(CP_ME_RAM_WADDR, 0);
 	WREG32(CP_ME_RAM_RADDR, 0);
 	return 0;
+#endif
 }
 
 static int cayman_cp_start(struct radeon_device *rdev)
@@ -1695,6 +1709,7 @@ int cayman_suspend(struct radeon_device *rdev)
  */
 int cayman_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_ring *ring = &rdev->ring[RADEON_RING_TYPE_GFX_INDEX];
 	int r;
 
@@ -1726,7 +1741,7 @@ int cayman_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(rdev->ddev);
+	radeon_get_clock_info(ddev);
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)

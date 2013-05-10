@@ -213,7 +213,7 @@ void rs600_pm_misc(struct radeon_device *rdev)
 
 void rs600_pm_prepare(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = rdev->ddev;
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 	u32 tmp;
@@ -231,7 +231,7 @@ void rs600_pm_prepare(struct radeon_device *rdev)
 
 void rs600_pm_finish(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = rdev->ddev;
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 	u32 tmp;
@@ -300,7 +300,7 @@ void rs600_hpd_set_polarity(struct radeon_device *rdev,
 
 void rs600_hpd_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct drm_connector *connector;
 	unsigned enable = 0;
 
@@ -326,7 +326,7 @@ void rs600_hpd_init(struct radeon_device *rdev)
 
 void rs600_hpd_fini(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct drm_connector *connector;
 	unsigned disable = 0;
 
@@ -370,9 +370,11 @@ int rs600_asic_reset(struct radeon_device *rdev)
 	WREG32(RADEON_CP_RB_RPTR_WR, 0);
 	WREG32(RADEON_CP_RB_WPTR, 0);
 	WREG32(RADEON_CP_RB_CNTL, tmp);
+#ifdef notyet
 	pci_save_state(rdev->pdev);
 	/* disable bus mastering */
 	pci_clear_master(rdev->pdev);
+#endif
 	DRM_MDELAY(1);
 	/* reset GA+VAP */
 	WREG32(R_0000F0_RBBM_SOFT_RESET, S_0000F0_SOFT_RESET_VAP(1) |
@@ -400,7 +402,9 @@ int rs600_asic_reset(struct radeon_device *rdev)
 	status = RREG32(R_000E40_RBBM_STATUS);
 	dev_info(rdev->dev, "(%s:%d) RBBM_STATUS=0x%08X\n", __func__, __LINE__, status);
 	/* restore PCI & busmastering */
+#ifdef notyet
 	pci_restore_state(rdev->pdev);
+#endif
 	/* Check if GPU is idle */
 	if (G_000E40_GA_BUSY(status) || G_000E40_VAP_BUSY(status)) {
 		dev_err(rdev->dev, "failed to reset GPU\n");
@@ -540,6 +544,9 @@ static void rs600_gart_fini(struct radeon_device *rdev)
 
 int rs600_gart_set_page(struct radeon_device *rdev, int i, uint64_t addr)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	void __iomem *ptr = (void *)rdev->gart.ptr;
 
 	if (i < 0 || i > rdev->gart.num_gpu_pages) {
@@ -550,6 +557,7 @@ int rs600_gart_set_page(struct radeon_device *rdev, int i, uint64_t addr)
 	addr |= R600_PTE_READABLE | R600_PTE_WRITEABLE;
 	writeq(addr, ptr + (i * 8));
 	return 0;
+#endif
 }
 
 int rs600_irq_set(struct radeon_device *rdev)
@@ -662,6 +670,7 @@ void rs600_irq_disable(struct radeon_device *rdev)
 
 int rs600_irq_process(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 status, msi_rearm;
 	bool queue_hotplug = false;
 	bool queue_hdmi = false;
@@ -670,7 +679,7 @@ int rs600_irq_process(struct radeon_device *rdev)
 	if (!status &&
 	    !rdev->irq.stat_regs.r500.disp_int &&
 	    !rdev->irq.stat_regs.r500.hdmi0_status) {
-		return IRQ_NONE;
+		return (0);
 	}
 	while (status ||
 	       rdev->irq.stat_regs.r500.disp_int ||
@@ -682,18 +691,18 @@ int rs600_irq_process(struct radeon_device *rdev)
 		/* Vertical blank interrupts */
 		if (G_007EDC_LB_D1_VBLANK_INTERRUPT(rdev->irq.stat_regs.r500.disp_int)) {
 			if (rdev->irq.crtc_vblank_int[0]) {
-				drm_handle_vblank(rdev->ddev, 0);
+				drm_handle_vblank(ddev, 0);
 				rdev->pm.vblank_sync = true;
-				wake_up(&rdev->irq.vblank_queue);
+				wakeup(&rdev->irq.vblank_queue);
 			}
 			if (atomic_read(&rdev->irq.pflip[0]))
 				radeon_crtc_handle_flip(rdev, 0);
 		}
 		if (G_007EDC_LB_D2_VBLANK_INTERRUPT(rdev->irq.stat_regs.r500.disp_int)) {
 			if (rdev->irq.crtc_vblank_int[1]) {
-				drm_handle_vblank(rdev->ddev, 1);
+				drm_handle_vblank(ddev, 1);
 				rdev->pm.vblank_sync = true;
-				wake_up(&rdev->irq.vblank_queue);
+				wakeup(&rdev->irq.vblank_queue);
 			}
 			if (atomic_read(&rdev->irq.pflip[1]))
 				radeon_crtc_handle_flip(rdev, 1);
@@ -712,10 +721,12 @@ int rs600_irq_process(struct radeon_device *rdev)
 		}
 		status = rs600_irq_ack(rdev);
 	}
+#ifdef notyet
 	if (queue_hotplug)
 		schedule_work(&rdev->hotplug_work);
 	if (queue_hdmi)
 		schedule_work(&rdev->audio_work);
+#endif
 	if (rdev->msi_enabled) {
 		switch (rdev->family) {
 		case CHIP_RS600:
@@ -730,7 +741,7 @@ int rs600_irq_process(struct radeon_device *rdev)
 			break;
 		}
 	}
-	return IRQ_HANDLED;
+	return (1);
 }
 
 u32 rs600_get_vblank_counter(struct radeon_device *rdev, int crtc)
@@ -763,6 +774,8 @@ static void rs600_gpu_init(struct radeon_device *rdev)
 
 static void rs600_mc_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	u64 base;
 
 	rdev->mc.aper_base = pci_resource_start(rdev->pdev, 0);
@@ -779,6 +792,7 @@ static void rs600_mc_init(struct radeon_device *rdev)
 	rdev->mc.gtt_base_align = 0;
 	radeon_gtt_location(rdev, &rdev->mc);
 	radeon_update_bandwidth_info(rdev);
+#endif
 }
 
 void rs600_bandwidth_update(struct radeon_device *rdev)
@@ -968,6 +982,7 @@ void rs600_fini(struct radeon_device *rdev)
 
 int rs600_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Disable VGA */
@@ -1003,7 +1018,7 @@ int rs600_init(struct radeon_device *rdev)
 		return -EINVAL;
 
 	/* Initialize clocks */
-	radeon_get_clock_info(rdev->ddev);
+	radeon_get_clock_info(ddev);
 	/* initialize memory controller */
 	rs600_mc_init(rdev);
 	rs600_debugfs(rdev);

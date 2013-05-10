@@ -318,6 +318,9 @@ void r700_cp_stop(struct radeon_device *rdev)
 
 static int rv770_cp_load_microcode(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	const __be32 *fw_data;
 	int i;
 
@@ -352,6 +355,7 @@ static int rv770_cp_load_microcode(struct radeon_device *rdev)
 	WREG32(CP_ME_RAM_WADDR, 0);
 	WREG32(CP_ME_RAM_RADDR, 0);
 	return 0;
+#endif
 }
 
 void r700_cp_fini(struct radeon_device *rdev)
@@ -841,6 +845,9 @@ void r700_vram_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc)
 
 static int rv770_mc_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	u32 tmp;
 	int chansize, numchan;
 
@@ -882,6 +889,7 @@ static int rv770_mc_init(struct radeon_device *rdev)
 	radeon_update_bandwidth_info(rdev);
 
 	return 0;
+#endif
 }
 
 /**
@@ -916,7 +924,7 @@ int rv770_copy_dma(struct radeon_device *rdev,
 	}
 
 	size_in_dw = (num_gpu_pages << RADEON_GPU_PAGE_SHIFT) / 4;
-	num_loops = DIV_ROUND_UP(size_in_dw, 0xFFFF);
+	num_loops = howmany(size_in_dw, 0xFFFF);
 	r = radeon_ring_lock(rdev, ring, num_loops * 5 + 8);
 	if (r) {
 		DRM_ERROR("radeon: moving bo (%d).\n", r);
@@ -1104,6 +1112,7 @@ int rv770_suspend(struct radeon_device *rdev)
  */
 int rv770_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Read BIOS */
@@ -1133,7 +1142,7 @@ int rv770_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(rdev->ddev);
+	radeon_get_clock_info(ddev);
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)
@@ -1208,6 +1217,9 @@ void rv770_fini(struct radeon_device *rdev)
 
 static void rv770_pcie_gen2_enable(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl, lanes, speed_cntl, tmp;
 	u16 link_cntl2;
 	u32 mask;
@@ -1223,7 +1235,7 @@ static void rv770_pcie_gen2_enable(struct radeon_device *rdev)
 		return;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(rdev))
+	if (ASIC_IS_X2(ddev))
 		return;
 
 	ret = drm_pcie_get_speed_cap_mask(rdev->ddev, &mask);
@@ -1290,4 +1302,5 @@ static void rv770_pcie_gen2_enable(struct radeon_device *rdev)
 			link_width_cntl &= ~LC_UPCONFIGURE_DIS;
 		WREG32_PCIE_P(PCIE_LC_LINK_WIDTH_CNTL, link_width_cntl);
 	}
+#endif
 }

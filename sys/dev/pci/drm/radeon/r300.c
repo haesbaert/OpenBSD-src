@@ -64,7 +64,7 @@ void rv370_pcie_gart_tlb_flush(struct radeon_device *rdev)
 		(void)RREG32_PCIE(RADEON_PCIE_TX_GART_CNTL);
 		WREG32_PCIE(RADEON_PCIE_TX_GART_CNTL, tmp);
 	}
-	mb();
+	DRM_MEMORYBARRIER();
 }
 
 #define R300_PTE_WRITEABLE (1 << 2)
@@ -72,6 +72,9 @@ void rv370_pcie_gart_tlb_flush(struct radeon_device *rdev)
 
 int rv370_pcie_gart_set_page(struct radeon_device *rdev, int i, uint64_t addr)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	void __iomem *ptr = rdev->gart.ptr;
 
 	if (i < 0 || i > rdev->gart.num_gpu_pages) {
@@ -85,6 +88,7 @@ int rv370_pcie_gart_set_page(struct radeon_device *rdev, int i, uint64_t addr)
 	 * into VRAM - so no need for cpu_to_le32 on VRAM tables */
 	writel(addr, ((void __iomem *)ptr) + (i * 4));
 	return 0;
+#endif
 }
 
 int rv370_pcie_gart_init(struct radeon_device *rdev)
@@ -322,6 +326,7 @@ int r300_mc_wait_for_idle(struct radeon_device *rdev)
 
 static void r300_gpu_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	uint32_t gb_tile_config, tmp;
 
 	if ((rdev->family == CHIP_R300 && ddev->pci_device != 0x4144) ||
@@ -352,7 +357,7 @@ static void r300_gpu_init(struct radeon_device *rdev)
 	WREG32(R300_GB_TILE_CONFIG, gb_tile_config);
 
 	if (r100_gui_wait_for_idle(rdev)) {
-		printk(KERN_WARNING "Failed to wait GUI idle while "
+		DRM_ERROR("Failed to wait GUI idle while "
 		       "programming pipes. Bad things might happen.\n");
 	}
 
@@ -364,11 +369,11 @@ static void r300_gpu_init(struct radeon_device *rdev)
 	       R300_DC_DC_DISABLE_IGNORE_PE);
 
 	if (r100_gui_wait_for_idle(rdev)) {
-		printk(KERN_WARNING "Failed to wait GUI idle while "
+		DRM_ERROR("Failed to wait GUI idle while "
 		       "programming pipes. Bad things might happen.\n");
 	}
 	if (r300_mc_wait_for_idle(rdev)) {
-		printk(KERN_WARNING "Failed to wait MC idle while "
+		DRM_ERROR("Failed to wait MC idle while "
 		       "programming pipes. Bad things might happen.\n");
 	}
 	DRM_INFO("radeon: %d quad pipes, %d Z pipes initialized.\n",
@@ -396,7 +401,9 @@ int r300_asic_reset(struct radeon_device *rdev)
 	WREG32(RADEON_CP_RB_WPTR, 0);
 	WREG32(RADEON_CP_RB_CNTL, tmp);
 	/* save PCI state */
+#ifdef notyet
 	pci_save_state(rdev->pdev);
+#endif
 	/* disable bus mastering */
 	r100_bm_disable(rdev);
 	WREG32(R_0000F0_RBBM_SOFT_RESET, S_0000F0_SOFT_RESET_VAP(1) |
@@ -420,7 +427,9 @@ int r300_asic_reset(struct radeon_device *rdev)
 	status = RREG32(R_000E40_RBBM_STATUS);
 	dev_info(rdev->dev, "(%s:%d) RBBM_STATUS=0x%08X\n", __func__, __LINE__, status);
 	/* restore PCI & busmastering */
+#ifdef notyet
 	pci_restore_state(rdev->pdev);
+#endif
 	r100_enable_bm(rdev);
 	/* Check if GPU is idle */
 	if (G_000E40_GA_BUSY(status) || G_000E40_VAP_BUSY(status)) {
@@ -1400,6 +1409,7 @@ static int r300_startup(struct radeon_device *rdev)
 
 int r300_resume(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Make sur GART are not working */
@@ -1416,7 +1426,7 @@ int r300_resume(struct radeon_device *rdev)
 			RREG32(R_0007C0_CP_STAT));
 	}
 	/* post */
-	radeon_combios_asic_init(rdev->ddev);
+	radeon_combios_asic_init(ddev);
 	/* Resume clock after posting */
 	r300_clock_startup(rdev);
 	/* Initialize surface registers */
@@ -1463,6 +1473,7 @@ void r300_fini(struct radeon_device *rdev)
 
 int r300_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Disable VGA */
@@ -1500,7 +1511,7 @@ int r300_init(struct radeon_device *rdev)
 	/* Set asic errata */
 	r300_errata(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(rdev->ddev);
+	radeon_get_clock_info(ddev);
 	/* initialize AGP */
 	if (rdev->flags & RADEON_IS_AGP) {
 		r = radeon_agp_init(rdev);

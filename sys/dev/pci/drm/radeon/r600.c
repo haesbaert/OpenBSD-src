@@ -97,6 +97,10 @@ static void r600_gpu_init(struct radeon_device *rdev);
 void r600_fini(struct radeon_device *rdev);
 void r600_irq_disable(struct radeon_device *rdev);
 static void r600_pcie_gen2_enable(struct radeon_device *rdev);
+int r600_ih_ring_alloc(struct radeon_device *rdev);
+void r600_ih_ring_fini(struct radeon_device *rdev);
+void r600_vram_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc);
+void r600_rlc_start(struct radeon_device *rdev);
 
 /* get temperature in millidegrees */
 int rv6xx_get_temp(struct radeon_device *rdev)
@@ -702,7 +706,7 @@ void r600_hpd_set_polarity(struct radeon_device *rdev,
 
 void r600_hpd_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct drm_connector *connector;
 	unsigned enable = 0;
 
@@ -768,7 +772,7 @@ void r600_hpd_init(struct radeon_device *rdev)
 
 void r600_hpd_fini(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct drm_connector *connector;
 	unsigned disable = 0;
 
@@ -823,6 +827,8 @@ void r600_hpd_fini(struct radeon_device *rdev)
  */
 void r600_pcie_gart_tlb_flush(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	unsigned i;
 	u32 tmp;
 
@@ -850,7 +856,7 @@ void r600_pcie_gart_tlb_flush(struct radeon_device *rdev)
 		tmp = RREG32(VM_CONTEXT0_REQUEST_RESPONSE);
 		tmp = (tmp & RESPONSE_TYPE_MASK) >> RESPONSE_TYPE_SHIFT;
 		if (tmp == 2) {
-			printk(KERN_WARNING "[drm] r600 flush TLB failed\n");
+			DRM_ERROR("[drm] r600 flush TLB failed\n");
 			return;
 		}
 		if (tmp) {
@@ -858,6 +864,7 @@ void r600_pcie_gart_tlb_flush(struct radeon_device *rdev)
 		}
 		DRM_UDELAY(1);
 	}
+#endif
 }
 
 int r600_pcie_gart_init(struct radeon_device *rdev)
@@ -1109,7 +1116,8 @@ static void r600_mc_program(struct radeon_device *rdev)
  * Note: GTT start, end, size should be initialized before calling this
  * function on AGP platform.
  */
-static void r600_vram_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc)
+void
+r600_vram_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc)
 {
 	u64 size_bf, size_af;
 
@@ -1155,6 +1163,9 @@ static void r600_vram_gtt_location(struct radeon_device *rdev, struct radeon_mc 
 
 static int r600_mc_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	u32 tmp;
 	int chansize, numchan;
 
@@ -1200,6 +1211,7 @@ static int r600_mc_init(struct radeon_device *rdev)
 	}
 	radeon_update_bandwidth_info(rdev);
 	return 0;
+#endif
 }
 
 int r600_vram_scratch_init(struct radeon_device *rdev)
@@ -1502,7 +1514,11 @@ u32 r6xx_remap_render_backend(struct radeon_device *rdev,
 
 int r600_count_pipe_bits(uint32_t val)
 {
+	printf("%s stub\n", __func__);
+	return 0;
+#ifdef notyet
 	return hweight32(val);
+#endif
 }
 
 static void r600_gpu_init(struct radeon_device *rdev)
@@ -1949,6 +1965,9 @@ void r600_cp_stop(struct radeon_device *rdev)
 
 int r600_init_microcode(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct platform_device *pdev;
 	const char *chip_name;
 	const char *rlc_chip_name;
@@ -2106,10 +2125,14 @@ out:
 		rdev->rlc_fw = NULL;
 	}
 	return err;
+#endif
 }
 
 static int r600_cp_load_microcode(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	const __be32 *fw_data;
 	int i;
 
@@ -2148,6 +2171,7 @@ static int r600_cp_load_microcode(struct radeon_device *rdev)
 	WREG32(CP_ME_RAM_WADDR, 0);
 	WREG32(CP_ME_RAM_RADDR, 0);
 	return 0;
+#endif
 }
 
 int r600_cp_start(struct radeon_device *rdev)
@@ -2465,6 +2489,9 @@ int r600_ring_test(struct radeon_device *rdev, struct radeon_ring *ring)
 int r600_dma_ring_test(struct radeon_device *rdev,
 		       struct radeon_ring *ring)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	unsigned i;
 	int r;
 	void __iomem *ptr = (void *)rdev->vram_scratch.ptr;
@@ -2504,6 +2531,7 @@ int r600_dma_ring_test(struct radeon_device *rdev,
 		r = -EINVAL;
 	}
 	return r;
+#endif
 }
 
 /*
@@ -2677,7 +2705,7 @@ int r600_copy_dma(struct radeon_device *rdev,
 	}
 
 	size_in_dw = (num_gpu_pages << RADEON_GPU_PAGE_SHIFT) / 4;
-	num_loops = DIV_ROUND_UP(size_in_dw, 0xFFFE);
+	num_loops = howmany(size_in_dw, 0xFFFE);
 	r = radeon_ring_lock(rdev, ring, num_loops * 4 + 8);
 	if (r) {
 		DRM_ERROR("radeon: moving bo (%d).\n", r);
@@ -2890,6 +2918,7 @@ int r600_suspend(struct radeon_device *rdev)
  */
 int r600_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	if (r600_debugfs_mc_info_init(rdev)) {
@@ -2922,7 +2951,7 @@ int r600_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(rdev->ddev);
+	radeon_get_clock_info(ddev);
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)
@@ -3093,6 +3122,9 @@ free_scratch:
  */
 int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_ib ib;
 	unsigned i;
 	int r;
@@ -3144,6 +3176,7 @@ int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 	}
 	radeon_ib_free(rdev, &ib);
 	return r;
+#endif
 }
 
 /**
@@ -3271,13 +3304,17 @@ void r600_rlc_stop(struct radeon_device *rdev)
 	WREG32(RLC_CNTL, 0);
 }
 
-static void r600_rlc_start(struct radeon_device *rdev)
+void
+r600_rlc_start(struct radeon_device *rdev)
 {
 	WREG32(RLC_CNTL, RLC_ENABLE);
 }
 
 static int r600_rlc_init(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	u32 i;
 	const __be32 *fw_data;
 
@@ -3336,6 +3373,7 @@ static int r600_rlc_init(struct radeon_device *rdev)
 	r600_rlc_start(rdev);
 
 	return 0;
+#endif
 }
 
 static void r600_enable_interrupts(struct radeon_device *rdev)
@@ -3486,7 +3524,9 @@ int r600_irq_init(struct radeon_device *rdev)
 		r600_disable_interrupt_state(rdev);
 
 	/* at this point everything should be setup correctly to enable master */
+#ifdef notyet
 	pci_set_master(rdev->pdev);
+#endif
 
 	/* enable irqs */
 	r600_enable_interrupts(rdev);
@@ -3817,6 +3857,7 @@ static u32 r600_get_ih_wptr(struct radeon_device *rdev)
 
 int r600_irq_process(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 wptr;
 	u32 rptr;
 	u32 src_id, src_data;
@@ -3825,7 +3866,7 @@ int r600_irq_process(struct radeon_device *rdev)
 	bool queue_hdmi = false;
 
 	if (!rdev->ih.enabled || rdev->shutdown)
-		return IRQ_NONE;
+		return (0);
 
 	/* No MSIs, need a dummy read to flush PCI DMAs */
 	if (!rdev->msi_enabled)
@@ -3836,13 +3877,13 @@ int r600_irq_process(struct radeon_device *rdev)
 restart_ih:
 	/* is somebody else already processing irqs? */
 	if (atomic_xchg(&rdev->ih.lock, 1))
-		return IRQ_NONE;
+		return (0);
 
 	rptr = rdev->ih.rptr;
 	DRM_DEBUG("r600_irq_process start: rptr %d, wptr %d\n", rptr, wptr);
 
 	/* Order reading of wptr vs. reading of IH ring data */
-	rmb();
+	DRM_READMEMORYBARRIER();
 
 	/* display interrupts */
 	r600_irq_ack(rdev);
@@ -3859,9 +3900,9 @@ restart_ih:
 			case 0: /* D1 vblank */
 				if (rdev->irq.stat_regs.r600.disp_int & LB_D1_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[0]) {
-						drm_handle_vblank(rdev->ddev, 0);
+						drm_handle_vblank(ddev, 0);
 						rdev->pm.vblank_sync = true;
-						wake_up(&rdev->irq.vblank_queue);
+						wakeup(&rdev->irq.vblank_queue);
 					}
 					if (atomic_read(&rdev->irq.pflip[0]))
 						radeon_crtc_handle_flip(rdev, 0);
@@ -3885,9 +3926,9 @@ restart_ih:
 			case 0: /* D2 vblank */
 				if (rdev->irq.stat_regs.r600.disp_int & LB_D2_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[1]) {
-						drm_handle_vblank(rdev->ddev, 1);
+						drm_handle_vblank(ddev, 1);
 						rdev->pm.vblank_sync = true;
-						wake_up(&rdev->irq.vblank_queue);
+						wakeup(&rdev->irq.vblank_queue);
 					}
 					if (atomic_read(&rdev->irq.pflip[1]))
 						radeon_crtc_handle_flip(rdev, 1);
@@ -4002,10 +4043,12 @@ restart_ih:
 		rptr += 16;
 		rptr &= rdev->ih.ptr_mask;
 	}
+#ifdef notyet
 	if (queue_hotplug)
 		schedule_work(&rdev->hotplug_work);
 	if (queue_hdmi)
 		schedule_work(&rdev->audio_work);
+#endif
 	rdev->ih.rptr = rptr;
 	WREG32(IH_RB_RPTR, rdev->ih.rptr);
 	atomic_set(&rdev->ih.lock, 0);
@@ -4015,7 +4058,7 @@ restart_ih:
 	if (wptr != rptr)
 		goto restart_ih;
 
-	return IRQ_HANDLED;
+	return (1);
 }
 
 /*
@@ -4060,6 +4103,8 @@ int r600_debugfs_mc_info_init(struct radeon_device *rdev)
  */
 void r600_ioctl_wait_idle(struct radeon_device *rdev, struct radeon_bo *bo)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	/* r7xx hw bug.  write to HDP_DEBUG1 followed by fb read
 	 * rather than write to HDP_REG_COHERENCY_FLUSH_CNTL.
 	 * This seems to cause problems on some AGP cards. Just use the old
@@ -4074,10 +4119,12 @@ void r600_ioctl_wait_idle(struct radeon_device *rdev, struct radeon_bo *bo)
 		tmp = readl((void __iomem *)ptr);
 	} else
 		WREG32(R_005480_HDP_MEM_COHERENCY_FLUSH_CNTL, 0x1);
+#endif
 }
 
 void r600_set_pcie_lanes(struct radeon_device *rdev, int lanes)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl, mask, target_reg;
 
 	if (rdev->flags & RADEON_IS_IGP)
@@ -4087,7 +4134,7 @@ void r600_set_pcie_lanes(struct radeon_device *rdev, int lanes)
 		return;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(rdev))
+	if (ASIC_IS_X2(ddev))
 		return;
 
 	/* FIXME wait for idle */
@@ -4160,6 +4207,7 @@ void r600_set_pcie_lanes(struct radeon_device *rdev, int lanes)
 
 int r600_get_pcie_lanes(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl;
 
 	if (rdev->flags & RADEON_IS_IGP)
@@ -4169,7 +4217,7 @@ int r600_get_pcie_lanes(struct radeon_device *rdev)
 		return 0;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(rdev))
+	if (ASIC_IS_X2(ddev))
 		return 0;
 
 	/* FIXME wait for idle */
@@ -4195,6 +4243,9 @@ int r600_get_pcie_lanes(struct radeon_device *rdev)
 
 static void r600_pcie_gen2_enable(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl, lanes, speed_cntl, training_cntl, tmp;
 	u16 link_cntl2;
 	u32 mask;
@@ -4210,7 +4261,7 @@ static void r600_pcie_gen2_enable(struct radeon_device *rdev)
 		return;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(rdev))
+	if (ASIC_IS_X2(ddev))
 		return;
 
 	/* only RV6xx+ chips are supported */
@@ -4310,6 +4361,7 @@ static void r600_pcie_gen2_enable(struct radeon_device *rdev)
 			link_width_cntl &= ~LC_UPCONFIGURE_DIS;
 		WREG32_PCIE_P(PCIE_LC_LINK_WIDTH_CNTL, link_width_cntl);
 	}
+#endif
 }
 
 /**

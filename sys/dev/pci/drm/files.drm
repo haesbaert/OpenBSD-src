@@ -77,9 +77,22 @@ device	radeondrm: drmbase, ttm
 attach	radeondrm at drmdev
 file	dev/pci/drm/ati_pcigart.c		radeondrm
 file	dev/pci/drm/radeon/r100.c		radeondrm
+file	dev/pci/drm/radeon/r200.c		radeondrm
+file	dev/pci/drm/radeon/r300.c		radeondrm
 file	dev/pci/drm/radeon/r300_cmdbuf.c	radeondrm
+file	dev/pci/drm/radeon/r420.c		radeondrm
+file	dev/pci/drm/radeon/r520.c		radeondrm
+file	dev/pci/drm/radeon/r600.c		radeondrm
 file	dev/pci/drm/radeon/r600_blit.c		radeondrm
 file	dev/pci/drm/radeon/r600_blit_shaders.c	radeondrm
+file	dev/pci/drm/radeon/rs400.c		radeondrm
+file	dev/pci/drm/radeon/rs600.c		radeondrm
+file	dev/pci/drm/radeon/rs690.c		radeondrm
+file	dev/pci/drm/radeon/rv515.c		radeondrm
+file	dev/pci/drm/radeon/rv770.c		radeondrm
+file	dev/pci/drm/radeon/evergreen.c		radeondrm
+file	dev/pci/drm/radeon/ni.c			radeondrm
+file	dev/pci/drm/radeon/si.c			radeondrm
 file	dev/pci/drm/radeon/radeon_asic.c	radeondrm
 file	dev/pci/drm/radeon/radeon_benchmark.c	radeondrm
 file	dev/pci/drm/radeon/radeon_cp.c		radeondrm

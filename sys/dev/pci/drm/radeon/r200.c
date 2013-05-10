@@ -94,7 +94,7 @@ int r200_copy_dma(struct radeon_device *rdev,
 
 	/* radeon pitch is /64 */
 	size = num_gpu_pages << RADEON_GPU_PAGE_SHIFT;
-	num_loops = DIV_ROUND_UP(size, 0x1FFFFF);
+	num_loops = howmany(size, 0x1FFFFF);
 	r = radeon_ring_lock(rdev, ring, num_loops * 4 + 64);
 	if (r) {
 		DRM_ERROR("radeon: moving bo (%d).\n", r);

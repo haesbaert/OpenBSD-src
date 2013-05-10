@@ -103,32 +103,6 @@ uint32_t	 cail_reg_read(struct card_info *, uint32_t);
 void		 cail_ioreg_write(struct card_info *, uint32_t, uint32_t);
 uint32_t	 cail_ioreg_read(struct card_info *, uint32_t);
 
-uint32_t r100_mm_rreg(struct radeon_device *rdev, uint32_t reg, bool always_indirect);
-uint32_t r100_mm_rreg(struct radeon_device *rdev, uint32_t reg, bool always_indirect)
-{
-	printf("%s stub\n", __func__);
-	return 0;
-}
-
-u32 r100_io_rreg(struct radeon_device *rdev, u32 reg);
-u32 r100_io_rreg(struct radeon_device *rdev, u32 reg)
-{
-	printf("%s stub\n", __func__);
-	return 0;
-}
-
-void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v);
-void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v)
-{
-	printf("%s stub\n", __func__);
-}
-
-void r100_mm_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v, bool always_indirect);
-void r100_mm_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v, bool always_indirect)
-{
-	printf("%s stub\n", __func__);
-}
-
 int atom_asic_init(struct atom_context *ctx);
 int atom_asic_init(struct atom_context *ctx)
 {
