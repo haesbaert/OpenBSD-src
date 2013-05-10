@@ -579,7 +579,7 @@ static bool radeon_acpi_vfct_bios(struct radeon_device *rdev)
 	    vhdr->PCIDevice != PCI_SLOT(rdev->pdev->devfn) ||
 	    vhdr->PCIFunction != PCI_FUNC(rdev->pdev->devfn) ||
 	    vhdr->VendorID != rdev->pdev->vendor ||
-	    vhdr->DeviceID != rdev->pdev->device) {
+	    vhdr->DeviceID != ddev->pci_device) {
 		DRM_INFO("ACPI VFCT table is not for this card\n");
 		goto out_unmap;
 	};

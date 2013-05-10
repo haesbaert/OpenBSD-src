@@ -1842,10 +1842,10 @@ static void evergreen_gpu_init(struct radeon_device *rdev)
 		rdev->config.evergreen.num_ses = 1;
 		rdev->config.evergreen.max_pipes = 4;
 		rdev->config.evergreen.max_tile_pipes = 4;
-		if (rdev->pdev->device == 0x9648)
+		if (ddev->pci_device == 0x9648)
 			rdev->config.evergreen.max_simds = 3;
-		else if ((rdev->pdev->device == 0x9647) ||
-			 (rdev->pdev->device == 0x964a))
+		else if ((ddev->pci_device == 0x9647) ||
+			 (ddev->pci_device == 0x964a))
 			rdev->config.evergreen.max_simds = 4;
 		else
 			rdev->config.evergreen.max_simds = 5;

@@ -184,7 +184,7 @@ int radeon_agp_init(struct radeon_device *rdev)
 		if (info.id_vendor == p->hostbridge_vendor &&
 		    info.id_device == p->hostbridge_device &&
 		    rdev->pdev->vendor == p->chip_vendor &&
-		    rdev->pdev->device == p->chip_device &&
+		    ddev->pci_device == p->chip_device &&
 		    rdev->pdev->subsystem_vendor == p->subsys_vendor &&
 		    rdev->pdev->subsystem_device == p->subsys_device) {
 			default_mode = p->default_mode;

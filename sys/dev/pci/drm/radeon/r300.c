@@ -324,8 +324,8 @@ static void r300_gpu_init(struct radeon_device *rdev)
 {
 	uint32_t gb_tile_config, tmp;
 
-	if ((rdev->family == CHIP_R300 && rdev->pdev->device != 0x4144) ||
-	    (rdev->family == CHIP_R350 && rdev->pdev->device != 0x4148)) {
+	if ((rdev->family == CHIP_R300 && ddev->pci_device != 0x4144) ||
+	    (rdev->family == CHIP_R350 && ddev->pci_device != 0x4148)) {
 		/* r300,r350 */
 		rdev->num_gb_pipes = 2;
 	} else {
