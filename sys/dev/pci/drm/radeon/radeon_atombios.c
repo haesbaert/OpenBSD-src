@@ -304,7 +304,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* Asus M2A-VM HDMI board lists the DVI port as HDMI */
 	if ((dev->pci_device == 0x791e) &&
-	    (dev->pdev->subsystem_vendor == 0x1043) &&
+	    (dev->pci_subvendor == 0x1043) &&
 	    (dev->pdev->subsystem_device == 0x826d)) {
 		if ((*connector_type == DRM_MODE_CONNECTOR_HDMIA) &&
 		    (supported_device == ATOM_DEVICE_DFP3_SUPPORT))
@@ -313,7 +313,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* Asrock RS600 board lists the DVI port as HDMI */
 	if ((dev->pci_device == 0x7941) &&
-	    (dev->pdev->subsystem_vendor == 0x1849) &&
+	    (dev->pci_subvendor == 0x1849) &&
 	    (dev->pdev->subsystem_device == 0x7941)) {
 		if ((*connector_type == DRM_MODE_CONNECTOR_HDMIA) &&
 		    (supported_device == ATOM_DEVICE_DFP3_SUPPORT))
@@ -322,7 +322,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* MSI K9A2GM V2/V3 board has no HDMI or DVI */
 	if ((dev->pci_device == 0x796e) &&
-	    (dev->pdev->subsystem_vendor == 0x1462) &&
+	    (dev->pci_subvendor == 0x1462) &&
 	    (dev->pdev->subsystem_device == 0x7302)) {
 		if ((supported_device == ATOM_DEVICE_DFP2_SUPPORT) ||
 		    (supported_device == ATOM_DEVICE_DFP3_SUPPORT))
@@ -331,7 +331,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* a-bit f-i90hd - ciaranm on #radeonhd - this board has no DVI */
 	if ((dev->pci_device == 0x7941) &&
-	    (dev->pdev->subsystem_vendor == 0x147b) &&
+	    (dev->pci_subvendor == 0x147b) &&
 	    (dev->pdev->subsystem_device == 0x2412)) {
 		if (*connector_type == DRM_MODE_CONNECTOR_DVII)
 			return false;
@@ -339,7 +339,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* Falcon NW laptop lists vga ddc line for LVDS */
 	if ((dev->pci_device == 0x5653) &&
-	    (dev->pdev->subsystem_vendor == 0x1462) &&
+	    (dev->pci_subvendor == 0x1462) &&
 	    (dev->pdev->subsystem_device == 0x0291)) {
 		if (*connector_type == DRM_MODE_CONNECTOR_LVDS) {
 			i2c_bus->valid = false;
@@ -349,7 +349,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* HIS X1300 is DVI+VGA, not DVI+DVI */
 	if ((dev->pci_device == 0x7146) &&
-	    (dev->pdev->subsystem_vendor == 0x17af) &&
+	    (dev->pci_subvendor == 0x17af) &&
 	    (dev->pdev->subsystem_device == 0x2058)) {
 		if (supported_device == ATOM_DEVICE_DFP1_SUPPORT)
 			return false;
@@ -357,7 +357,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* Gigabyte X1300 is DVI+VGA, not DVI+DVI */
 	if ((dev->pci_device == 0x7142) &&
-	    (dev->pdev->subsystem_vendor == 0x1458) &&
+	    (dev->pci_subvendor == 0x1458) &&
 	    (dev->pdev->subsystem_device == 0x2134)) {
 		if (supported_device == ATOM_DEVICE_DFP1_SUPPORT)
 			return false;
@@ -366,7 +366,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* Funky macbooks */
 	if ((dev->pci_device == 0x71C5) &&
-	    (dev->pdev->subsystem_vendor == 0x106b) &&
+	    (dev->pci_subvendor == 0x106b) &&
 	    (dev->pdev->subsystem_device == 0x0080)) {
 		if ((supported_device == ATOM_DEVICE_CRT1_SUPPORT) ||
 		    (supported_device == ATOM_DEVICE_DFP2_SUPPORT))
@@ -384,7 +384,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* ASUS HD 3600 XT board lists the DVI port as HDMI */
 	if ((dev->pci_device == 0x9598) &&
-	    (dev->pdev->subsystem_vendor == 0x1043) &&
+	    (dev->pci_subvendor == 0x1043) &&
 	    (dev->pdev->subsystem_device == 0x01da)) {
 		if (*connector_type == DRM_MODE_CONNECTOR_HDMIA) {
 			*connector_type = DRM_MODE_CONNECTOR_DVII;
@@ -393,7 +393,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* ASUS HD 3600 board lists the DVI port as HDMI */
 	if ((dev->pci_device == 0x9598) &&
-	    (dev->pdev->subsystem_vendor == 0x1043) &&
+	    (dev->pci_subvendor == 0x1043) &&
 	    (dev->pdev->subsystem_device == 0x01e4)) {
 		if (*connector_type == DRM_MODE_CONNECTOR_HDMIA) {
 			*connector_type = DRM_MODE_CONNECTOR_DVII;
@@ -402,7 +402,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* ASUS HD 3450 board lists the DVI port as HDMI */
 	if ((dev->pci_device == 0x95C5) &&
-	    (dev->pdev->subsystem_vendor == 0x1043) &&
+	    (dev->pci_subvendor == 0x1043) &&
 	    (dev->pdev->subsystem_device == 0x01e2)) {
 		if (*connector_type == DRM_MODE_CONNECTOR_HDMIA) {
 			*connector_type = DRM_MODE_CONNECTOR_DVII;
@@ -429,7 +429,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 	 * side and leaves no crtcs for LVDS or VGA.
 	 */
 	if (((dev->pci_device == 0x95c4) || (dev->pci_device == 0x9591)) &&
-	    (dev->pdev->subsystem_vendor == 0x1025) &&
+	    (dev->pci_subvendor == 0x1025) &&
 	    (dev->pdev->subsystem_device == 0x013c)) {
 		if ((*connector_type == DRM_MODE_CONNECTOR_DVII) &&
 		    (supported_device == ATOM_DEVICE_DFP1_SUPPORT)) {
@@ -443,7 +443,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 	 * even though they are wired up to record 0x93
 	 */
 	if ((dev->pci_device == 0x9498) &&
-	    (dev->pdev->subsystem_vendor == 0x1682) &&
+	    (dev->pci_subvendor == 0x1682) &&
 	    (dev->pdev->subsystem_device == 0x2452) &&
 	    (i2c_bus->valid == false) &&
 	    !(supported_device & (ATOM_DEVICE_TV_SUPPORT | ATOM_DEVICE_CV_SUPPORT))) {
@@ -453,7 +453,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 
 	/* Fujitsu D3003-S2 board lists DVI-I as DVI-D and VGA */
 	if (((dev->pci_device == 0x9802) || (dev->pci_device == 0x9806)) &&
-	    (dev->pdev->subsystem_vendor == 0x1734) &&
+	    (dev->pci_subvendor == 0x1734) &&
 	    (dev->pdev->subsystem_device == 0x11bd)) {
 		if (*connector_type == DRM_MODE_CONNECTOR_VGA) {
 			*connector_type = DRM_MODE_CONNECTOR_DVII;
