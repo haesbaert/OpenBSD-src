@@ -508,6 +508,7 @@ struct drm_mem {
 #define DRM_ATI_GART_R600 4
 
 #define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : (1ULL<<(n)) -1)
+#define lower_32_bits(n)	((u32)(n))
 #define upper_32_bits(_val) ((u_int32_t)(((_val) >> 16) >> 16))
 
 struct drm_ati_pcigart_info {
