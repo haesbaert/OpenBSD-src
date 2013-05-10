@@ -237,6 +237,12 @@ IS_ERR_OR_NULL(const void *ptr)
 
 #define be32_to_cpup(x) betoh32(*x)
 
+static inline unsigned long
+roundup_pow_of_two(unsigned long x)
+{
+	return (1UL << flsl(x - 1));
+}
+
 #define DRM_UDELAY(udelay)	DELAY(udelay)
 #define DRM_MDELAY(msecs)	do { int loops = (msecs);		\
 					while (loops--) DELAY(1000);	\
