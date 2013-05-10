@@ -1933,7 +1933,7 @@ atombios_apply_encoder_quirks(struct drm_encoder *encoder,
 	struct radeon_crtc *radeon_crtc = to_radeon_crtc(encoder->crtc);
 
 	/* Funky macbooks */
-	if ((dev->pdev->device == 0x71C5) &&
+	if ((dev->pci_device == 0x71C5) &&
 	    (dev->pdev->subsystem_vendor == 0x106b) &&
 	    (dev->pdev->subsystem_device == 0x0080)) {
 		if (radeon_encoder->devices & ATOM_DEVICE_LCD1_SUPPORT) {
