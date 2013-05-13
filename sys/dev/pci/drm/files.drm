@@ -141,7 +141,7 @@ file	dev/pci/drm/radeon/radeon_semaphore.c		radeondrm
 file	dev/pci/drm/radeon/radeon_state.c		radeondrm
 file	dev/pci/drm/radeon/radeon_test.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_trace_points.c	radeondrm
-#file	dev/pci/drm/radeon/radeon_ttm.c			radeondrm
+file	dev/pci/drm/radeon/radeon_ttm.c			radeondrm
 file	dev/pci/drm/radeon/rs400.c			radeondrm
 file	dev/pci/drm/radeon/rs600.c			radeondrm
 file	dev/pci/drm/radeon/rs690.c			radeondrm
