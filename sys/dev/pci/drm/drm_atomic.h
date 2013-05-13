@@ -54,10 +54,24 @@ typedef u_int64_t atomic64_t;
 #define atomic_dec(p)		(*(p) -= 1)
 #define atomic_add(n, p)	(*(p) += (n))
 
+#define atomic64_set(p, v)	(*(p) = (v))
+#define atomic64_read(p)	(*(p))
+
 static __inline int
 atomic_xchg(volatile int *p, int new)
 {
 	int old;
+
+	old = *p;
+	*p = new;
+
+	return (old);
+}
+
+static __inline int64_t
+atomic64_xchg(volatile int64_t *p, int64_t new)
+{
+	int64_t old;
 
 	old = *p;
 	*p = new;
