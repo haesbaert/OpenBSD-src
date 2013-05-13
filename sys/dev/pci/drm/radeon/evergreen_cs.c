@@ -38,6 +38,10 @@ int r600_dma_cs_next_reloc(struct radeon_cs_parser *p,
 			   struct radeon_cs_reloc **cs_reloc);
 static int evergreen_cs_packet_next_reloc(struct radeon_cs_parser *p,
 					  struct radeon_cs_reloc **cs_reloc);
+int evergreen_cs_parse(struct radeon_cs_parser *p);
+int evergreen_dma_cs_parse(struct radeon_cs_parser *p);
+int evergreen_ib_parse(struct radeon_device *rdev, struct radeon_ib *ib);
+int evergreen_dma_ib_parse(struct radeon_device *rdev, struct radeon_ib *ib);
 
 struct evergreen_cs_track {
 	u32			group_size;
@@ -505,9 +509,9 @@ static int evergreen_cs_track_validate_htile(struct radeon_cs_parser *p,
 
 	if (G_028ABC_LINEAR(track->htile_surface)) {
 		/* pitch must be 16 htiles aligned == 16 * 8 pixel aligned */
-		nbx = round_up(nbx, 16 * 8);
+		nbx = roundup2(nbx, 16 * 8);
 		/* height is npipes htiles aligned == npipes * 8 pixel aligned */
-		nby = round_up(nby, track->npipes * 8);
+		nby = roundup(nby, track->npipes * 8);
 	} else {
 		/* always assume 8x8 htile */
 		/* align is htile align * 8, htile align vary according to
@@ -516,23 +520,23 @@ static int evergreen_cs_track_validate_htile(struct radeon_cs_parser *p,
 		switch (track->npipes) {
 		case 8:
 			/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-			nbx = round_up(nbx, 64 * 8);
-			nby = round_up(nby, 64 * 8);
+			nbx = roundup2(nbx, 64 * 8);
+			nby = roundup2(nby, 64 * 8);
 			break;
 		case 4:
 			/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-			nbx = round_up(nbx, 64 * 8);
-			nby = round_up(nby, 32 * 8);
+			nbx = roundup2(nbx, 64 * 8);
+			nby = roundup2(nby, 32 * 8);
 			break;
 		case 2:
 			/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-			nbx = round_up(nbx, 32 * 8);
-			nby = round_up(nby, 32 * 8);
+			nbx = roundup2(nbx, 32 * 8);
+			nby = roundup2(nby, 32 * 8);
 			break;
 		case 1:
 			/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-			nbx = round_up(nbx, 32 * 8);
-			nby = round_up(nby, 16 * 8);
+			nbx = roundup2(nbx, 32 * 8);
+			nby = roundup2(nby, 16 * 8);
 			break;
 		default:
 			dev_warn(p->dev, "%s:%d invalid num pipes %d\n",
@@ -821,7 +825,7 @@ static int evergreen_cs_track_validate_texture(struct radeon_cs_parser *p,
 
 	/* align height */
 	evergreen_surface_check(p, &surf, NULL);
-	surf.nby = ALIGN(surf.nby, surf.halign);
+	surf.nby = roundup(surf.nby, surf.halign);
 
 	r = evergreen_surface_check(p, &surf, "texture");
 	if (r) {
@@ -894,8 +898,8 @@ static int evergreen_cs_track_validate_texture(struct radeon_cs_parser *p,
 				 __func__, __LINE__, surf.mode);
 			return -EINVAL;
 		}
-		surf.nbx = ALIGN(surf.nbx, surf.palign);
-		surf.nby = ALIGN(surf.nby, surf.halign);
+		surf.nbx = roundup(surf.nbx, surf.palign);
+		surf.nby = roundup(surf.nby, surf.halign);
 
 		r = evergreen_surface_check(p, &surf, "mipmap");
 		if (r) {
@@ -1138,6 +1142,7 @@ static bool evergreen_cs_packet_next_is_pkt3_nop(struct radeon_cs_parser *p)
  */
 static int evergreen_cs_packet_parse_vline(struct radeon_cs_parser *p)
 {
+	struct drm_device *ddev = (struct drm_device *)p->rdev->drmdev;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
@@ -1194,7 +1199,7 @@ static int evergreen_cs_packet_parse_vline(struct radeon_cs_parser *p)
 	header = radeon_get_ib_value(p, h_idx);
 	crtc_id = radeon_get_ib_value(p, h_idx + 2 + 7 + 1);
 	reg = CP_PACKET0_GET_REG(header);
-	obj = drm_mode_object_find(p->rdev->ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	obj = drm_mode_object_find(ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		DRM_ERROR("cannot find crtc %d\n", crtc_id);
 		return -EINVAL;

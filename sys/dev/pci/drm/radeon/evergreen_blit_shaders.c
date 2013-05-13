@@ -26,6 +26,8 @@
 
 #include <sys/types.h>
 
+#include <dev/pci/drm/drmP.h>
+
 /*
  * evergreen cards need to use the 3D engine to blit data which requires
  * quite a bit of hw state setup.  Rather than pull the whole 3D driver
