@@ -150,6 +150,8 @@ typedef uint32_t __be32;
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define likely(x)	__builtin_expect(!!(x), 1)
 
+#define	IS_ALIGNED(x, y)	(((x) & ((y) - 1)) == 0)
+
 #define BUG()								\
 do {									\
 	panic("BUG at %s:%d", __FILE__, __LINE__);			\

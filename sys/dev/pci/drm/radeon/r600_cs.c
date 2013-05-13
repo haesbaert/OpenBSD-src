@@ -38,6 +38,13 @@ typedef int (*next_reloc_t)(struct radeon_cs_parser*, struct radeon_cs_reloc**);
 static next_reloc_t r600_cs_packet_next_reloc = &r600_cs_packet_next_reloc_mm;
 extern void r600_cs_legacy_get_tiling_conf(struct drm_device *dev, u32 *npipes, u32 *nbanks, u32 *group_size);
 
+int r600_cs_parse(struct radeon_cs_parser *p);
+int r600_cs_legacy(struct drm_device *dev, void *data, struct drm_file *filp,
+			unsigned family, u32 *ib, int *l);
+void r600_cs_legacy_init(void);
+int r600_dma_cs_next_reloc(struct radeon_cs_parser *p,
+			   struct radeon_cs_reloc **cs_reloc);
+int r600_dma_cs_parse(struct radeon_cs_parser *p);
 
 struct r600_cs_track {
 	/* configuration we miror so that we use same code btw kms/ums */
@@ -652,9 +659,9 @@ static int r600_cs_track_validate_db(struct radeon_cs_parser *p)
 		nby = height;
 		if (G_028D24_LINEAR(track->htile_surface)) {
 			/* nbx must be 16 htiles aligned == 16 * 8 pixel aligned */
-			nbx = round_up(nbx, 16 * 8);
+			nbx = roundup2(nbx, 16 * 8);
 			/* nby is npipes htiles aligned == npipes * 8 pixel aligned */
-			nby = round_up(nby, track->npipes * 8);
+			nby = roundup(nby, track->npipes * 8);
 		} else {
 			/* always assume 8x8 htile */
 			/* align is htile align * 8, htile align vary according to
@@ -663,23 +670,23 @@ static int r600_cs_track_validate_db(struct radeon_cs_parser *p)
 			switch (track->npipes) {
 			case 8:
 				/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-				nbx = round_up(nbx, 64 * 8);
-				nby = round_up(nby, 64 * 8);
+				nbx = roundup2(nbx, 64 * 8);
+				nby = roundup2(nby, 64 * 8);
 				break;
 			case 4:
 				/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-				nbx = round_up(nbx, 64 * 8);
-				nby = round_up(nby, 32 * 8);
+				nbx = roundup2(nbx, 64 * 8);
+				nby = roundup2(nby, 32 * 8);
 				break;
 			case 2:
 				/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-				nbx = round_up(nbx, 32 * 8);
-				nby = round_up(nby, 32 * 8);
+				nbx = roundup2(nbx, 32 * 8);
+				nby = roundup2(nby, 32 * 8);
 				break;
 			case 1:
 				/* HTILE_WIDTH = 8 & HTILE_HEIGHT = 8*/
-				nbx = round_up(nbx, 32 * 8);
-				nby = round_up(nby, 16 * 8);
+				nbx = roundup2(nbx, 32 * 8);
+				nby = roundup2(nby, 16 * 8);
 				break;
 			default:
 				dev_warn(p->dev, "%s:%d invalid num pipes %d\n",
@@ -960,6 +967,7 @@ static int r600_cs_packet_next_is_pkt3_nop(struct radeon_cs_parser *p)
  */
 static int r600_cs_packet_parse_vline(struct radeon_cs_parser *p)
 {
+	struct drm_device *ddev = (struct drm_device *)p->rdev->drmdev;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
@@ -1017,7 +1025,7 @@ static int r600_cs_packet_parse_vline(struct radeon_cs_parser *p)
 	crtc_id = radeon_get_ib_value(p, h_idx + 2 + 7 + 1);
 	reg = CP_PACKET0_GET_REG(header);
 
-	obj = drm_mode_object_find(p->rdev->ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	obj = drm_mode_object_find(ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		DRM_ERROR("cannot find crtc %d\n", crtc_id);
 		return -EINVAL;
@@ -1550,11 +1558,11 @@ static void r600_texture_size(unsigned nfaces, unsigned blevel, unsigned llevel,
 		width = r600_mip_minify(w0, i);
 		nbx = r600_fmt_get_nblocksx(format, width);
 
-		nbx = round_up(nbx, block_align);
+		nbx = roundup(nbx, block_align);
 
 		height = r600_mip_minify(h0, i);
 		nby = r600_fmt_get_nblocksy(format, height);
-		nby = round_up(nby, height_align);
+		nby = roundup(nby, height_align);
 
 		depth = r600_mip_minify(d0, i);
 
@@ -1568,7 +1576,7 @@ static void r600_texture_size(unsigned nfaces, unsigned blevel, unsigned llevel,
 			*l0_size = size;
 
 		if (i == 0 || i == 1)
-			offset = round_up(offset, base_align);
+			offset = roundup(offset, base_align);
 
 		offset += size;
 	}
@@ -2501,7 +2509,9 @@ int r600_cs_legacy(struct drm_device *dev, void *data, struct drm_file *filp,
 	/* initialize parser */
 	memset(&parser, 0, sizeof(struct radeon_cs_parser));
 	parser.filp = filp;
-	parser.dev = &dev->pdev->dev;
+#ifdef notyet
+	parser.dev = dev;
+#endif
 	parser.rdev = NULL;
 	parser.family = family;
 	parser.track = track;

@@ -31,6 +31,18 @@
 #include "r600_blit_shaders.h"
 #include "radeon_blit_common.h"
 
+int r600_blit_init(struct radeon_device *rdev);
+void r600_blit_fini(struct radeon_device *rdev);
+int r600_blit_prepare_copy(struct radeon_device *rdev, unsigned num_gpu_pages,
+			   struct radeon_fence **fence, struct radeon_sa_bo **vb,
+			   struct radeon_semaphore **sem);
+void r600_blit_done_copy(struct radeon_device *rdev, struct radeon_fence **fence,
+			 struct radeon_sa_bo *vb, struct radeon_semaphore *sem);
+void r600_kms_blit_copy(struct radeon_device *rdev,
+			u64 src_gpu_addr, u64 dst_gpu_addr,
+			unsigned num_gpu_pages,
+			struct radeon_sa_bo *vb);
+
 /* emits 21 on rv770+, 23 on r600 */
 static void
 set_render_target(struct radeon_device *rdev, int format,
@@ -40,7 +52,7 @@ set_render_target(struct radeon_device *rdev, int format,
 	u32 cb_color_info;
 	int pitch, slice;
 
-	h = ALIGN(h, 8);
+	h = roundup2(h, 8);
 	if (h < 8)
 		h = 8;
 
@@ -432,7 +444,7 @@ set_default_state(struct radeon_device *rdev)
 				    NUM_ES_STACK_ENTRIES(num_es_stack_entries));
 
 	/* emit an IB pointing at default state */
-	dwords = ALIGN(rdev->r600_blit.state_len, 0x10);
+	dwords = roundup2(rdev->r600_blit.state_len, 0x10);
 	gpu_addr = rdev->r600_blit.shader_gpu_addr + rdev->r600_blit.state_offset;
 	radeon_ring_write(ring, PACKET3(PACKET3_INDIRECT_BUFFER, 2));
 	radeon_ring_write(ring,
@@ -497,15 +509,15 @@ int r600_blit_init(struct radeon_device *rdev)
 	}
 
 	obj_size = dwords * 4;
-	obj_size = ALIGN(obj_size, 256);
+	obj_size = roundup2(obj_size, 256);
 
 	rdev->r600_blit.vs_offset = obj_size;
 	obj_size += r6xx_vs_size * 4;
-	obj_size = ALIGN(obj_size, 256);
+	obj_size = roundup2(obj_size, 256);
 
 	rdev->r600_blit.ps_offset = obj_size;
 	obj_size += r6xx_ps_size * 4;
-	obj_size = ALIGN(obj_size, 256);
+	obj_size = roundup2(obj_size, 256);
 
 	/* pin copy shader into vram if not already initialized */
 	if (rdev->r600_blit.shader_obj == NULL) {
@@ -542,13 +554,13 @@ int r600_blit_init(struct radeon_device *rdev)
 		return r;
 	}
 	if (rdev->family >= CHIP_RV770)
-		memcpy_toio(ptr + rdev->r600_blit.state_offset,
+		memcpy(ptr + rdev->r600_blit.state_offset,
 			    r7xx_default_state, rdev->r600_blit.state_len * 4);
 	else
-		memcpy_toio(ptr + rdev->r600_blit.state_offset,
+		memcpy(ptr + rdev->r600_blit.state_offset,
 			    r6xx_default_state, rdev->r600_blit.state_len * 4);
 	if (num_packet2s)
-		memcpy_toio(ptr + rdev->r600_blit.state_offset + (rdev->r600_blit.state_len * 4),
+		memcpy(ptr + rdev->r600_blit.state_offset + (rdev->r600_blit.state_len * 4),
 			    packet2s, num_packet2s * 4);
 	for (i = 0; i < r6xx_vs_size; i++)
 		*(u32 *)((unsigned long)ptr + rdev->r600_blit.vs_offset + i * 4) = cpu_to_le32(r6xx_vs[i]);

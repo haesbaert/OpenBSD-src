@@ -26,6 +26,8 @@
 
 #include <sys/types.h>
 
+#include <dev/pci/drm/drmP.h>
+
 const u32 si_default_state[] =
 {
 	0xc0066900,

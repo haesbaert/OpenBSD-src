@@ -99,7 +99,9 @@ static int r600_do_wait_for_fifo(drm_radeon_private_t *dev_priv, int entries)
 {
 	int i;
 
+#ifdef notyet
 	dev_priv->stats.boxes |= RADEON_BOX_WAIT_IDLE;
+#endif
 
 	for (i = 0; i < dev_priv->usec_timeout; i++) {
 		int slots;

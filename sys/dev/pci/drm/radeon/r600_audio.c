@@ -29,10 +29,13 @@
 #include "radeon_asic.h"
 #include "atom.h"
 
+bool	 radeon_dig_encoder(struct drm_encoder *);
+
 /*
  * check if enc_priv stores radeon_encoder_atom_dig
  */
-static bool radeon_dig_encoder(struct drm_encoder *encoder)
+bool
+radeon_dig_encoder(struct drm_encoder *encoder)
 {
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
 	switch (radeon_encoder->encoder_id) {
@@ -118,6 +121,7 @@ struct r600_audio r600_audio_status(struct radeon_device *rdev)
 /*
  * update all hdmi interfaces with current audio parameters
  */
+#ifdef notyet
 void r600_audio_update_hdmi(struct work_struct *work)
 {
 	struct radeon_device *rdev = container_of(work, struct radeon_device,
@@ -143,6 +147,7 @@ void r600_audio_update_hdmi(struct work_struct *work)
 			r600_hdmi_update_audio_settings(encoder);
 	}
 }
+#endif
 
 /*
  * turn on/off audio engine

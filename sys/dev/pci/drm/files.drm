@@ -96,13 +96,13 @@ file	dev/pci/drm/radeon/r300_cmdbuf.c		radeondrm
 file	dev/pci/drm/radeon/r420.c			radeondrm
 file	dev/pci/drm/radeon/r520.c			radeondrm
 file	dev/pci/drm/radeon/r600.c			radeondrm
-#file	dev/pci/drm/radeon/r600_audio.c			radeondrm
+file	dev/pci/drm/radeon/r600_audio.c			radeondrm
 file	dev/pci/drm/radeon/r600_blit.c			radeondrm
-#file	dev/pci/drm/radeon/r600_blit_kms.c		radeondrm
+file	dev/pci/drm/radeon/r600_blit_kms.c		radeondrm
 file	dev/pci/drm/radeon/r600_blit_shaders.c		radeondrm
 #file	dev/pci/drm/radeon/r600_cp.c			radeondrm
-#file	dev/pci/drm/radeon/r600_cs.c			radeondrm
-#file	dev/pci/drm/radeon/r600_hdmi.c			radeondrm
+file	dev/pci/drm/radeon/r600_cs.c			radeondrm
+file	dev/pci/drm/radeon/r600_hdmi.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_acpi.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_agp.c			radeondrm
 file	dev/pci/drm/radeon/radeon_asic.c		radeondrm
@@ -148,4 +148,4 @@ file	dev/pci/drm/radeon/rs690.c			radeondrm
 file	dev/pci/drm/radeon/rv515.c			radeondrm
 file	dev/pci/drm/radeon/rv770.c			radeondrm
 file	dev/pci/drm/radeon/si.c				radeondrm
-#file	dev/pci/drm/radeon/si_blit_shaders.c		radeondrm
+file	dev/pci/drm/radeon/si_blit_shaders.c		radeondrm
