@@ -119,7 +119,7 @@ file	dev/pci/drm/radeon/radeon_device.c		radeondrm
 file	dev/pci/drm/radeon/radeon_display.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_drv.c			radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_encoders.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_fb.c			radeondrm
+file	dev/pci/drm/radeon/radeon_fb.c			radeondrm
 file	dev/pci/drm/radeon/radeon_fence.c		radeondrm
 file	dev/pci/drm/radeon/radeon_gart.c		radeondrm
 file	dev/pci/drm/radeon/radeon_gem.c			radeondrm
@@ -130,7 +130,7 @@ file	dev/pci/drm/radeon/radeon_irq_kms.c		radeondrm
 file	dev/pci/drm/radeon/radeon_kms.c			radeondrm
 file	dev/pci/drm/radeon/radeon_legacy_crtc.c		radeondrm
 file	dev/pci/drm/radeon/radeon_legacy_encoders.c	radeondrm
-#file	dev/pci/drm/radeon/radeon_legacy_tv.c		radeondrm
+file	dev/pci/drm/radeon/radeon_legacy_tv.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_mem.c			radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_object.c		radeondrm
 file	dev/pci/drm/radeon/radeon_pm.c			radeondrm

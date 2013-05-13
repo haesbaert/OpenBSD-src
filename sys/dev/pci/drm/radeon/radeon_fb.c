@@ -43,6 +43,7 @@ struct radeon_fbdev {
 	struct radeon_device *rdev;
 };
 
+#ifdef notyet
 static struct fb_ops radeonfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = drm_fb_helper_check_var,
@@ -56,6 +57,10 @@ static struct fb_ops radeonfb_ops = {
 	.fb_debug_enter = drm_fb_helper_debug_enter,
 	.fb_debug_leave = drm_fb_helper_debug_leave,
 };
+#endif
+
+int radeonfb_create_pinned_object(struct radeon_fbdev *,
+    struct drm_mode_fb_cmd2 *, struct drm_obj **);
 
 
 int radeon_align_pitch(struct radeon_device *rdev, int width, int bpp, bool tiled)
@@ -96,7 +101,8 @@ static void radeonfb_destroy_pinned_object(struct drm_obj *gobj)
 	drm_gem_object_unreference_unlocked(gobj);
 }
 
-static int radeonfb_create_pinned_object(struct radeon_fbdev *rfbdev,
+int
+radeonfb_create_pinned_object(struct radeon_fbdev *rfbdev,
 					 struct drm_mode_fb_cmd2 *mode_cmd,
 					 struct drm_obj **gobj_p)
 {
@@ -117,9 +123,9 @@ static int radeonfb_create_pinned_object(struct radeon_fbdev *rfbdev,
 						  fb_tiled) * ((bpp + 1) / 8);
 
 	if (rdev->family >= CHIP_R600)
-		height = ALIGN(mode_cmd->height, 8);
+		height = roundup2(mode_cmd->height, 8);
 	size = mode_cmd->pitches[0] * height;
-	aligned_size = ALIGN(size, PAGE_SIZE);
+	aligned_size = PAGE_ALIGN(size);
 	ret = radeon_gem_object_create(rdev, aligned_size, 0,
 				       RADEON_GEM_DOMAIN_VRAM,
 				       false, true,
@@ -185,6 +191,9 @@ out_unref:
 static int radeonfb_create(struct radeon_fbdev *rfbdev,
 			   struct drm_fb_helper_surface_size *sizes)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_device *rdev = rfbdev->rdev;
 	struct fb_info *info;
 	struct drm_framebuffer *fb = NULL;
@@ -292,6 +301,7 @@ out_unref:
 		free(fb, M_DRM);
 	}
 	return ret;
+#endif
 }
 
 static int radeon_fb_find_or_create_single(struct drm_fb_helper *helper,
@@ -317,6 +327,9 @@ void radeon_fb_output_poll_changed(struct radeon_device *rdev)
 
 static int radeon_fbdev_destroy(struct drm_device *dev, struct radeon_fbdev *rfbdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct fb_info *info;
 	struct radeon_framebuffer *rfb = &rfbdev->rfb;
 
@@ -337,6 +350,7 @@ static int radeon_fbdev_destroy(struct drm_device *dev, struct radeon_fbdev *rfb
 	drm_framebuffer_cleanup(&rfb->base);
 
 	return 0;
+#endif
 }
 
 static struct drm_fb_helper_funcs radeon_fb_helper_funcs = {
@@ -347,12 +361,13 @@ static struct drm_fb_helper_funcs radeon_fb_helper_funcs = {
 
 int radeon_fbdev_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_fbdev *rfbdev;
 	int bpp_sel = 32;
 	int ret;
 
 	/* select 8 bpp console on RN50 or 16MB cards */
-	if (ASIC_IS_RN50(rdev) || rdev->mc.real_vram_size <= (32*1024*1024))
+	if (ASIC_IS_RN50(ddev) || rdev->mc.real_vram_size <= (32*1024*1024))
 		bpp_sel = 8;
 
 	rfbdev = malloc(sizeof(struct radeon_fbdev), M_DRM, M_WAITOK | M_ZERO);
@@ -363,7 +378,7 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 	rdev->mode_info.rfbdev = rfbdev;
 	rfbdev->helper.funcs = &radeon_fb_helper_funcs;
 
-	ret = drm_fb_helper_init(rdev->ddev, &rfbdev->helper,
+	ret = drm_fb_helper_init(ddev, &rfbdev->helper,
 				 rdev->num_crtc,
 				 RADEONFB_CONN_LIMIT);
 	if (ret) {
@@ -378,17 +393,22 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 
 void radeon_fbdev_fini(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+
 	if (!rdev->mode_info.rfbdev)
 		return;
 
-	radeon_fbdev_destroy(rdev->ddev, rdev->mode_info.rfbdev);
+	radeon_fbdev_destroy(ddev, rdev->mode_info.rfbdev);
 	free(rdev->mode_info.rfbdev, M_DRM);
 	rdev->mode_info.rfbdev = NULL;
 }
 
 void radeon_fbdev_set_suspend(struct radeon_device *rdev, int state)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	fb_set_suspend(rdev->mode_info.rfbdev->helper.fbdev, state);
+#endif
 }
 
 int radeon_fbdev_total_size(struct radeon_device *rdev)
