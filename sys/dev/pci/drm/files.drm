@@ -135,7 +135,7 @@ file	dev/pci/drm/radeon/radeon_mem.c			radeondrm
 file	dev/pci/drm/radeon/radeon_object.c		radeondrm
 file	dev/pci/drm/radeon/radeon_pm.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_prime.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_ring.c		radeondrm
+file	dev/pci/drm/radeon/radeon_ring.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_sa.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_semaphore.c		radeondrm
 file	dev/pci/drm/radeon/radeon_state.c		radeondrm

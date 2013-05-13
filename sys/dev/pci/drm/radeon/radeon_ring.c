@@ -32,6 +32,8 @@
 #include "radeon.h"
 #include "atom.h"
 
+extern int ticks;
+
 /*
  * IB
  * IBs (Indirect Buffers) and areas of GPU accessible memory where
@@ -291,6 +293,7 @@ int radeon_ib_ring_tests(struct radeon_device *rdev)
  */
 static int radeon_debugfs_ring_init(struct radeon_device *rdev, struct radeon_ring *ring);
 
+#if defined(DRM_DEBUG_CODE) && DRM_DEBUG_CODE != 0
 /**
  * radeon_ring_write - write a value to the ring
  *
@@ -311,6 +314,7 @@ void radeon_ring_write(struct radeon_ring *ring, uint32_t v)
 	ring->count_dw--;
 	ring->ring_free_dw--;
 }
+#endif
 
 /**
  * radeon_ring_supports_scratch_reg - check if the ring supports
@@ -513,7 +517,7 @@ void radeon_ring_force_activity(struct radeon_device *rdev, struct radeon_ring *
 void radeon_ring_lockup_update(struct radeon_ring *ring)
 {
 	ring->last_rptr = ring->rptr;
-	ring->last_activity = jiffies;
+	ring->last_activity = ticks;
 }
 
 /**
@@ -541,7 +545,7 @@ bool radeon_ring_test_lockup(struct radeon_device *rdev, struct radeon_ring *rin
 	unsigned long cjiffies, elapsed;
 	uint32_t rptr;
 
-	cjiffies = jiffies;
+	cjiffies = ticks;
 	if (!time_after(cjiffies, ring->last_activity)) {
 		/* likely a wrap around */
 		radeon_ring_lockup_update(ring);
@@ -611,7 +615,7 @@ unsigned radeon_ring_backup(struct radeon_device *rdev, struct radeon_ring *ring
 	}
 
 	/* and then save the content of the ring */
-	*data = kmalloc_array(size, sizeof(uint32_t), GFP_KERNEL);
+	*data = malloc(size * sizeof(uint32_t), M_DRM, M_WAITOK);
 	if (!*data) {
 		rw_exit_write(&rdev->ring_lock);
 		return 0;
