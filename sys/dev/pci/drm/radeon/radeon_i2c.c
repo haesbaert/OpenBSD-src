@@ -30,9 +30,19 @@
 #include "radeon.h"
 #include "atom.h"
 
+#ifdef notyet
 extern int radeon_atom_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 				   struct i2c_msg *msgs, int num);
+#endif
 extern u32 radeon_atom_hw_i2c_func(struct i2c_controller *adap);
+
+int	 pre_xfer(struct i2c_controller *);
+void	 post_xfer(struct i2c_controller *);
+int	 get_clock(void *);
+int	 get_data(void *);
+void	 set_clock(void *, int);
+void	 set_data(void *, int);
+u32	 radeon_get_i2c_prescale(struct radeon_device *);
 
 /**
  * radeon_ddc_probe
@@ -40,6 +50,9 @@ extern u32 radeon_atom_hw_i2c_func(struct i2c_controller *adap);
  */
 bool radeon_ddc_probe(struct radeon_connector *radeon_connector, bool use_aux)
 {
+	printf("%s stub\n", __func__);
+	return false;
+#ifdef notyet
 	u8 out = 0x0;
 	u8 buf[8];
 	int ret;
@@ -83,12 +96,17 @@ bool radeon_ddc_probe(struct radeon_connector *radeon_connector, bool use_aux)
 		return false;
 	}
 	return true;
+#endif
 }
 
 /* bit banging i2c */
 
-static int pre_xfer(struct i2c_controller *i2c_adap)
+int
+pre_xfer(struct i2c_controller *i2c_adap)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
 	struct radeon_device *rdev = i2c->dev->dev_private;
 	struct radeon_i2c_bus_rec *rec = &i2c->rec;
@@ -153,10 +171,14 @@ static int pre_xfer(struct i2c_controller *i2c_adap)
 	temp = RREG32(rec->mask_data_reg);
 
 	return 0;
+#endif
 }
 
-static void post_xfer(struct i2c_controller *i2c_adap)
+void
+post_xfer(struct i2c_controller *i2c_adap)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_i2c_chan *i2c = i2c_get_adapdata(i2c_adap);
 	struct radeon_device *rdev = i2c->dev->dev_private;
 	struct radeon_i2c_bus_rec *rec = &i2c->rec;
@@ -170,9 +192,11 @@ static void post_xfer(struct i2c_controller *i2c_adap)
 	temp = RREG32(rec->mask_data_reg) & ~rec->mask_data_mask;
 	WREG32(rec->mask_data_reg, temp);
 	temp = RREG32(rec->mask_data_reg);
+#endif
 }
 
-static int get_clock(void *i2c_priv)
+int
+get_clock(void *i2c_priv)
 {
 	struct radeon_i2c_chan *i2c = i2c_priv;
 	struct radeon_device *rdev = i2c->dev->dev_private;
@@ -187,7 +211,8 @@ static int get_clock(void *i2c_priv)
 }
 
 
-static int get_data(void *i2c_priv)
+int
+get_data(void *i2c_priv)
 {
 	struct radeon_i2c_chan *i2c = i2c_priv;
 	struct radeon_device *rdev = i2c->dev->dev_private;
@@ -201,7 +226,8 @@ static int get_data(void *i2c_priv)
 	return (val != 0);
 }
 
-static void set_clock(void *i2c_priv, int clock)
+void
+set_clock(void *i2c_priv, int clock)
 {
 	struct radeon_i2c_chan *i2c = i2c_priv;
 	struct radeon_device *rdev = i2c->dev->dev_private;
@@ -214,7 +240,8 @@ static void set_clock(void *i2c_priv, int clock)
 	WREG32(rec->en_clk_reg, val);
 }
 
-static void set_data(void *i2c_priv, int data)
+void
+set_data(void *i2c_priv, int data)
 {
 	struct radeon_i2c_chan *i2c = i2c_priv;
 	struct radeon_device *rdev = i2c->dev->dev_private;
@@ -229,7 +256,8 @@ static void set_data(void *i2c_priv, int data)
 
 /* hw i2c */
 
-static u32 radeon_get_i2c_prescale(struct radeon_device *rdev)
+u32
+radeon_get_i2c_prescale(struct radeon_device *rdev)
 {
 	u32 sclk = rdev->pm.current_sclk;
 	u32 prescale = 0;
@@ -319,6 +347,7 @@ static u32 radeon_get_i2c_prescale(struct radeon_device *rdev)
 /* hw i2c engine for r1xx-4xx hardware
  * hw can buffer up to 15 bytes
  */
+#ifdef notyet
 static int r100_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 			    struct i2c_msg *msgs, int num)
 {
@@ -896,11 +925,15 @@ static const struct i2c_algorithm radeon_atom_i2c_algo = {
 	.master_xfer = radeon_atom_hw_i2c_xfer,
 	.functionality = radeon_atom_hw_i2c_func,
 };
+#endif // notyet
 
 struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 					  struct radeon_i2c_bus_rec *rec,
 					  const char *name)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_i2c_chan *i2c;
 	int ret;
@@ -970,13 +1003,16 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 out_free:
 	free(i2c, M_DRM);
 	return NULL;
-
+#endif
 }
 
 struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 					     struct radeon_i2c_bus_rec *rec,
 					     const char *name)
 {
+	printf("%s stub\n", __func__);
+	return NULL;
+#ifdef notyet
 	struct radeon_i2c_chan *i2c;
 	int ret;
 
@@ -1005,15 +1041,18 @@ struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 out_free:
 	free(i2c, M_DRM);
 	return NULL;
-
+#endif
 }
 
 void radeon_i2c_destroy(struct radeon_i2c_chan *i2c)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	if (!i2c)
 		return;
 	i2c_del_adapter(&i2c->adapter);
 	free(i2c, M_DRM);
+#endif
 }
 
 /* Add the default buses */
@@ -1043,7 +1082,7 @@ void radeon_i2c_add(struct radeon_device *rdev,
 		    struct radeon_i2c_bus_rec *rec,
 		    const char *name)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	int i;
 
 	for (i = 0; i < RADEON_MAX_I2C_BUS; i++) {
@@ -1079,6 +1118,8 @@ void radeon_i2c_get_byte(struct radeon_i2c_chan *i2c_bus,
 			 u8 addr,
 			 u8 *val)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	u8 out_buf[2];
 	u8 in_buf[2];
 	struct i2c_msg msgs[] = {
@@ -1106,6 +1147,7 @@ void radeon_i2c_get_byte(struct radeon_i2c_chan *i2c_bus,
 		DRM_DEBUG("i2c 0x%02x 0x%02x read failed\n",
 			  addr, *val);
 	}
+#endif
 }
 
 void radeon_i2c_put_byte(struct radeon_i2c_chan *i2c_bus,
@@ -1113,6 +1155,8 @@ void radeon_i2c_put_byte(struct radeon_i2c_chan *i2c_bus,
 			 u8 addr,
 			 u8 val)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	uint8_t out_buf[2];
 	struct i2c_msg msg = {
 		.addr = slave_addr,
@@ -1127,6 +1171,7 @@ void radeon_i2c_put_byte(struct radeon_i2c_chan *i2c_bus,
 	if (i2c_transfer(&i2c_bus->adapter, &msg, 1) != 1)
 		DRM_DEBUG("i2c 0x%02x 0x%02x write failed\n",
 			  addr, val);
+#endif
 }
 
 /* ddc router switching */

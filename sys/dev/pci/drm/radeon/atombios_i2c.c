@@ -33,7 +33,10 @@
 #define ATOM_MAX_HW_I2C_WRITE 2
 #define ATOM_MAX_HW_I2C_READ  255
 
-static int radeon_process_i2c_ch(struct radeon_i2c_chan *chan,
+int	 radeon_process_i2c_ch(struct radeon_i2c_chan *, u8, u8, u8 *, u8);
+
+int
+radeon_process_i2c_ch(struct radeon_i2c_chan *chan,
 				 u8 slave_addr, u8 flags,
 				 u8 *buf, u8 num)
 {
@@ -55,11 +58,13 @@ static int radeon_process_i2c_ch(struct radeon_i2c_chan *chan,
 		}
 		memcpy(&out, buf, num);
 		args.lpI2CDataOut = cpu_to_le16(out);
+#if 0
 	} else {
 		if (num > ATOM_MAX_HW_I2C_READ) {
 			DRM_ERROR("hw i2c: tried to read too many bytes (%d vs 255)\n", num);
 			return -EINVAL;
 		}
+#endif
 	}
 
 	args.ucI2CSpeed = TARGET_HW_I2C_CLOCK;
@@ -82,6 +87,7 @@ static int radeon_process_i2c_ch(struct radeon_i2c_chan *chan,
 	return 0;
 }
 
+#ifdef notyet
 int radeon_atom_hw_i2c_xfer(struct i2c_controller *i2c_adap,
 			    struct i2c_msg *msgs, int num)
 {
@@ -136,4 +142,5 @@ u32 radeon_atom_hw_i2c_func(struct i2c_controller *adap)
 {
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }
+#endif
 
