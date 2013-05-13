@@ -77,10 +77,10 @@ device	radeondrm: drmbase, ttm
 attach	radeondrm at drmdev
 file	dev/pci/drm/ati_pcigart.c			radeondrm
 file	dev/pci/drm/drm_heap.c          		radeondrm
-#file	dev/pci/drm/radeon/atom.c			radeondrm
-#file	dev/pci/drm/radeon/atombios_crtc.c		radeondrm
-#file	dev/pci/drm/radeon/atombios_dp.c		radeondrm
-#file	dev/pci/drm/radeon/atombios_encoders.c		radeondrm
+file	dev/pci/drm/radeon/atom.c			radeondrm
+file	dev/pci/drm/radeon/atombios_crtc.c		radeondrm
+file	dev/pci/drm/radeon/atombios_dp.c		radeondrm
+file	dev/pci/drm/radeon/atombios_encoders.c		radeondrm
 #file	dev/pci/drm/radeon/atombios_i2c.c		radeondrm
 #file	dev/pci/drm/radeon/cayman_blit_shaders.c	radeondrm
 file	dev/pci/drm/radeon/evergreen.c			radeondrm
@@ -106,7 +106,7 @@ file	dev/pci/drm/radeon/r600_blit_shaders.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_acpi.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_agp.c			radeondrm
 file	dev/pci/drm/radeon/radeon_asic.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_atombios.c		radeondrm
+file	dev/pci/drm/radeon/radeon_atombios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_benchmark.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_bios.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_clocks.c		radeondrm

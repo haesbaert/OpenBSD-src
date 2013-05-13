@@ -262,6 +262,8 @@ mdelay(unsigned long msecs)
 		DELAY(1000);
 }
 
+#define	drm_can_sleep()	(hz & 1)
+
 #define LOCK_TEST_WITH_RETURN(dev, file_priv)				\
 do {									\
 	if (!_DRM_LOCK_IS_HELD(dev->lock.hw_lock->lock) ||		\

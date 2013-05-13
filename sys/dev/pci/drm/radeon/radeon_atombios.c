@@ -59,6 +59,14 @@ radeon_add_legacy_encoder(struct drm_device *dev, uint32_t encoder_enum,
 /* local */
 static int radeon_atom_get_max_vddc(struct radeon_device *rdev, u8 voltage_type,
 				    u16 voltage_id, u16 *voltage);
+bool radeon_atom_get_tv_timings(struct radeon_device *rdev, int index,
+				struct drm_display_mode *mode);
+uint32_t radeon_atom_get_engine_clock(struct radeon_device *rdev);
+uint32_t radeon_atom_get_memory_clock(struct radeon_device *rdev);
+void radeon_atom_set_engine_clock(struct radeon_device *rdev, uint32_t eng_clock);
+void radeon_atom_set_memory_clock(struct radeon_device *rdev, uint32_t mem_clock);
+void radeon_atombios_connected_scratch_regs(struct drm_connector *connector,
+				       struct drm_encoder *encoder, bool connected);
 
 union atom_supported_devices {
 	struct _ATOM_SUPPORTED_DEVICES_INFO info;
@@ -184,6 +192,7 @@ static struct radeon_i2c_bus_rec radeon_lookup_i2c_gpio(struct radeon_device *rd
 
 void radeon_atombios_i2c_init(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct atom_context *ctx = rdev->mode_info.atom_context;
 	ATOM_GPIO_I2C_ASSIGMENT *gpio;
 	struct radeon_i2c_bus_rec i2c;
@@ -207,8 +216,8 @@ void radeon_atombios_i2c_init(struct radeon_device *rdev)
 			i2c = radeon_get_bus_rec_for_i2c_gpio(gpio);
 
 			if (i2c.valid) {
-				sprintf(stmp, "0x%x", i2c.i2c_id);
-				rdev->i2c_bus[i] = radeon_i2c_create(rdev->ddev, &i2c, stmp);
+				snprintf(stmp, sizeof(stmp), "0x%x", i2c.i2c_id);
+				rdev->i2c_bus[i] = radeon_i2c_create(ddev, &i2c, stmp);
 			}
 		}
 	}
@@ -1999,7 +2008,9 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 	u32 misc, misc2 = 0;
 	int num_modes = 0, i;
 	int state_index = 0;
+#ifdef notyet
 	struct radeon_i2c_bus_rec i2c_bus;
+#endif
 	union power_info *power_info;
 	int index = GetIndexIntoMasterTable(DATA, PowerPlayInfo);
         u16 data_offset;
@@ -2016,6 +2027,7 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 		DRM_INFO("Possible %s thermal controller at 0x%02x\n",
 			 thermal_controller_names[power_info->info.ucOverdriveThermalController],
 			 power_info->info.ucOverdriveControllerAddress >> 1);
+#ifdef notyet
 		i2c_bus = radeon_lookup_i2c_gpio(rdev, power_info->info.ucOverdriveI2cLine);
 		rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
 		if (rdev->pm.i2c_bus) {
@@ -2026,6 +2038,7 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 			strlcpy(info.type, name, sizeof(info.type));
 			i2c_new_device(&rdev->pm.i2c_bus->adapter, &info);
 		}
+#endif
 	}
 	num_modes = power_info->info.ucNumOfPowerModeEntries;
 	if (num_modes > ATOM_MAX_NUMBEROF_POWER_BLOCK)
@@ -2177,7 +2190,9 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 static void radeon_atombios_add_pplib_thermal_controller(struct radeon_device *rdev,
 							 ATOM_PPLIB_THERMALCONTROLLER *controller)
 {
+#ifdef notyet
 	struct radeon_i2c_bus_rec i2c_bus;
+#endif
 
 	/* add the i2c bus for thermal/fan chip */
 	if (controller->ucType > 0) {
@@ -2224,6 +2239,7 @@ static void radeon_atombios_add_pplib_thermal_controller(struct radeon_device *r
 				 controller->ucI2cAddress >> 1,
 				 (controller->ucFanParameters &
 				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
+#ifdef notyet
 			i2c_bus = radeon_lookup_i2c_gpio(rdev, controller->ucI2cLine);
 			rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
 			if (rdev->pm.i2c_bus) {
@@ -2233,6 +2249,7 @@ static void radeon_atombios_add_pplib_thermal_controller(struct radeon_device *r
 				strlcpy(info.type, name, sizeof(info.type));
 				i2c_new_device(&rdev->pm.i2c_bus->adapter, &info);
 			}
+#endif
 		} else {
 			DRM_INFO("Unknown thermal controller type %d at 0x%02x %s fan control\n",
 				 controller->ucType,

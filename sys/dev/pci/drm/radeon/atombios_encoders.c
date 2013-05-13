@@ -31,6 +31,12 @@
 
 extern int atom_debug;
 
+u8	 atombios_get_backlight_level(struct radeon_encoder *);
+void	 atombios_set_backlight_level(struct radeon_encoder *, u8);
+void	 radeon_atom_backlight_init(struct radeon_encoder *);
+void	 radeon_add_atom_encoder(struct drm_device *, uint32_t,
+	     uint32_t, u16);
+
 static u8
 radeon_atom_get_backlight_level_from_reg(struct radeon_device *rdev)
 {
@@ -2069,7 +2075,7 @@ static int radeon_atom_pick_dig_encoder(struct drm_encoder *encoder)
 void
 radeon_atom_encoder_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct drm_encoder *encoder;
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
