@@ -31,6 +31,10 @@
 #include "radeon.h"
 #include "atom.h"
 
+uint32_t	 radeon_legacy_get_engine_clock(struct radeon_device *);
+uint32_t	 radeon_legacy_get_memory_clock(struct radeon_device *);
+void		 radeon_legacy_set_engine_clock(struct radeon_device *, uint32_t);
+
 /* 10 khz */
 uint32_t radeon_legacy_get_engine_clock(struct radeon_device *rdev)
 {

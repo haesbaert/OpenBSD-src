@@ -108,8 +108,8 @@ file	dev/pci/drm/radeon/r600_blit_shaders.c		radeondrm
 file	dev/pci/drm/radeon/radeon_asic.c		radeondrm
 file	dev/pci/drm/radeon/radeon_atombios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_benchmark.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_bios.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_clocks.c		radeondrm
+file	dev/pci/drm/radeon/radeon_bios.c		radeondrm
+file	dev/pci/drm/radeon/radeon_clocks.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_combios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_connectors.c		radeondrm
 file	dev/pci/drm/radeon/radeon_cp.c			radeondrm

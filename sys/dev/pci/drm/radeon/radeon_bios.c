@@ -26,6 +26,7 @@
  *          Jerome Glisse
  */
 #include <dev/pci/drm/drmP.h>
+#include <dev/pci/pcidevs.h>
 #include "radeon_reg.h"
 #include "radeon.h"
 #include "atom.h"
@@ -42,6 +43,9 @@
  */
 static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return false;
+#ifdef notyet
 	uint8_t __iomem *bios;
 	bus_addr_t vram_base;
 	bus_size_t size = 256 * 1024; /* ??? */
@@ -69,10 +73,14 @@ static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 	memcpy_fromio(rdev->bios, bios, size);
 	iounmap(bios);
 	return true;
+#endif
 }
 
 static bool radeon_read_bios(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return false;
+#ifdef notyet
 	uint8_t __iomem *bios;
 	size_t size;
 
@@ -94,6 +102,7 @@ static bool radeon_read_bios(struct radeon_device *rdev)
 	}
 	pci_unmap_rom(rdev->pdev, bios);
 	return true;
+#endif
 }
 
 #ifdef CONFIG_ACPI
@@ -449,6 +458,7 @@ static bool avivo_read_disabled_bios(struct radeon_device *rdev)
 
 static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	uint32_t seprom_cntl1;
 	uint32_t viph_control;
 	uint32_t bus_cntl;
@@ -469,7 +479,7 @@ static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 	crtc_ext_cntl = RREG32(RADEON_CRTC_EXT_CNTL);
 	fp2_gen_cntl = 0;
 
-	if (rdev->ddev->pci_device == PCI_DEVICE_ID_ATI_RADEON_QY) {
+	if (ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
 		fp2_gen_cntl = RREG32(RADEON_FP2_GEN_CNTL);
 	}
 
@@ -506,7 +516,7 @@ static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 		(RADEON_CRTC_SYNC_TRISTAT |
 		 RADEON_CRTC_DISPLAY_DIS)));
 
-	if (rdev->ddev->pci_device == PCI_DEVICE_ID_ATI_RADEON_QY) {
+	if (ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
 		WREG32(RADEON_FP2_GEN_CNTL, (fp2_gen_cntl & ~RADEON_FP2_ON));
 	}
 
@@ -524,7 +534,7 @@ static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 		WREG32(RADEON_CRTC2_GEN_CNTL, crtc2_gen_cntl);
 	}
 	WREG32(RADEON_CRTC_EXT_CNTL, crtc_ext_cntl);
-	if (rdev->ddev->pci_device == PCI_DEVICE_ID_ATI_RADEON_QY) {
+	if (ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
 		WREG32(RADEON_FP2_GEN_CNTL, fp2_gen_cntl);
 	}
 	return r;
@@ -623,7 +633,7 @@ bool radeon_get_bios(struct radeon_device *rdev)
 		return false;
 	}
 	if (rdev->bios[0] != 0x55 || rdev->bios[1] != 0xaa) {
-		printk("BIOS signature incorrect %x %x\n", rdev->bios[0], rdev->bios[1]);
+		printf("BIOS signature incorrect %x %x\n", rdev->bios[0], rdev->bios[1]);
 		goto free_bios;
 	}
 
