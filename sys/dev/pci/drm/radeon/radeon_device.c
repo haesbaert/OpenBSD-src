@@ -103,13 +103,6 @@ uint32_t	 cail_reg_read(struct card_info *, uint32_t);
 void		 cail_ioreg_write(struct card_info *, uint32_t, uint32_t);
 uint32_t	 cail_ioreg_read(struct card_info *, uint32_t);
 
-int atom_asic_init(struct atom_context *ctx);
-int atom_asic_init(struct atom_context *ctx)
-{
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-}
-
 void radeon_combios_asic_init(struct drm_device *dev);
 void radeon_combios_asic_init(struct drm_device *dev)
 {
