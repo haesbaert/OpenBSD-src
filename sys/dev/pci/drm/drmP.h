@@ -245,6 +245,11 @@ roundup_pow_of_two(unsigned long x)
 	return (1UL << flsl(x - 1));
 }
 
+static inline uint32_t ror32(uint32_t word, unsigned int shift)
+{
+	return (word >> shift) | (word << (32 - shift));
+}
+
 #define DRM_UDELAY(udelay)	DELAY(udelay)
 #define DRM_MDELAY(msecs)	do { int loops = (msecs);		\
 					while (loops--) DELAY(1000);	\
