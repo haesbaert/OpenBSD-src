@@ -103,12 +103,6 @@ uint32_t	 cail_reg_read(struct card_info *, uint32_t);
 void		 cail_ioreg_write(struct card_info *, uint32_t, uint32_t);
 uint32_t	 cail_ioreg_read(struct card_info *, uint32_t);
 
-void radeon_combios_asic_init(struct drm_device *dev);
-void radeon_combios_asic_init(struct drm_device *dev)
-{
-	printf("%s stub\n", __func__);
-}
-
 /**
  * radeon_surface_init - Clear GPU surface registers.
  *
