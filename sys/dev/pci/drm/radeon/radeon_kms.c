@@ -107,6 +107,10 @@ struct cfattach radeondrm_ca = {
         radeondrm_detach_kms, radeondrm_activate_kms
 };
 
+struct cfdriver radeondrm_cd = { 
+	NULL, "radeondrm", DV_DULL
+};
+
 /* Disable AGP writeback for scratch registers */
 int radeon_no_wb;
 
