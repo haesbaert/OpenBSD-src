@@ -271,7 +271,9 @@ int radeon_crtc_cursor_move(struct drm_crtc *crtc,
 				cursor_end = x - xorigin + w;
 				if (!(cursor_end & 0x7f)) {
 					x--;
+#ifdef notyet
 					WARN_ON_ONCE(x < 0);
+#endif
 				}
 			}
 		}

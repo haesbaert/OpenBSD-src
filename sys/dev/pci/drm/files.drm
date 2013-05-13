@@ -110,11 +110,11 @@ file	dev/pci/drm/radeon/radeon_atombios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_benchmark.c		radeondrm
 file	dev/pci/drm/radeon/radeon_bios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_clocks.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_combios.c		radeondrm
+file	dev/pci/drm/radeon/radeon_combios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_connectors.c		radeondrm
 file	dev/pci/drm/radeon/radeon_cp.c			radeondrm
 file	dev/pci/drm/radeon/radeon_cs.c			radeondrm
-#file	dev/pci/drm/radeon/radeon_cursor.c		radeondrm
+file	dev/pci/drm/radeon/radeon_cursor.c		radeondrm
 file	dev/pci/drm/radeon/radeon_device.c		radeondrm
 file	dev/pci/drm/radeon/radeon_display.c		radeondrm
 file	dev/pci/drm/radeon/radeon_drv.c			radeondrm
@@ -136,7 +136,7 @@ file	dev/pci/drm/radeon/radeon_object.c		radeondrm
 file	dev/pci/drm/radeon/radeon_pm.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_prime.c		radeondrm
 file	dev/pci/drm/radeon/radeon_ring.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_sa.c			radeondrm
+file	dev/pci/drm/radeon/radeon_sa.c			radeondrm
 file	dev/pci/drm/radeon/radeon_semaphore.c		radeondrm
 file	dev/pci/drm/radeon/radeon_state.c		radeondrm
 file	dev/pci/drm/radeon/radeon_test.c		radeondrm

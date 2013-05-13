@@ -50,6 +50,11 @@ extern void
 radeon_add_legacy_encoder(struct drm_device *dev, uint32_t encoder_enum,
 			  uint32_t supported_device);
 
+
+void radeon_combios_connected_scratch_regs(struct drm_connector *connector,
+				      struct drm_encoder *encoder,
+				      bool connected);
+
 /* old legacy ATI BIOS routines */
 
 /* COMBIOS table offsets */
@@ -440,10 +445,11 @@ static uint16_t combios_get_table_offset(struct drm_device *dev,
 
 bool radeon_combios_check_hardcoded_edid(struct radeon_device *rdev)
 {
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int edid_info, size;
 	struct edid *edid;
 	unsigned char *raw;
-	edid_info = combios_get_table_offset(rdev->ddev, COMBIOS_HARDCODED_EDID_TABLE);
+	edid_info = combios_get_table_offset(ddev, COMBIOS_HARDCODED_EDID_TABLE);
 	if (!edid_info)
 		return false;
 
@@ -713,7 +719,7 @@ static struct radeon_i2c_bus_rec combios_setup_i2c_bus(struct radeon_device *rde
 
 static struct radeon_i2c_bus_rec radeon_combios_get_i2c_info_from_table(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct radeon_i2c_bus_rec i2c;
 	u16 offset;
 	u8 id, blocks, clk, data;
@@ -741,7 +747,7 @@ static struct radeon_i2c_bus_rec radeon_combios_get_i2c_info_from_table(struct r
 
 void radeon_combios_i2c_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct radeon_i2c_bus_rec i2c;
 
 	/* actual hw pads
@@ -883,7 +889,7 @@ bool radeon_combios_get_clock_info(struct drm_device *dev)
 
 bool radeon_combios_sideport_present(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	u16 igp_info;
 
 	/* sideport is AMD only */
@@ -980,7 +986,7 @@ struct radeon_encoder_primary_dac *radeon_combios_get_primary_dac_info(struct
 enum radeon_tv_std
 radeon_combios_get_tv_info(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	uint16_t tv_info;
 	enum radeon_tv_std tv_std = TV_STD_NTSC;
 
@@ -1266,7 +1272,8 @@ struct radeon_encoder_lvds *radeon_combios_get_lvds_info(struct radeon_encoder
 			 lvds->native_mode.vdisplay);
 
 		lvds->panel_vcc_delay = RBIOS16(lcd_info + 0x2c);
-		lvds->panel_vcc_delay = min_t(u16, lvds->panel_vcc_delay, 2000);
+		if (2000 < lvds->panel_vcc_delay)
+			lvds->panel_vcc_delay = 2000;
 
 		lvds->panel_pwr_delay = RBIOS8(lcd_info + 0x24);
 		lvds->panel_digon_delay = RBIOS16(lcd_info + 0x38) & 0xf;
@@ -2696,7 +2703,7 @@ static const char *thermal_controller_names[] = {
 
 void radeon_combios_get_power_modes(struct radeon_device *rdev)
 {
-	struct drm_device *dev = rdev->ddev;
+	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	u16 offset, misc, misc2 = 0;
 	u8 rev, blocks, tmp;
 	int state_index = 0;
@@ -2758,6 +2765,7 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev)
 			else
 				i2c_bus = combios_setup_i2c_bus(rdev, gpio, 0, 0);
 			rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
+#ifdef notyet
 			if (rdev->pm.i2c_bus) {
 				struct i2c_board_info info = { };
 				const char *name = thermal_controller_names[thermal_controller];
@@ -2765,6 +2773,7 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev)
 				strlcpy(info.type, name, sizeof(info.type));
 				i2c_new_device(&rdev->pm.i2c_bus->adapter, &info);
 			}
+#endif
 		}
 	} else {
 		/* boards with a thermal chip, but no overdrive table */
@@ -2775,6 +2784,7 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev)
 		    (dev->pci_subdevice == 0xc002)) {
 			i2c_bus = combios_setup_i2c_bus(rdev, DDC_MONID, 0, 0);
 			rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
+#ifdef notyet
 			if (rdev->pm.i2c_bus) {
 				struct i2c_board_info info = { };
 				const char *name = "f75375";
@@ -2784,6 +2794,7 @@ void radeon_combios_get_power_modes(struct radeon_device *rdev)
 				DRM_INFO("Possible %s thermal controller at 0x%02x\n",
 					 name, info.addr);
 			}
+#endif
 		}
 	}
 
@@ -3340,7 +3351,7 @@ static void combios_write_ram_size(struct drm_device *dev)
 			mem_cntl = RBIOS32(offset + 1);
 			mem_size = RBIOS16(offset + 5);
 			if ((rdev->family < CHIP_R200) &&
-			    !ASIC_IS_RN50(rdev))
+			    !ASIC_IS_RN50(dev))
 				WREG32(RADEON_MEM_CNTL, mem_cntl);
 		}
 	}
@@ -3352,7 +3363,7 @@ static void combios_write_ram_size(struct drm_device *dev)
 			rev = RBIOS8(offset - 1);
 			if (rev < 1) {
 				if ((rdev->family < CHIP_R200)
-				    && !ASIC_IS_RN50(rdev)) {
+				    && !ASIC_IS_RN50(dev)) {
 					int ram = 0;
 					int mem_addr_mapping = 0;
 
@@ -3432,24 +3443,24 @@ void radeon_combios_asic_init(struct drm_device *dev)
 	 * - it hangs on resume inside the dynclk 1 table.
 	 */
 	if (rdev->family == CHIP_RS480 &&
-	    ddev->pci_subvendor == 0x103c &&
-	    ddev->pci_subdevice == 0x308b)
+	    dev->pci_subvendor == 0x103c &&
+	    dev->pci_subdevice == 0x308b)
 		return;
 
 	/* quirk for rs4xx HP dv5000 laptop to make it resume
 	 * - it hangs on resume inside the dynclk 1 table.
 	 */
 	if (rdev->family == CHIP_RS480 &&
-	    ddev->pci_subvendor == 0x103c &&
-	    ddev->pci_subdevice == 0x30a4)
+	    dev->pci_subvendor == 0x103c &&
+	    dev->pci_subdevice == 0x30a4)
 		return;
 
 	/* quirk for rs4xx Compaq Presario V5245EU laptop to make it resume
 	 * - it hangs on resume inside the dynclk 1 table.
 	 */
 	if (rdev->family == CHIP_RS480 &&
-	    ddev->pci_subvendor == 0x103c &&
-	    ddev->pci_subdevice == 0x30ae)
+	    dev->pci_subvendor == 0x103c &&
+	    dev->pci_subdevice == 0x30ae)
 		return;
 
 	/* DYN CLK 1 */

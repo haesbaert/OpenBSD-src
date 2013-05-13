@@ -46,6 +46,11 @@
 
 static void radeon_sa_bo_remove_locked(struct radeon_sa_bo *sa_bo);
 static void radeon_sa_bo_try_free(struct radeon_sa_manager *sa_manager);
+bool	 radeon_sa_bo_try_alloc(struct radeon_sa_manager *, struct radeon_sa_bo *,
+	     unsigned, unsigned);
+bool	 radeon_sa_event(struct radeon_sa_manager *, unsigned, unsigned);
+bool	 radeon_sa_bo_next_hole(struct radeon_sa_manager *, struct radeon_fence **,
+	     unsigned *);
 
 int radeon_sa_bo_manager_init(struct radeon_device *rdev,
 			      struct radeon_sa_manager *sa_manager,
@@ -53,7 +58,9 @@ int radeon_sa_bo_manager_init(struct radeon_device *rdev,
 {
 	int i, r;
 
+#ifdef notyet
 	init_waitqueue_head(&sa_manager->wq);
+#endif
 	sa_manager->bo = NULL;
 	sa_manager->size = size;
 	sa_manager->domain = domain;
@@ -186,7 +193,8 @@ static inline unsigned radeon_sa_bo_hole_eoffset(struct radeon_sa_manager *sa_ma
 	return sa_manager->size;
 }
 
-static bool radeon_sa_bo_try_alloc(struct radeon_sa_manager *sa_manager,
+bool
+radeon_sa_bo_try_alloc(struct radeon_sa_manager *sa_manager,
 				   struct radeon_sa_bo *sa_bo,
 				   unsigned size, unsigned align)
 {
@@ -220,7 +228,8 @@ static bool radeon_sa_bo_try_alloc(struct radeon_sa_manager *sa_manager,
  * Check if either there is a fence we can wait for or
  * enough free memory to satisfy the allocation directly
  */
-static bool radeon_sa_event(struct radeon_sa_manager *sa_manager,
+bool
+radeon_sa_event(struct radeon_sa_manager *sa_manager,
 			    unsigned size, unsigned align)
 {
 	unsigned soffset, eoffset, wasted;
@@ -243,7 +252,8 @@ static bool radeon_sa_event(struct radeon_sa_manager *sa_manager,
 	return false;
 }
 
-static bool radeon_sa_bo_next_hole(struct radeon_sa_manager *sa_manager,
+bool
+radeon_sa_bo_next_hole(struct radeon_sa_manager *sa_manager,
 				   struct radeon_fence **fences,
 				   unsigned *tries)
 {
@@ -313,6 +323,9 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 		     struct radeon_sa_bo **sa_bo,
 		     unsigned size, unsigned align, bool block)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct radeon_fence *fences[RADEON_NUM_RINGS];
 	unsigned tries[RADEON_NUM_RINGS];
 	int i, r;
@@ -368,11 +381,14 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 	free(*sa_bo, M_DRM);
 	*sa_bo = NULL;
 	return r;
+#endif
 }
 
 void radeon_sa_bo_free(struct radeon_device *rdev, struct radeon_sa_bo **sa_bo,
 		       struct radeon_fence *fence)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	struct radeon_sa_manager *sa_manager;
 
 	if (sa_bo == NULL || *sa_bo == NULL) {
@@ -391,6 +407,7 @@ void radeon_sa_bo_free(struct radeon_device *rdev, struct radeon_sa_bo **sa_bo,
 	wake_up_all_locked(&sa_manager->wq);
 	mtx_leave(&sa_manager->wq.lock);
 	*sa_bo = NULL;
+#endif
 }
 
 #if defined(CONFIG_DEBUG_FS)
