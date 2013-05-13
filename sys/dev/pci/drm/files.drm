@@ -133,7 +133,7 @@ file	dev/pci/drm/radeon/radeon_legacy_encoders.c	radeondrm
 #file	dev/pci/drm/radeon/radeon_legacy_tv.c		radeondrm
 file	dev/pci/drm/radeon/radeon_mem.c			radeondrm
 file	dev/pci/drm/radeon/radeon_object.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_pm.c			radeondrm
+file	dev/pci/drm/radeon/radeon_pm.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_prime.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_ring.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_sa.c			radeondrm
