@@ -65,6 +65,9 @@
  */
 int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	void *ptr;
 
 	ptr = pci_alloc_consistent(rdev->pdev, rdev->gart.table_size,
@@ -82,6 +85,7 @@ int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
 	rdev->gart.ptr = ptr;
 	memset((void *)rdev->gart.ptr, 0, rdev->gart.table_size);
 	return 0;
+#endif
 }
 
 /**
@@ -95,6 +99,8 @@ int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
  */
 void radeon_gart_table_ram_free(struct radeon_device *rdev)
 {
+	printf("%s stub\n", __func__);
+#ifdef notyet
 	if (rdev->gart.ptr == NULL) {
 		return;
 	}
@@ -110,6 +116,7 @@ void radeon_gart_table_ram_free(struct radeon_device *rdev)
 			    rdev->gart.table_addr);
 	rdev->gart.ptr = NULL;
 	rdev->gart.table_addr = 0;
+#endif
 }
 
 /**
@@ -251,7 +258,7 @@ void radeon_gart_unbind(struct radeon_device *rdev, unsigned offset,
 			}
 		}
 	}
-	mb();
+	DRM_MEMORYBARRIER();
 	radeon_gart_tlb_flush(rdev);
 }
 
@@ -269,7 +276,7 @@ void radeon_gart_unbind(struct radeon_device *rdev, unsigned offset,
  * Returns 0 for success, -EINVAL for failure.
  */
 int radeon_gart_bind(struct radeon_device *rdev, unsigned offset,
-		     int pages, struct page **pagelist, dma_addr_t *dma_addr)
+		     int pages, struct page **pagelist, bus_addr_t *dma_addr)
 {
 	unsigned t;
 	unsigned p;
@@ -294,7 +301,7 @@ int radeon_gart_bind(struct radeon_device *rdev, unsigned offset,
 			}
 		}
 	}
-	mb();
+	DRM_MEMORYBARRIER();
 	radeon_gart_tlb_flush(rdev);
 	return 0;
 }
@@ -322,7 +329,7 @@ void radeon_gart_restore(struct radeon_device *rdev)
 			page_base += RADEON_GPU_PAGE_SIZE;
 		}
 	}
-	mb();
+	DRM_MEMORYBARRIER();
 	radeon_gart_tlb_flush(rdev);
 }
 
@@ -355,13 +362,15 @@ int radeon_gart_init(struct radeon_device *rdev)
 	DRM_INFO("GART: num cpu pages %u, num gpu pages %u\n",
 		 rdev->gart.num_cpu_pages, rdev->gart.num_gpu_pages);
 	/* Allocate pages table */
-	rdev->gart.pages = vzalloc(sizeof(void *) * rdev->gart.num_cpu_pages);
+	rdev->gart.pages = malloc(sizeof(void *) * rdev->gart.num_cpu_pages,
+	    M_DRM, M_ZERO | M_WAITOK);
 	if (rdev->gart.pages == NULL) {
 		radeon_gart_fini(rdev);
 		return -ENOMEM;
 	}
-	rdev->gart.pages_addr = vzalloc(sizeof(dma_addr_t) *
-					rdev->gart.num_cpu_pages);
+	rdev->gart.pages_addr = malloc(sizeof(bus_addr_t) *
+					rdev->gart.num_cpu_pages,
+					M_DRM, M_ZERO | M_WAITOK);
 	if (rdev->gart.pages_addr == NULL) {
 		radeon_gart_fini(rdev);
 		return -ENOMEM;
@@ -387,8 +396,8 @@ void radeon_gart_fini(struct radeon_device *rdev)
 		radeon_gart_unbind(rdev, 0, rdev->gart.num_cpu_pages);
 	}
 	rdev->gart.ready = false;
-	vfree(rdev->gart.pages);
-	vfree(rdev->gart.pages_addr);
+	free(rdev->gart.pages, M_DRM);
+	free(rdev->gart.pages_addr, M_DRM);
 	rdev->gart.pages = NULL;
 	rdev->gart.pages_addr = NULL;
 
