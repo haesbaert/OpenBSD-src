@@ -172,19 +172,6 @@ static struct drm_driver_info kms_driver = {
 	.patchlevel = KMS_DRIVER_PATCHLEVEL,
 };
 
-int radeon_modeset_init(struct radeon_device *rdev);
-int radeon_modeset_init(struct radeon_device *rdev)
-{
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-}
-
-void radeon_modeset_fini(struct radeon_device *rdev);
-void radeon_modeset_fini(struct radeon_device *rdev)
-{
-	printf("%s stub\n", __func__);
-}
-
 /**
  * radeon_driver_unload_kms - Main unload function for KMS.
  *
