@@ -2456,6 +2456,8 @@ int r600_cs_parse(struct radeon_cs_parser *p)
 	return 0;
 }
 
+/* don't these need UMS functions */
+#if 0
 static int r600_cs_parser_relocs_legacy(struct radeon_cs_parser *p)
 {
 	if (p->chunk_relocs_idx == -1) {
@@ -2549,6 +2551,7 @@ int r600_cs_legacy(struct drm_device *dev, void *data, struct drm_file *filp,
 	r600_cs_parser_fini(&parser, r);
 	return r;
 }
+#endif
 
 void r600_cs_legacy_init(void)
 {
