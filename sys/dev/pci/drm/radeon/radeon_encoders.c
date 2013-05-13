@@ -36,6 +36,8 @@ extern void
 radeon_atom_backlight_init(struct radeon_encoder *radeon_encoder,
 			   struct drm_connector *drm_connector);
 
+uint32_t	radeon_get_encoder_enum(struct drm_device *, uint32_t, uint8_t);
+void		radeon_link_encoder_connector(struct drm_device *);
 
 static uint32_t radeon_encoder_clones(struct drm_encoder *encoder)
 {

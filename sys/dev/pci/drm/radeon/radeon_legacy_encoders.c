@@ -29,6 +29,11 @@
 #include "radeon.h"
 #include "atom.h"
 
+u8	 radeon_legacy_get_backlight_level(struct radeon_encoder *);
+void	 radeon_legacy_set_backlight_level(struct radeon_encoder *, u8);
+void	 radeon_legacy_backlight_init(struct radeon_encoder *);
+void	 radeon_add_legacy_encoder(struct drm_device *, uint32_t, uint32_t);
+
 static void radeon_legacy_encoder_disable(struct drm_encoder *encoder)
 {
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
@@ -640,7 +645,7 @@ static enum drm_connector_status radeon_legacy_primary_dac_detect(struct drm_enc
 	 * console hw and often we get failure to load detect those. So to make
 	 * everyone happy report the encoder as always connected.
 	 */
-	if (ASIC_IS_RN50(rdev)) {
+	if (ASIC_IS_RN50(dev)) {
 		return connector_status_connected;
 	}
 
@@ -1494,7 +1499,7 @@ static bool radeon_legacy_ext_dac_detect(struct drm_encoder *encoder,
 		if (!drm_can_sleep())
 			DRM_MDELAY(1);
 		else
-			msleep(1);
+			drm_msleep(1, "extdac");
 	}
 
 	/* restore the regs we used */
