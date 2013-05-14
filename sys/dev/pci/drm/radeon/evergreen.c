@@ -2276,9 +2276,6 @@ static void evergreen_gpu_init(struct radeon_device *rdev)
 
 int evergreen_mc_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	u32 tmp;
 	int chansize, numchan;
 
@@ -2315,8 +2312,8 @@ int evergreen_mc_init(struct radeon_device *rdev)
 	}
 	rdev->mc.vram_width = numchan * chansize;
 	/* Could aper size report 0 ? */
-	rdev->mc.aper_base = pci_resource_start(rdev->pdev, 0);
-	rdev->mc.aper_size = pci_resource_len(rdev->pdev, 0);
+	rdev->mc.aper_base = rdev->fb_aper_offset;
+	rdev->mc.aper_size = rdev->fb_aper_size;
 	/* Setup GPU memory space */
 	if ((rdev->family == CHIP_PALM) ||
 	    (rdev->family == CHIP_SUMO) ||
@@ -2334,7 +2331,6 @@ int evergreen_mc_init(struct radeon_device *rdev)
 	radeon_update_bandwidth_info(rdev);
 
 	return 0;
-#endif
 }
 
 bool evergreen_gpu_is_lockup(struct radeon_device *rdev, struct radeon_ring *ring)

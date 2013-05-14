@@ -1163,9 +1163,6 @@ r600_vram_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc)
 
 static int r600_mc_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	u32 tmp;
 	int chansize, numchan;
 
@@ -1197,8 +1194,8 @@ static int r600_mc_init(struct radeon_device *rdev)
 	}
 	rdev->mc.vram_width = numchan * chansize;
 	/* Could aper size report 0 ? */
-	rdev->mc.aper_base = pci_resource_start(rdev->pdev, 0);
-	rdev->mc.aper_size = pci_resource_len(rdev->pdev, 0);
+	rdev->mc.aper_base = rdev->fb_aper_offset;
+	rdev->mc.aper_size = rdev->fb_aper_size;
 	/* Setup GPU memory space */
 	rdev->mc.mc_vram_size = RREG32(CONFIG_MEMSIZE);
 	rdev->mc.real_vram_size = RREG32(CONFIG_MEMSIZE);
@@ -1211,7 +1208,6 @@ static int r600_mc_init(struct radeon_device *rdev)
 	}
 	radeon_update_bandwidth_info(rdev);
 	return 0;
-#endif
 }
 
 int r600_vram_scratch_init(struct radeon_device *rdev)

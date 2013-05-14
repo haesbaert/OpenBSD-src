@@ -147,8 +147,6 @@ void rs690_pm_info(struct radeon_device *rdev)
 
 static void rs690_mc_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	u64 base;
 
 	rs400_gart_adjust_size(rdev);
@@ -156,8 +154,8 @@ static void rs690_mc_init(struct radeon_device *rdev)
 	rdev->mc.vram_width = 128;
 	rdev->mc.real_vram_size = RREG32(RADEON_CONFIG_MEMSIZE);
 	rdev->mc.mc_vram_size = rdev->mc.real_vram_size;
-	rdev->mc.aper_base = pci_resource_start(rdev->pdev, 0);
-	rdev->mc.aper_size = pci_resource_len(rdev->pdev, 0);
+	rdev->mc.aper_base = rdev->fb_aper_offset;
+	rdev->mc.aper_size = rdev->fb_aper_size;
 	rdev->mc.visible_vram_size = rdev->mc.aper_size;
 	base = RREG32_MC(R_000100_MCCFG_FB_LOCATION);
 	base = G_000100_MC_FB_START(base) << 16;
@@ -167,7 +165,6 @@ static void rs690_mc_init(struct radeon_device *rdev)
 	rdev->mc.gtt_base_align = rdev->mc.gtt_size - 1;
 	radeon_gtt_location(rdev, &rdev->mc);
 	radeon_update_bandwidth_info(rdev);
-#endif
 }
 
 void rs690_line_buffer_adjust(struct radeon_device *rdev,
