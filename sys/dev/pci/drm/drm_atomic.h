@@ -57,6 +57,14 @@ typedef u_int64_t atomic64_t;
 #define atomic64_set(p, v)	(*(p) = (v))
 #define atomic64_read(p)	(*(p))
 
+static __inline u_int
+atomic_fetchadd_int(volatile u_int32_t *p, u_int32_t v)
+{
+	u_int old = *p;
+	*p += v;
+	return (old);
+}
+
 static __inline int
 atomic_xchg(volatile int *p, int new)
 {

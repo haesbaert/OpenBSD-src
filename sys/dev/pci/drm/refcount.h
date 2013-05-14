@@ -58,8 +58,10 @@ refcount_acquire(volatile u_int *count)
 static __inline int
 refcount_release(volatile u_int *count)
 {
-	u_int old = *count;
-	*count -= 1;
+	u_int old;
+
+	/* XXX: Should this have a rel membar? */
+	old = atomic_fetchadd_int(count, -1);
 
 	/* check for negative refcount */
 	KASSERT(old > 0);
