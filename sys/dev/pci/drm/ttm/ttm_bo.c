@@ -749,13 +749,13 @@ static void ttm_bo_release(struct kref *kref)
 	struct ttm_bo_device *bdev = bo->bdev;
 	struct ttm_mem_type_manager *man = &bdev->man[bo->mem.mem_type];
 
-	write_lock(&bdev->vm_lock);
+	rw_enter_write(&bdev->vm_lock);
 	if (likely(bo->vm_node != NULL)) {
 		rb_erase(&bo->vm_rb, &bdev->addr_space_rb);
 		drm_mm_put_block(bo->vm_node);
 		bo->vm_node = NULL;
 	}
-	write_unlock(&bdev->vm_lock);
+	rw_exit_write(&bdev->vm_lock);
 	ttm_mem_io_lock(man, false);
 	ttm_mem_io_free_vm(bo);
 	ttm_mem_io_unlock(man);
@@ -1593,13 +1593,9 @@ int ttm_bo_device_release(struct ttm_bo_device *bdev)
 	mtx_leave(&glob->lru_lock);
 
 	BUG_ON(!drm_mm_clean(&bdev->addr_space_mm));
-#ifdef notyet
-	write_lock(&bdev->vm_lock);
-#endif
+	rw_enter_write(&bdev->vm_lock);
 	drm_mm_takedown(&bdev->addr_space_mm);
-#ifdef notyet
-	write_unlock(&bdev->vm_lock);
-#endif
+	rw_exit_write(&bdev->vm_lock);
 
 	return ret;
 }
@@ -1616,7 +1612,7 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 #ifdef notyet
 	int ret = -EINVAL;
 
-	rwlock_init(&bdev->vm_lock);
+	rw_init(&bdev->vm_lock, "ttmvm");
 	bdev->driver = driver;
 
 	memset(bdev->man, 0, sizeof(bdev->man));
@@ -1756,7 +1752,7 @@ retry_pre_get:
 	if (unlikely(ret != 0))
 		return ret;
 
-	write_lock(&bdev->vm_lock);
+	rw_enter_write(&bdev->vm_lock);
 	bo->vm_node = drm_mm_search_free(&bdev->addr_space_mm,
 					 bo->mem.num_pages, 0, 0);
 
@@ -1769,17 +1765,17 @@ retry_pre_get:
 					      bo->mem.num_pages, 0);
 
 	if (unlikely(bo->vm_node == NULL)) {
-		write_unlock(&bdev->vm_lock);
+		rw_exit_write(&bdev->vm_lock);
 		goto retry_pre_get;
 	}
 
 	ttm_bo_vm_insert_rb(bo);
-	write_unlock(&bdev->vm_lock);
+	rw_exit_write(&bdev->vm_lock);
 	bo->addr_space_offset = ((uint64_t) bo->vm_node->start) << PAGE_SHIFT;
 
 	return 0;
 out_unlock:
-	write_unlock(&bdev->vm_lock);
+	rw_exit_write(&bdev->vm_lock);
 	return ret;
 #endif
 }

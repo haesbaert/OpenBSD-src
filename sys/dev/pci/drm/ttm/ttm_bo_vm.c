@@ -270,12 +270,12 @@ int ttm_bo_mmap(struct file *filp, struct vm_area_struct *vma,
 	struct ttm_buffer_object *bo;
 	int ret;
 
-	read_lock(&bdev->vm_lock);
+	rw_enter_read(&bdev->vm_lock);
 	bo = ttm_bo_vm_lookup_rb(bdev, vma->vm_pgoff,
 				 (vma->vm_end - vma->vm_start) >> PAGE_SHIFT);
 	if (likely(bo != NULL) && !kref_get_unless_zero(&bo->kref))
 		bo = NULL;
-	read_unlock(&bdev->vm_lock);
+	rw_exit_read(&bdev->vm_lock);
 
 	if (unlikely(bo == NULL)) {
 		pr_err("Could not find buffer object to map\n");
@@ -344,11 +344,11 @@ ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
 	bool no_wait = false;
 	bool dummy;
 
-	read_lock(&bdev->vm_lock);
+	rw_enter_read(&bdev->vm_lock);
 	bo = ttm_bo_vm_lookup_rb(bdev, dev_offset, 1);
 	if (likely(bo != NULL))
 		ttm_bo_reference(bo);
-	read_unlock(&bdev->vm_lock);
+	rw_exit_read(&bdev->vm_lock);
 
 	if (unlikely(bo == NULL))
 		return -EFAULT;

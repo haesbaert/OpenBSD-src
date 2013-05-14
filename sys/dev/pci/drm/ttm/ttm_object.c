@@ -57,9 +57,7 @@
 
 struct ttm_object_file {
 	struct ttm_object_device *tdev;
-#ifdef notyet
-	rwlock_t lock;
-#endif
+	struct rwlock lock;
 	struct list_head ref_list;
 	struct drm_open_hash ref_hash[TTM_REF_NUM];
 	int refcount;
@@ -280,17 +278,17 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 		*existed = true;
 
 	while (ret == -EINVAL) {
-		read_lock(&tfile->lock);
+		rw_enter_read(&tfile->lock);
 		ret = drm_ht_find_item(ht, base->hash.key, &hash);
 
 		if (ret == 0) {
 			ref = drm_hash_entry(hash, struct ttm_ref_object, hash);
 			kref_get(&ref->kref);
-			read_unlock(&tfile->lock);
+			rw_exit_read(&tfile->lock);
 			break;
 		}
 
-		read_unlock(&tfile->lock);
+		rw_exit_read(&tfile->lock);
 		ret = ttm_mem_global_alloc(mem_glob, sizeof(*ref),
 					   false, false);
 		if (unlikely(ret != 0))
@@ -307,19 +305,19 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 		ref->ref_type = ref_type;
 		kref_init(&ref->kref);
 
-		write_lock(&tfile->lock);
+		rw_enter_write(&tfile->lock);
 		ret = drm_ht_insert_item(ht, &ref->hash);
 
 		if (likely(ret == 0)) {
 			list_add_tail(&ref->head, &tfile->ref_list);
 			kref_get(&base->refcount);
-			write_unlock(&tfile->lock);
+			rw_exit_write(&tfile->lock);
 			if (existed != NULL)
 				*existed = false;
 			break;
 		}
 
-		write_unlock(&tfile->lock);
+		rw_exit_write(&tfile->lock);
 		BUG_ON(ret != -EINVAL);
 
 		ttm_mem_global_free(mem_glob, sizeof(*ref));
@@ -344,7 +342,7 @@ static void ttm_ref_object_release(struct kref *kref)
 	ht = &tfile->ref_hash[ref->ref_type];
 	(void)drm_ht_remove_item(ht, &ref->hash);
 	list_del(&ref->head);
-	write_unlock(&tfile->lock);
+	rw_exit_write(&tfile->lock);
 
 	if (ref->ref_type != TTM_REF_USAGE && base->ref_obj_release)
 		base->ref_obj_release(base, ref->ref_type);
@@ -352,7 +350,7 @@ static void ttm_ref_object_release(struct kref *kref)
 	ttm_base_object_unref(&ref->obj);
 	ttm_mem_global_free(mem_glob, sizeof(*ref));
 	free(ref, M_DRM);
-	write_lock(&tfile->lock);
+	rw_enter_write(&tfile->lock);
 }
 #endif
 
@@ -367,15 +365,15 @@ int ttm_ref_object_base_unref(struct ttm_object_file *tfile,
 	struct drm_hash_item *hash;
 	int ret;
 
-	write_lock(&tfile->lock);
+	rw_enter_write(&tfile->lock);
 	ret = drm_ht_find_item(ht, key, &hash);
 	if (unlikely(ret != 0)) {
-		write_unlock(&tfile->lock);
+		rw_exit_write(&tfile->lock);
 		return -EINVAL;
 	}
 	ref = drm_hash_entry(hash, struct ttm_ref_object, hash);
 	kref_put(&ref->kref, ttm_ref_object_release);
-	write_unlock(&tfile->lock);
+	rw_exit_write(&tfile->lock);
 	return 0;
 #endif
 }
@@ -391,7 +389,7 @@ void ttm_object_file_release(struct ttm_object_file **p_tfile)
 	struct ttm_object_file *tfile = *p_tfile;
 
 	*p_tfile = NULL;
-	write_lock(&tfile->lock);
+	rw_enter_write(&tfile->lock);
 
 	/*
 	 * Since we release the lock within the loop, we have to
@@ -407,7 +405,7 @@ void ttm_object_file_release(struct ttm_object_file **p_tfile)
 	for (i = 0; i < TTM_REF_NUM; ++i)
 		drm_ht_remove(&tfile->ref_hash[i]);
 
-	write_unlock(&tfile->lock);
+	rw_exit_write(&tfile->lock);
 	ttm_object_file_unref(&tfile);
 #endif
 }
