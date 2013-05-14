@@ -1008,4 +1008,10 @@ int ttm_agp_tt_populate(struct ttm_tt *ttm);
 void ttm_agp_tt_unpopulate(struct ttm_tt *ttm);
 #endif
 
+int	ttm_bo_cmp_rb_tree_items(struct ttm_buffer_object *a,
+	    struct ttm_buffer_object *b);
+
+RB_PROTOTYPE(ttm_bo_device_buffer_objects, ttm_buffer_object, vm_rb,
+    ttm_bo_cmp_rb_tree_items);
+
 #endif

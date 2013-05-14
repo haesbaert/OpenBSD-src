@@ -140,16 +140,13 @@ static inline uint32_t ttm_bo_type_flags(unsigned type)
 	return 1 << (type);
 }
 
-#ifdef notyet
-static void ttm_bo_release_list(struct kref *list_kref)
+static void ttm_bo_release_list(struct ttm_buffer_object *bo)
 {
-	struct ttm_buffer_object *bo =
-	    container_of(list_kref, struct ttm_buffer_object, list_kref);
 	struct ttm_bo_device *bdev = bo->bdev;
 	size_t acc_size = bo->acc_size;
 
-	BUG_ON(atomic_read(&bo->list_kref.refcount));
-	BUG_ON(atomic_read(&bo->kref.refcount));
+	BUG_ON(atomic_read(&bo->list_kref));
+	BUG_ON(atomic_read(&bo->kref));
 	BUG_ON(atomic_read(&bo->cpu_writers));
 	BUG_ON(bo->sync_obj != NULL);
 	BUG_ON(bo->mem.mm_node != NULL);
@@ -166,7 +163,6 @@ static void ttm_bo_release_list(struct kref *list_kref)
 	}
 	ttm_mem_global_free(bdev->glob->mem_glob, acc_size);
 }
-#endif
 
 int ttm_bo_wait_unreserved(struct ttm_buffer_object *bo, bool interruptible)
 {
@@ -186,8 +182,6 @@ EXPORT_SYMBOL(ttm_bo_wait_unreserved);
 
 void ttm_bo_add_to_lru(struct ttm_buffer_object *bo)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_bo_device *bdev = bo->bdev;
 	struct ttm_mem_type_manager *man;
 
@@ -199,14 +193,13 @@ void ttm_bo_add_to_lru(struct ttm_buffer_object *bo)
 
 		man = &bdev->man[bo->mem.mem_type];
 		list_add_tail(&bo->lru, &man->lru);
-		kref_get(&bo->list_kref);
+		refcount_acquire(&bo->list_kref);
 
 		if (bo->ttm != NULL) {
 			list_add_tail(&bo->swap, &bo->glob->swap_lru);
-			kref_get(&bo->list_kref);
+			refcount_acquire(&bo->list_kref);
 		}
 	}
-#endif
 }
 
 int ttm_bo_del_from_lru(struct ttm_buffer_object *bo)
@@ -528,7 +521,6 @@ static void ttm_bo_cleanup_memtype_use(struct ttm_buffer_object *bo)
 #endif
 }
 
-#ifdef notyet
 static void ttm_bo_cleanup_refs_or_queue(struct ttm_buffer_object *bo)
 {
 	struct ttm_bo_device *bdev = bo->bdev;
@@ -563,7 +555,7 @@ static void ttm_bo_cleanup_refs_or_queue(struct ttm_buffer_object *bo)
 		wakeup(&bo->event_queue);
 	}
 
-	kref_get(&bo->list_kref);
+	refcount_acquire(&bo->list_kref);
 	list_add_tail(&bo->ddestroy, &bdev->ddestroy);
 	mtx_leave(&glob->lru_lock);
 
@@ -571,10 +563,11 @@ static void ttm_bo_cleanup_refs_or_queue(struct ttm_buffer_object *bo)
 		driver->sync_obj_flush(sync_obj);
 		driver->sync_obj_unref(&sync_obj);
 	}
+#ifdef notyet
 	schedule_delayed_work(&bdev->wq,
 			      ((HZ / 100) < 1) ? 1 : HZ / 100);
-}
 #endif
+}
 
 /**
  * function ttm_bo_cleanup_refs_and_unlock
@@ -741,17 +734,15 @@ static void ttm_bo_delayed_workqueue(struct work_struct *work)
 }
 #endif
 
-#ifdef notyet
-static void ttm_bo_release(struct kref *kref)
+static void ttm_bo_release(struct ttm_buffer_object *bo)
 {
-	struct ttm_buffer_object *bo =
-	    container_of(kref, struct ttm_buffer_object, kref);
 	struct ttm_bo_device *bdev = bo->bdev;
 	struct ttm_mem_type_manager *man = &bdev->man[bo->mem.mem_type];
 
 	rw_enter_write(&bdev->vm_lock);
 	if (likely(bo->vm_node != NULL)) {
-		rb_erase(&bo->vm_rb, &bdev->addr_space_rb);
+		RB_REMOVE(ttm_bo_device_buffer_objects,
+		    &bdev->addr_space_rb, bo);
 		drm_mm_put_block(bo->vm_node);
 		bo->vm_node = NULL;
 	}
@@ -760,19 +751,17 @@ static void ttm_bo_release(struct kref *kref)
 	ttm_mem_io_free_vm(bo);
 	ttm_mem_io_unlock(man);
 	ttm_bo_cleanup_refs_or_queue(bo);
-	kref_put(&bo->list_kref, ttm_bo_release_list);
+	if (refcount_release(&bo->list_kref))
+		ttm_bo_release_list(bo);
 }
-#endif
 
 void ttm_bo_unref(struct ttm_buffer_object **p_bo)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_buffer_object *bo = *p_bo;
 
 	*p_bo = NULL;
-	kref_put(&bo->kref, ttm_bo_release);
-#endif
+	if (refcount_release(&bo->kref))
+		ttm_bo_release(bo);
 }
 EXPORT_SYMBOL(ttm_bo_unref);
 
@@ -1107,9 +1096,6 @@ int ttm_bo_move_buffer(struct ttm_buffer_object *bo,
 			bool interruptible,
 			bool no_wait_gpu)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	int ret = 0;
 	struct ttm_mem_reg mem;
 	struct ttm_bo_device *bdev = bo->bdev;
@@ -1144,7 +1130,6 @@ out_unlock:
 	if (ret && mem.mm_node)
 		ttm_bo_mem_put(bo, &mem);
 	return ret;
-#endif
 }
 
 static int ttm_bo_mem_compat(struct ttm_placement *placement,

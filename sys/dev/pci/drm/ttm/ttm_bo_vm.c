@@ -42,6 +42,23 @@ struct ttm_buffer_object *
 	 ttm_bo_vm_lookup_rb(struct ttm_bo_device *, unsigned long,
 	     unsigned long);
 
+RB_GENERATE(ttm_bo_device_buffer_objects, ttm_buffer_object, vm_rb,
+    ttm_bo_cmp_rb_tree_items);
+
+int
+ttm_bo_cmp_rb_tree_items(struct ttm_buffer_object *a,
+    struct ttm_buffer_object *b)
+{
+
+	if (a->vm_node->start < b->vm_node->start) {
+		return (-1);
+	} else if (a->vm_node->start > b->vm_node->start) {
+		return (1);
+	} else {
+		return (0);
+	}
+}
+
 struct ttm_buffer_object *
 ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 						     unsigned long page_start,
