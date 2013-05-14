@@ -577,15 +577,12 @@ int radeon_bo_check_tiling(struct radeon_bo *bo, bool has_moved,
 void radeon_bo_move_notify(struct ttm_buffer_object *bo,
 			   struct ttm_mem_reg *mem)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_bo *rbo;
 	if (!radeon_ttm_bo_is_radeon_bo(bo))
 		return;
 	rbo = container_of(bo, struct radeon_bo, tbo);
 	radeon_bo_check_tiling(rbo, 0, 1);
 	radeon_vm_bo_invalidate(rbo->rdev, rbo);
-#endif
 }
 
 int radeon_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
