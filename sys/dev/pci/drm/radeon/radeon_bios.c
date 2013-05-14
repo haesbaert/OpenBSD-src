@@ -78,31 +78,43 @@ static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 
 static bool radeon_read_bios(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return false;
-#ifdef notyet
 	uint8_t __iomem *bios;
-	size_t size;
+	bus_size_t size;
+	pcireg_t address, mask;
+	bus_space_handle_t romh;
+	int rc;
 
 	rdev->bios = NULL;
 	/* XXX: some cards may return 0 for rom size? ddx has a workaround */
-	bios = pci_map_rom(rdev->pdev, &size);
+
+	address = pci_conf_read(rdev->pc, rdev->pa_tag, PCI_ROM_REG);
+	pci_conf_write(rdev->pc, rdev->pa_tag, PCI_ROM_REG, ~PCI_ROM_ENABLE);
+	mask = pci_conf_read(rdev->pc, rdev->pa_tag, PCI_ROM_REG);
+	address |= PCI_ROM_ENABLE;
+	pci_conf_write(rdev->pc, rdev->pa_tag, PCI_ROM_REG, address);
+
+	size = PCI_ROM_SIZE(mask);
+	rc = bus_space_map(rdev->bst, PCI_ROM_ADDR(address), size,
+	    BUS_SPACE_MAP_LINEAR, &romh);
+	if (rc != 0) {
+		printf(": can't map PCI ROM (%d)\n", rc);
+		return false;
+	}
+	bios = (uint8_t *)bus_space_vaddr(rdev->bst, romh);
 	if (!bios) {
+		printf(": bus_space_vaddr failed\n");
 		return false;
 	}
 
-	if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa) {
-		pci_unmap_rom(rdev->pdev, bios);
-		return false;
-	}
-	rdev->bios = kmemdup(bios, size, GFP_KERNEL);
-	if (rdev->bios == NULL) {
-		pci_unmap_rom(rdev->pdev, bios);
-		return false;
-	}
-	pci_unmap_rom(rdev->pdev, bios);
+	if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa)
+		goto fail;
+	rdev->bios = malloc(size, M_DRM, M_WAITOK);
+	memcpy(rdev->bios, bios, size);
+	bus_space_unmap(rdev->bst, romh, size);
 	return true;
-#endif
+fail:
+	bus_space_unmap(rdev->bst, romh, size);
+	return false;
 }
 
 #ifdef CONFIG_ACPI

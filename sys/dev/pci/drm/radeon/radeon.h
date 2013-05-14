@@ -1548,6 +1548,7 @@ struct radeon_device {
 	struct device			*drmdev;
 
 	pci_chipset_tag_t		pc;
+	pcitag_t			pa_tag;
 	pci_intr_handle_t		intrh;
 	bus_space_tag_t			bst;
 	void				*irqh;
