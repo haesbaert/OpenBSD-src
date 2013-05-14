@@ -759,9 +759,6 @@ cail_ioreg_read(struct card_info *info, uint32_t reg)
  */
 int radeon_atombios_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct card_info *atom_card_info =
 	    malloc(sizeof(struct card_info), M_DRM, M_WAITOK | M_ZERO);
@@ -792,7 +789,6 @@ int radeon_atombios_init(struct radeon_device *rdev)
 	radeon_atom_initialize_bios_scratch_regs(dev);
 	atom_allocate_fb_scratch(rdev->mode_info.atom_context);
 	return 0;
-#endif
 }
 
 /**
@@ -831,13 +827,9 @@ void radeon_atombios_fini(struct radeon_device *rdev)
  */
 int radeon_combios_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	radeon_combios_initialize_bios_scratch_regs(dev);
 	return 0;
-#endif
 }
 
 /**
