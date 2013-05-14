@@ -878,7 +878,6 @@ radeon_vga_set_decode(void *cookie, bool state)
 #endif
 }
 
-#ifdef notyet
 /**
  * radeon_check_pot_argument - check that argument is a power of two
  *
@@ -939,7 +938,6 @@ radeon_check_arguments(struct radeon_device *rdev)
 		break;
 	}
 }
-#endif
 
 #ifdef notyet
 /**
@@ -1041,9 +1039,6 @@ static const struct vga_switcheroo_client_ops radeon_switcheroo_ops = {
 int radeon_device_init(struct radeon_device *rdev,
 		       struct drm_device *ddev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	int r, i;
 	int dma_bits;
 
@@ -1191,7 +1186,6 @@ int radeon_device_init(struct radeon_device *rdev,
 		radeon_benchmark(rdev, radeon_benchmarking);
 	}
 	return 0;
-#endif
 }
 
 #ifdef __linux__
