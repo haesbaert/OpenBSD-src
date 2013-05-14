@@ -2814,11 +2814,8 @@ static void r100_vram_get_type(struct radeon_device *rdev)
 u32
 r100_get_accessible_vram(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return 0;
-#ifdef notyet
 	u32 aper_size;
-	u8 byte;
+	pcireg_t reg;
 
 	aper_size = RREG32(RADEON_CONFIG_APER_SIZE);
 
@@ -2837,8 +2834,9 @@ r100_get_accessible_vram(struct radeon_device *rdev)
 	 * check if it's a multifunction card by reading the PCI config
 	 * header type... Limit those to one aperture size
 	 */
-	pci_read_config_byte(rdev->pdev, 0xe, &byte);
-	if (byte & 0x80) {
+	reg = pci_conf_read(rdev->pc, rdev->pa_tag, 0xe);
+	
+	if (reg & 0x80) {
 		DRM_INFO("Generation 1 PCI interface in multifunction mode\n");
 		DRM_INFO("Limiting VRAM to one aperture\n");
 		return aper_size;
@@ -2851,7 +2849,6 @@ r100_get_accessible_vram(struct radeon_device *rdev)
 	if (RREG32(RADEON_HOST_PATH_CNTL) & RADEON_HDP_APER_CNTL)
 		return aper_size * 2;
 	return aper_size;
-#endif
 }
 
 void r100_vram_init_sizes(struct radeon_device *rdev)
