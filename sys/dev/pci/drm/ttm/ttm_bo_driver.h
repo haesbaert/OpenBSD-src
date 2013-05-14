@@ -538,7 +538,7 @@ struct ttm_bo_device {
 	/*
 	 * Protected by the vm lock.
 	 */
-	RB_HEAD(ttm_bo_device_buffer_objects, ttm_buffer_object) adr_space_rb;
+	RB_HEAD(ttm_bo_device_buffer_objects, ttm_buffer_object) addr_space_rb;
 	struct drm_mm addr_space_mm;
 
 	/*

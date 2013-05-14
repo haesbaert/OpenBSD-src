@@ -1607,9 +1607,6 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 		       uint64_t file_page_offset,
 		       bool need_dma32)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	int ret = -EINVAL;
 
 	rw_init(&bdev->vm_lock, "ttmvm");
@@ -1625,12 +1622,14 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 	if (unlikely(ret != 0))
 		goto out_no_sys;
 
-	bdev->addr_space_rb = RB_ROOT;
+	RB_INIT(&bdev->addr_space_rb);
 	ret = drm_mm_init(&bdev->addr_space_mm, file_page_offset, 0x10000000);
 	if (unlikely(ret != 0))
 		goto out_no_addr_mm;
 
+#ifdef notyet
 	INIT_DELAYED_WORK(&bdev->wq, ttm_bo_delayed_workqueue);
+#endif
 	INIT_LIST_HEAD(&bdev->ddestroy);
 	bdev->dev_mapping = NULL;
 	bdev->glob = glob;
@@ -1646,7 +1645,6 @@ out_no_addr_mm:
 	ttm_bo_clean_mm(bdev, 0);
 out_no_sys:
 	return ret;
-#endif
 }
 EXPORT_SYMBOL(ttm_bo_device_init);
 
