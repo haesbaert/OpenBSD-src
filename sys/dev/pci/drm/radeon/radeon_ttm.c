@@ -740,7 +740,6 @@ radeon_ttm_tt_unpopulate(struct ttm_tt *ttm)
 #endif
 }
 
-#ifdef notyet
 static struct ttm_bo_driver radeon_bo_driver = {
 	.ttm_tt_create = &radeon_ttm_tt_create,
 	.ttm_tt_populate = &radeon_ttm_tt_populate,
@@ -760,13 +759,9 @@ static struct ttm_bo_driver radeon_bo_driver = {
 	.io_mem_reserve = &radeon_ttm_io_mem_reserve,
 	.io_mem_free = &radeon_ttm_io_mem_free,
 };
-#endif
 
 int radeon_ttm_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 //	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
@@ -825,7 +820,6 @@ int radeon_ttm_init(struct radeon_device *rdev)
 		return r;
 	}
 	return 0;
-#endif
 }
 
 void radeon_ttm_fini(struct radeon_device *rdev)
