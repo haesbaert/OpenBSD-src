@@ -28,6 +28,7 @@
 #define pr_fmt(fmt) "[TTM] " fmt
 
 #include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/refcount.h>
 #include <dev/pci/drm/ttm/ttm_memory.h>
 #include <dev/pci/drm/ttm/ttm_module.h>
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
@@ -35,9 +36,7 @@
 #define TTM_MEMORY_ALLOC_RETRIES 4
 
 struct ttm_mem_zone {
-#ifdef notyet
-	struct kobject kobj;
-#endif
+	u_int kobj_ref;
 	struct ttm_mem_global *glob;
 	const char *name;
 	uint64_t zone_mem;
@@ -76,7 +75,7 @@ static void ttm_mem_zone_kobj_release(struct kobject *kobj)
 	struct ttm_mem_zone *zone =
 		container_of(kobj, struct ttm_mem_zone, kobj);
 
-	pr_info("Zone %7s: Used memory at exit: %llu kiB\n",
+	DRM_INFO("Zone %7s: Used memory at exit: %llu kiB\n",
 		zone->name, (unsigned long long)zone->used_mem >> 10);
 	free(zone, M_DRM);
 }
@@ -251,19 +250,13 @@ static void ttm_shrink_work(struct work_struct *work)
 }
 #endif
 
-#ifdef notyet
 static int ttm_mem_init_kernel_zone(struct ttm_mem_global *glob,
-				    const struct sysinfo *si)
+    uint64_t mem)
 {
 	struct ttm_mem_zone *zone = malloc(sizeof(*zone), M_DRM, M_WAITOK | M_ZERO);
-	uint64_t mem;
-	int ret;
 
 	if (unlikely(!zone))
 		return -ENOMEM;
-
-	mem = si->totalram - si->totalhigh;
-	mem *= si->mem_unit;
 
 	zone->name = "kernel";
 	zone->zone_mem = mem;
@@ -273,25 +266,16 @@ static int ttm_mem_init_kernel_zone(struct ttm_mem_global *glob,
 	zone->used_mem = 0;
 	zone->glob = glob;
 	glob->zone_kernel = zone;
-	ret = kobject_init_and_add(
-		&zone->kobj, &ttm_mem_zone_kobj_type, &glob->kobj, zone->name);
-	if (unlikely(ret != 0)) {
-		kobject_put(&zone->kobj);
-		return ret;
-	}
+	refcount_init(&zone->kobj_ref, 1);
 	glob->zones[glob->num_zones++] = zone;
 	return 0;
 }
-#endif
 
-#ifdef notyet
 #ifdef CONFIG_HIGHMEM
 static int ttm_mem_init_highmem_zone(struct ttm_mem_global *glob,
-				     const struct sysinfo *si)
+    uint64_t mem)
 {
 	struct ttm_mem_zone *zone;
-	uint64_t mem;
-	int ret;
 
 	if (si->totalhigh == 0)
 		return 0;
@@ -299,9 +283,6 @@ static int ttm_mem_init_highmem_zone(struct ttm_mem_global *glob,
 	zone = malloc(sizeof(*zone), M_DRM, M_WAITOK | M_ZERO);
 	if (unlikely(!zone))
 		return -ENOMEM;
-
-	mem = si->totalram;
-	mem *= si->mem_unit;
 
 	zone->name = "highmem";
 	zone->zone_mem = mem;
@@ -311,28 +292,18 @@ static int ttm_mem_init_highmem_zone(struct ttm_mem_global *glob,
 	zone->used_mem = 0;
 	zone->glob = glob;
 	glob->zone_highmem = zone;
-	ret = kobject_init_and_add(
-		&zone->kobj, &ttm_mem_zone_kobj_type, &glob->kobj, zone->name);
-	if (unlikely(ret != 0)) {
-		kobject_put(&zone->kobj);
-		return ret;
-	}
+	refcount_init(&zone->kobj_ref, 1);
 	glob->zones[glob->num_zones++] = zone;
 	return 0;
 }
 #else
 static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
-				   const struct sysinfo *si)
+    uint64_t mem)
 {
 	struct ttm_mem_zone *zone = malloc(sizeof(*zone), M_DRM, M_WAITOK | M_ZERO);
-	uint64_t mem;
-	int ret;
 
 	if (unlikely(!zone))
 		return -ENOMEM;
-
-	mem = si->totalram;
-	mem *= si->mem_unit;
 
 	/**
 	 * No special dma32 zone needed.
@@ -358,55 +329,44 @@ static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
 	zone->used_mem = 0;
 	zone->glob = glob;
 	glob->zone_dma32 = zone;
-	ret = kobject_init_and_add(
-		&zone->kobj, &ttm_mem_zone_kobj_type, &glob->kobj, zone->name);
-	if (unlikely(ret != 0)) {
-		kobject_put(&zone->kobj);
-		return ret;
-	}
+	refcount_init(&zone->kobj_ref, 1);
 	glob->zones[glob->num_zones++] = zone;
 	return 0;
 }
 #endif
-#endif // notyet
 
 int ttm_mem_global_init(struct ttm_mem_global *glob)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct sysinfo si;
+	uint64_t mem;
 	int ret;
 	int i;
 	struct ttm_mem_zone *zone;
 
 	mtx_init(&glob->lock, IPL_NONE);
+#ifdef notyet
 	glob->swap_queue = create_singlethread_workqueue("ttm_swap");
 	INIT_WORK(&glob->work, ttm_shrink_work);
-	ret = kobject_init_and_add(
-		&glob->kobj, &ttm_mem_glob_kobj_type, ttm_get_kobj(), "memory_accounting");
-	if (unlikely(ret != 0)) {
-		kobject_put(&glob->kobj);
-		return ret;
-	}
+#endif
 
-	si_meminfo(&si);
+	refcount_init(&glob->kobj_ref, 1);
 
-	ret = ttm_mem_init_kernel_zone(glob, &si);
+	mem = physmem * PAGE_SIZE;
+
+	ret = ttm_mem_init_kernel_zone(glob, mem);
 	if (unlikely(ret != 0))
 		goto out_no_zone;
 #ifdef CONFIG_HIGHMEM
-	ret = ttm_mem_init_highmem_zone(glob, &si);
+	ret = ttm_mem_init_highmem_zone(glob, mem);
 	if (unlikely(ret != 0))
 		goto out_no_zone;
 #else
-	ret = ttm_mem_init_dma32_zone(glob, &si);
+	ret = ttm_mem_init_dma32_zone(glob, mem);
 	if (unlikely(ret != 0))
 		goto out_no_zone;
 #endif
 	for (i = 0; i < glob->num_zones; ++i) {
 		zone = glob->zones[i];
-		pr_info("Zone %7s: Available graphics memory: %llu kiB\n",
+		DRM_INFO("Zone %7s: Available graphics memory: %llu kiB\n",
 			zone->name, (unsigned long long)zone->max_mem >> 10);
 	}
 	ttm_page_alloc_init(glob, glob->zone_kernel->max_mem/(2*PAGE_SIZE));
@@ -415,7 +375,6 @@ int ttm_mem_global_init(struct ttm_mem_global *glob)
 out_no_zone:
 	ttm_mem_global_release(glob);
 	return ret;
-#endif
 }
 EXPORT_SYMBOL(ttm_mem_global_init);
 
