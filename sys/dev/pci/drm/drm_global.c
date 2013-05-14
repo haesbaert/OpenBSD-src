@@ -29,6 +29,7 @@
  */
 
 #include <sys/rwlock.h>
+#include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/drm_global.h>
 
 struct drm_global_item {
