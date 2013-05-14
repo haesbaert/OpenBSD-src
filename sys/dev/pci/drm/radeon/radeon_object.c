@@ -116,10 +116,9 @@ int radeon_bo_create(struct radeon_device *rdev,
 		     unsigned long size, int byte_align, bool kernel, u32 domain,
 		     struct sg_table *sg, struct radeon_bo **bo_ptr)
 {
-	printf("%s stub\n", __func__);
-	return ENOSYS;
-#ifdef notyet
+	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_bo *bo;
+	struct drm_obj *drm_bo;
 	enum ttm_bo_type type;
 	unsigned long page_align = roundup(byte_align, PAGE_SIZE) >> PAGE_SHIFT;
 	size_t acc_size;
@@ -142,16 +141,11 @@ int radeon_bo_create(struct radeon_device *rdev,
 	acc_size = ttm_bo_dma_acc_size(&rdev->mman.bdev, size,
 				       sizeof(struct radeon_bo));
 
-	bo = malloc(sizeof(struct radeon_bo), M_DRM, M_WAITOK | M_ZERO);
-	if (bo == NULL)
+	drm_bo = drm_gem_object_alloc(ddev, size);
+	if (drm_bo == NULL)
 		return -ENOMEM;
-	r = drm_gem_object_init(rdev->ddev, &bo->gem_base, size);
-	if (unlikely(r)) {
-		free(bo, M_DRM);
-		return r;
-	}
+	bo = gem_to_radeon_bo(drm_bo);
 	bo->rdev = rdev;
-	bo->gem_base.driver_private = NULL;
 	bo->surface_reg = -1;
 	INIT_LIST_HEAD(&bo->list);
 	INIT_LIST_HEAD(&bo->va);
@@ -167,10 +161,11 @@ int radeon_bo_create(struct radeon_device *rdev,
 	}
 	*bo_ptr = bo;
 
+#ifdef notyet
 	trace_radeon_bo_create(bo);
+#endif
 
 	return 0;
-#endif
 }
 
 int radeon_bo_kmap(struct radeon_bo *bo, void **ptr)
