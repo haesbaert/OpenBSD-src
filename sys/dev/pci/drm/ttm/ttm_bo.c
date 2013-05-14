@@ -1656,17 +1656,18 @@ bool ttm_mem_reg_is_pci(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 
 void ttm_bo_unmap_virtual_locked(struct ttm_buffer_object *bo)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_bo_device *bdev = bo->bdev;
+#ifdef notyet
 	off_t offset = (off_t) bo->addr_space_offset;
 	off_t holelen = ((off_t) bo->mem.num_pages) << PAGE_SHIFT;
+#endif
 
 	if (!bdev->dev_mapping)
 		return;
+#ifdef notyet
 	unmap_mapping_range(bdev->dev_mapping, offset, holelen, 1);
-	ttm_mem_io_free_vm(bo);
 #endif
+	ttm_mem_io_free_vm(bo);
 }
 
 void ttm_bo_unmap_virtual(struct ttm_buffer_object *bo)
