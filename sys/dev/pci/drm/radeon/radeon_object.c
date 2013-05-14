@@ -335,27 +335,26 @@ void radeon_bo_force_delete(struct radeon_device *rdev)
 
 int radeon_bo_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
+	struct drm_device	*dev = (struct drm_device *)rdev->drmdev;
+	struct drm_local_map	*map;
+
 	/* Add an MTRR for the VRAM */
-	rdev->mc.vram_mtrr = mtrr_add(rdev->mc.aper_base, rdev->mc.aper_size,
-			MTRR_TYPE_WRCOMB, 1);
+	drm_addmap(dev, rdev->mc.aper_base, rdev->mc.aper_size,
+	    _DRM_FRAME_BUFFER, _DRM_WRITE_COMBINING, &map);
+	/* fake a 'cookie', seems to be unused? */
+	rdev->mc.vram_mtrr = 1;
+	
 	DRM_INFO("Detected VRAM RAM=%lluM, BAR=%lluM\n",
 		rdev->mc.mc_vram_size >> 20,
 		(unsigned long long)rdev->mc.aper_size >> 20);
 	DRM_INFO("RAM width %dbits %cDR\n",
 			rdev->mc.vram_width, rdev->mc.vram_is_ddr ? 'D' : 'S');
 	return radeon_ttm_init(rdev);
-#endif
 }
 
 void radeon_bo_fini(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	radeon_ttm_fini(rdev);
-#endif
 }
 
 void radeon_bo_list_add_object(struct radeon_bo_list *lobj,
