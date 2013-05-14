@@ -34,6 +34,7 @@
 #define pr_fmt(fmt) "[TTM] " fmt
 
 #include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/refcount.h>
 #include <dev/pci/drm/ttm/ttm_bo_driver.h>
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
@@ -62,9 +63,7 @@ struct ttm_page_pool {
 	struct mutex		lock;
 	bool			fill_lock;
 	struct list_head	list;
-#ifdef notyet
-	gfp_t			gfp_flags;
-#endif
+	int			ttm_page_alloc_flags;
 	unsigned		npages;
 	char			*name;
 	unsigned long		nfrees;
@@ -99,8 +98,8 @@ struct ttm_pool_opts {
  * @pools: All pool objects in use.
  **/
 struct ttm_pool_manager {
+	unsigned int		kobj_ref;
 #ifdef notyet
-	struct kobject		kobj;
 	struct shrinker		mm_shrink;
 #endif
 	struct ttm_pool_opts	options;
@@ -159,14 +158,12 @@ void	 ttm_put_pages(struct page **, unsigned, int, enum ttm_caching_state);
 int	 ttm_get_pages(struct page **, unsigned, int, enum ttm_caching_state);
 void	 ttm_page_pool_init_locked(struct ttm_page_pool *, int, char *);
 
-#ifdef notyet
-static void ttm_pool_kobj_release(struct kobject *kobj)
+static void ttm_pool_kobj_release(struct ttm_pool_manager *m)
 {
-	struct ttm_pool_manager *m =
-		container_of(kobj, struct ttm_pool_manager, kobj);
 	free(m, M_DRM);
 }
 
+#ifdef notyet
 static ssize_t ttm_pool_store(struct kobject *kobj,
 		struct attribute *attr, const char *buffer, size_t size)
 {
@@ -844,62 +841,44 @@ void
 ttm_page_pool_init_locked(struct ttm_page_pool *pool, int flags,
 		char *name)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	mtx_init(&pool->lock, IPL_NONE);
 	pool->fill_lock = false;
 	INIT_LIST_HEAD(&pool->list);
 	pool->npages = pool->nfrees = 0;
-	pool->gfp_flags = flags;
+	pool->ttm_page_alloc_flags = flags;
 	pool->name = name;
-#endif
 }
 
 int ttm_page_alloc_init(struct ttm_mem_global *glob, unsigned max_pages)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	int ret;
-
 	WARN_ON(_manager);
 
 	printf("Initializing pool allocator\n");
 
 	_manager = malloc(sizeof(*_manager), M_DRM, M_WAITOK | M_ZERO);
 
-	ttm_page_pool_init_locked(&_manager->wc_pool, GFP_HIGHUSER, "wc");
+	ttm_page_pool_init_locked(&_manager->wc_pool, 0, "wc");
 
-	ttm_page_pool_init_locked(&_manager->uc_pool, GFP_HIGHUSER, "uc");
+	ttm_page_pool_init_locked(&_manager->uc_pool, 0, "uc");
 
 	ttm_page_pool_init_locked(&_manager->wc_pool_dma32,
-				  GFP_USER | GFP_DMA32, "wc dma");
+	    TTM_PAGE_FLAG_DMA32, "wc dma");
 
 	ttm_page_pool_init_locked(&_manager->uc_pool_dma32,
-				  GFP_USER | GFP_DMA32, "uc dma");
+	    TTM_PAGE_FLAG_DMA32, "uc dma");
 
 	_manager->options.max_size = max_pages;
 	_manager->options.small = SMALL_ALLOCATION;
 	_manager->options.alloc_size = NUM_PAGES_TO_ALLOC;
 
-	ret = kobject_init_and_add(&_manager->kobj, &ttm_pool_kobj_type,
-				   &glob->kobj, "pool");
-	if (unlikely(ret != 0)) {
-		kobject_put(&_manager->kobj);
-		_manager = NULL;
-		return ret;
-	}
-
+	refcount_init(&_manager->kobj_ref, 1);
 	ttm_pool_mm_shrink_init(_manager);
 
 	return 0;
-#endif
 }
 
 void ttm_page_alloc_fini(void)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	int i;
 
 	printf("Finalizing pool allocator\n");
@@ -908,9 +887,9 @@ void ttm_page_alloc_fini(void)
 	for (i = 0; i < NUM_POOLS; ++i)
 		ttm_page_pool_free(&_manager->pools[i], FREE_ALL_PAGES);
 
-	kobject_put(&_manager->kobj);
+	if (refcount_release(&_manager->kobj_ref))
+		ttm_pool_kobj_release(_manager);
 	_manager = NULL;
-#endif
 }
 
 int ttm_pool_populate(struct ttm_tt *ttm)
