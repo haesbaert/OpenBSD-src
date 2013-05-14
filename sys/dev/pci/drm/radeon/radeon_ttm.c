@@ -100,9 +100,6 @@ radeon_ttm_mem_global_release(struct drm_global_reference *ref)
 int
 radeon_ttm_global_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_global_reference *global_ref;
 	int r;
 
@@ -135,20 +132,16 @@ radeon_ttm_global_init(struct radeon_device *rdev)
 
 	rdev->mman.mem_global_referenced = true;
 	return 0;
-#endif
 }
 
 void
 radeon_ttm_global_fini(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	if (rdev->mman.mem_global_referenced) {
 		drm_global_item_unref(&rdev->mman.bo_global_ref.ref);
 		drm_global_item_unref(&rdev->mman.mem_global_ref);
 		rdev->mman.mem_global_referenced = false;
 	}
-#endif
 }
 
 int
