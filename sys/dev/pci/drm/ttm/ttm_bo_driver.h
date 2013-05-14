@@ -473,14 +473,12 @@ struct ttm_bo_global_ref {
  */
 
 struct ttm_bo_global {
+	u_int kobj_ref;
 
 	/**
 	 * Constant after init.
 	 */
 
-#ifdef notyet
-	struct kobject kobj;
-#endif
 	struct ttm_mem_global *mem_glob;
 	struct page *dummy_read_page;
 	struct ttm_mem_shrink shrink;

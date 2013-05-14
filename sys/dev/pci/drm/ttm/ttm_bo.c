@@ -33,6 +33,7 @@
 #include <dev/pci/drm/ttm/ttm_module.h>
 #include <dev/pci/drm/ttm/ttm_bo_driver.h>
 #include <dev/pci/drm/ttm/ttm_placement.h>
+#include <dev/pci/drm/refcount.h>
 
 #define TTM_ASSERT_LOCKED(param)
 #define TTM_DEBUG(fmt, arg...)
@@ -1512,9 +1513,6 @@ EXPORT_SYMBOL(ttm_bo_global_release);
 
 int ttm_bo_global_init(struct drm_global_reference *ref)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_bo_global_ref *bo_ref =
 		container_of(ref, struct ttm_bo_global_ref, ref);
 	struct ttm_bo_global *glob = ref->object;
@@ -1523,7 +1521,8 @@ int ttm_bo_global_init(struct drm_global_reference *ref)
 	rw_init(&glob->device_list_rwlock, "ttm_devlist");
 	mtx_init(&glob->lru_lock, IPL_NONE);
 	glob->mem_glob = bo_ref->mem_glob;
-	glob->dummy_read_page = alloc_page(__GFP_ZERO | GFP_DMA32);
+	glob->dummy_read_page = km_alloc(PAGE_SIZE, &kv_any, &kp_dma_zero,
+	    &kd_waitok);
 
 	if (unlikely(glob->dummy_read_page == NULL)) {
 		ret = -ENOMEM;
@@ -1542,17 +1541,14 @@ int ttm_bo_global_init(struct drm_global_reference *ref)
 
 	atomic_set(&glob->bo_count, 0);
 
-	ret = kobject_init_and_add(
-		&glob->kobj, &ttm_bo_glob_kobj_type, ttm_get_kobj(), "buffer_objects");
-	if (unlikely(ret != 0))
-		kobject_put(&glob->kobj);
-	return ret;
+	refcount_init(&glob->kobj_ref, 1);
+	return (0);
+
 out_no_shrink:
-	__free_page(glob->dummy_read_page);
+	km_free(glob->dummy_read_page, PAGE_SIZE, &kv_any, &kp_dma_zero);
 out_no_drp:
 	free(glob, M_DRM);
 	return ret;
-#endif
 }
 EXPORT_SYMBOL(ttm_bo_global_init);
 
