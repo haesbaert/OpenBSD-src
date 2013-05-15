@@ -820,8 +820,6 @@ int radeon_ttm_init(struct radeon_device *rdev)
 
 void radeon_ttm_fini(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	int r;
 
 	if (!rdev->mman.initialized)
@@ -841,7 +839,6 @@ void radeon_ttm_fini(struct radeon_device *rdev)
 	radeon_ttm_global_fini(rdev);
 	rdev->mman.initialized = false;
 	DRM_INFO("radeon: ttm finalized\n");
-#endif
 }
 
 /* this should only be called at bootup or when userspace
