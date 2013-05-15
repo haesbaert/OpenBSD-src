@@ -183,32 +183,13 @@ void ttm_mem_io_free_vm(struct ttm_buffer_object *bo)
 	}
 }
 
-static void *
-ioremap_wc(uint64_t off, uint64_t size)
-{
-	/* XXX! */
-	return (void *)off;
-}
-
-static void *
-ioremap_nocache(uint64_t off, uint64_t size)
-{
-	/* XXX! */
-	return (void *)off;
-}
-
-static void
-iounmap(void *addr)
-{
-	/* XXX! */
-}
-
 int ttm_mem_reg_ioremap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 			void **virtual)
 {
 	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
 	int ret;
 	void *addr;
+	int flags;
 
 	*virtual = NULL;
 	(void) ttm_mem_io_lock(man, false);
@@ -221,9 +202,16 @@ int ttm_mem_reg_ioremap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 		addr = mem->bus.addr;
 	} else {
 		if (mem->placement & TTM_PL_FLAG_WC)
-			addr = ioremap_wc(mem->bus.base + mem->bus.offset, mem->bus.size);
+			flags = BUS_SPACE_MAP_PREFETCHABLE;
 		else
-			addr = ioremap_nocache(mem->bus.base + mem->bus.offset, mem->bus.size);
+			flags = 0;
+
+		if (bus_space_map(mem->bus.memt, mem->bus.offset, mem->bus.size,
+		    BUS_SPACE_MAP_LINEAR | flags, &mem->bus.bsh))
+			return -ENOMEM;
+
+		addr = bus_space_vaddr(mem->bus.memt, mem->bus.bsh);
+
 		if (!addr) {
 			(void) ttm_mem_io_lock(man, false);
 			ttm_mem_io_free(bdev, mem);
@@ -243,7 +231,7 @@ void ttm_mem_reg_iounmap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 	man = &bdev->man[mem->mem_type];
 
 	if (virtual && mem->bus.addr == NULL)
-		iounmap(virtual);
+		bus_space_unmap(mem->bus.memt, mem->bus.bsh, mem->bus.size);
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(bdev, mem);
 	ttm_mem_io_unlock(man);
@@ -536,6 +524,7 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 			  struct ttm_bo_kmap_obj *map)
 {
 	struct ttm_mem_reg *mem = &bo->mem;
+	int flags;
 
 	if (bo->mem.bus.addr) {
 		map->bo_kmap_type = ttm_bo_map_premapped;
@@ -543,11 +532,17 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 	} else {
 		map->bo_kmap_type = ttm_bo_map_iomap;
 		if (mem->placement & TTM_PL_FLAG_WC)
-			map->virtual = ioremap_wc(bo->mem.bus.base + bo->mem.bus.offset + offset,
-						  size);
+			flags = BUS_SPACE_MAP_PREFETCHABLE;
 		else
-			map->virtual = ioremap_nocache(bo->mem.bus.base + bo->mem.bus.offset + offset,
-						       size);
+			flags = 0;
+
+		if (bus_space_map(bo->mem.bus.memt, bo->mem.bus.offset,
+		    bo->mem.bus.size, BUS_SPACE_MAP_LINEAR | flags,
+		    &bo->mem.bus.bsh))
+			map->virtual = 0;
+		else
+			map->virtual = bus_space_vaddr(bo->mem.bus.memt,
+			    bo->mem.bus.bsh);
 	}
 	return (!map->virtual) ? -ENOMEM : 0;
 }
