@@ -206,9 +206,11 @@ int ttm_mem_reg_ioremap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 		else
 			flags = 0;
 
-		if (bus_space_map(mem->bus.memt, mem->bus.offset, mem->bus.size,
-		    BUS_SPACE_MAP_LINEAR | flags, &mem->bus.bsh))
+		if (bus_space_map(mem->bus.memt, mem->bus.base + mem->bus.offset,
+		    mem->bus.size, BUS_SPACE_MAP_LINEAR | flags, &mem->bus.bsh)) {
+			printf("%s bus_space_map failed\n", __func__);
 			return -ENOMEM;
+		}
 
 		addr = bus_space_vaddr(mem->bus.memt, mem->bus.bsh);
 
@@ -536,11 +538,13 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 		else
 			flags = 0;
 
-		if (bus_space_map(bo->mem.bus.memt, bo->mem.bus.offset,
+		if (bus_space_map(bo->mem.bus.memt,
+		    mem->bus.base + bo->mem.bus.offset,
 		    bo->mem.bus.size, BUS_SPACE_MAP_LINEAR | flags,
-		    &bo->mem.bus.bsh))
+		    &bo->mem.bus.bsh)) {
+			printf("%s bus_space_map failed\n", __func__);
 			map->virtual = 0;
-		else
+		} else
 			map->virtual = bus_space_vaddr(bo->mem.bus.memt,
 			    bo->mem.bus.bsh);
 	}
