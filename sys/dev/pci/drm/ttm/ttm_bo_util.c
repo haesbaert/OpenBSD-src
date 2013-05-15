@@ -30,6 +30,7 @@
 
 #include <dev/pci/drm/ttm/ttm_bo_driver.h>
 #include <dev/pci/drm/ttm/ttm_placement.h>
+#include <dev/pci/drm/refcount.h>
 
 int	 ttm_mem_reg_ioremap(struct ttm_bo_device *, struct ttm_mem_reg *,
 	     void **);
@@ -182,12 +183,29 @@ void ttm_mem_io_free_vm(struct ttm_buffer_object *bo)
 	}
 }
 
+static void *
+ioremap_wc(uint64_t off, uint64_t size)
+{
+	/* XXX! */
+	return (void *)off;
+}
+
+static void *
+ioremap_nocache(uint64_t off, uint64_t size)
+{
+	/* XXX! */
+	return (void *)off;
+}
+
+static void
+iounmap(void *addr)
+{
+	/* XXX! */
+}
+
 int ttm_mem_reg_ioremap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 			void **virtual)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
 	int ret;
 	void *addr;
@@ -215,14 +233,11 @@ int ttm_mem_reg_ioremap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 	}
 	*virtual = addr;
 	return 0;
-#endif
 }
 
 void ttm_mem_reg_iounmap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 			 void *virtual)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_mem_type_manager *man;
 
 	man = &bdev->man[mem->mem_type];
@@ -232,15 +247,11 @@ void ttm_mem_reg_iounmap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(bdev, mem);
 	ttm_mem_io_unlock(man);
-#endif
 }
 
 int
 ttm_copy_io_page(void *dst, void *src, unsigned long page)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	uint32_t *dstP =
 	    (uint32_t *) ((unsigned long)dst + (page << PAGE_SHIFT));
 	uint32_t *srcP =
@@ -248,16 +259,21 @@ ttm_copy_io_page(void *dst, void *src, unsigned long page)
 
 	int i;
 	for (i = 0; i < PAGE_SIZE / sizeof(uint32_t); ++i)
+#ifdef notyet
 		iowrite32(ioread32(srcP++), dstP++);
-	return 0;
+#else
+		*dstP++ = *srcP++;
 #endif
+	return 0;
 }
 
-#ifdef notyet
 static int ttm_copy_io_ttm_page(struct ttm_tt *ttm, void *src,
 				unsigned long page,
-				pgprot_t prot)
+				vm_prot_t prot)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct page *d = ttm->pages[page];
 	void *dst;
 
@@ -277,7 +293,7 @@ static int ttm_copy_io_ttm_page(struct ttm_tt *ttm, void *src,
 	if (!dst)
 		return -ENOMEM;
 
-	memcpy_fromio(dst, src, PAGE_SIZE);
+	memcpy(dst, src, PAGE_SIZE);
 
 #ifdef CONFIG_X86
 	kunmap_atomic(dst);
@@ -289,14 +305,16 @@ static int ttm_copy_io_ttm_page(struct ttm_tt *ttm, void *src,
 #endif
 
 	return 0;
-}
 #endif
+}
 
-#ifdef notyet
 static int ttm_copy_ttm_io_page(struct ttm_tt *ttm, void *dst,
 				unsigned long page,
-				pgprot_t prot)
+				vm_prot_t prot)
 {
+	printf("%s stub\n", __func__);
+	return 0;
+#ifdef notyet
 	struct page *s = ttm->pages[page];
 	void *src;
 
@@ -327,16 +345,13 @@ static int ttm_copy_ttm_io_page(struct ttm_tt *ttm, void *dst,
 #endif
 
 	return 0;
-}
 #endif
+}
 
 int ttm_bo_move_memcpy(struct ttm_buffer_object *bo,
 		       bool evict, bool no_wait_gpu,
 		       struct ttm_mem_reg *new_mem)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_bo_device *bdev = bo->bdev;
 	struct ttm_mem_type_manager *man = &bdev->man[new_mem->mem_type];
 	struct ttm_tt *ttm = bo->ttm;
@@ -384,15 +399,11 @@ int ttm_bo_move_memcpy(struct ttm_buffer_object *bo,
 	for (i = 0; i < new_mem->num_pages; ++i) {
 		page = i * dir + add;
 		if (old_iomap == NULL) {
-			pgprot_t prot = ttm_io_prot(old_mem->placement,
-						    PAGE_KERNEL);
-			ret = ttm_copy_ttm_io_page(ttm, new_iomap, page,
-						   prot);
+			vm_prot_t prot = ttm_io_prot(old_mem->placement);
+			ret = ttm_copy_ttm_io_page(ttm, new_iomap, page, prot);
 		} else if (new_iomap == NULL) {
-			pgprot_t prot = ttm_io_prot(new_mem->placement,
-						    PAGE_KERNEL);
-			ret = ttm_copy_io_ttm_page(ttm, old_iomap, page,
-						   prot);
+			vm_prot_t prot = ttm_io_prot(new_mem->placement);
+			ret = ttm_copy_io_ttm_page(ttm, old_iomap, page, prot);
 		} else
 			ret = ttm_copy_io_page(new_iomap, old_iomap, page);
 		if (ret) {
@@ -401,7 +412,7 @@ int ttm_bo_move_memcpy(struct ttm_buffer_object *bo,
 			goto out1;
 		}
 	}
-	mb();
+	DRM_MEMORYBARRIER();
 out2:
 	old_copy = *old_mem;
 	*old_mem = *new_mem;
@@ -419,7 +430,6 @@ out:
 	ttm_mem_reg_iounmap(bdev, &old_copy, old_iomap);
 	ttm_bo_mem_put(bo, &old_copy);
 	return ret;
-#endif
 }
 EXPORT_SYMBOL(ttm_bo_move_memcpy);
 
@@ -447,9 +457,6 @@ ttm_transfered_destroy(struct ttm_buffer_object *bo)
 static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 				      struct ttm_buffer_object **new_obj)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_buffer_object *fbo;
 	struct ttm_bo_device *bdev = bo->bdev;
 	struct ttm_bo_driver *driver = bdev->driver;
@@ -465,7 +472,9 @@ static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 	 * TODO: Explicit member copy would probably be better here.
 	 */
 
+#ifdef notyet
 	init_waitqueue_head(&fbo->event_queue);
+#endif
 	INIT_LIST_HEAD(&fbo->ddestroy);
 	INIT_LIST_HEAD(&fbo->lru);
 	INIT_LIST_HEAD(&fbo->swap);
@@ -479,19 +488,20 @@ static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 	else
 		fbo->sync_obj = NULL;
 	mtx_leave(&bdev->fence_lock);
-	kref_init(&fbo->list_kref);
-	kref_init(&fbo->kref);
+	refcount_init(&fbo->list_kref, 1);
+	refcount_init(&fbo->kref, 1);
 	fbo->destroy = &ttm_transfered_destroy;
 	fbo->acc_size = 0;
 
 	*new_obj = fbo;
 	return 0;
-#endif
 }
 
-#ifdef notyet
-pgprot_t ttm_io_prot(uint32_t caching_flags, pgprot_t tmp)
+vm_prot_t ttm_io_prot(uint32_t caching_flags)
 {
+	printf("%s stub\n", __func__);
+	return 0;
+#ifdef notyet
 #if defined(__i386__) || defined(__x86_64__)
 	if (caching_flags & TTM_PL_FLAG_WC)
 		tmp = pgprot_writecombine(tmp);
@@ -516,8 +526,8 @@ pgprot_t ttm_io_prot(uint32_t caching_flags, pgprot_t tmp)
 		tmp = pgprot_noncached(tmp);
 #endif
 	return tmp;
-}
 #endif
+}
 EXPORT_SYMBOL(ttm_io_prot);
 
 static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
@@ -525,9 +535,6 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 			  unsigned long size,
 			  struct ttm_bo_kmap_obj *map)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_mem_reg *mem = &bo->mem;
 
 	if (bo->mem.bus.addr) {
@@ -543,7 +550,6 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 						       size);
 	}
 	return (!map->virtual) ? -ENOMEM : 0;
-#endif
 }
 
 static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
@@ -554,7 +560,7 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 	printf("%s stub\n", __func__);
 	return -ENOSYS;
 #ifdef notyet
-	struct ttm_mem_reg *mem = &bo->mem; pgprot_t prot;
+	struct ttm_mem_reg *mem = &bo->mem; vm_prot_t prot;
 	struct ttm_tt *ttm = bo->ttm;
 	int ret;
 
