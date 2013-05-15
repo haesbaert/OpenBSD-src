@@ -460,6 +460,7 @@ radeon_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 	mem->bus.is_iomem = false;
 	mem->bus.iot = rdev->iot;
 	mem->bus.memt = rdev->memt;
+	mem->bus.dmat = ddev->dmat;
 	if (!(man->flags & TTM_MEMTYPE_FLAG_MAPPABLE))
 		return -EINVAL;
 	switch (mem->mem_type) {

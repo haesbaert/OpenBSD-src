@@ -82,6 +82,7 @@ struct ttm_bus_placement {
 	uint64_t        io_reserved_count;
 	bus_space_tag_t	iot;
 	bus_space_tag_t	memt;
+	bus_dma_tag_t	dmat;
 };
 
 
