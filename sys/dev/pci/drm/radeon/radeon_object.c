@@ -49,15 +49,12 @@ void	 radeon_bo_clear_va(struct radeon_bo *);
 
 void radeon_bo_clear_va(struct radeon_bo *bo)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_bo_va *bo_va, *tmp;
 
 	list_for_each_entry_safe(bo_va, tmp, &bo->va, bo_list) {
 		/* remove from all vm address space */
 		radeon_vm_bo_rmv(bo->rdev, bo_va);
 	}
-#endif
 }
 
 static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
