@@ -929,7 +929,8 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	rdev->flags = id_entry->driver_private;
 	rdev->pc = pa->pa_pc;
 	rdev->pa_tag = pa->pa_tag;
-	rdev->bst = pa->pa_memt;
+	rdev->iot = pa->pa_iot;
+	rdev->memt = pa->pa_memt;
 
 	bar = vga_pci_bar_info((struct vga_pci_softc *)parent, 0);
 	if (bar == NULL) {

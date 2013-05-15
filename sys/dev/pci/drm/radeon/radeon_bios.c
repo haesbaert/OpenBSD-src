@@ -94,13 +94,13 @@ static bool radeon_read_bios(struct radeon_device *rdev)
 	pci_conf_write(rdev->pc, rdev->pa_tag, PCI_ROM_REG, address);
 
 	size = PCI_ROM_SIZE(mask);
-	rc = bus_space_map(rdev->bst, PCI_ROM_ADDR(address), size,
+	rc = bus_space_map(rdev->memt, PCI_ROM_ADDR(address), size,
 	    BUS_SPACE_MAP_LINEAR, &romh);
 	if (rc != 0) {
 		printf(": can't map PCI ROM (%d)\n", rc);
 		return false;
 	}
-	bios = (uint8_t *)bus_space_vaddr(rdev->bst, romh);
+	bios = (uint8_t *)bus_space_vaddr(rdev->memt, romh);
 	if (!bios) {
 		printf(": bus_space_vaddr failed\n");
 		return false;
@@ -110,10 +110,10 @@ static bool radeon_read_bios(struct radeon_device *rdev)
 		goto fail;
 	rdev->bios = malloc(size, M_DRM, M_WAITOK);
 	memcpy(rdev->bios, bios, size);
-	bus_space_unmap(rdev->bst, romh, size);
+	bus_space_unmap(rdev->memt, romh, size);
 	return true;
 fail:
-	bus_space_unmap(rdev->bst, romh, size);
+	bus_space_unmap(rdev->memt, romh, size);
 	return false;
 }
 
