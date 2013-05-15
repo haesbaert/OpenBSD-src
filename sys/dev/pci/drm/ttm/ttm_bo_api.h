@@ -80,6 +80,8 @@ struct ttm_bus_placement {
 	bool		is_iomem;
 	bool		io_reserved_vm;
 	uint64_t        io_reserved_count;
+	bus_space_tag_t	iot;
+	bus_space_tag_t	memt;
 };
 
 
