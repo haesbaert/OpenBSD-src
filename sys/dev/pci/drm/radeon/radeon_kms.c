@@ -972,6 +972,13 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 		rdev->flags |= RADEON_IS_PCI;
 	}
 
+	DRM_DEBUG("%s card detected\n",
+		 ((rdev->flags & RADEON_IS_AGP) ? "AGP" :
+		 (((rdev->flags & RADEON_IS_PCIE) ? "PCIE" : "PCI"))));
+
+	is_agp = pci_get_capability(pa->pa_pc, pa->pa_tag, PCI_CAP_AGP,
+	    NULL, NULL);
+
 	rdev->drmdev = drm_attach_pci(&kms_driver, pa, is_agp, self);
 	dev = (struct drm_device *)rdev->drmdev;
 
