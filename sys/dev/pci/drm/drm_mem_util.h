@@ -32,8 +32,7 @@
 
 static __inline__ void *drm_calloc_large(size_t nmemb, size_t size)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
+	return drm_calloc(nmemb, size);
 #ifdef notyet
 	if (size != 0 && nmemb > SIZE_MAX / size)
 		return NULL;
