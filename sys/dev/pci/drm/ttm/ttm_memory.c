@@ -69,17 +69,15 @@ static struct attribute ttm_mem_used = {
 };
 #endif
 
-#ifdef notyet
-static void ttm_mem_zone_kobj_release(struct kobject *kobj)
+static void ttm_mem_zone_kobj_release(struct ttm_mem_zone *zone)
 {
-	struct ttm_mem_zone *zone =
-		container_of(kobj, struct ttm_mem_zone, kobj);
 
 	DRM_INFO("Zone %7s: Used memory at exit: %llu kiB\n",
 		zone->name, (unsigned long long)zone->used_mem >> 10);
 	free(zone, M_DRM);
 }
 
+#ifdef notyet
 static ssize_t ttm_mem_zone_show(struct kobject *kobj,
 				 struct attribute *attr,
 				 char *buffer)
@@ -170,15 +168,13 @@ static struct kobj_type ttm_mem_zone_kobj_type = {
 };
 #endif
 
-#ifdef notyet
-static void ttm_mem_global_kobj_release(struct kobject *kobj)
+static void ttm_mem_global_kobj_release(struct ttm_mem_global *glob)
 {
-	struct ttm_mem_global *glob =
-		container_of(kobj, struct ttm_mem_global, kobj);
 
 	free(glob, M_DRM);
 }
 
+#ifdef notyet
 static struct kobj_type ttm_mem_glob_kobj_type = {
 	.release = &ttm_mem_global_kobj_release,
 };
@@ -380,8 +376,6 @@ EXPORT_SYMBOL(ttm_mem_global_init);
 
 void ttm_mem_global_release(struct ttm_mem_global *glob)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	unsigned int i;
 	struct ttm_mem_zone *zone;
 
@@ -389,17 +383,18 @@ void ttm_mem_global_release(struct ttm_mem_global *glob)
 	ttm_page_alloc_fini();
 	ttm_dma_page_alloc_fini();
 
+#ifdef notyet
 	flush_workqueue(glob->swap_queue);
 	destroy_workqueue(glob->swap_queue);
 	glob->swap_queue = NULL;
+#endif
 	for (i = 0; i < glob->num_zones; ++i) {
 		zone = glob->zones[i];
-		kobject_del(&zone->kobj);
-		kobject_put(&zone->kobj);
-			}
-	kobject_del(&glob->kobj);
-	kobject_put(&glob->kobj);
-#endif
+		if (refcount_release(&zone->kobj_ref))
+			ttm_mem_zone_kobj_release(zone);
+	}
+	if (refcount_release(&glob->kobj_ref))
+		ttm_mem_global_kobj_release(glob);
 }
 EXPORT_SYMBOL(ttm_mem_global_release);
 

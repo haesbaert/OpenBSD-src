@@ -491,8 +491,6 @@ out_err:
 
 static void ttm_bo_cleanup_memtype_use(struct ttm_buffer_object *bo)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	if (bo->bdev->driver->move_notify)
 		bo->bdev->driver->move_notify(bo, NULL);
 
@@ -504,7 +502,7 @@ static void ttm_bo_cleanup_memtype_use(struct ttm_buffer_object *bo)
 	ttm_bo_mem_put(bo, &bo->mem);
 
 	atomic_set(&bo->reserved, 0);
-	wake_up_all(&bo->event_queue);
+	wakeup(&bo->event_queue);
 
 	/*
 	 * Since the final reference to this bo may not be dropped by
@@ -513,8 +511,7 @@ static void ttm_bo_cleanup_memtype_use(struct ttm_buffer_object *bo)
 	 *
 	 * This function only needs protection against the final kref_put.
 	 */
-	smp_mb__before_atomic_dec();
-#endif
+	DRM_MEMORYBARRIER();
 }
 
 static void ttm_bo_cleanup_refs_or_queue(struct ttm_buffer_object *bo)

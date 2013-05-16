@@ -64,24 +64,17 @@ ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 						     unsigned long page_start,
 						     unsigned long num_pages)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
-	struct rb_node *cur = bdev->addr_space_rb.rb_node;
 	unsigned long cur_offset;
 	struct ttm_buffer_object *bo;
 	struct ttm_buffer_object *best_bo = NULL;
 
-	while (likely(cur != NULL)) {
-		bo = rb_entry(cur, struct ttm_buffer_object, vm_rb);
+	RB_FOREACH(bo, ttm_bo_device_buffer_objects, &bdev->addr_space_rb) {
 		cur_offset = bo->vm_node->start;
 		if (page_start >= cur_offset) {
-			cur = cur->rb_right;
 			best_bo = bo;
 			if (page_start == cur_offset)
 				break;
-		} else
-			cur = cur->rb_left;
+		}
 	}
 
 	if (unlikely(best_bo == NULL))
@@ -92,7 +85,6 @@ ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 		return NULL;
 
 	return best_bo;
-#endif
 }
 
 #ifdef notyet
@@ -344,9 +336,6 @@ ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
 		  const char __user *wbuf, char __user *rbuf, size_t count,
 		  off_t *f_pos, bool write)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#ifdef notyet
 	struct ttm_buffer_object *bo;
 	struct ttm_bo_driver *driver;
 	struct ttm_bo_kmap_obj map;
@@ -417,9 +406,9 @@ ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
 	virtual += page_offset;
 
 	if (write)
-		ret = copy_from_user(virtual, wbuf, io_size);
+		ret = copyin(wbuf, virtual, io_size);
 	else
-		ret = copy_to_user(rbuf, virtual, io_size);
+		ret = copyout(virtual, rbuf, io_size);
 
 	ttm_bo_kunmap(&map);
 	ttm_bo_unreserve(bo);
@@ -434,16 +423,12 @@ ssize_t ttm_bo_io(struct ttm_bo_device *bdev, struct file *filp,
 out_unref:
 	ttm_bo_unref(&bo);
 	return ret;
-#endif
 }
 
 ssize_t ttm_bo_fbdev_io(struct ttm_buffer_object *bo, const char __user *wbuf,
 			char __user *rbuf, size_t count, off_t *f_pos,
 			bool write)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#ifdef notyet
 	struct ttm_bo_kmap_obj map;
 	unsigned long kmap_offset;
 	unsigned long kmap_end;
@@ -489,9 +474,9 @@ ssize_t ttm_bo_fbdev_io(struct ttm_buffer_object *bo, const char __user *wbuf,
 	virtual += page_offset;
 
 	if (write)
-		ret = copy_from_user(virtual, wbuf, io_size);
+		ret = copyin(wbuf, virtual, io_size);
 	else
-		ret = copy_to_user(rbuf, virtual, io_size);
+		ret = copyout(virtual, rbuf, io_size);
 
 	ttm_bo_kunmap(&map);
 	ttm_bo_unreserve(bo);
@@ -503,5 +488,4 @@ ssize_t ttm_bo_fbdev_io(struct ttm_buffer_object *bo, const char __user *wbuf,
 	*f_pos += io_size;
 
 	return io_size;
-#endif
 }
