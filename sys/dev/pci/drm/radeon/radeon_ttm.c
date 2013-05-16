@@ -598,30 +598,29 @@ radeon_ttm_backend_destroy(struct ttm_tt *ttm)
 	free(gtt, M_DRM);
 }
 
-#ifdef notyet
 static struct ttm_backend_func radeon_backend_func = {
 	.bind = &radeon_ttm_backend_bind,
 	.unbind = &radeon_ttm_backend_unbind,
 	.destroy = &radeon_ttm_backend_destroy,
 };
-#endif
 
 struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 				    unsigned long size, uint32_t page_flags,
 				    struct page *dummy_read_page)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
 	struct radeon_device *rdev;
 	struct radeon_ttm_tt *gtt;
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+//	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 
 	rdev = radeon_get_rdev(bdev);
 #if __OS_HAS_AGP
 	if (rdev->flags & RADEON_IS_AGP) {
+		printf("%s partial stub\n", __func__);
+		return NULL;
+#ifdef notyet
 		return ttm_agp_tt_create(bdev, ddev->agp->bridge,
 					 size, page_flags, dummy_read_page);
+#endif
 	}
 #endif
 
@@ -636,7 +635,6 @@ struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 		return NULL;
 	}
 	return &gtt->ttm.ttm;
-#endif
 }
 
 int
