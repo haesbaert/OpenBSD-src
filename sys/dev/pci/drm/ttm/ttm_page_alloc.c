@@ -894,9 +894,6 @@ void ttm_page_alloc_fini(void)
 
 int ttm_pool_populate(struct ttm_tt *ttm)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_mem_global *mem_glob = ttm->glob->mem_glob;
 	unsigned i;
 	int ret;
@@ -931,7 +928,6 @@ int ttm_pool_populate(struct ttm_tt *ttm)
 
 	ttm->state = tt_unbound;
 	return 0;
-#endif
 }
 EXPORT_SYMBOL(ttm_pool_populate);
 

@@ -521,7 +521,8 @@ int ttm_mem_global_alloc(struct ttm_mem_global *glob, uint64_t memory,
 }
 EXPORT_SYMBOL(ttm_mem_global_alloc);
 
-#ifdef notyet
+#define page_to_pfn(pp) (VM_PAGE_TO_PHYS(pp) / PAGE_SIZE)
+
 int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 			      struct vm_page *page,
 			      bool no_wait, bool interruptible)
@@ -544,7 +545,6 @@ int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 	return ttm_mem_global_alloc_zone(glob, zone, PAGE_SIZE, no_wait,
 					 interruptible);
 }
-#endif
 
 #ifdef notyet
 void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct vm_page *page)

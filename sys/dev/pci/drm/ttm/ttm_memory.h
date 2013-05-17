@@ -143,10 +143,10 @@ extern int ttm_mem_global_alloc(struct ttm_mem_global *glob, uint64_t memory,
 				bool no_wait, bool interruptible);
 extern void ttm_mem_global_free(struct ttm_mem_global *glob,
 				uint64_t amount);
-#ifdef notyet
 extern int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 				     struct vm_page *page,
 				     bool no_wait, bool interruptible);
+#ifdef notyet
 extern void ttm_mem_global_free_page(struct ttm_mem_global *glob,
 				     struct vm_page *page);
 #endif
