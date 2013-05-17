@@ -96,9 +96,6 @@ static inline int ttm_tt_set_page_caching(struct page *p,
 static int ttm_tt_set_caching(struct ttm_tt *ttm,
 			      enum ttm_caching_state c_state)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	int i, j;
 	struct page *cur_page;
 	int ret;
@@ -113,7 +110,11 @@ static int ttm_tt_set_caching(struct ttm_tt *ttm,
 	}
 
 	if (ttm->caching_state == tt_cached)
+#ifdef notyet
 		drm_clflush_pages(ttm->pages, ttm->num_pages);
+#else
+		printf("%s partial stub\n", __func__);
+#endif
 
 	for (i = 0; i < ttm->num_pages; ++i) {
 		cur_page = ttm->pages[i];
@@ -140,7 +141,6 @@ out_err:
 	}
 
 	return ret;
-#endif
 }
 
 int ttm_tt_set_placement_caching(struct ttm_tt *ttm, uint32_t placement)
