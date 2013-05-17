@@ -933,8 +933,6 @@ EXPORT_SYMBOL(ttm_pool_populate);
 
 void ttm_pool_unpopulate(struct ttm_tt *ttm)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	unsigned i;
 
 	for (i = 0; i < ttm->num_pages; ++i) {
@@ -947,7 +945,6 @@ void ttm_pool_unpopulate(struct ttm_tt *ttm)
 		}
 	}
 	ttm->state = tt_unpopulated;
-#endif
 }
 EXPORT_SYMBOL(ttm_pool_unpopulate);
 

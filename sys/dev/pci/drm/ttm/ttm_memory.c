@@ -546,7 +546,6 @@ int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 					 interruptible);
 }
 
-#ifdef notyet
 void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct vm_page *page)
 {
 	struct ttm_mem_zone *zone = NULL;
@@ -560,8 +559,6 @@ void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct vm_page *page)
 #endif
 	ttm_mem_global_free_zone(glob, zone, PAGE_SIZE);
 }
-#endif
-
 
 size_t ttm_round_pot(size_t size)
 {
