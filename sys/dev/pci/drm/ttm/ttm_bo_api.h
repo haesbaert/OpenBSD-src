@@ -32,6 +32,7 @@
 #define _TTM_BO_API_H_
 
 #include <dev/pci/drm/drmP.h>
+#include <dev/pci/drm/refcount.h>
 
 struct ttm_bo_device;
 
@@ -204,8 +205,8 @@ struct ttm_buffer_object {
 	* Members not needing protection.
 	*/
 
-	atomic_t kref;
-	atomic_t list_kref;
+	u_int kref;
+	u_int list_kref;
 	int event_queue;
 
 	/**
@@ -308,7 +309,7 @@ struct ttm_bo_kmap_obj {
 static inline struct ttm_buffer_object *
 ttm_bo_reference(struct ttm_buffer_object *bo)
 {
-	bo->kref++;
+	refcount_acquire(&bo->kref);
 	return bo;
 }
 

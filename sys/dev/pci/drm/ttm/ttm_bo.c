@@ -42,9 +42,7 @@
 static int ttm_bo_setup_vm(struct ttm_buffer_object *bo);
 static int ttm_bo_swapout(struct ttm_mem_shrink *shrink);
 
-#ifdef notyet
-static void ttm_bo_global_kobj_release(struct kobject *kobj);
-#endif
+static void ttm_bo_global_kobj_release(struct ttm_bo_global *glob);
 
 int	ttm_bo_move_buffer(struct ttm_buffer_object *,
 	    struct ttm_placement *, bool, bool);
@@ -1458,27 +1456,22 @@ int ttm_bo_init_mm(struct ttm_bo_device *bdev, unsigned type,
 }
 EXPORT_SYMBOL(ttm_bo_init_mm);
 
-#ifdef notyet
-static void ttm_bo_global_kobj_release(struct kobject *kobj)
+static void ttm_bo_global_kobj_release(struct ttm_bo_global *glob)
 {
-	struct ttm_bo_global *glob =
-		container_of(kobj, struct ttm_bo_global, kobj);
 
 	ttm_mem_unregister_shrink(glob->mem_glob, &glob->shrink);
+#ifdef notyet
 	__free_page(glob->dummy_read_page);
 	free(glob, M_DRM);
-}
 #endif
+}
 
 void ttm_bo_global_release(struct drm_global_reference *ref)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_bo_global *glob = ref->object;
 
-	kobject_del(&glob->kobj);
-	kobject_put(&glob->kobj);
-#endif
+	if (refcount_release(&glob->kobj_ref))
+		ttm_bo_global_kobj_release(glob);
 }
 EXPORT_SYMBOL(ttm_bo_global_release);
 
