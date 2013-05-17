@@ -54,6 +54,7 @@
 #include <dev/pci/drm/drmP.h>
 #include <dev/pci/drm/ttm/ttm_object.h>
 #include <dev/pci/drm/ttm/ttm_module.h>
+#include <dev/pci/drm/refcount.h>
 
 struct ttm_object_file {
 	struct ttm_object_device *tdev;
@@ -117,33 +118,23 @@ struct ttm_ref_object {
 static inline struct ttm_object_file *
 ttm_object_file_ref(struct ttm_object_file *tfile)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
-	kref_get(&tfile->refcount);
+	refcount_acquire(&tfile->refcount);
 	return tfile;
-#endif
 }
 
-#ifdef notyet
-static void ttm_object_file_destroy(struct kref *kref)
+static void ttm_object_file_destroy(struct ttm_object_file *tfile)
 {
-	struct ttm_object_file *tfile =
-		container_of(kref, struct ttm_object_file, refcount);
 
 	free(tfile, M_DRM);
 }
-#endif
 
 static inline void ttm_object_file_unref(struct ttm_object_file **p_tfile)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_object_file *tfile = *p_tfile;
 
 	*p_tfile = NULL;
-	kref_put(&tfile->refcount, ttm_object_file_destroy);
-#endif
+	if (refcount_release(&tfile->refcount))
+		ttm_object_file_destroy(tfile);
 }
 
 
@@ -163,9 +154,7 @@ int ttm_base_object_init(struct ttm_object_file *tfile,
 	base->refcount_release = refcount_release;
 	base->ref_obj_release = ref_obj_release;
 	base->object_type = object_type;
-#ifdef notyet
-	kref_init(&base->refcount);
-#endif
+	refcount_init(&base->refcount, 1);
 	mtx_enter(&tdev->object_lock);
 	ret = drm_ht_just_insert_please_rcu(&tdev->object_hash,
 					    &base->hash,
@@ -190,11 +179,8 @@ out_err0:
 }
 EXPORT_SYMBOL(ttm_base_object_init);
 
-#ifdef notyet
-static void ttm_release_base(struct kref *kref)
+static void ttm_release_base(struct ttm_base_object *base)
 {
-	struct ttm_base_object *base =
-	    container_of(kref, struct ttm_base_object, refcount);
 	struct ttm_object_device *tdev = base->tfile->tdev;
 
 	mtx_enter(&tdev->object_lock);
@@ -212,18 +198,15 @@ static void ttm_release_base(struct kref *kref)
 		base->refcount_release(&base);
 	}
 }
-#endif
 
 void ttm_base_object_unref(struct ttm_base_object **p_base)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_base_object *base = *p_base;
 
 	*p_base = NULL;
 
-	kref_put(&base->refcount, ttm_release_base);
-#endif
+	if (refcount_release(&base->refcount))
+		ttm_release_base(base);
 }
 EXPORT_SYMBOL(ttm_base_object_unref);
 
@@ -243,7 +226,7 @@ struct ttm_base_object *ttm_base_object_lookup(struct ttm_object_file *tfile,
 
 	if (likely(ret == 0)) {
 		base = drm_hash_entry(hash, struct ttm_base_object, hash);
-		ret = kref_get_unless_zero(&base->refcount) ? 0 : -EINVAL;
+		refcount_acquire(&base->refcount);
 	}
 	rcu_read_unlock();
 
@@ -283,7 +266,7 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 
 		if (ret == 0) {
 			ref = drm_hash_entry(hash, struct ttm_ref_object, hash);
-			kref_get(&ref->kref);
+			refcount_acquire(&ref->kref);
 			rw_exit_read(&tfile->lock);
 			break;
 		}
@@ -303,14 +286,14 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 		ref->obj = base;
 		ref->tfile = tfile;
 		ref->ref_type = ref_type;
-		kref_init(&ref->kref);
+		refcount_init(&ref->kref, 1);
 
 		rw_enter_write(&tfile->lock);
 		ret = drm_ht_insert_item(ht, &ref->hash);
 
 		if (likely(ret == 0)) {
 			list_add_tail(&ref->head, &tfile->ref_list);
-			kref_get(&base->refcount);
+			refcount_acquire(&base->refcount);
 			rw_exit_write(&tfile->lock);
 			if (existed != NULL)
 				*existed = false;
@@ -372,7 +355,8 @@ int ttm_ref_object_base_unref(struct ttm_object_file *tfile,
 		return -EINVAL;
 	}
 	ref = drm_hash_entry(hash, struct ttm_ref_object, hash);
-	kref_put(&ref->kref, ttm_ref_object_release);
+	if (refcount_release(&ref->kref))
+		ttm_ref_object_release(ref);
 	rw_exit_write(&tfile->lock);
 	return 0;
 #endif
@@ -427,7 +411,7 @@ struct ttm_object_file *ttm_object_file_init(struct ttm_object_device *tdev,
 
 	rwlock_init(&tfile->lock);
 	tfile->tdev = tdev;
-	kref_init(&tfile->refcount);
+	refcount_init(&tfile->refcount, 1);
 	INIT_LIST_HEAD(&tfile->ref_list);
 
 	for (i = 0; i < TTM_REF_NUM; ++i) {

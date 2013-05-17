@@ -35,6 +35,8 @@
 #include "radeon_trace.h"
 #endif
 
+#include <dev/pci/drm/refcount.h>
+
 bool	 radeon_fence_any_seq_signaled(struct radeon_device *, u64 *);
 
 extern int ticks;
@@ -105,22 +107,20 @@ int radeon_fence_emit(struct radeon_device *rdev,
 		      struct radeon_fence **fence,
 		      int ring)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	/* we are protected by the ring emission rwlock */
 	*fence = malloc(sizeof(struct radeon_fence), M_DRM, M_WAITOK);
 	if ((*fence) == NULL) {
 		return -ENOMEM;
 	}
-	kref_init(&((*fence)->kref));
+	refcount_init(&((*fence)->kref), 1);
 	(*fence)->rdev = rdev;
 	(*fence)->seq = ++rdev->fence_drv[ring].sync_seq[ring];
 	(*fence)->ring = ring;
 	radeon_fence_ring_emit(rdev, ring, *fence);
+#ifdef notyet
 	trace_radeon_fence_emit(rdev->ddev, (*fence)->seq);
-	return 0;
 #endif
+	return 0;
 }
 
 /**
@@ -201,15 +201,11 @@ void radeon_fence_process(struct radeon_device *rdev, int ring)
  *
  * Frees the fence object (all asics).
  */
-#ifdef notyet
-static void radeon_fence_destroy(struct kref *kref)
+static void radeon_fence_destroy(struct radeon_fence *fence)
 {
-	struct radeon_fence *fence;
 
-	fence = container_of(kref, struct radeon_fence, kref);
 	free(fence, M_DRM);
 }
-#endif
 
 /**
  * radeon_fence_seq_signaled - check if a fence sequeuce number has signaled
@@ -654,12 +650,8 @@ int radeon_fence_wait_empty_locked(struct radeon_device *rdev, int ring)
  */
 struct radeon_fence *radeon_fence_ref(struct radeon_fence *fence)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
-	kref_get(&fence->kref);
+	refcount_acquire(&fence->kref);
 	return fence;
-#endif
 }
 
 /**
@@ -671,15 +663,14 @@ struct radeon_fence *radeon_fence_ref(struct radeon_fence *fence)
  */
 void radeon_fence_unref(struct radeon_fence **fence)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_fence *tmp = *fence;
 
 	*fence = NULL;
 	if (tmp) {
-		kref_put(&tmp->kref, radeon_fence_destroy);
+		if (refcount_release(&tmp->kref)) {
+			radeon_fence_destroy(tmp);
+		}
 	}
-#endif
 }
 
 /**

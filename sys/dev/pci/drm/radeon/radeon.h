@@ -215,9 +215,7 @@ struct radeon_fence_driver {
 
 struct radeon_fence {
 	struct radeon_device		*rdev;
-#ifdef notyet
-	struct kref			kref;
-#endif
+	unsigned int			kref;
 	/* protected by radeon_fence.lock */
 	uint64_t			seq;
 	/* RB, DMA, etc. */
