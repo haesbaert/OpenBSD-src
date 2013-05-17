@@ -160,8 +160,6 @@ EXPORT_SYMBOL(ttm_tt_set_placement_caching);
 
 void ttm_tt_destroy(struct ttm_tt *ttm)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	if (unlikely(ttm == NULL))
 		return;
 
@@ -173,13 +171,14 @@ void ttm_tt_destroy(struct ttm_tt *ttm)
 		ttm->bdev->driver->ttm_tt_unpopulate(ttm);
 	}
 
+#ifdef notyet
 	if (!(ttm->page_flags & TTM_PAGE_FLAG_PERSISTENT_SWAP) &&
 	    ttm->swap_storage)
 		fput(ttm->swap_storage);
+#endif
 
 	ttm->swap_storage = NULL;
 	ttm->func->destroy(ttm);
-#endif
 }
 
 int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
