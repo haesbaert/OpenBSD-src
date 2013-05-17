@@ -551,14 +551,34 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 	return (!map->virtual) ? -ENOMEM : 0;
 }
 
+uint8_t *kmap(struct vm_page *);
+
+/* based on i915_gem_swizzle_page */
+uint8_t *
+kmap(struct vm_page *pg)
+{
+	vaddr_t va;
+	uint8_t *vaddr;
+
+#if defined (__HAVE_PMAP_DIRECT)
+	va = pmap_map_direct(pg);
+#else
+	va = uvm_km_valloc(kernel_map, PAGE_SIZE);
+	if (va == 0)
+		return (NULL);
+	pmap_kenter_pa(va, VM_PAGE_TO_PHYS(pg), UVM_PROT_RW);
+	pmap_update(pmap_kernel());
+#endif
+	vaddr = (u_int8_t *)va;
+
+	return (vaddr);
+}
+
 static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 			   unsigned long start_page,
 			   unsigned long num_pages,
 			   struct ttm_bo_kmap_obj *map)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_mem_reg *mem = &bo->mem; vm_prot_t prot;
 	struct ttm_tt *ttm = bo->ttm;
 	int ret;
@@ -586,14 +606,18 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 		 * or to make the buffer object look contiguous.
 		 */
 		prot = (mem->placement & TTM_PL_FLAG_CACHED) ?
-			PAGE_KERNEL :
-			ttm_io_prot(mem->placement, PAGE_KERNEL);
+			0 :
+			ttm_io_prot(mem->placement);
 		map->bo_kmap_type = ttm_bo_map_vmap;
+printf("%s XXX handle page prot\n", __func__);
+		map->virtual = km_alloc(num_pages * PAGE_SIZE, &kv_any,
+		    &kp_dma, &kd_waitok);
+#if 0
 		map->virtual = vmap(ttm->pages + start_page, num_pages,
 				    0, prot);
+#endif
 	}
 	return (!map->virtual) ? -ENOMEM : 0;
-#endif
 }
 
 int ttm_bo_kmap(struct ttm_buffer_object *bo,
