@@ -64,7 +64,7 @@ static __inline__ void *drm_malloc_ab(size_t nmemb, size_t size)
 
 static __inline void drm_free_large(void *ptr)
 {
-	printf("%s stub\n", __func__);
+	free(ptr, M_DRM);
 #ifdef notyet
 	if (!is_vmalloc_addr(ptr))
 		return free(ptr, M_DRM);
