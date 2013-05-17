@@ -42,6 +42,8 @@
 #include <asm/agp.h>
 #endif
 
+#include <uvm/uvm_extern.h>
+
 #define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct vm_page *))
 #define SMALL_ALLOCATION		16
 #define FREE_ALL_PAGES			(~0U)
@@ -152,7 +154,7 @@ void	 ttm_handle_caching_state_failure(struct list_head *, int,
 	     enum ttm_caching_state, struct vm_page **, unsigned);
 void	 ttm_page_pool_fill_locked(struct ttm_page_pool *,
 	     int, enum ttm_caching_state, unsigned);
-unsigned ttm_page_pool_get_pages(struct ttm_page_pool *, struct list_head *,
+unsigned ttm_page_pool_get_pages(struct ttm_page_pool *, struct pglist *,
 	     int, enum ttm_caching_state, unsigned);
 void	 ttm_put_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
 int	 ttm_get_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
@@ -512,10 +514,12 @@ ttm_handle_caching_state_failure(struct list_head *pages,
  * This function is reentrant if caller updates count depending on number of
  * pages returned in pages array.
  */
-#ifdef notyet
-static int ttm_alloc_new_pages(struct list_head *pages, gfp_t gfp_flags,
+static int ttm_alloc_new_pages(struct pglist *pages, int gfp_flags,
 		int ttm_flags, enum ttm_caching_state cstate, unsigned count)
 {
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	struct vm_page **caching_array;
 	struct vm_page *p;
 	int r = 0;
@@ -587,8 +591,8 @@ out:
 	free(caching_array, M_DRM);
 
 	return r;
-}
 #endif
+}
 
 /**
  * Fill the given pool if there aren't enough pages and the requested number of
@@ -657,7 +661,7 @@ ttm_page_pool_fill_locked(struct ttm_page_pool *pool,
  */
 unsigned
 ttm_page_pool_get_pages(struct ttm_page_pool *pool,
-					struct list_head *pages,
+					struct pglist *pages,
 					int ttm_flags,
 					enum ttm_caching_state cstate,
 					unsigned count)
@@ -759,32 +763,26 @@ int
 ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 			 enum ttm_caching_state cstate)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_page_pool *pool = ttm_get_pool(flags, cstate);
-	struct list_head plist;
+	struct pglist plist;
 	struct vm_page *p = NULL;
-	gfp_t gfp_flags = GFP_USER;
+	int gfp_flags;
 	unsigned count;
 	int r;
 
-	/* set zero flag for page allocation if required */
-	if (flags & TTM_PAGE_FLAG_ZERO_ALLOC)
-		gfp_flags |= __GFP_ZERO;
-
 	/* No pool for cached pages */
 	if (pool == NULL) {
-		if (flags & TTM_PAGE_FLAG_DMA32)
-			gfp_flags |= GFP_DMA32;
-		else
-			gfp_flags |= GFP_HIGHUSER;
 
 		for (r = 0; r < npages; ++r) {
-			p = alloc_page(gfp_flags);
+			if (flags & (TTM_PAGE_FLAG_ZERO_ALLOC))
+				p = km_alloc(PAGE_SIZE, &kv_any, &kp_dma_zero,
+				    &kd_waitok);
+			else
+				p = km_alloc(PAGE_SIZE, &kv_any, &kp_dma,
+				    &kd_waitok);
 			if (!p) {
 
-				pr_err("Unable to allocate page\n");
+				printf("ttm: Unable to allocate page\n");
 				return -ENOMEM;
 			}
 
@@ -794,23 +792,20 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 	}
 
 	/* combine zero flag to pool flags */
-	gfp_flags |= pool->gfp_flags;
+	gfp_flags |= pool->ttm_page_alloc_flags;
 
 	/* First we take pages from the pool */
-	INIT_LIST_HEAD(&plist);
+	TAILQ_INIT(&plist);
 	npages = ttm_page_pool_get_pages(pool, &plist, flags, cstate, npages);
 	count = 0;
-	list_for_each_entry(p, &plist, lru) {
+	TAILQ_FOREACH(p, &plist, pageq) {
 		pages[count++] = p;
 	}
 
 	/* clear the pages coming from the pool if requested */
 	if (flags & TTM_PAGE_FLAG_ZERO_ALLOC) {
-		list_for_each_entry(p, &plist, lru) {
-			if (PageHighMem(p))
-				clear_highpage(p);
-			else
-				clear_page(page_address(p));
+		TAILQ_FOREACH(p, &plist, pageq) {
+			pmap_zero_page(p);
 		}
 	}
 
@@ -819,22 +814,21 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 		/* ttm_alloc_new_pages doesn't reference pool so we can run
 		 * multiple requests in parallel.
 		 **/
-		INIT_LIST_HEAD(&plist);
+		TAILQ_INIT(&plist);
 		r = ttm_alloc_new_pages(&plist, gfp_flags, flags, cstate, npages);
-		list_for_each_entry(p, &plist, lru) {
+		TAILQ_FOREACH(p, &plist, pageq) {
 			pages[count++] = p;
 		}
 		if (r) {
 			/* If there is any pages in the list put them back to
 			 * the pool. */
-			pr_err("Failed to allocate extra pages for large request\n");
+			printf("ttm: Failed to allocate extra pages for large request\n");
 			ttm_put_pages(pages, count, flags, cstate);
 			return r;
 		}
 	}
 
 	return 0;
-#endif
 }
 
 void
