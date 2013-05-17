@@ -670,14 +670,13 @@ EXPORT_SYMBOL(ttm_bo_kmap);
 
 void ttm_bo_kunmap(struct ttm_bo_kmap_obj *map)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_buffer_object *bo = map->bo;
 	struct ttm_mem_type_manager *man =
 		&bo->bdev->man[bo->mem.mem_type];
 
 	if (!map->virtual)
 		return;
+#ifdef notyet
 	switch (map->bo_kmap_type) {
 	case ttm_bo_map_iomap:
 		iounmap(map->virtual);
@@ -693,12 +692,14 @@ void ttm_bo_kunmap(struct ttm_bo_kmap_obj *map)
 	default:
 		BUG();
 	}
+#else
+	printf("%s partial stub\n", __func__);
+#endif
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(map->bo->bdev, &map->bo->mem);
 	ttm_mem_io_unlock(man);
 	map->virtual = NULL;
 	map->page = NULL;
-#endif
 }
 EXPORT_SYMBOL(ttm_bo_kunmap);
 
