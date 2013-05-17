@@ -54,7 +54,7 @@ static void ttm_dma_tt_alloc_page_directory(struct ttm_dma_tt *ttm)
 }
 
 #ifdef CONFIG_X86
-static inline int ttm_tt_set_page_caching(struct page *p,
+static inline int ttm_tt_set_page_caching(struct vm_page *p,
 					  enum ttm_caching_state c_old,
 					  enum ttm_caching_state c_new)
 {
@@ -80,7 +80,7 @@ static inline int ttm_tt_set_page_caching(struct page *p,
 	return ret;
 }
 #else /* CONFIG_X86 */
-static inline int ttm_tt_set_page_caching(struct page *p,
+static inline int ttm_tt_set_page_caching(struct vm_page *p,
 					  enum ttm_caching_state c_old,
 					  enum ttm_caching_state c_new)
 {
@@ -97,7 +97,7 @@ static int ttm_tt_set_caching(struct ttm_tt *ttm,
 			      enum ttm_caching_state c_state)
 {
 	int i, j;
-	struct page *cur_page;
+	struct vm_page *cur_page;
 	int ret;
 
 	if (ttm->caching_state == c_state)
@@ -184,7 +184,7 @@ void ttm_tt_destroy(struct ttm_tt *ttm)
 
 int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
 		unsigned long size, uint32_t page_flags,
-		struct page *dummy_read_page)
+		struct vm_page *dummy_read_page)
 {
 	ttm->bdev = bdev;
 	ttm->glob = bdev->glob;
@@ -214,7 +214,7 @@ EXPORT_SYMBOL(ttm_tt_fini);
 
 int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
 		unsigned long size, uint32_t page_flags,
-		struct page *dummy_read_page)
+		struct vm_page *dummy_read_page)
 {
 	struct ttm_tt *ttm = &ttm_dma->ttm;
 
@@ -291,8 +291,8 @@ int ttm_tt_swapin(struct ttm_tt *ttm)
 #ifdef notyet
 	struct address_space *swap_space;
 	struct file *swap_storage;
-	struct page *from_page;
-	struct page *to_page;
+	struct vm_page *from_page;
+	struct vm_page *to_page;
 	int i;
 	int ret = -ENOMEM;
 
@@ -333,8 +333,8 @@ int ttm_tt_swapout(struct ttm_tt *ttm, struct file *persistent_swap_storage)
 #ifdef notyet
 	struct address_space *swap_space;
 	struct file *swap_storage;
-	struct page *from_page;
-	struct page *to_page;
+	struct vm_page *from_page;
+	struct vm_page *to_page;
 	int i;
 	int ret = -ENOMEM;
 

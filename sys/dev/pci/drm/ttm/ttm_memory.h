@@ -145,10 +145,10 @@ extern void ttm_mem_global_free(struct ttm_mem_global *glob,
 				uint64_t amount);
 #ifdef notyet
 extern int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
-				     struct page *page,
+				     struct vm_page *page,
 				     bool no_wait, bool interruptible);
 extern void ttm_mem_global_free_page(struct ttm_mem_global *glob,
-				     struct page *page);
+				     struct vm_page *page);
 #endif
 extern size_t ttm_round_pot(size_t size);
 #endif

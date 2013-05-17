@@ -65,7 +65,7 @@ void *radeon_sync_obj_ref(void *sync_obj);
 bool radeon_sync_obj_signaled(void *sync_obj);
 struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 				    unsigned long size, uint32_t page_flags,
-				    struct page *dummy_read_page);
+				    struct vm_page *dummy_read_page);
 int radeon_ttm_tt_populate(struct ttm_tt *ttm);
 void radeon_ttm_tt_unpopulate(struct ttm_tt *ttm);
 int radeon_ttm_mem_global_init(struct drm_global_reference *ref);
@@ -606,7 +606,7 @@ static struct ttm_backend_func radeon_backend_func = {
 
 struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 				    unsigned long size, uint32_t page_flags,
-				    struct page *dummy_read_page)
+				    struct vm_page *dummy_read_page)
 {
 	struct radeon_device *rdev;
 	struct radeon_ttm_tt *gtt;

@@ -60,7 +60,7 @@ static int ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 
 	mem->page_count = 0;
 	for (i = 0; i < ttm->num_pages; i++) {
-		struct page *page = ttm->pages[i];
+		struct vm_page *page = ttm->pages[i];
 
 		if (!page)
 			page = ttm->dummy_read_page;
@@ -116,7 +116,7 @@ static struct ttm_backend_func ttm_agp_func = {
 struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
 				 struct agp_bridge_data *bridge,
 				 unsigned long size, uint32_t page_flags,
-				 struct page *dummy_read_page)
+				 struct vm_page *dummy_read_page)
 {
 	struct ttm_agp_backend *agp_be;
 

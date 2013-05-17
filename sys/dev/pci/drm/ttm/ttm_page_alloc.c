@@ -42,7 +42,7 @@
 #include <asm/agp.h>
 #endif
 
-#define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct page *))
+#define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct vm_page *))
 #define SMALL_ALLOCATION		16
 #define FREE_ALL_PAGES			(~0U)
 /* times are in msecs */
@@ -137,25 +137,25 @@ static struct attribute *ttm_pool_attrs[] = {
 };
 #endif
 
-int	 set_pages_array_wb(struct page **, int);
+int	 set_pages_array_wb(struct vm_page **, int);
 struct ttm_page_pool *
 	 ttm_get_pool(int, enum ttm_caching_state);
-void	 ttm_pages_put(struct page *[], unsigned);
+void	 ttm_pages_put(struct vm_page *[], unsigned);
 void	 ttm_pool_update_free_locked(struct ttm_page_pool *, unsigned);
 int	 ttm_page_pool_free(struct ttm_page_pool *, unsigned);
 int	 ttm_pool_get_num_unused_pages(void);
 void	 ttm_pool_mm_shrink_init(struct ttm_pool_manager *);
 void	 ttm_pool_mm_shrink_fini(struct ttm_pool_manager *);
-int	 ttm_set_pages_caching(struct page **, enum ttm_caching_state,
+int	 ttm_set_pages_caching(struct vm_page **, enum ttm_caching_state,
 	     unsigned);
 void	 ttm_handle_caching_state_failure(struct list_head *, int,
-	     enum ttm_caching_state, struct page **, unsigned);
+	     enum ttm_caching_state, struct vm_page **, unsigned);
 void	 ttm_page_pool_fill_locked(struct ttm_page_pool *,
 	     int, enum ttm_caching_state, unsigned);
 unsigned ttm_page_pool_get_pages(struct ttm_page_pool *, struct list_head *,
 	     int, enum ttm_caching_state, unsigned);
-void	 ttm_put_pages(struct page **, unsigned, int, enum ttm_caching_state);
-int	 ttm_get_pages(struct page **, unsigned, int, enum ttm_caching_state);
+void	 ttm_put_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
+int	 ttm_get_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
 void	 ttm_page_pool_init_locked(struct ttm_page_pool *, int, char *);
 
 static void ttm_pool_kobj_release(struct ttm_pool_manager *m)
@@ -233,7 +233,7 @@ static struct ttm_pool_manager *_manager;
 
 #ifndef CONFIG_X86
 int
-set_pages_array_wb(struct page **pages, int addrinarray)
+set_pages_array_wb(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
 	int i;
@@ -244,7 +244,7 @@ set_pages_array_wb(struct page **pages, int addrinarray)
 	return 0;
 }
 
-static int set_pages_array_wc(struct page **pages, int addrinarray)
+static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
 	int i;
@@ -255,7 +255,7 @@ static int set_pages_array_wc(struct page **pages, int addrinarray)
 	return 0;
 }
 
-static int set_pages_array_uc(struct page **pages, int addrinarray)
+static int set_pages_array_uc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
 	int i;
@@ -291,7 +291,7 @@ ttm_get_pool(int flags,
 
 /* set memory back to wb and free the pages. */
 void
-ttm_pages_put(struct page *pages[], unsigned npages)
+ttm_pages_put(struct vm_page *pages[], unsigned npages)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
@@ -326,15 +326,15 @@ ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free)
 	printf("%s stub\n", __func__);
 	return -ENOSYS;
 #ifdef notyet
-	struct page *p;
-	struct page **pages_to_free;
+	struct vm_page *p;
+	struct vm_page **pages_to_free;
 	unsigned freed_pages = 0,
 		 npages_to_free = nr_free;
 
 	if (NUM_PAGES_TO_ALLOC < nr_free)
 		npages_to_free = NUM_PAGES_TO_ALLOC;
 
-	pages_to_free = malloc(npages_to_free * sizeof(struct page *),
+	pages_to_free = malloc(npages_to_free * sizeof(struct vm_page *),
 			M_DRM, M_WAITOK);
 	if (!pages_to_free) {
 		printf("Failed to allocate memory for pool free operation\n");
@@ -463,7 +463,7 @@ ttm_pool_mm_shrink_fini(struct ttm_pool_manager *manager)
 }
 
 int
-ttm_set_pages_caching(struct page **pages,
+ttm_set_pages_caching(struct vm_page **pages,
 		enum ttm_caching_state cstate, unsigned cpages)
 {
 	int r = 0;
@@ -493,7 +493,7 @@ ttm_set_pages_caching(struct page **pages,
 void
 ttm_handle_caching_state_failure(struct list_head *pages,
 		int ttm_flags, enum ttm_caching_state cstate,
-		struct page **failed_pages, unsigned cpages)
+		struct vm_page **failed_pages, unsigned cpages)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
@@ -516,15 +516,15 @@ ttm_handle_caching_state_failure(struct list_head *pages,
 static int ttm_alloc_new_pages(struct list_head *pages, gfp_t gfp_flags,
 		int ttm_flags, enum ttm_caching_state cstate, unsigned count)
 {
-	struct page **caching_array;
-	struct page *p;
+	struct vm_page **caching_array;
+	struct vm_page *p;
 	int r = 0;
 	unsigned i, cpages;
 	unsigned max_cpages = min(count,
-			(unsigned)(PAGE_SIZE/sizeof(struct page *)));
+			(unsigned)(PAGE_SIZE/sizeof(struct vm_page *)));
 
 	/* allocate array for page caching change */
-	caching_array = malloc(max_cpages*sizeof(struct page *), M_DRM, M_WAITOK);
+	caching_array = malloc(max_cpages*sizeof(struct vm_page *), M_DRM, M_WAITOK);
 
 	if (!caching_array) {
 		printf("Unable to allocate table for new pages\n");
@@ -600,7 +600,7 @@ ttm_page_pool_fill_locked(struct ttm_page_pool *pool,
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct page *p;
+	struct vm_page *p;
 	int r;
 	unsigned cpages = 0;
 	/**
@@ -705,7 +705,7 @@ out:
 
 /* Put all pages in pages list to correct pool to wait for reuse */
 void
-ttm_put_pages(struct page **pages, unsigned npages, int flags,
+ttm_put_pages(struct vm_page **pages, unsigned npages, int flags,
 			  enum ttm_caching_state cstate)
 {
 	printf("%s stub\n", __func__);
@@ -756,7 +756,7 @@ ttm_put_pages(struct page **pages, unsigned npages, int flags,
  * cached pages.
  */
 int
-ttm_get_pages(struct page **pages, unsigned npages, int flags,
+ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 			 enum ttm_caching_state cstate)
 {
 	printf("%s stub\n", __func__);
@@ -764,7 +764,7 @@ ttm_get_pages(struct page **pages, unsigned npages, int flags,
 #ifdef notyet
 	struct ttm_page_pool *pool = ttm_get_pool(flags, cstate);
 	struct list_head plist;
-	struct page *p = NULL;
+	struct vm_page *p = NULL;
 	gfp_t gfp_flags = GFP_USER;
 	unsigned count;
 	int r;

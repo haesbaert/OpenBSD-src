@@ -39,7 +39,7 @@
 #include <dev/pci/drm/ttm/ttm_bo_driver.h>
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
-#define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct page *))
+#define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct vm_page *))
 #define SMALL_ALLOCATION		4
 #define FREE_ALL_PAGES			(~0U)
 /* times are in msecs */
@@ -115,7 +115,7 @@ struct dma_pool {
 struct dma_page {
 	struct list_head page_list;
 	void *vaddr;
-	struct page *p;
+	struct vm_page *p;
 	bus_addr_t dma;
 };
 
@@ -194,7 +194,7 @@ enum pool_type
 	 ttm_to_type(int, enum ttm_caching_state);
 void	 ttm_dma_pool_update_free_locked(struct dma_pool *, unsigned);
 void	 ttm_dma_pages_put(struct dma_pool *, struct list_head *,
-	     struct page *[], unsigned);
+	     struct vm_page *[], unsigned);
 void	 ttm_dma_page_put(struct dma_pool *, struct dma_page *);
 unsigned ttm_dma_page_pool_free(struct dma_pool *, unsigned);
 void	 ttm_dma_pool_release(struct device *, void *);
@@ -283,7 +283,7 @@ static struct kobj_type ttm_pool_kobj_type = {
 #endif // notyet
 
 #ifndef CONFIG_X86
-static int set_pages_array_wb(struct page **pages, int addrinarray)
+static int set_pages_array_wb(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
 	int i;
@@ -294,7 +294,7 @@ static int set_pages_array_wb(struct page **pages, int addrinarray)
 	return 0;
 }
 
-static int set_pages_array_wc(struct page **pages, int addrinarray)
+static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
 	int i;
@@ -305,7 +305,7 @@ static int set_pages_array_wc(struct page **pages, int addrinarray)
 	return 0;
 }
 
-static int set_pages_array_uc(struct page **pages, int addrinarray)
+static int set_pages_array_uc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
 	int i;
@@ -318,7 +318,7 @@ static int set_pages_array_uc(struct page **pages, int addrinarray)
 #endif /* for !CONFIG_X86 */
 
 static int ttm_set_pages_caching(struct dma_pool *pool,
-				 struct page **pages, unsigned cpages)
+				 struct vm_page **pages, unsigned cpages)
 {
 	int r = 0;
 	/* Set page caching */
@@ -400,7 +400,7 @@ ttm_dma_pool_update_free_locked(struct dma_pool *pool,
 /* set memory back to wb and free the pages. */
 void
 ttm_dma_pages_put(struct dma_pool *pool, struct list_head *d_pages,
-			      struct page *pages[], unsigned npages)
+			      struct vm_page *pages[], unsigned npages)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
@@ -447,7 +447,7 @@ ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 	return 0;
 #ifdef notyet
 	struct dma_page *dma_p, *tmp;
-	struct page **pages_to_free;
+	struct vm_page **pages_to_free;
 	struct list_head d_pages;
 	unsigned freed_pages = 0,
 		 npages_to_free = nr_free;
@@ -461,7 +461,7 @@ ttm_dma_page_pool_free(struct dma_pool *pool, unsigned nr_free)
 			 npages_to_free, nr_free);
 	}
 #endif
-	pages_to_free = malloc(npages_to_free * sizeof(struct page *),
+	pages_to_free = malloc(npages_to_free * sizeof(struct vm_page *),
 			M_DRM, M_WAITOK);
 
 	if (!pages_to_free) {
@@ -715,11 +715,11 @@ ttm_dma_find_pool(struct device *dev,
  */
 static void ttm_dma_handle_caching_state_failure(struct dma_pool *pool,
 						 struct list_head *d_pages,
-						 struct page **failed_pages,
+						 struct vm_page **failed_pages,
 						 unsigned cpages)
 {
 	struct dma_page *d_page, *tmp;
-	struct page *p;
+	struct vm_page *p;
 	unsigned i = 0;
 
 	p = failed_pages[0];
@@ -751,16 +751,16 @@ ttm_dma_pool_alloc_new_pages(struct dma_pool *pool,
 					struct list_head *d_pages,
 					unsigned count)
 {
-	struct page **caching_array;
+	struct vm_page **caching_array;
 	struct dma_page *dma_p;
-	struct page *p;
+	struct vm_page *p;
 	int r = 0;
 	unsigned i, cpages;
 	unsigned max_cpages = min(count,
-			(unsigned)(PAGE_SIZE/sizeof(struct page *)));
+			(unsigned)(PAGE_SIZE/sizeof(struct vm_page *)));
 
 	/* allocate array for page caching change */
-	caching_array = malloc(max_cpages*sizeof(struct page *), M_DRM, M_WAITOK);
+	caching_array = malloc(max_cpages*sizeof(struct vm_page *), M_DRM, M_WAITOK);
 
 	if (!caching_array) {
 		printf("%s: Unable to allocate table for new pages\n",

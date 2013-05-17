@@ -523,7 +523,7 @@ EXPORT_SYMBOL(ttm_mem_global_alloc);
 
 #ifdef notyet
 int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
-			      struct page *page,
+			      struct vm_page *page,
 			      bool no_wait, bool interruptible)
 {
 
@@ -547,7 +547,7 @@ int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 #endif
 
 #ifdef notyet
-void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct page *page)
+void ttm_mem_global_free_page(struct ttm_mem_global *glob, struct vm_page *page)
 {
 	struct ttm_mem_zone *zone = NULL;
 

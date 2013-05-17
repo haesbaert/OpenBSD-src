@@ -108,8 +108,8 @@ enum ttm_caching_state {
 struct ttm_tt {
 	struct ttm_bo_device *bdev;
 	struct ttm_backend_func *func;
-	struct page *dummy_read_page;
-	struct page **pages;
+	struct vm_page *dummy_read_page;
+	struct vm_page **pages;
 	uint32_t page_flags;
 	unsigned long num_pages;
 	struct sg_table *sg; /* for SG objects via dma-buf */
@@ -327,7 +327,7 @@ struct ttm_bo_driver {
 	struct ttm_tt *(*ttm_tt_create)(struct ttm_bo_device *bdev,
 					unsigned long size,
 					uint32_t page_flags,
-					struct page *dummy_read_page);
+					struct vm_page *dummy_read_page);
 
 	/**
 	 * ttm_tt_populate
@@ -480,7 +480,7 @@ struct ttm_bo_global {
 	 */
 
 	struct ttm_mem_global *mem_glob;
-	struct page *dummy_read_page;
+	struct vm_page *dummy_read_page;
 	struct ttm_mem_shrink shrink;
 	struct rwlock device_list_rwlock;
 	struct mutex lru_lock;
@@ -597,10 +597,10 @@ ttm_flag_masked(uint32_t *old, uint32_t new, uint32_t mask)
  */
 extern int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
 			unsigned long size, uint32_t page_flags,
-			struct page *dummy_read_page);
+			struct vm_page *dummy_read_page);
 extern int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
 			   unsigned long size, uint32_t page_flags,
-			   struct page *dummy_read_page);
+			   struct vm_page *dummy_read_page);
 
 /**
  * ttm_tt_fini
@@ -659,7 +659,7 @@ extern int ttm_tt_swapin(struct ttm_tt *ttm);
  * This is used when changing caching attributes of the pages from
  * cache-coherent.
  */
-extern void ttm_tt_cache_flush(struct page *pages[], unsigned long num_pages);
+extern void ttm_tt_cache_flush(struct vm_page *pages[], unsigned long num_pages);
 
 /**
  * ttm_tt_set_placement_caching:
@@ -1001,7 +1001,7 @@ extern const struct ttm_mem_type_manager_func ttm_bo_manager_func;
 extern struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
 					struct agp_bridge_data *bridge,
 					unsigned long size, uint32_t page_flags,
-					struct page *dummy_read_page);
+					struct vm_page *dummy_read_page);
 int ttm_agp_tt_populate(struct ttm_tt *ttm);
 void ttm_agp_tt_unpopulate(struct ttm_tt *ttm);
 #endif
