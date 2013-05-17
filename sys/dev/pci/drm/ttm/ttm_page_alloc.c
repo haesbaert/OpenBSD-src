@@ -766,6 +766,7 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 	struct ttm_page_pool *pool = ttm_get_pool(flags, cstate);
 	struct pglist plist;
 	struct vm_page *p = NULL;
+	const struct kmem_pa_mode *kp;
 	int gfp_flags;
 	unsigned count;
 	int r;
@@ -773,13 +774,19 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 	/* No pool for cached pages */
 	if (pool == NULL) {
 
-		for (r = 0; r < npages; ++r) {
-			if (flags & (TTM_PAGE_FLAG_ZERO_ALLOC))
-				p = km_alloc(PAGE_SIZE, &kv_any, &kp_dma_zero,
-				    &kd_waitok);
+		if (flags & TTM_PAGE_FLAG_ZERO_ALLOC) {
+			if (flags & TTM_PAGE_FLAG_DMA32)
+				kp = &kp_dma_zero;
 			else
-				p = km_alloc(PAGE_SIZE, &kv_any, &kp_dma,
-				    &kd_waitok);
+				kp = &kp_zero;
+		} else if (flags & TTM_PAGE_FLAG_DMA32) {
+			kp = &kp_dma;
+		} else {
+			kp = &kp_dirty;
+		}
+
+		for (r = 0; r < npages; ++r) {
+			p = km_alloc(PAGE_SIZE, &kv_any, kp, &kd_waitok);
 			if (!p) {
 
 				printf("ttm: Unable to allocate page\n");
