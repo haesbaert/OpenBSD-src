@@ -640,9 +640,6 @@ struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 int
 radeon_ttm_tt_populate(struct ttm_tt *ttm)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct radeon_device *rdev;
 	struct radeon_ttm_tt *gtt = (void *)ttm;
 	unsigned i;
@@ -653,8 +650,10 @@ radeon_ttm_tt_populate(struct ttm_tt *ttm)
 		return 0;
 
 	if (slave && ttm->sg) {
+#ifdef notyet
 		drm_prime_sg_to_page_addr_arrays(ttm->sg, ttm->pages,
 						 gtt->ttm.dma_address, ttm->num_pages);
+#endif
 		ttm->state = tt_unbound;
 		return 0;
 	}
@@ -662,7 +661,12 @@ radeon_ttm_tt_populate(struct ttm_tt *ttm)
 	rdev = radeon_get_rdev(ttm->bdev);
 #if __OS_HAS_AGP
 	if (rdev->flags & RADEON_IS_AGP) {
+#ifdef notyet
 		return ttm_agp_tt_populate(ttm);
+#else
+		printf("%s partial stub\n", __func__);
+		return -ENOSYS;
+#endif // notyet
 	}
 #endif
 
@@ -678,6 +682,8 @@ radeon_ttm_tt_populate(struct ttm_tt *ttm)
 	}
 
 	for (i = 0; i < ttm->num_pages; i++) {
+		gtt->ttm.dma_address[i] = VM_PAGE_TO_PHYS(ttm->pages[i]);
+#ifdef notyet
 		gtt->ttm.dma_address[i] = pci_map_page(rdev->pdev, ttm->pages[i],
 						       0, PAGE_SIZE,
 						       PCI_DMA_BIDIRECTIONAL);
@@ -690,9 +696,9 @@ radeon_ttm_tt_populate(struct ttm_tt *ttm)
 			ttm_pool_unpopulate(ttm);
 			return -EFAULT;
 		}
+#endif
 	}
 	return 0;
-#endif
 }
 
 void
