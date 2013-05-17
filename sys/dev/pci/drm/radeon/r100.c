@@ -39,6 +39,9 @@
 #include "r100_reg_safe.h"
 #include "rn50_reg_safe.h"
 
+#include "radeon_microcode.h"
+#include "r600_microcode.h"
+
 /* Firmware Names */
 #define FIRMWARE_R100		"radeon/R100_cp.bin"
 #define FIRMWARE_R200		"radeon/R200_cp.bin"
@@ -959,32 +962,24 @@ void r100_ring_start(struct radeon_device *rdev, struct radeon_ring *ring)
 /* Load the microcode for the CP */
 static int r100_cp_init_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct platform_device *pdev;
-	const char *fw_name = NULL;
-	int err;
+//	const char *fw_name = NULL;
+	int err = 0;
 
 	DRM_DEBUG_KMS("\n");
 
-	pdev = platform_device_register_simple("radeon_cp", 0, NULL, 0);
-	err = IS_ERR(pdev);
-	if (err) {
-		DRM_ERROR("radeon_cp: Failed to register firmware\n");
-		return -EINVAL;
-	}
 	if ((rdev->family == CHIP_R100) || (rdev->family == CHIP_RV100) ||
 	    (rdev->family == CHIP_RV200) || (rdev->family == CHIP_RS100) ||
 	    (rdev->family == CHIP_RS200)) {
 		DRM_INFO("Loading R100 Microcode\n");
-		fw_name = FIRMWARE_R100;
+//		fw_name = FIRMWARE_R100;
+		rdev->me_fw = R100_cp_microcode;
 	} else if ((rdev->family == CHIP_R200) ||
 		   (rdev->family == CHIP_RV250) ||
 		   (rdev->family == CHIP_RV280) ||
 		   (rdev->family == CHIP_RS300)) {
 		DRM_INFO("Loading R200 Microcode\n");
-		fw_name = FIRMWARE_R200;
+//		fw_name = FIRMWARE_R200;
+		rdev->me_fw = R200_cp_microcode;
 	} else if ((rdev->family == CHIP_R300) ||
 		   (rdev->family == CHIP_R350) ||
 		   (rdev->family == CHIP_RV350) ||
@@ -992,19 +987,23 @@ static int r100_cp_init_microcode(struct radeon_device *rdev)
 		   (rdev->family == CHIP_RS400) ||
 		   (rdev->family == CHIP_RS480)) {
 		DRM_INFO("Loading R300 Microcode\n");
-		fw_name = FIRMWARE_R300;
+//		fw_name = FIRMWARE_R300;
+		rdev->me_fw = R300_cp_microcode;
 	} else if ((rdev->family == CHIP_R420) ||
 		   (rdev->family == CHIP_R423) ||
 		   (rdev->family == CHIP_RV410)) {
 		DRM_INFO("Loading R400 Microcode\n");
-		fw_name = FIRMWARE_R420;
+//		fw_name = FIRMWARE_R420;
+		rdev->me_fw = R420_cp_microcode;
 	} else if ((rdev->family == CHIP_RS690) ||
 		   (rdev->family == CHIP_RS740)) {
 		DRM_INFO("Loading RS690/RS740 Microcode\n");
-		fw_name = FIRMWARE_RS690;
+//		fw_name = FIRMWARE_RS690;
+		rdev->me_fw = RS690_cp_microcode;
 	} else if (rdev->family == CHIP_RS600) {
 		DRM_INFO("Loading RS600 Microcode\n");
-		fw_name = FIRMWARE_RS600;
+//		fw_name = FIRMWARE_RS600;
+		rdev->me_fw = RS600_cp_microcode;
 	} else if ((rdev->family == CHIP_RV515) ||
 		   (rdev->family == CHIP_R520) ||
 		   (rdev->family == CHIP_RV530) ||
@@ -1012,9 +1011,11 @@ static int r100_cp_init_microcode(struct radeon_device *rdev)
 		   (rdev->family == CHIP_RV560) ||
 		   (rdev->family == CHIP_RV570)) {
 		DRM_INFO("Loading R500 Microcode\n");
-		fw_name = FIRMWARE_R520;
+//		fw_name = FIRMWARE_R520;
+		rdev->me_fw = R520_cp_microcode;
 	}
 
+#if 0
 	err = request_firmware(&rdev->me_fw, fw_name, &pdev->dev);
 	platform_device_unregister(pdev);
 	if (err) {
@@ -1028,16 +1029,13 @@ static int r100_cp_init_microcode(struct radeon_device *rdev)
 		release_firmware(rdev->me_fw);
 		rdev->me_fw = NULL;
 	}
-	return err;
 #endif
+	return err;
 }
 
 static void r100_cp_load_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
-	const __be32 *fw_data;
-	int i, size;
+	int i;
 
 	if (r100_gui_wait_for_idle(rdev)) {
 		DRM_ERROR("Failed to wait GUI idle while "
@@ -1045,17 +1043,14 @@ static void r100_cp_load_microcode(struct radeon_device *rdev)
 	}
 
 	if (rdev->me_fw) {
-		size = rdev->me_fw->size / 4;
-		fw_data = (const __be32 *)&rdev->me_fw->data[0];
 		WREG32(RADEON_CP_ME_RAM_ADDR, 0);
-		for (i = 0; i < size; i += 2) {
+		for (i = 0; i < PM4_UCODE_SIZE; i += 2) {
 			WREG32(RADEON_CP_ME_RAM_DATAH,
-			       be32_to_cpup(&fw_data[i]));
+			       be32_to_cpup(rdev->me_fw[i]));
 			WREG32(RADEON_CP_ME_RAM_DATAL,
-			       be32_to_cpup(&fw_data[i + 1]));
+			       be32_to_cpup(rdev->me_fw[i + 1]));
 		}
 	}
-#endif
 }
 
 int r100_cp_init(struct radeon_device *rdev, unsigned ring_size)
