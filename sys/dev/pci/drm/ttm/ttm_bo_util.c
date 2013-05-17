@@ -574,6 +574,24 @@ kmap(struct vm_page *pg)
 	return (vaddr);
 }
 
+uint8_t * vmap(paddr_t pa, unsigned int count, unsigned long flags, vm_prot_t prot);
+
+uint8_t *
+vmap(paddr_t pa, unsigned int count, unsigned long flags, vm_prot_t prot)
+{
+	vaddr_t va;
+	uint8_t *vaddr;
+
+	va = uvm_km_alloc(kernel_map, PAGE_SIZE * count);
+	pmap_enter(pmap_kernel(), va, pa, prot | VM_PROT_READ | VM_PROT_WRITE,
+	    VM_PROT_READ | VM_PROT_WRITE | PMAP_WIRED);
+	pmap_update(pmap_kernel());
+
+	vaddr = (u_int8_t *)va;
+
+	return (vaddr);
+}
+
 static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 			   unsigned long start_page,
 			   unsigned long num_pages,
@@ -609,13 +627,8 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 			0 :
 			ttm_io_prot(mem->placement);
 		map->bo_kmap_type = ttm_bo_map_vmap;
-printf("%s XXX handle page prot\n", __func__);
-		map->virtual = km_alloc(num_pages * PAGE_SIZE, &kv_any,
-		    &kp_dma, &kd_waitok);
-#if 0
-		map->virtual = vmap(ttm->pages + start_page, num_pages,
+		map->virtual = vmap((paddr_t)(ttm->pages + start_page), num_pages,
 				    0, prot);
-#endif
 	}
 	return (!map->virtual) ? -ENOMEM : 0;
 }
