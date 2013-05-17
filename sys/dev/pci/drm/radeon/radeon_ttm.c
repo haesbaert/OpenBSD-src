@@ -704,8 +704,6 @@ radeon_ttm_tt_populate(struct ttm_tt *ttm)
 void
 radeon_ttm_tt_unpopulate(struct ttm_tt *ttm)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_device *rdev;
 	struct radeon_ttm_tt *gtt = (void *)ttm;
 	unsigned i;
@@ -717,7 +715,11 @@ radeon_ttm_tt_unpopulate(struct ttm_tt *ttm)
 	rdev = radeon_get_rdev(ttm->bdev);
 #if __OS_HAS_AGP
 	if (rdev->flags & RADEON_IS_AGP) {
+#ifdef notyet
 		ttm_agp_tt_unpopulate(ttm);
+#else
+		printf("%s partial stub\n", __func__);
+#endif
 		return;
 	}
 #endif
@@ -731,13 +733,15 @@ radeon_ttm_tt_unpopulate(struct ttm_tt *ttm)
 
 	for (i = 0; i < ttm->num_pages; i++) {
 		if (gtt->ttm.dma_address[i]) {
+			gtt->ttm.dma_address[i] = 0;
+#ifdef notyet
 			pci_unmap_page(rdev->pdev, gtt->ttm.dma_address[i],
 				       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
+#endif
 		}
 	}
 
 	ttm_pool_unpopulate(ttm);
-#endif
 }
 
 static struct ttm_bo_driver radeon_bo_driver = {
