@@ -68,7 +68,10 @@ static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
 	radeon_bo_clear_surface_reg(bo);
 	radeon_bo_clear_va(bo);
 	drm_unref(&bo->gem_base.uobj);
+#ifdef notyet
+	// panic: free: non-malloced addr 0xfffffe804f6827f8 type DRM
 	free(bo, M_DRM);
+#endif
 }
 
 bool radeon_ttm_bo_is_radeon_bo(struct ttm_buffer_object *bo)
