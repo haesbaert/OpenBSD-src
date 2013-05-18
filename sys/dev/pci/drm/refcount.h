@@ -64,7 +64,9 @@ refcount_release(volatile u_int *count)
 	old = atomic_fetchadd_int(count, -1);
 
 	/* check for negative refcount */
+#ifdef notyet
 	KASSERT(old > 0);
+#endif
 	return (old == 1);
 }
 
