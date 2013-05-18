@@ -791,7 +791,8 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 		}
 
 		for (r = 0; r < npages; ++r) {
-			p = km_alloc(PAGE_SIZE, &kv_any, kp, &kd_waitok);
+//			p = km_alloc(PAGE_SIZE, &kv_any, kp, &kd_waitok);
+			p = uvm_pagealloc(NULL, 0, NULL, UVM_PGA_ZERO);
 			if (!p) {
 
 				printf("ttm: Unable to allocate page\n");
