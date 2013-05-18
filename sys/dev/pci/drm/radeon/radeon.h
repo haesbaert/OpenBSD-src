@@ -1550,6 +1550,7 @@ struct radeon_device {
 	pci_intr_handle_t		intrh;
 	bus_space_tag_t			iot;
 	bus_space_tag_t			memt;
+	bus_dma_tag_t			dmat;
 	void				*irqh;
 
 	struct vga_pci_bar		*regs;
