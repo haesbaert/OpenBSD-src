@@ -931,12 +931,9 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 					  struct radeon_i2c_bus_rec *rec,
 					  const char *name)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_i2c_chan *i2c;
-	int ret;
+	int ret = 0;
 
 	/* don't add the mm_i2c bus unless hw_i2c is enabled */
 	if (rec->mm_i2c && (radeon_hw_i2c == 0))
@@ -947,21 +944,27 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 		return NULL;
 
 	i2c->rec = *rec;
+#ifdef notyet
 	i2c->adapter.owner = THIS_MODULE;
 	i2c->adapter.class = I2C_CLASS_DDC;
 	i2c->adapter.dev.parent = &dev->pdev->dev;
+#endif
 	i2c->dev = dev;
+#ifdef notyet
 	i2c_set_adapdata(&i2c->adapter, i2c);
+#endif
 	if (rec->mm_i2c ||
 	    (rec->hw_capable &&
 	     radeon_hw_i2c &&
 	     ((rdev->family <= CHIP_RS480) ||
 	      ((rdev->family >= CHIP_RV515) && (rdev->family <= CHIP_R580))))) {
 		/* set the radeon hw i2c adapter */
+#ifdef notyet
 		snprintf(i2c->adapter.name, sizeof(i2c->adapter.name),
 			 "Radeon i2c hw bus %s", name);
 		i2c->adapter.algo = &radeon_i2c_algo;
 		ret = i2c_add_adapter(&i2c->adapter);
+#endif
 		if (ret) {
 			DRM_ERROR("Failed to register hw i2c %s\n", name);
 			goto out_free;
@@ -970,16 +973,19 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 		   radeon_hw_i2c &&
 		   ASIC_IS_DCE3(rdev)) {
 		/* hw i2c using atom */
+#ifdef notyet
 		snprintf(i2c->adapter.name, sizeof(i2c->adapter.name),
 			 "Radeon i2c hw bus %s", name);
 		i2c->adapter.algo = &radeon_atom_i2c_algo;
 		ret = i2c_add_adapter(&i2c->adapter);
+#endif
 		if (ret) {
 			DRM_ERROR("Failed to register hw i2c %s\n", name);
 			goto out_free;
 		}
 	} else {
 		/* set the radeon bit adapter */
+#ifdef notyet
 		snprintf(i2c->adapter.name, sizeof(i2c->adapter.name),
 			 "Radeon i2c bit bus %s", name);
 		i2c->adapter.algo_data = &i2c->algo.bit;
@@ -993,6 +999,7 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 		i2c->algo.bit.timeout = usecs_to_jiffies(2200);	/* from VESA */
 		i2c->algo.bit.data = i2c;
 		ret = i2c_bit_add_bus(&i2c->adapter);
+#endif
 		if (ret) {
 			DRM_ERROR("Failed to register bit i2c %s\n", name);
 			goto out_free;
@@ -1003,34 +1010,34 @@ struct radeon_i2c_chan *radeon_i2c_create(struct drm_device *dev,
 out_free:
 	free(i2c, M_DRM);
 	return NULL;
-#endif
 }
 
 struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 					     struct radeon_i2c_bus_rec *rec,
 					     const char *name)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
 	struct radeon_i2c_chan *i2c;
-	int ret;
+	int ret = 0;
 
 	i2c = malloc(sizeof(struct radeon_i2c_chan), M_DRM, M_WAITOK | M_ZERO);
 	if (i2c == NULL)
 		return NULL;
 
 	i2c->rec = *rec;
+#ifdef notyet
 	i2c->adapter.owner = THIS_MODULE;
 	i2c->adapter.class = I2C_CLASS_DDC;
 	i2c->adapter.dev.parent = &dev->pdev->dev;
+#endif
 	i2c->dev = dev;
+#ifdef notyet
 	snprintf(i2c->adapter.name, sizeof(i2c->adapter.name),
 		 "Radeon aux bus %s", name);
 	i2c_set_adapdata(&i2c->adapter, i2c);
 	i2c->adapter.algo_data = &i2c->algo.dp;
 	i2c->algo.dp.aux_ch = radeon_dp_i2c_aux_ch;
 	i2c->algo.dp.address = 0;
+#endif
 	ret = i2c_dp_aux_add_bus(&i2c->adapter);
 	if (ret) {
 		DRM_INFO("Failed to register i2c %s\n", name);
@@ -1041,7 +1048,6 @@ struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 out_free:
 	free(i2c, M_DRM);
 	return NULL;
-#endif
 }
 
 void radeon_i2c_destroy(struct radeon_i2c_chan *i2c)
