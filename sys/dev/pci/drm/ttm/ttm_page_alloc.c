@@ -64,7 +64,7 @@
 struct ttm_page_pool {
 	struct mutex		lock;
 	bool			fill_lock;
-	struct list_head	list;
+	struct pglist		list;
 	int			ttm_page_alloc_flags;
 	unsigned		npages;
 	char			*name;
@@ -159,6 +159,18 @@ unsigned ttm_page_pool_get_pages(struct ttm_page_pool *, struct pglist *,
 void	 ttm_put_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
 int	 ttm_get_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
 void	 ttm_page_pool_init_locked(struct ttm_page_pool *, int, char *);
+
+static void
+ttm_vm_page_free(vm_page_t m)
+{
+#ifdef notyet
+	KASSERT(m->uobject == NULL);
+	KASSERT(m->wire_count == 1);
+	KASSERT((m->pg_flags & PG_FAKE) != 0);
+#endif
+	uvm_pageunwire(m);
+	uvm_pagefree(m);
+}
 
 static void ttm_pool_kobj_release(struct ttm_pool_manager *m)
 {
@@ -712,8 +724,6 @@ void
 ttm_put_pages(struct vm_page **pages, unsigned npages, int flags,
 			  enum ttm_caching_state cstate)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_page_pool *pool = ttm_get_pool(flags, cstate);
 	unsigned i;
 
@@ -721,9 +731,7 @@ ttm_put_pages(struct vm_page **pages, unsigned npages, int flags,
 		/* No pool for this memory type so free the pages */
 		for (i = 0; i < npages; i++) {
 			if (pages[i]) {
-				if (page_count(pages[i]) != 1)
-					pr_err("Erroneous page count. Leaking pages.\n");
-				__free_page(pages[i]);
+				ttm_vm_page_free(pages[i]);
 				pages[i] = NULL;
 			}
 		}
@@ -733,9 +741,7 @@ ttm_put_pages(struct vm_page **pages, unsigned npages, int flags,
 	mtx_enter(&pool->lock);
 	for (i = 0; i < npages; i++) {
 		if (pages[i]) {
-			if (page_count(pages[i]) != 1)
-				pr_err("Erroneous page count. Leaking pages.\n");
-			list_add_tail(&pages[i]->lru, &pool->list);
+			TAILQ_INSERT_TAIL(&pool->list, pages[i], pageq);
 			pages[i] = NULL;
 			pool->npages++;
 		}
@@ -752,7 +758,6 @@ ttm_put_pages(struct vm_page **pages, unsigned npages, int flags,
 	mtx_leave(&pool->lock);
 	if (npages)
 		ttm_page_pool_free(pool, npages);
-#endif
 }
 
 /*
@@ -844,7 +849,7 @@ ttm_page_pool_init_locked(struct ttm_page_pool *pool, int flags,
 {
 	mtx_init(&pool->lock, IPL_NONE);
 	pool->fill_lock = false;
-	INIT_LIST_HEAD(&pool->list);
+	TAILQ_INIT(&pool->list);
 	pool->npages = pool->nfrees = 0;
 	pool->ttm_page_alloc_flags = flags;
 	pool->name = name;
