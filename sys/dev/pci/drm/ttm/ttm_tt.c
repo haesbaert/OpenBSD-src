@@ -38,15 +38,21 @@
 #include <dev/pci/drm/ttm/ttm_placement.h>
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
+void	 ttm_tt_alloc_page_directory(struct ttm_tt *);
+void	 ttm_dma_tt_alloc_page_directory(struct ttm_dma_tt *);
+int	 ttm_tt_set_caching(struct ttm_tt *, enum ttm_caching_state);
+
 /**
  * Allocates storage for pointers to the pages that back the ttm.
  */
-static void ttm_tt_alloc_page_directory(struct ttm_tt *ttm)
+void
+ttm_tt_alloc_page_directory(struct ttm_tt *ttm)
 {
 	ttm->pages = drm_calloc_large(ttm->num_pages, sizeof(void*));
 }
 
-static void ttm_dma_tt_alloc_page_directory(struct ttm_dma_tt *ttm)
+void
+ttm_dma_tt_alloc_page_directory(struct ttm_dma_tt *ttm)
 {
 	ttm->ttm.pages = drm_calloc_large(ttm->ttm.num_pages, sizeof(void*));
 	ttm->dma_address = drm_calloc_large(ttm->ttm.num_pages,
@@ -54,7 +60,8 @@ static void ttm_dma_tt_alloc_page_directory(struct ttm_dma_tt *ttm)
 }
 
 #ifdef CONFIG_X86
-static inline int ttm_tt_set_page_caching(struct vm_page *p,
+static inline int
+ttm_tt_set_page_caching(struct vm_page *p,
 					  enum ttm_caching_state c_old,
 					  enum ttm_caching_state c_new)
 {
@@ -80,7 +87,8 @@ static inline int ttm_tt_set_page_caching(struct vm_page *p,
 	return ret;
 }
 #else /* CONFIG_X86 */
-static inline int ttm_tt_set_page_caching(struct vm_page *p,
+static inline int
+ttm_tt_set_page_caching(struct vm_page *p,
 					  enum ttm_caching_state c_old,
 					  enum ttm_caching_state c_new)
 {
@@ -93,7 +101,8 @@ static inline int ttm_tt_set_page_caching(struct vm_page *p,
  * for range of pages in a ttm.
  */
 
-static int ttm_tt_set_caching(struct ttm_tt *ttm,
+int
+ttm_tt_set_caching(struct ttm_tt *ttm,
 			      enum ttm_caching_state c_state)
 {
 	int i, j;
@@ -143,7 +152,8 @@ out_err:
 	return ret;
 }
 
-int ttm_tt_set_placement_caching(struct ttm_tt *ttm, uint32_t placement)
+int
+ttm_tt_set_placement_caching(struct ttm_tt *ttm, uint32_t placement)
 {
 	enum ttm_caching_state state;
 
@@ -158,7 +168,8 @@ int ttm_tt_set_placement_caching(struct ttm_tt *ttm, uint32_t placement)
 }
 EXPORT_SYMBOL(ttm_tt_set_placement_caching);
 
-void ttm_tt_destroy(struct ttm_tt *ttm)
+void
+ttm_tt_destroy(struct ttm_tt *ttm)
 {
 	if (unlikely(ttm == NULL))
 		return;
@@ -181,7 +192,8 @@ void ttm_tt_destroy(struct ttm_tt *ttm)
 	ttm->func->destroy(ttm);
 }
 
-int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
+int
+ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
 		unsigned long size, uint32_t page_flags,
 		struct vm_page *dummy_read_page)
 {
@@ -204,14 +216,16 @@ int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
 }
 EXPORT_SYMBOL(ttm_tt_init);
 
-void ttm_tt_fini(struct ttm_tt *ttm)
+void
+ttm_tt_fini(struct ttm_tt *ttm)
 {
 	drm_free_large(ttm->pages);
 	ttm->pages = NULL;
 }
 EXPORT_SYMBOL(ttm_tt_fini);
 
-int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
+int
+ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
 		unsigned long size, uint32_t page_flags,
 		struct vm_page *dummy_read_page)
 {
@@ -237,7 +251,8 @@ int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
 }
 EXPORT_SYMBOL(ttm_dma_tt_init);
 
-void ttm_dma_tt_fini(struct ttm_dma_tt *ttm_dma)
+void
+ttm_dma_tt_fini(struct ttm_dma_tt *ttm_dma)
 {
 	struct ttm_tt *ttm = &ttm_dma->ttm;
 
@@ -248,7 +263,8 @@ void ttm_dma_tt_fini(struct ttm_dma_tt *ttm_dma)
 }
 EXPORT_SYMBOL(ttm_dma_tt_fini);
 
-void ttm_tt_unbind(struct ttm_tt *ttm)
+void
+ttm_tt_unbind(struct ttm_tt *ttm)
 {
 	int ret;
 
@@ -259,7 +275,8 @@ void ttm_tt_unbind(struct ttm_tt *ttm)
 	}
 }
 
-int ttm_tt_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
+int
+ttm_tt_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 {
 	int ret = 0;
 
@@ -283,7 +300,8 @@ int ttm_tt_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 }
 EXPORT_SYMBOL(ttm_tt_bind);
 
-int ttm_tt_swapin(struct ttm_tt *ttm)
+int
+ttm_tt_swapin(struct ttm_tt *ttm)
 {
 	printf("%s stub\n", __func__);
 	return -ENOSYS;
@@ -325,7 +343,8 @@ out_err:
 #endif
 }
 
-int ttm_tt_swapout(struct ttm_tt *ttm, struct file *persistent_swap_storage)
+int
+ttm_tt_swapout(struct ttm_tt *ttm, struct file *persistent_swap_storage)
 {
 	printf("%s stub\n", __func__);
 	return -ENOSYS;
