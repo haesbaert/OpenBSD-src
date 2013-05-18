@@ -2829,9 +2829,8 @@ r100_get_accessible_vram(struct radeon_device *rdev)
 	 * check if it's a multifunction card by reading the PCI config
 	 * header type... Limit those to one aperture size
 	 */
-	reg = pci_conf_read(rdev->pc, rdev->pa_tag, 0xe);
-	
-	if (reg & 0x80) {
+	reg = pci_conf_read(rdev->pc, rdev->pa_tag, PCI_BHLC_REG);
+	if (PCI_HDRTYPE_MULTIFN(reg)) {
 		DRM_INFO("Generation 1 PCI interface in multifunction mode\n");
 		DRM_INFO("Limiting VRAM to one aperture\n");
 		return aper_size;
