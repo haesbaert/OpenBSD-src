@@ -456,6 +456,7 @@ struct radeon_mc;
 
 struct radeon_gart {
 	bus_addr_t			table_addr;
+	struct drm_dmamem		*dmah;
 	struct radeon_bo		*robj;
 	void				*ptr;
 	unsigned			num_gpu_pages;

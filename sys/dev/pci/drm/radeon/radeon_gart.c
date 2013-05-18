@@ -65,14 +65,11 @@
  */
 int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	void *ptr;
+	struct drm_dmamem *dmah;
 
-	ptr = pci_alloc_consistent(rdev->pdev, rdev->gart.table_size,
-				   &rdev->gart.table_addr);
-	if (ptr == NULL) {
+	dmah = drm_dmamem_alloc(rdev->dmat, rdev->gart.table_size, 0,
+				1, rdev->gart.table_size, 0, 0);
+	if (dmah == NULL) {
 		return -ENOMEM;
 	}
 #ifdef CONFIG_X86
@@ -82,10 +79,11 @@ int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
 			      rdev->gart.table_size >> PAGE_SHIFT);
 	}
 #endif
-	rdev->gart.ptr = ptr;
+	rdev->gart.dmah = dmah;
+	rdev->gart.table_addr = dmah->map->dm_segs[0].ds_addr;
+	rdev->gart.ptr = dmah->kva;
 	memset((void *)rdev->gart.ptr, 0, rdev->gart.table_size);
 	return 0;
-#endif
 }
 
 /**
@@ -99,8 +97,6 @@ int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
  */
 void radeon_gart_table_ram_free(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	if (rdev->gart.ptr == NULL) {
 		return;
 	}
@@ -111,12 +107,9 @@ void radeon_gart_table_ram_free(struct radeon_device *rdev)
 			      rdev->gart.table_size >> PAGE_SHIFT);
 	}
 #endif
-	pci_free_consistent(rdev->pdev, rdev->gart.table_size,
-			    (void *)rdev->gart.ptr,
-			    rdev->gart.table_addr);
+	drm_dmamem_free(rdev->dmat, rdev->gart.dmah);
 	rdev->gart.ptr = NULL;
 	rdev->gart.table_addr = 0;
-#endif
 }
 
 /**
