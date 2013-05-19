@@ -1044,9 +1044,7 @@ radeon_set_filp_rights(struct drm_device *dev,
 				   struct drm_file *applier,
 				   uint32_t *value)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
-	rw_enter_write(&dev->struct_rwlock;
+	DRM_LOCK();
 	if (*value == 1) {
 		/* wants rights */
 		if (!*owner)
@@ -1057,8 +1055,7 @@ radeon_set_filp_rights(struct drm_device *dev,
 			*owner = NULL;
 	}
 	*value = *owner == applier ? 1 : 0;
-	rw_exit_write(&dev->struct_rwlock);
-#endif
+	DRM_UNLOCK();
 }
 
 /*
@@ -1078,9 +1075,6 @@ radeon_set_filp_rights(struct drm_device *dev,
  */
 int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 {
-	printf("%s stub\n", __func__);
-	return -EINVAL;
-#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 	struct drm_radeon_info *info = data;
 	struct radeon_mode_info *minfo = &rdev->mode_info;
@@ -1294,7 +1288,6 @@ int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		return -EFAULT;
 	}
 	return 0;
-#endif
 }
 
 
@@ -1339,9 +1332,6 @@ void radeon_driver_lastclose_kms(struct drm_device *dev)
  */
 int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 
 	file_priv->driver_priv = NULL;
@@ -1375,7 +1365,6 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 		file_priv->driver_priv = fpriv;
 	}
 	return 0;
-#endif
 }
 
 /**
@@ -1389,8 +1378,6 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 void radeon_driver_postclose_kms(struct drm_device *dev,
 				 struct drm_file *file_priv)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_device *rdev = dev->dev_private;
 
 	/* new gpu have virtual address space support */
@@ -1412,7 +1399,6 @@ void radeon_driver_postclose_kms(struct drm_device *dev,
 		free(fpriv, M_DRM);
 		file_priv->driver_priv = NULL;
 	}
-#endif
 }
 
 /**
