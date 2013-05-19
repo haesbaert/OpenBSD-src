@@ -1081,8 +1081,12 @@ static int radeon_user_framebuffer_create_handle(struct drm_framebuffer *fb,
 {
 	struct radeon_framebuffer *radeon_fb = to_radeon_framebuffer(fb);
 
+#if 0
+	return drm_gem_handle_create(file_priv, radeon_fb->obj, handle);
+#else
 	drm_gem_object_reference(radeon_fb->obj);
 	return drm_handle_create(file_priv, radeon_fb->obj, handle);
+#endif
 }
 
 static const struct drm_framebuffer_funcs radeon_fb_funcs = {
