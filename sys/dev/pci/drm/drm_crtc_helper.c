@@ -1035,12 +1035,13 @@ drm_output_poll_execute(void *arg1, void *arg2)
 			continue;
 
 		connector->status = connector->funcs->detect(connector, false);
-		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] status updated from %d to %d\n",
-			      connector->base.id,
-			      drm_get_connector_name(connector),
-			      old_status, connector->status);
-		if (old_status != connector->status)
+		if (old_status != connector->status) {
+			DRM_DEBUG_KMS("[CONNECTOR:%d:%s] status updated from %d to %d\n",
+				      connector->base.id,
+				      drm_get_connector_name(connector),
+				      old_status, connector->status);
 			changed = true;
+		}
 	}
 
 	rw_exit_write(&dev->mode_config.rwl);
