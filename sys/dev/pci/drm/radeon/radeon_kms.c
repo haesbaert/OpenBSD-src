@@ -806,6 +806,7 @@ static struct drm_driver_info kms_driver = {
 	    DRIVER_AGP | DRIVER_MTRR | DRIVER_PCI_DMA | DRIVER_SG |
 	    DRIVER_IRQ | DRIVER_DMA | DRIVER_GEM | DRIVER_MODESET,
 	.buf_priv_size = 0,
+	.ioctl = radeondrm_ioctl_kms,
 	.firstopen = radeon_driver_firstopen_kms,
 	.open = radeon_driver_open_kms,
 #ifdef notyet
