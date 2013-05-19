@@ -1775,9 +1775,6 @@ ttm_bo_vm_insert_rb(struct ttm_buffer_object *bo)
 int
 ttm_bo_setup_vm(struct ttm_buffer_object *bo)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_bo_device *bdev = bo->bdev;
 	int ret;
 
@@ -1811,7 +1808,6 @@ retry_pre_get:
 out_unlock:
 	rw_exit_write(&bdev->vm_lock);
 	return ret;
-#endif
 }
 
 int
