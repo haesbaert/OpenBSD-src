@@ -1735,30 +1735,10 @@ EXPORT_SYMBOL(ttm_bo_unmap_virtual);
 void
 ttm_bo_vm_insert_rb(struct ttm_buffer_object *bo)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_bo_device *bdev = bo->bdev;
-	struct rb_node **cur = &bdev->addr_space_rb.rb_node;
-	struct rb_node *parent = NULL;
-	struct ttm_buffer_object *cur_bo;
-	unsigned long offset = bo->vm_node->start;
-	unsigned long cur_offset;
 
-	while (*cur) {
-		parent = *cur;
-		cur_bo = rb_entry(parent, struct ttm_buffer_object, vm_rb);
-		cur_offset = cur_bo->vm_node->start;
-		if (offset < cur_offset)
-			cur = &parent->rb_left;
-		else if (offset > cur_offset)
-			cur = &parent->rb_right;
-		else
-			BUG();
-	}
-
-	rb_link_node(&bo->vm_rb, parent, cur);
-	rb_insert_color(&bo->vm_rb, &bdev->addr_space_rb);
-#endif
+	/* The caller acquired bdev->vm_lock. */
+	RB_INSERT(ttm_bo_device_buffer_objects, &bdev->addr_space_rb, bo);
 }
 
 /**
