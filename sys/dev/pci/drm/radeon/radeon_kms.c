@@ -804,7 +804,7 @@ const struct drm_pcidev radeondrm_pciidlist[] = {
 static struct drm_driver_info kms_driver = {
 	.flags =
 	    DRIVER_AGP | DRIVER_MTRR | DRIVER_PCI_DMA | DRIVER_SG |
-	    DRIVER_IRQ | DRIVER_DMA | DRIVER_GEM,
+	    DRIVER_IRQ | DRIVER_DMA | DRIVER_GEM | DRIVER_MODESET,
 	.buf_priv_size = 0,
 	.firstopen = radeon_driver_firstopen_kms,
 	.open = radeon_driver_open_kms,
