@@ -709,7 +709,6 @@ void rs690_fini(struct radeon_device *rdev)
 
 int rs690_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Disable VGA */
@@ -746,7 +745,7 @@ int rs690_init(struct radeon_device *rdev)
 		return -EINVAL;
 
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* initialize memory controller */
 	rs690_mc_init(rdev);
 	rv515_debugfs(rdev);

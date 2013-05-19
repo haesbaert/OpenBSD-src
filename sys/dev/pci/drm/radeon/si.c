@@ -3694,7 +3694,6 @@ static inline u32 si_get_ih_wptr(struct radeon_device *rdev)
  */
 int si_irq_process(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 wptr;
 	u32 rptr;
 	u32 src_id, src_data, ring_id;
@@ -3733,7 +3732,7 @@ restart_ih:
 			case 0: /* D1 vblank */
 				if (rdev->irq.stat_regs.evergreen.disp_int & LB_D1_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[0]) {
-						drm_handle_vblank(ddev, 0);
+						drm_handle_vblank(rdev->ddev, 0);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -3759,7 +3758,7 @@ restart_ih:
 			case 0: /* D2 vblank */
 				if (rdev->irq.stat_regs.evergreen.disp_int_cont & LB_D2_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[1]) {
-						drm_handle_vblank(ddev, 1);
+						drm_handle_vblank(rdev->ddev, 1);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -3785,7 +3784,7 @@ restart_ih:
 			case 0: /* D3 vblank */
 				if (rdev->irq.stat_regs.evergreen.disp_int_cont2 & LB_D3_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[2]) {
-						drm_handle_vblank(ddev, 2);
+						drm_handle_vblank(rdev->ddev, 2);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -3811,7 +3810,7 @@ restart_ih:
 			case 0: /* D4 vblank */
 				if (rdev->irq.stat_regs.evergreen.disp_int_cont3 & LB_D4_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[3]) {
-						drm_handle_vblank(ddev, 3);
+						drm_handle_vblank(rdev->ddev, 3);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -3837,7 +3836,7 @@ restart_ih:
 			case 0: /* D5 vblank */
 				if (rdev->irq.stat_regs.evergreen.disp_int_cont4 & LB_D5_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[4]) {
-						drm_handle_vblank(ddev, 4);
+						drm_handle_vblank(rdev->ddev, 4);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -3863,7 +3862,7 @@ restart_ih:
 			case 0: /* D6 vblank */
 				if (rdev->irq.stat_regs.evergreen.disp_int_cont5 & LB_D6_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[5]) {
-						drm_handle_vblank(ddev, 5);
+						drm_handle_vblank(rdev->ddev, 5);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -4273,7 +4272,6 @@ int si_suspend(struct radeon_device *rdev)
  */
 int si_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_ring *ring = &rdev->ring[RADEON_RING_TYPE_GFX_INDEX];
 	int r;
 
@@ -4305,7 +4303,7 @@ int si_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);

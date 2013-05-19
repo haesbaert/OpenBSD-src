@@ -132,7 +132,6 @@ int radeon_agp_init(struct radeon_device *rdev)
 	printf("%s stub\n", __func__);
 	return -ENOSYS;
 #ifdef notyet
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_agpmode_quirk *p = radeon_agpmode_quirk_list;
 	struct drm_agp_mode mode;
 	struct drm_agp_info info;
@@ -142,22 +141,22 @@ int radeon_agp_init(struct radeon_device *rdev)
 	int ret;
 
 	/* Acquire AGP. */
-	ret = drm_agp_acquire(ddev);
+	ret = drm_agp_acquire(rdev->ddev);
 	if (ret) {
 		DRM_ERROR("Unable to acquire AGP: %d\n", ret);
 		return ret;
 	}
 
-	ret = drm_agp_info(ddev, &info);
+	ret = drm_agp_info(rdev->ddev, &info);
 	if (ret) {
-		drm_agp_release(ddev);
+		drm_agp_release(rdev->ddev);
 		DRM_ERROR("Unable to get AGP info: %d\n", ret);
 		return ret;
 	}
 
 #ifdef notyet
 	if (ddev->agp->agp_info.aper_size < 32) {
-		drm_agp_release(ddev);
+		drm_agp_release(rdev->ddev);
 		dev_warn(rdev->dev, "AGP aperture too small (%zuM) "
 			"need at least 32M, disabling AGP\n",
 			ddev->agp->agp_info.aper_size);
@@ -282,10 +281,8 @@ void radeon_agp_resume(struct radeon_device *rdev)
 void radeon_agp_fini(struct radeon_device *rdev)
 {
 #if __OS_HAS_AGP
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
-
-	if (ddev->agp && ddev->agp->acquired) {
-		drm_agp_release(ddev);
+	if (rdev->ddev->agp && rdev->ddev->agp->acquired) {
+		drm_agp_release(rdev->ddev);
 	}
 #endif
 }

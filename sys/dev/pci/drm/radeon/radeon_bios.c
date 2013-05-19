@@ -470,7 +470,6 @@ static bool avivo_read_disabled_bios(struct radeon_device *rdev)
 
 static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	uint32_t seprom_cntl1;
 	uint32_t viph_control;
 	uint32_t bus_cntl;
@@ -491,7 +490,7 @@ static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 	crtc_ext_cntl = RREG32(RADEON_CRTC_EXT_CNTL);
 	fp2_gen_cntl = 0;
 
-	if (ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
+	if (rdev->ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
 		fp2_gen_cntl = RREG32(RADEON_FP2_GEN_CNTL);
 	}
 
@@ -528,7 +527,7 @@ static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 		(RADEON_CRTC_SYNC_TRISTAT |
 		 RADEON_CRTC_DISPLAY_DIS)));
 
-	if (ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
+	if (rdev->ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
 		WREG32(RADEON_FP2_GEN_CNTL, (fp2_gen_cntl & ~RADEON_FP2_ON));
 	}
 
@@ -546,7 +545,7 @@ static bool legacy_read_disabled_bios(struct radeon_device *rdev)
 		WREG32(RADEON_CRTC2_GEN_CNTL, crtc2_gen_cntl);
 	}
 	WREG32(RADEON_CRTC_EXT_CNTL, crtc_ext_cntl);
-	if (ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
+	if (rdev->ddev->pci_device == PCI_PRODUCT_ATI_RADEON_QY) {
 		WREG32(RADEON_FP2_GEN_CNTL, fp2_gen_cntl);
 	}
 	return r;

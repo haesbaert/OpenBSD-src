@@ -361,13 +361,12 @@ static struct drm_fb_helper_funcs radeon_fb_helper_funcs = {
 
 int radeon_fbdev_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_fbdev *rfbdev;
 	int bpp_sel = 32;
 	int ret;
 
 	/* select 8 bpp console on RN50 or 16MB cards */
-	if (ASIC_IS_RN50(ddev) || rdev->mc.real_vram_size <= (32*1024*1024))
+	if (ASIC_IS_RN50(rdev) || rdev->mc.real_vram_size <= (32*1024*1024))
 		bpp_sel = 8;
 
 	rfbdev = malloc(sizeof(struct radeon_fbdev), M_DRM, M_WAITOK | M_ZERO);
@@ -378,7 +377,7 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 	rdev->mode_info.rfbdev = rfbdev;
 	rfbdev->helper.funcs = &radeon_fb_helper_funcs;
 
-	ret = drm_fb_helper_init(ddev, &rfbdev->helper,
+	ret = drm_fb_helper_init(rdev->ddev, &rfbdev->helper,
 				 rdev->num_crtc,
 				 RADEONFB_CONN_LIMIT);
 	if (ret) {
@@ -393,12 +392,10 @@ int radeon_fbdev_init(struct radeon_device *rdev)
 
 void radeon_fbdev_fini(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
-
 	if (!rdev->mode_info.rfbdev)
 		return;
 
-	radeon_fbdev_destroy(ddev, rdev->mode_info.rfbdev);
+	radeon_fbdev_destroy(rdev->ddev, rdev->mode_info.rfbdev);
 	free(rdev->mode_info.rfbdev, M_DRM);
 	rdev->mode_info.rfbdev = NULL;
 }

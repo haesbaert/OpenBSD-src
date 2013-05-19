@@ -424,7 +424,7 @@ out:
  */
 static void cayman_gpu_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	u32 gb_addr_config = 0;
 	u32 mc_shared_chmap, mc_arb_ramcfg;
 	u32 cgts_tcc_disable;
@@ -1709,7 +1709,6 @@ int cayman_suspend(struct radeon_device *rdev)
  */
 int cayman_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_ring *ring = &rdev->ring[RADEON_RING_TYPE_GFX_INDEX];
 	int r;
 
@@ -1741,7 +1740,7 @@ int cayman_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)

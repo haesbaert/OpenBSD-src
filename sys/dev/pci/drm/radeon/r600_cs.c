@@ -967,7 +967,6 @@ static int r600_cs_packet_next_is_pkt3_nop(struct radeon_cs_parser *p)
  */
 static int r600_cs_packet_parse_vline(struct radeon_cs_parser *p)
 {
-	struct drm_device *ddev = (struct drm_device *)p->rdev->drmdev;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
@@ -1025,7 +1024,7 @@ static int r600_cs_packet_parse_vline(struct radeon_cs_parser *p)
 	crtc_id = radeon_get_ib_value(p, h_idx + 2 + 7 + 1);
 	reg = CP_PACKET0_GET_REG(header);
 
-	obj = drm_mode_object_find(ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	obj = drm_mode_object_find(p->rdev->ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		DRM_ERROR("cannot find crtc %d\n", crtc_id);
 		return -EINVAL;

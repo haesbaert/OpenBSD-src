@@ -247,8 +247,7 @@ static void radeon_set_power_state(struct radeon_device *rdev)
 
 static void radeon_pm_set_clocks(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
-	struct drm_device *dev = ddev;
+	struct drm_device *dev = rdev->ddev;
 	int i, r;
 
 	/* no need to take locks, etc. if nothing's going to change */
@@ -282,7 +281,7 @@ static void radeon_pm_set_clocks(struct radeon_device *rdev)
 		for (i = 0; i < rdev->num_crtc; i++) {
 			if (rdev->pm.active_crtcs & (1 << i)) {
 				rdev->pm.req_vblank |= (1 << i);
-				drm_vblank_get(ddev, i);
+				drm_vblank_get(rdev->ddev, i);
 			}
 		}
 	}
@@ -293,7 +292,7 @@ static void radeon_pm_set_clocks(struct radeon_device *rdev)
 		for (i = 0; i < rdev->num_crtc; i++) {
 			if (rdev->pm.req_vblank & (1 << i)) {
 				rdev->pm.req_vblank &= ~(1 << i);
-				drm_vblank_put(ddev, i);
+				drm_vblank_put(rdev->ddev, i);
 			}
 		}
 	}
@@ -726,7 +725,7 @@ void radeon_pm_fini(struct radeon_device *rdev)
 
 void radeon_pm_compute_clocks(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 
@@ -805,7 +804,6 @@ void radeon_pm_compute_clocks(struct radeon_device *rdev)
 
 static bool radeon_pm_in_vbl(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int  crtc, vpos, hpos, vbl_status;
 	bool in_vbl = true;
 
@@ -814,7 +812,7 @@ static bool radeon_pm_in_vbl(struct radeon_device *rdev)
 	 */
 	for (crtc = 0; (crtc < rdev->num_crtc) && in_vbl; crtc++) {
 		if (rdev->pm.active_crtcs & (1 << crtc)) {
-			vbl_status = radeon_get_crtc_scanoutpos(ddev, crtc, &vpos, &hpos);
+			vbl_status = radeon_get_crtc_scanoutpos(rdev->ddev, crtc, &vpos, &hpos);
 			if ((vbl_status & DRM_SCANOUTPOS_VALID) &&
 			    !(vbl_status & DRM_SCANOUTPOS_INVBL))
 				in_vbl = false;

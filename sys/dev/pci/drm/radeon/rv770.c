@@ -1108,7 +1108,6 @@ int rv770_suspend(struct radeon_device *rdev)
  */
 int rv770_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Read BIOS */
@@ -1138,7 +1137,7 @@ int rv770_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)

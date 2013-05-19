@@ -155,10 +155,8 @@ radeon_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
 				struct ttm_mem_type_manager *man)
 {
 	struct radeon_device *rdev;
-	struct drm_device *ddev;
 
 	rdev = radeon_get_rdev(bdev);
-	ddev = (struct drm_device *)rdev->drmdev;
 
 	switch (type) {
 	case TTM_PL_SYSTEM:
@@ -176,13 +174,13 @@ radeon_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
 #if __OS_HAS_AGP
 		if (rdev->flags & RADEON_IS_AGP) {
 #ifdef notyet
-			if (!(drm_core_has_AGP(ddev) && ddev->agp)) {
+			if (!(drm_core_has_AGP(rdev->ddev) && rdev->ddev->agp)) {
 				DRM_ERROR("AGP is not enabled for memory type %u\n",
 					  (unsigned)type);
 				return -EINVAL;
 			}
 #endif
-			if (!ddev->agp->cant_use_aperture)
+			if (!rdev->ddev->agp->cant_use_aperture)
 				man->flags = TTM_MEMTYPE_FLAG_MAPPABLE;
 			man->available_caching = TTM_PL_FLAG_UNCACHED |
 						 TTM_PL_FLAG_WC;
@@ -451,7 +449,6 @@ radeon_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 {
 	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
 	struct radeon_device *rdev = radeon_get_rdev(bdev);
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 
 	mem->bus.addr = NULL;
 	mem->bus.offset = 0;
@@ -460,7 +457,7 @@ radeon_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 	mem->bus.is_iomem = false;
 	mem->bus.iot = rdev->iot;
 	mem->bus.memt = rdev->memt;
-	mem->bus.dmat = ddev->dmat;
+	mem->bus.dmat = rdev->dmat;
 	if (!(man->flags & TTM_MEMTYPE_FLAG_MAPPABLE))
 		return -EINVAL;
 	switch (mem->mem_type) {
@@ -473,7 +470,7 @@ radeon_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 			/* RADEON_IS_AGP is set only if AGP is active */
 			mem->bus.offset = mem->start << PAGE_SHIFT;
 			mem->bus.base = rdev->mc.agp_base;
-			mem->bus.is_iomem = !ddev->agp->cant_use_aperture;
+			mem->bus.is_iomem = !rdev->ddev->agp->cant_use_aperture;
 		}
 #endif
 		break;

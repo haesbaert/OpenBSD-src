@@ -889,9 +889,9 @@ radeondrm_detach_kms(struct device *self, int flags)
 	radeon_modeset_fini(rdev);
 	radeon_device_fini(rdev);
 
-	if (rdev->drmdev != NULL) {
-		config_detach(rdev->drmdev, flags);
-		rdev->drmdev = NULL;
+	if (rdev->ddev != NULL) {
+		config_detach((struct device *)rdev->ddev, flags);
+		rdev->ddev = NULL;
 	}
 
 	if (rdev->regs != NULL)
@@ -980,8 +980,8 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	is_agp = pci_get_capability(pa->pa_pc, pa->pa_tag, PCI_CAP_AGP,
 	    NULL, NULL);
 
-	rdev->drmdev = drm_attach_pci(&kms_driver, pa, is_agp, self);
-	dev = (struct drm_device *)rdev->drmdev;
+	dev = (struct drm_device *)drm_attach_pci(&kms_driver, pa, is_agp, self);
+	rdev->ddev = dev;
 
 	/* radeon_device_init should report only fatal error
 	 * like memory allocation failure or iomapping failure,

@@ -445,11 +445,10 @@ static uint16_t combios_get_table_offset(struct drm_device *dev,
 
 bool radeon_combios_check_hardcoded_edid(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int edid_info, size;
 	struct edid *edid;
 	unsigned char *raw;
-	edid_info = combios_get_table_offset(ddev, COMBIOS_HARDCODED_EDID_TABLE);
+	edid_info = combios_get_table_offset(rdev->ddev, COMBIOS_HARDCODED_EDID_TABLE);
 	if (!edid_info)
 		return false;
 
@@ -719,7 +718,7 @@ static struct radeon_i2c_bus_rec combios_setup_i2c_bus(struct radeon_device *rde
 
 static struct radeon_i2c_bus_rec radeon_combios_get_i2c_info_from_table(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct radeon_i2c_bus_rec i2c;
 	u16 offset;
 	u8 id, blocks, clk, data;
@@ -747,7 +746,7 @@ static struct radeon_i2c_bus_rec radeon_combios_get_i2c_info_from_table(struct r
 
 void radeon_combios_i2c_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct radeon_i2c_bus_rec i2c;
 
 	/* actual hw pads
@@ -889,7 +888,7 @@ bool radeon_combios_get_clock_info(struct drm_device *dev)
 
 bool radeon_combios_sideport_present(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	u16 igp_info;
 
 	/* sideport is AMD only */
@@ -986,7 +985,7 @@ struct radeon_encoder_primary_dac *radeon_combios_get_primary_dac_info(struct
 enum radeon_tv_std
 radeon_combios_get_tv_info(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	uint16_t tv_info;
 	enum radeon_tv_std tv_std = TV_STD_NTSC;
 
@@ -2703,7 +2702,7 @@ static const char *thermal_controller_names[] = {
 
 void radeon_combios_get_power_modes(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	u16 offset, misc, misc2 = 0;
 	u8 rev, blocks, tmp;
 	int state_index = 0;
@@ -3351,7 +3350,7 @@ static void combios_write_ram_size(struct drm_device *dev)
 			mem_cntl = RBIOS32(offset + 1);
 			mem_size = RBIOS16(offset + 5);
 			if ((rdev->family < CHIP_R200) &&
-			    !ASIC_IS_RN50(dev))
+			    !ASIC_IS_RN50(rdev))
 				WREG32(RADEON_MEM_CNTL, mem_cntl);
 		}
 	}
@@ -3363,7 +3362,7 @@ static void combios_write_ram_size(struct drm_device *dev)
 			rev = RBIOS8(offset - 1);
 			if (rev < 1) {
 				if ((rdev->family < CHIP_R200)
-				    && !ASIC_IS_RN50(dev)) {
+				    && !ASIC_IS_RN50(rdev)) {
 					int ram = 0;
 					int mem_addr_mapping = 0;
 

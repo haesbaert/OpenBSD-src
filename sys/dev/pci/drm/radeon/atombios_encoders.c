@@ -2075,7 +2075,7 @@ static int radeon_atom_pick_dig_encoder(struct drm_encoder *encoder)
 void
 radeon_atom_encoder_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_encoder *encoder;
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {

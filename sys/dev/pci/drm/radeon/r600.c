@@ -706,7 +706,7 @@ void r600_hpd_set_polarity(struct radeon_device *rdev,
 
 void r600_hpd_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 	unsigned enable = 0;
 
@@ -772,7 +772,7 @@ void r600_hpd_init(struct radeon_device *rdev)
 
 void r600_hpd_fini(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 	unsigned disable = 0;
 
@@ -2914,7 +2914,6 @@ int r600_suspend(struct radeon_device *rdev)
  */
 int r600_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	if (r600_debugfs_mc_info_init(rdev)) {
@@ -2947,7 +2946,7 @@ int r600_init(struct radeon_device *rdev)
 	/* Initialize surface registers */
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)
@@ -3853,7 +3852,6 @@ static u32 r600_get_ih_wptr(struct radeon_device *rdev)
 
 int r600_irq_process(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 wptr;
 	u32 rptr;
 	u32 src_id, src_data;
@@ -3896,7 +3894,7 @@ restart_ih:
 			case 0: /* D1 vblank */
 				if (rdev->irq.stat_regs.r600.disp_int & LB_D1_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[0]) {
-						drm_handle_vblank(ddev, 0);
+						drm_handle_vblank(rdev->ddev, 0);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -3922,7 +3920,7 @@ restart_ih:
 			case 0: /* D2 vblank */
 				if (rdev->irq.stat_regs.r600.disp_int & LB_D2_VBLANK_INTERRUPT) {
 					if (rdev->irq.crtc_vblank_int[1]) {
-						drm_handle_vblank(ddev, 1);
+						drm_handle_vblank(rdev->ddev, 1);
 						rdev->pm.vblank_sync = true;
 						wakeup(&rdev->irq.vblank_queue);
 					}
@@ -4120,7 +4118,6 @@ void r600_ioctl_wait_idle(struct radeon_device *rdev, struct radeon_bo *bo)
 
 void r600_set_pcie_lanes(struct radeon_device *rdev, int lanes)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl, mask, target_reg;
 
 	if (rdev->flags & RADEON_IS_IGP)
@@ -4130,7 +4127,7 @@ void r600_set_pcie_lanes(struct radeon_device *rdev, int lanes)
 		return;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(ddev))
+	if (ASIC_IS_X2(rdev))
 		return;
 
 	/* FIXME wait for idle */
@@ -4203,7 +4200,6 @@ void r600_set_pcie_lanes(struct radeon_device *rdev, int lanes)
 
 int r600_get_pcie_lanes(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl;
 
 	if (rdev->flags & RADEON_IS_IGP)
@@ -4213,7 +4209,7 @@ int r600_get_pcie_lanes(struct radeon_device *rdev)
 		return 0;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(ddev))
+	if (ASIC_IS_X2(rdev))
 		return 0;
 
 	/* FIXME wait for idle */

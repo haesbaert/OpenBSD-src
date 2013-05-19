@@ -192,7 +192,6 @@ static struct radeon_i2c_bus_rec radeon_lookup_i2c_gpio(struct radeon_device *rd
 
 void radeon_atombios_i2c_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct atom_context *ctx = rdev->mode_info.atom_context;
 	ATOM_GPIO_I2C_ASSIGMENT *gpio;
 	struct radeon_i2c_bus_rec i2c;
@@ -217,7 +216,7 @@ void radeon_atombios_i2c_init(struct radeon_device *rdev)
 
 			if (i2c.valid) {
 				snprintf(stmp, sizeof(stmp), "0x%x", i2c.i2c_id);
-				rdev->i2c_bus[i] = radeon_i2c_create(ddev, &i2c, stmp);
+				rdev->i2c_bus[i] = radeon_i2c_create(rdev->ddev, &i2c, stmp);
 			}
 		}
 	}

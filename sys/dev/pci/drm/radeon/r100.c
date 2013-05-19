@@ -428,7 +428,7 @@ void r100_pm_misc(struct radeon_device *rdev)
  */
 void r100_pm_prepare(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 	u32 tmp;
@@ -459,7 +459,7 @@ void r100_pm_prepare(struct radeon_device *rdev)
  */
 void r100_pm_finish(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 	u32 tmp;
@@ -572,7 +572,7 @@ void r100_hpd_set_polarity(struct radeon_device *rdev,
  */
 void r100_hpd_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 	unsigned enable = 0;
 
@@ -594,7 +594,7 @@ void r100_hpd_init(struct radeon_device *rdev)
  */
 void r100_hpd_fini(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 	unsigned disable = 0;
 
@@ -742,7 +742,6 @@ static uint32_t r100_irq_ack(struct radeon_device *rdev)
 
 int r100_irq_process(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	uint32_t status, msi_rearm;
 	bool queue_hotplug = false;
 
@@ -761,7 +760,7 @@ int r100_irq_process(struct radeon_device *rdev)
 		/* Vertical blank interrupts */
 		if (status & RADEON_CRTC_VBLANK_STAT) {
 			if (rdev->irq.crtc_vblank_int[0]) {
-				drm_handle_vblank(ddev, 0);
+				drm_handle_vblank(rdev->ddev, 0);
 				rdev->pm.vblank_sync = true;
 				wakeup(&rdev->irq.vblank_queue);
 			}
@@ -770,7 +769,7 @@ int r100_irq_process(struct radeon_device *rdev)
 		}
 		if (status & RADEON_CRTC2_VBLANK_STAT) {
 			if (rdev->irq.crtc_vblank_int[1]) {
-				drm_handle_vblank(ddev, 1);
+				drm_handle_vblank(rdev->ddev, 1);
 				rdev->pm.vblank_sync = true;
 				wakeup(&rdev->irq.vblank_queue);
 			}
@@ -1435,7 +1434,6 @@ int r100_cs_packet_parse(struct radeon_cs_parser *p,
  */
 int r100_cs_packet_parse_vline(struct radeon_cs_parser *p)
 {
-	struct drm_device *ddev;
 	struct drm_mode_object *obj;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
@@ -1476,8 +1474,7 @@ int r100_cs_packet_parse_vline(struct radeon_cs_parser *p)
 	header = radeon_get_ib_value(p, h_idx);
 	crtc_id = radeon_get_ib_value(p, h_idx + 5);
 	reg = CP_PACKET0_GET_REG(header);
-	ddev = (struct drm_device *)p->rdev->drmdev;
-	obj = drm_mode_object_find(ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	obj = drm_mode_object_find(p->rdev->ddev, crtc_id, DRM_MODE_OBJECT_CRTC);
 	if (!obj) {
 		DRM_ERROR("cannot find crtc %d\n", crtc_id);
 		return -EINVAL;
@@ -2686,7 +2683,7 @@ int r100_asic_reset(struct radeon_device *rdev)
 
 void r100_set_common_regs(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	bool force_dac2 = false;
 	u32 tmp;
 
@@ -2974,9 +2971,7 @@ void r100_pll_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v)
 
 static void r100_set_safe_registers(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
-
-	if (ASIC_IS_RN50(ddev)) {
+	if (ASIC_IS_RN50(rdev)) {
 		rdev->config.r100.reg_safe_bm = rn50_reg_safe_bm;
 		rdev->config.r100.reg_safe_bm_size = ARRAY_SIZE(rn50_reg_safe_bm);
 	} else if (rdev->family < CHIP_R200) {
@@ -3163,7 +3158,6 @@ int r100_set_surface_reg(struct radeon_device *rdev, int reg,
 			 uint32_t tiling_flags, uint32_t pitch,
 			 uint32_t offset, uint32_t obj_size)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int surf_index = reg * 16;
 	int flags = 0;
 
@@ -3193,7 +3187,7 @@ int r100_set_surface_reg(struct radeon_device *rdev, int reg,
 	/* when we aren't tiling the pitch seems to needs to be furtherdivided down. - tested on power5 + rn50 server */
 	if (tiling_flags & (RADEON_TILING_SWAP_16BIT | RADEON_TILING_SWAP_32BIT)) {
 		if (!(tiling_flags & (RADEON_TILING_MACRO | RADEON_TILING_MICRO)))
-			if (ASIC_IS_RN50(ddev))
+			if (ASIC_IS_RN50(rdev))
 				pitch /= 16;
 	}
 
@@ -3985,7 +3979,6 @@ static int r100_startup(struct radeon_device *rdev)
 
 int r100_resume(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Make sur GART are not working */
@@ -4000,7 +3993,7 @@ int r100_resume(struct radeon_device *rdev)
 			RREG32(R_0007C0_CP_STAT));
 	}
 	/* post */
-	radeon_combios_asic_init(ddev);
+	radeon_combios_asic_init(rdev->ddev);
 	/* Resume clock after posting */
 	r100_clock_startup(rdev);
 	/* Initialize surface registers */
@@ -4068,7 +4061,6 @@ void r100_restore_sanity(struct radeon_device *rdev)
 
 int r100_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Register debugfs file specific to this group of asics */
@@ -4108,7 +4100,7 @@ int r100_init(struct radeon_device *rdev)
 	/* Set asic errata */
 	r100_errata(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* initialize AGP */
 	if (rdev->flags & RADEON_IS_AGP) {
 		r = radeon_agp_init(rdev);

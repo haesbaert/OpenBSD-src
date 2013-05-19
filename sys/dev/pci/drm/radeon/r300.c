@@ -323,7 +323,7 @@ int r300_mc_wait_for_idle(struct radeon_device *rdev)
 
 static void r300_gpu_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	uint32_t gb_tile_config, tmp;
 
 	if ((rdev->family == CHIP_R300 && ddev->pci_device != 0x4144) ||
@@ -1406,7 +1406,6 @@ static int r300_startup(struct radeon_device *rdev)
 
 int r300_resume(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Make sur GART are not working */
@@ -1423,7 +1422,7 @@ int r300_resume(struct radeon_device *rdev)
 			RREG32(R_0007C0_CP_STAT));
 	}
 	/* post */
-	radeon_combios_asic_init(ddev);
+	radeon_combios_asic_init(rdev->ddev);
 	/* Resume clock after posting */
 	r300_clock_startup(rdev);
 	/* Initialize surface registers */
@@ -1470,7 +1469,6 @@ void r300_fini(struct radeon_device *rdev)
 
 int r300_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Disable VGA */
@@ -1508,7 +1506,7 @@ int r300_init(struct radeon_device *rdev)
 	/* Set asic errata */
 	r300_errata(rdev);
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* initialize AGP */
 	if (rdev->flags & RADEON_IS_AGP) {
 		r = radeon_agp_init(rdev);

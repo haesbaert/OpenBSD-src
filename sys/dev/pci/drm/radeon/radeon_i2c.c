@@ -1169,7 +1169,7 @@ void radeon_i2c_add(struct radeon_device *rdev,
 		    struct radeon_i2c_bus_rec *rec,
 		    const char *name)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	int i;
 
 	for (i = 0; i < RADEON_MAX_I2C_BUS; i++) {

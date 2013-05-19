@@ -523,8 +523,6 @@ void radeon_update_bandwidth_info(struct radeon_device *rdev)
  */
 bool radeon_boot_test_post_card(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
-
 	if (radeon_card_posted(rdev))
 		return true;
 
@@ -533,7 +531,7 @@ bool radeon_boot_test_post_card(struct radeon_device *rdev)
 		if (rdev->is_atom_bios)
 			atom_asic_init(rdev->mode_info.atom_context);
 		else
-			radeon_combios_asic_init(dev);
+			radeon_combios_asic_init(rdev->ddev);
 		return true;
 	} else {
 		dev_err(rdev->dev, "Card not posted and no BIOS - ignoring\n");
@@ -553,11 +551,9 @@ bool radeon_boot_test_post_card(struct radeon_device *rdev)
  */
 int radeon_dummy_page_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
-
 	if (rdev->dummy_page.dmah)
 		return 0;
-	rdev->dummy_page.dmah = drm_dmamem_alloc(dev->dmat, PAGE_SIZE, PAGE_SIZE, 1,
+	rdev->dummy_page.dmah = drm_dmamem_alloc(rdev->dmat, PAGE_SIZE, PAGE_SIZE, 1,
 	    PAGE_SIZE, 0, BUS_DMA_WAITOK);
 	if (!rdev->dummy_page.dmah)
 		return -ENOMEM;
@@ -574,12 +570,10 @@ int radeon_dummy_page_init(struct radeon_device *rdev)
  */
 void radeon_dummy_page_fini(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
-
 	if (rdev->dummy_page.dmah == NULL)
 		return;
 
-	drm_dmamem_free(dev->dmat, rdev->dummy_page.dmah);
+	drm_dmamem_free(rdev->dmat, rdev->dummy_page.dmah);
 	rdev->dummy_page.dmah = NULL;
 	rdev->dummy_page.addr = 0;
 }
@@ -750,7 +744,6 @@ cail_ioreg_read(struct card_info *info, uint32_t reg)
  */
 int radeon_atombios_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 	struct card_info *atom_card_info =
 	    malloc(sizeof(struct card_info), M_DRM, M_WAITOK | M_ZERO);
 
@@ -758,7 +751,7 @@ int radeon_atombios_init(struct radeon_device *rdev)
 		return -ENOMEM;
 
 	rdev->mode_info.atom_card_info = atom_card_info;
-	atom_card_info->dev = dev;
+	atom_card_info->dev = rdev->ddev;
 	atom_card_info->reg_read = cail_reg_read;
 	atom_card_info->reg_write = cail_reg_write;
 	/* needed for iio ops */
@@ -777,7 +770,7 @@ int radeon_atombios_init(struct radeon_device *rdev)
 
 	rdev->mode_info.atom_context = atom_parse(atom_card_info, rdev->bios);
 	rw_init(&rdev->mode_info.atom_context->rwlock, "atomcon");
-	radeon_atom_initialize_bios_scratch_regs(dev);
+	radeon_atom_initialize_bios_scratch_regs(rdev->ddev);
 	atom_allocate_fb_scratch(rdev->mode_info.atom_context);
 	return 0;
 }
@@ -818,8 +811,7 @@ void radeon_atombios_fini(struct radeon_device *rdev)
  */
 int radeon_combios_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
-	radeon_combios_initialize_bios_scratch_regs(dev);
+	radeon_combios_initialize_bios_scratch_regs(rdev->ddev);
 	return 0;
 }
 

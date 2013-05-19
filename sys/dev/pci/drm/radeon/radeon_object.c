@@ -116,7 +116,6 @@ int radeon_bo_create(struct radeon_device *rdev,
 		     unsigned long size, int byte_align, bool kernel, u32 domain,
 		     struct sg_table *sg, struct radeon_bo **bo_ptr)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	struct radeon_bo *bo;
 	struct drm_obj *drm_bo;
 	enum ttm_bo_type type;
@@ -141,7 +140,7 @@ int radeon_bo_create(struct radeon_device *rdev,
 	acc_size = ttm_bo_dma_acc_size(&rdev->mman.bdev, size,
 				       sizeof(struct radeon_bo));
 
-	drm_bo = drm_gem_object_alloc(ddev, size);
+	drm_bo = drm_gem_object_alloc(rdev->ddev, size);
 	if (drm_bo == NULL)
 		return -ENOMEM;
 	bo = gem_to_radeon_bo(drm_bo);
@@ -305,8 +304,8 @@ int radeon_bo_evict_vram(struct radeon_device *rdev)
 
 void radeon_bo_force_delete(struct radeon_device *rdev)
 {
+	struct drm_device *dev = rdev->ddev;
 	struct radeon_bo *bo, *n;
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
 
 	if (list_empty(&rdev->gem.objects)) {
 		return;
@@ -330,11 +329,10 @@ void radeon_bo_force_delete(struct radeon_device *rdev)
 
 int radeon_bo_init(struct radeon_device *rdev)
 {
-	struct drm_device	*dev = (struct drm_device *)rdev->drmdev;
 	struct drm_local_map	*map;
 
 	/* Add an MTRR for the VRAM */
-	drm_addmap(dev, rdev->mc.aper_base, rdev->mc.aper_size,
+	drm_addmap(rdev->ddev, rdev->mc.aper_base, rdev->mc.aper_size,
 	    _DRM_FRAME_BUFFER, _DRM_WRITE_COMBINING, &map);
 	/* fake a 'cookie', seems to be unused? */
 	rdev->mc.vram_mtrr = 1;

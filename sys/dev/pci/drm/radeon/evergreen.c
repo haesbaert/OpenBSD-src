@@ -443,7 +443,7 @@ void evergreen_pm_misc(struct radeon_device *rdev)
  */
 void evergreen_pm_prepare(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 	u32 tmp;
@@ -468,7 +468,7 @@ void evergreen_pm_prepare(struct radeon_device *rdev)
  */
 void evergreen_pm_finish(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	struct drm_crtc *crtc;
 	struct radeon_crtc *radeon_crtc;
 	u32 tmp;
@@ -607,7 +607,7 @@ void evergreen_hpd_set_polarity(struct radeon_device *rdev,
  */
 void evergreen_hpd_init(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 	unsigned enabled = 0;
 	u32 tmp = DC_HPDx_CONNECTION_TIMER(0x9c4) |
@@ -653,7 +653,7 @@ void evergreen_hpd_init(struct radeon_device *rdev)
  */
 void evergreen_hpd_fini(struct radeon_device *rdev)
 {
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 	unsigned disabled = 0;
 
@@ -1720,7 +1720,7 @@ static int evergreen_cp_resume(struct radeon_device *rdev)
  */
 static void evergreen_gpu_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	u32 gb_addr_config;
 	u32 mc_shared_chmap, mc_arb_ramcfg;
 	u32 sx_debug_1;
@@ -2931,7 +2931,7 @@ static u32 evergreen_get_ih_wptr(struct radeon_device *rdev)
 
 int evergreen_irq_process(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	u32 wptr;
 	u32 rptr;
 	u32 src_id, src_data;
@@ -3593,7 +3593,7 @@ int evergreen_suspend(struct radeon_device *rdev)
  */
 int evergreen_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	int r;
 
 	/* Read BIOS */
@@ -3718,7 +3718,7 @@ void evergreen_pcie_gen2_enable(struct radeon_device *rdev)
 {
 	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *ddev = rdev->ddev;
 	u32 link_width_cntl, speed_cntl, mask;
 	int ret;
 

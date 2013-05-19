@@ -645,7 +645,7 @@ static enum drm_connector_status radeon_legacy_primary_dac_detect(struct drm_enc
 	 * console hw and often we get failure to load detect those. So to make
 	 * everyone happy report the encoder as always connected.
 	 */
-	if (ASIC_IS_RN50(dev)) {
+	if (ASIC_IS_RN50(rdev)) {
 		return connector_status_connected;
 	}
 

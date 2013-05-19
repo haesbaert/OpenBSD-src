@@ -435,7 +435,6 @@ static int rs400_startup(struct radeon_device *rdev)
 
 int rs400_resume(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Make sur GART are not working */
@@ -451,7 +450,7 @@ int rs400_resume(struct radeon_device *rdev)
 			RREG32(R_0007C0_CP_STAT));
 	}
 	/* post */
-	radeon_combios_asic_init(ddev);
+	radeon_combios_asic_init(rdev->ddev);
 	/* Resume clock after posting */
 	r300_clock_startup(rdev);
 	/* Initialize surface registers */
@@ -491,7 +490,6 @@ void rs400_fini(struct radeon_device *rdev)
 
 int rs400_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Disable VGA */
@@ -528,7 +526,7 @@ int rs400_init(struct radeon_device *rdev)
 		return -EINVAL;
 
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* initialize memory controller */
 	rs400_mc_init(rdev);
 	/* Fence driver */

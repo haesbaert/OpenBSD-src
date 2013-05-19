@@ -81,7 +81,6 @@ static void r420_set_reg_safe(struct radeon_device *rdev)
 
 void r420_pipes_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	unsigned tmp;
 	unsigned gb_pipe_select;
 	unsigned num_pipes;
@@ -99,8 +98,8 @@ void r420_pipes_init(struct radeon_device *rdev)
 	num_pipes = ((gb_pipe_select >> 12) & 3) + 1;
 
 	/* SE chips have 1 pipe */
-	if ((ddev->pci_device == 0x5e4c) ||
-	    (ddev->pci_device == 0x5e4f))
+	if ((rdev->ddev->pci_device == 0x5e4c) ||
+	    (rdev->ddev->pci_device == 0x5e4f))
 		num_pipes = 1;
 
 	rdev->num_gb_pipes = num_pipes;
@@ -285,7 +284,6 @@ static int r420_startup(struct radeon_device *rdev)
 
 int r420_resume(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Make sur GART are not working */
@@ -305,7 +303,7 @@ int r420_resume(struct radeon_device *rdev)
 	if (rdev->is_atom_bios) {
 		atom_asic_init(rdev->mode_info.atom_context);
 	} else {
-		radeon_combios_asic_init(ddev);
+		radeon_combios_asic_init(rdev->ddev);
 	}
 	/* Resume clock after posting */
 	r420_clock_resume(rdev);
@@ -358,7 +356,6 @@ void r420_fini(struct radeon_device *rdev)
 
 int r420_init(struct radeon_device *rdev)
 {
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	/* Initialize scratch registers */
@@ -396,7 +393,7 @@ int r420_init(struct radeon_device *rdev)
 		return -EINVAL;
 
 	/* Initialize clocks */
-	radeon_get_clock_info(ddev);
+	radeon_get_clock_info(rdev->ddev);
 	/* initialize AGP */
 	if (rdev->flags & RADEON_IS_AGP) {
 		r = radeon_agp_init(rdev);
