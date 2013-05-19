@@ -900,6 +900,80 @@ radeondrm_detach_kms(struct device *self, int flags)
 	return 0;
 }
 
+int radeondrm_wsioctl(void *, u_long, caddr_t, int, struct proc *);
+paddr_t radeondrm_wsmmap(void *, off_t, int);
+int radeondrm_alloc_screen(void *, const struct wsscreen_descr *,
+    void **, int *, int *, long *);
+void radeondrm_free_screen(void *, void *);
+int radeondrm_show_screen(void *, void *, int,
+    void (*)(void *, int, int), void *);
+
+struct wsscreen_descr radeondrm_stdscreen = {
+	"std",
+	0, 0,
+	0,
+	0, 0,
+	WSSCREEN_UNDERLINE | WSSCREEN_HILIT |
+	WSSCREEN_REVERSE | WSSCREEN_WSCOLORS
+};
+
+const struct wsscreen_descr *radeondrm_scrlist[] = {
+	&radeondrm_stdscreen,
+};
+
+struct wsscreen_list radeondrm_screenlist = {
+	nitems(radeondrm_scrlist), radeondrm_scrlist
+};
+
+struct wsdisplay_accessops radeondrm_accessops = {
+	radeondrm_wsioctl,
+	radeondrm_wsmmap,
+	radeondrm_alloc_screen,
+	radeondrm_free_screen,
+	radeondrm_show_screen
+};
+
+int
+radeondrm_wsioctl(void *v, u_long cmd, caddr_t data, int flag, struct proc *p)
+{
+	return (-1);
+}
+
+paddr_t
+radeondrm_wsmmap(void *v, off_t off, int prot)
+{
+	return (-1);
+}
+
+int
+radeondrm_alloc_screen(void *v, const struct wsscreen_descr *type,
+    void **cookiep, int *curxp, int *curyp, long *attrp)
+{
+	struct radeon_device *rdev = v;
+	struct rasops_info *ri = &rdev->ro;
+
+	return rasops_alloc_screen(ri, cookiep, curxp, curyp, attrp);
+}
+
+void
+radeondrm_free_screen(void *v, void *cookie)
+{
+	struct radeon_device *rdev = v;
+	struct rasops_info *ri = &rdev->ro;
+
+	return rasops_free_screen(ri, cookie);
+}
+
+int
+radeondrm_show_screen(void *v, void *cookie, int waitok,
+    void (*cb)(void *, int, int), void *cbarg)
+{
+	struct radeon_device *rdev = v;
+	struct rasops_info *ri = &rdev->ro;
+
+	return rasops_show_screen(ri, cookie, waitok, cb, cbarg);
+}
+
 /**
  * radeon_driver_load_kms - Main load function for KMS.
  *
@@ -1011,6 +1085,51 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 		if (acpi_status)
 			DRM_DEBUG("Error during ACPI methods call\n");
 	}
+
+{
+	extern int wsdisplay_console_initted;
+	struct wsemuldisplaydev_attach_args aa;
+	struct vga_pci_softc *vga_sc = (struct vga_pci_softc *)parent;
+	struct rasops_info *ri = &rdev->ro;
+
+	if (ri->ri_bits == NULL)
+		return;
+
+	void drm_fb_helper_restore(void);
+	drm_fb_helper_restore();
+
+	ri->ri_flg = RI_CENTER | RI_VCONS;
+	rasops_init(ri, 160, 160);
+
+	ri->ri_hw = rdev;
+
+	radeondrm_stdscreen.capabilities = ri->ri_caps;
+	radeondrm_stdscreen.nrows = ri->ri_rows;
+	radeondrm_stdscreen.ncols = ri->ri_cols;
+	radeondrm_stdscreen.textops = &ri->ri_ops;
+	radeondrm_stdscreen.fontwidth = ri->ri_font->fontwidth;
+	radeondrm_stdscreen.fontheight = ri->ri_font->fontheight;
+
+	aa.console = 0;
+	aa.scrdata = &radeondrm_screenlist;
+	aa.accessops = &radeondrm_accessops;
+	aa.accesscookie = rdev;
+	aa.defaultscreens = 0;
+
+	if (wsdisplay_console_initted) {
+		long defattr;
+
+		ri->ri_ops.alloc_attr(ri->ri_active, 0, 0, 0, &defattr);
+		wsdisplay_cnattach(&radeondrm_stdscreen, ri->ri_active,
+		    0, 0, defattr);
+		aa.console = 1;
+	}
+
+	printf("%s: %dx%d\n", rdev->dev.dv_xname, ri->ri_width, ri->ri_height);
+
+	vga_sc->sc_type = -1;
+	config_found(parent, &aa, wsemuldisplaydevprint);
+}
 }
 
 int

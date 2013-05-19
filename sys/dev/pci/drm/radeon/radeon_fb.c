@@ -191,18 +191,23 @@ out_unref:
 static int radeonfb_create(struct radeon_fbdev *rfbdev,
 			   struct drm_fb_helper_surface_size *sizes)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct radeon_device *rdev = rfbdev->rdev;
+#if 0
 	struct fb_info *info;
+#else
+	struct rasops_info *ri = &rdev->ro;
+#endif
 	struct drm_framebuffer *fb = NULL;
 	struct drm_mode_fb_cmd2 mode_cmd;
 	struct drm_obj *gobj = NULL;
 	struct radeon_bo *rbo = NULL;
+#if 0
 	struct device *device = &rdev->pdev->dev;
+#endif
 	int ret;
+#if 0
 	unsigned long tmp;
+#endif
 
 	mode_cmd.width = sizes->surface_width;
 	mode_cmd.height = sizes->surface_height;
@@ -222,6 +227,7 @@ static int radeonfb_create(struct radeon_fbdev *rfbdev,
 
 	rbo = gem_to_radeon_bo(gobj);
 
+#ifdef notyet
 	/* okay we have an object now allocate the framebuffer */
 	info = framebuffer_alloc(0, device);
 	if (info == NULL) {
@@ -230,6 +236,7 @@ static int radeonfb_create(struct radeon_fbdev *rfbdev,
 	}
 
 	info->par = rfbdev;
+#endif
 
 	ret = radeon_framebuffer_init(rdev->ddev, &rfbdev->rfb, &mode_cmd, gobj);
 	if (ret) {
@@ -241,6 +248,7 @@ static int radeonfb_create(struct radeon_fbdev *rfbdev,
 
 	/* setup helper */
 	rfbdev->helper.fb = fb;
+#ifdef notyet
 	rfbdev->helper.fbdev = info;
 
 	memset_io(rbo->kptr, 0x0, radeon_bo_size(rbo));
@@ -283,12 +291,23 @@ static int radeonfb_create(struct radeon_fbdev *rfbdev,
 	}
 
 	DRM_INFO("fb mappable at 0x%lX\n",  info->fix.smem_start);
+#endif
 	DRM_INFO("vram apper at 0x%lX\n",  (unsigned long)rdev->mc.aper_base);
 	DRM_INFO("size %lu\n", (unsigned long)radeon_bo_size(rbo));
 	DRM_INFO("fb depth is %d\n", fb->depth);
 	DRM_INFO("   pitch is %d\n", fb->pitches[0]);
 
+	memset(rbo->kptr, 0x0, radeon_bo_size(rbo));
+
+	ri->ri_bits = rbo->kptr;
+	ri->ri_depth = fb->bits_per_pixel;
+	ri->ri_stride = fb->pitches[0];
+	ri->ri_width = sizes->fb_width;
+	ri->ri_height = sizes->fb_height;
+
+#if 0
 	vga_switcheroo_client_fb_set(rdev->ddev->pdev, info);
+#endif
 	return 0;
 
 out_unref:
@@ -301,7 +320,6 @@ out_unref:
 		free(fb, M_DRM);
 	}
 	return ret;
-#endif
 }
 
 static int radeon_fb_find_or_create_single(struct drm_fb_helper *helper,

@@ -66,6 +66,10 @@
 #include <dev/pci/drm/ttm/ttm_module.h>
 #include <dev/pci/drm/ttm/ttm_execbuf_util.h>
 
+#include <dev/wscons/wsconsio.h>
+#include <dev/wscons/wsdisplayvar.h>
+#include <dev/rasops/rasops.h>
+
 #include "radeon_family.h"
 #include "radeon_mode.h"
 #include "radeon_reg.h"
@@ -1556,6 +1560,8 @@ struct radeon_device {
 	void				*irqh;
 
 	struct vga_pci_bar		*regs;
+
+	struct rasops_info		ro;
 
 	struct rwlock 			exclusive_lock;
 
