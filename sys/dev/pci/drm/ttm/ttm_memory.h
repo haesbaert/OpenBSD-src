@@ -71,8 +71,8 @@ struct ttm_mem_global {
 	struct ttm_mem_shrink *shrink;
 #ifdef notyet
 	struct workqueue_struct *swap_queue;
-	struct work_struct work;
 #endif
+	struct workq_task task;
 	struct mutex lock;
 	struct ttm_mem_zone *zones[TTM_MEM_MAX_ZONES];
 	unsigned int num_zones;

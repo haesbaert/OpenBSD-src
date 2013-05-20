@@ -60,6 +60,7 @@ int	 ttm_mem_global_reserve(struct ttm_mem_global *,
 	     struct ttm_mem_zone *, uint64_t, bool);
 int	 ttm_mem_global_alloc_zone(struct ttm_mem_global *,
 	     struct ttm_mem_zone *, uint64_t, bool, bool);
+void	 ttm_shrink_work(void *, void *);
 
 #ifdef notyet
 static struct attribute ttm_mem_sys = {
@@ -253,18 +254,13 @@ out:
 	mtx_leave(&glob->lock);
 }
 
-
-
-#ifdef notyet
 void
-ttm_shrink_work(struct work_struct *work)
+ttm_shrink_work(void *arg1, void *arg2)
 {
-	struct ttm_mem_global *glob =
-	    container_of(work, struct ttm_mem_global, work);
+	struct ttm_mem_global *glob = arg1;
 
 	ttm_shrink(glob, true, 0ULL);
 }
-#endif
 
 int
 ttm_mem_init_kernel_zone(struct ttm_mem_global *glob,
@@ -365,7 +361,6 @@ ttm_mem_global_init(struct ttm_mem_global *glob)
 	mtx_init(&glob->lock, IPL_NONE);
 #ifdef notyet
 	glob->swap_queue = create_singlethread_workqueue("ttm_swap");
-	INIT_WORK(&glob->work, ttm_shrink_work);
 #endif
 
 	refcount_init(&glob->kobj_ref, 1);
@@ -426,8 +421,6 @@ EXPORT_SYMBOL(ttm_mem_global_release);
 void
 ttm_check_swapping(struct ttm_mem_global *glob)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	bool needs_swapping = false;
 	unsigned int i;
 	struct ttm_mem_zone *zone;
@@ -444,9 +437,8 @@ ttm_check_swapping(struct ttm_mem_global *glob)
 	mtx_leave(&glob->lock);
 
 	if (unlikely(needs_swapping))
-		(void)queue_work(glob->swap_queue, &glob->work);
-
-#endif
+		workq_queue_task(NULL, &glob->task, 0, ttm_shrink_work, glob,
+		    NULL);
 }
 
 void
