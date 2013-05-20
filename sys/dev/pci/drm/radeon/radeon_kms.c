@@ -822,9 +822,7 @@ static struct drm_driver_info kms_driver = {
 	.enable_vblank = radeon_enable_vblank_kms,
 	.disable_vblank = radeon_disable_vblank_kms,
 	.get_vblank_timestamp = radeon_get_vblank_timestamp_kms,
-#ifdef notyet
 	.get_scanout_position = radeon_get_crtc_scanoutpos,
-#endif
 #if defined(CONFIG_DEBUG_FS)
 	.debugfs_init = radeon_debugfs_init,
 	.debugfs_cleanup = radeon_debugfs_cleanup,
