@@ -44,9 +44,6 @@ radeon_benchmark_do_move(struct radeon_device *rdev, unsigned size,
 				    uint64_t saddr, uint64_t daddr,
 				    int flag, int n)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	unsigned long start_jiffies;
 	unsigned long end_jiffies;
 	struct radeon_fence *fence = NULL;
@@ -83,7 +80,6 @@ exit_do_move:
 	if (fence)
 		radeon_fence_unref(&fence);
 	return r;
-#endif
 }
 
 
@@ -103,8 +99,6 @@ radeon_benchmark_log_results(int n, unsigned size,
 static void radeon_benchmark_move(struct radeon_device *rdev, unsigned size,
 				  unsigned sdomain, unsigned ddomain)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_bo *dobj = NULL;
 	struct radeon_bo *sobj = NULL;
 	uint64_t saddr, daddr;
@@ -181,7 +175,6 @@ out_cleanup:
 	if (r) {
 		DRM_ERROR("Error while benchmarking BO move.\n");
 	}
-#endif
 }
 
 void radeon_benchmark(struct radeon_device *rdev, int test_number)
