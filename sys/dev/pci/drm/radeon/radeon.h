@@ -533,9 +533,7 @@ void radeon_scratch_free(struct radeon_device *rdev, uint32_t reg);
  */
 
 struct radeon_unpin_work {
-#ifdef notyet
-	struct work_struct work;
-#endif
+	struct workq_task task;
 	struct radeon_device *rdev;
 	int crtc_id;
 	struct radeon_fence *fence;

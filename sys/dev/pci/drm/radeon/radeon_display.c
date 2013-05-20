@@ -32,6 +32,8 @@
 #include <dev/pci/drm/drm_crtc_helper.h>
 #include <dev/pci/drm/drm_edid.h>
 
+void	 radeon_unpin_work_func(void *, void *);
+
 static void avivo_crtc_load_lut(struct drm_crtc *crtc)
 {
 	struct radeon_crtc *radeon_crtc = to_radeon_crtc(crtc);
@@ -245,11 +247,10 @@ static void radeon_crtc_destroy(struct drm_crtc *crtc)
 /*
  * Handle unpin events outside the interrupt handler proper.
  */
-#ifdef notyet
-static void radeon_unpin_work_func(struct work_struct *__work)
+void
+radeon_unpin_work_func(void *arg1, void *arg2)
 {
-	struct radeon_unpin_work *work =
-		container_of(__work, struct radeon_unpin_work, work);
+	struct radeon_unpin_work *work = arg1;
 	int r;
 
 	/* unpin of the old buffer */
@@ -266,7 +267,6 @@ static void radeon_unpin_work_func(struct work_struct *__work)
 	drm_gem_object_unreference_unlocked(&work->old_rbo->gem_base);
 	free(work, M_DRM);
 }
-#endif
 
 void radeon_crtc_handle_flip(struct radeon_device *rdev, int crtc_id)
 {
@@ -345,9 +345,7 @@ void radeon_crtc_handle_flip(struct radeon_device *rdev, int crtc_id)
 	drm_vblank_put(rdev->ddev, radeon_crtc->crtc_id);
 	radeon_fence_unref(&work->fence);
 	radeon_post_page_flip(work->rdev, work->crtc_id);
-#ifdef notyet
-	schedule_work(&work->work);
-#endif
+	workq_queue_task(NULL, &work->task, 0, radeon_unpin_work_func, work, NULL);
 }
 
 static int radeon_crtc_page_flip(struct drm_crtc *crtc,
@@ -388,10 +386,6 @@ static int radeon_crtc_page_flip(struct drm_crtc *crtc,
 	if (rbo->tbo.sync_obj)
 		work->fence = radeon_fence_ref(rbo->tbo.sync_obj);
 	mtx_leave(&rbo->tbo.bdev->fence_lock);
-
-#ifdef notyet
-	INIT_WORK(&work->work, radeon_unpin_work_func);
-#endif
 
 	/* We borrow the event spin lock for protecting unpin_work */
 	mtx_enter(&dev->event_lock);
