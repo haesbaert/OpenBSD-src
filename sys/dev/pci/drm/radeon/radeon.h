@@ -1637,10 +1637,8 @@ struct radeon_device {
 	int msi_enabled; /* msi enabled */
 	struct r600_ih ih; /* r6/700 interrupt ring */
 	struct si_rlc rlc;
-#ifdef notyet
-	struct work_struct hotplug_work;
-	struct work_struct audio_work;
-#endif
+	struct workq_task hotplug_task;
+	struct workq_task audio_task;
 	int num_crtc; /* number of crtcs */
 	struct rwlock dc_hw_i2c_rwlock; /* display controller hw i2c rwlock */
 	bool audio_enabled;
@@ -1942,10 +1940,10 @@ int radeon_vm_bo_set_addr(struct radeon_device *rdev,
 int radeon_vm_bo_rmv(struct radeon_device *rdev,
 		     struct radeon_bo_va *bo_va);
 
+void radeon_hotplug_work_func(void *arg1, void *arg2);
+
 /* audio */
-#ifdef notyet
-void r600_audio_update_hdmi(struct work_struct *work);
-#endif
+void r600_audio_update_hdmi(void *arg1, void *arg2);
 
 /*
  * R600 vram scratch functions

@@ -720,12 +720,12 @@ int rs600_irq_process(struct radeon_device *rdev)
 		}
 		status = rs600_irq_ack(rdev);
 	}
-#ifdef notyet
 	if (queue_hotplug)
-		schedule_work(&rdev->hotplug_work);
+		workq_queue_task(NULL, &rdev->hotplug_task, 0,
+		    radeon_hotplug_work_func, rdev, NULL);
 	if (queue_hdmi)
-		schedule_work(&rdev->audio_work);
-#endif
+		workq_queue_task(NULL, &rdev->hotplug_task, 0,
+		    r600_audio_update_hdmi, rdev, NULL);
 	if (rdev->msi_enabled) {
 		switch (rdev->family) {
 		case CHIP_RS600:

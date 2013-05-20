@@ -4037,12 +4037,12 @@ restart_ih:
 		rptr += 16;
 		rptr &= rdev->ih.ptr_mask;
 	}
-#ifdef notyet
 	if (queue_hotplug)
-		schedule_work(&rdev->hotplug_work);
+		workq_queue_task(NULL, &rdev->hotplug_task, 0,
+		    radeon_hotplug_work_func, rdev, NULL);
 	if (queue_hdmi)
-		schedule_work(&rdev->audio_work);
-#endif
+		workq_queue_task(NULL, &rdev->hotplug_task, 0,
+		    r600_audio_update_hdmi, rdev, NULL);
 	rdev->ih.rptr = rptr;
 	WREG32(IH_RB_RPTR, rdev->ih.rptr);
 	atomic_set(&rdev->ih.lock, 0);

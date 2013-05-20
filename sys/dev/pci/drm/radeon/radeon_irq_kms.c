@@ -72,11 +72,10 @@ radeon_driver_irq_handler_kms(void *arg)
  * and calls the hotplug handler for each one, then sends
  * a drm hotplug event to alert userspace.
  */
-#ifdef notyet
-static void radeon_hotplug_work_func(struct work_struct *work)
+void
+radeon_hotplug_work_func(void *arg1, void *arg2)
 {
-	struct radeon_device *rdev = container_of(work, struct radeon_device,
-						  hotplug_work);
+	struct radeon_device *rdev = arg1;
 	struct drm_device *dev = rdev->ddev;
 	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct drm_connector *connector;
@@ -88,7 +87,6 @@ static void radeon_hotplug_work_func(struct work_struct *work)
 	/* Just fire off a uevent and let userspace tell us what to do */
 	drm_helper_hpd_irq_event(dev);
 }
-#endif
 
 /**
  * radeon_driver_irq_preinstall_kms - drm irq preinstall callback
@@ -248,11 +246,6 @@ radeon_msi_ok(struct radeon_device *rdev)
 int radeon_irq_kms_init(struct radeon_device *rdev)
 {
 	int r = 0;
-
-#ifdef notyet
-	INIT_WORK(&rdev->hotplug_work, radeon_hotplug_work_func);
-	INIT_WORK(&rdev->audio_work, r600_audio_update_hdmi);
-#endif
 
 	mtx_init(&rdev->irq.lock, IPL_NONE);
 	r = drm_vblank_init(rdev->ddev, rdev->num_crtc);
