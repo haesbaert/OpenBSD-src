@@ -1091,9 +1091,9 @@ struct radeon_pm {
 	/* selected pm method */
 	enum radeon_pm_method     pm_method;
 	/* dynpm power management */
-#ifdef notyet
-	struct delayed_work	dynpm_idle_work;
-#endif
+	struct workq_task	dynpm_idle_task;
+	struct timeout		dynpm_idle_to;
+
 	enum radeon_dynpm_state	dynpm_state;
 	enum radeon_dynpm_action	dynpm_planned_action;
 	unsigned long		dynpm_action_timeout;

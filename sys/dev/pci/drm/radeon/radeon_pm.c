@@ -53,6 +53,10 @@ ssize_t	 radeon_set_pm_profile(struct device *, struct device_attribute *,
 	     const char *, size_t);
 ssize_t	 radeon_set_pm_method(struct device *, struct device_attribute *,
 	     const char *, size_t);
+void	 radeon_dynpm_idle_tick(void *);
+void	 radeon_dynpm_idle_work_handler(void *, void *);
+
+extern int ticks;
 
 int radeon_pm_get_type_index(struct radeon_device *rdev,
 			     enum radeon_pm_state_type ps_type,
@@ -446,7 +450,7 @@ radeon_set_pm_method(struct device *dev,
 		rdev->pm.dynpm_planned_action = DYNPM_ACTION_NONE;
 		rdev->pm.pm_method = PM_METHOD_PROFILE;
 		rw_exit_write(&rdev->pm.rwlock);
-		cancel_delayed_work_sync(&rdev->pm.dynpm_idle_work);
+		timeout_del(&rdev->pm.dynpm_idle_to);
 	} else {
 		count = -EINVAL;
 		goto fail;
@@ -580,9 +584,7 @@ void radeon_pm_suspend(struct radeon_device *rdev)
 	}
 	rw_exit_write(&rdev->pm.rwlock);
 
-#ifdef notyet
-	cancel_delayed_work_sync(&rdev->pm.dynpm_idle_work);
-#endif
+	timeout_del(&rdev->pm.dynpm_idle_to);
 }
 
 void radeon_pm_resume(struct radeon_device *rdev)
@@ -610,14 +612,11 @@ void radeon_pm_resume(struct radeon_device *rdev)
 	rdev->pm.current_mclk = rdev->pm.default_mclk;
 	rdev->pm.current_vddc = rdev->pm.power_state[rdev->pm.default_power_state_index].clock_info[0].voltage.voltage;
 	rdev->pm.current_vddci = rdev->pm.power_state[rdev->pm.default_power_state_index].clock_info[0].voltage.vddci;
-#ifdef notyet
 	if (rdev->pm.pm_method == PM_METHOD_DYNPM
 	    && rdev->pm.dynpm_state == DYNPM_STATE_SUSPENDED) {
 		rdev->pm.dynpm_state = DYNPM_STATE_ACTIVE;
-		schedule_delayed_work(&rdev->pm.dynpm_idle_work,
-				      msecs_to_jiffies(RADEON_IDLE_LOOP_MS));
+		timeout_add_msec(&rdev->pm.dynpm_idle_to, RADEON_IDLE_LOOP_MS);
 	}
-#endif
 	rw_exit_write(&rdev->pm.rwlock);
 	radeon_pm_compute_clocks(rdev);
 }
@@ -668,12 +667,10 @@ int radeon_pm_init(struct radeon_device *rdev)
 	if (ret)
 		return ret;
 
-#ifdef notyet
-	INIT_DELAYED_WORK(&rdev->pm.dynpm_idle_work, radeon_dynpm_idle_work_handler);
-#endif
+	timeout_set(&rdev->pm.dynpm_idle_to, radeon_dynpm_idle_tick, rdev);
 
-#ifdef notyet
 	if (rdev->pm.num_power_states > 1) {
+#ifdef notyet
 		/* where's the best place to put these? */
 		ret = device_create_file(rdev->dev, &dev_attr_power_profile);
 		if (ret)
@@ -685,10 +682,10 @@ int radeon_pm_init(struct radeon_device *rdev)
 		if (radeon_debugfs_pm_init(rdev)) {
 			DRM_ERROR("Failed to register debugfs file for PM!\n");
 		}
+#endif
 
 		DRM_INFO("radeon: power management initialized\n");
 	}
-#endif
 
 	return 0;
 }
@@ -709,9 +706,9 @@ void radeon_pm_fini(struct radeon_device *rdev)
 		}
 		rw_exit_write(&rdev->pm.rwlock);
 
-#ifdef notyet
-		cancel_delayed_work_sync(&rdev->pm.dynpm_idle_work);
+		timeout_del(&rdev->pm.dynpm_idle_to);
 
+#ifdef notyet
 		device_remove_file(rdev->dev, &dev_attr_power_profile);
 		device_remove_file(rdev->dev, &dev_attr_power_method);
 #endif
@@ -752,9 +749,7 @@ void radeon_pm_compute_clocks(struct radeon_device *rdev)
 		if (rdev->pm.dynpm_state != DYNPM_STATE_DISABLED) {
 			if (rdev->pm.active_crtc_count > 1) {
 				if (rdev->pm.dynpm_state == DYNPM_STATE_ACTIVE) {
-#ifdef notyet
-					cancel_delayed_work(&rdev->pm.dynpm_idle_work);
-#endif
+					timeout_del(&rdev->pm.dynpm_idle_to);
 
 					rdev->pm.dynpm_state = DYNPM_STATE_PAUSED;
 					rdev->pm.dynpm_planned_action = DYNPM_ACTION_DEFAULT;
@@ -772,23 +767,15 @@ void radeon_pm_compute_clocks(struct radeon_device *rdev)
 					radeon_pm_get_dynpm_state(rdev);
 					radeon_pm_set_clocks(rdev);
 
-#ifdef notyet
-					schedule_delayed_work(&rdev->pm.dynpm_idle_work,
-							      msecs_to_jiffies(RADEON_IDLE_LOOP_MS));
-#endif
+					timeout_add_msec(&rdev->pm.dynpm_idle_to, RADEON_IDLE_LOOP_MS);
 				} else if (rdev->pm.dynpm_state == DYNPM_STATE_PAUSED) {
 					rdev->pm.dynpm_state = DYNPM_STATE_ACTIVE;
-#ifdef notyet
-					schedule_delayed_work(&rdev->pm.dynpm_idle_work,
-							      msecs_to_jiffies(RADEON_IDLE_LOOP_MS));
-#endif
+					timeout_add_msec(&rdev->pm.dynpm_idle_to, RADEON_IDLE_LOOP_MS);
 					DRM_DEBUG_DRIVER("radeon: dynamic power management activated\n");
 				}
 			} else { /* count == 0 */
 				if (rdev->pm.dynpm_state != DYNPM_STATE_MINIMUM) {
-#ifdef notyet
-					cancel_delayed_work(&rdev->pm.dynpm_idle_work);
-#endif
+					timeout_del(&rdev->pm.dynpm_idle_to);
 
 					rdev->pm.dynpm_state = DYNPM_STATE_MINIMUM;
 					rdev->pm.dynpm_planned_action = DYNPM_ACTION_MINIMUM;
@@ -833,13 +820,20 @@ static bool radeon_pm_debug_check_in_vbl(struct radeon_device *rdev, bool finish
 	return in_vbl;
 }
 
-#ifdef notyet
-static void radeon_dynpm_idle_work_handler(struct work_struct *work)
+void
+radeon_dynpm_idle_tick(void *arg)
 {
-	struct radeon_device *rdev;
+	struct radeon_device *rdev = arg;
+
+	workq_queue_task(NULL, &rdev->pm.dynpm_idle_task, 0,
+	    radeon_dynpm_idle_work_handler, rdev, NULL);
+}
+
+void
+radeon_dynpm_idle_work_handler(void *arg1, void *arg2)
+{
+	struct radeon_device *rdev = arg1;
 	int resched;
-	rdev = container_of(work, struct radeon_device,
-				pm.dynpm_idle_work.work);
 
 	resched = ttm_bo_lock_delayed_workqueue(&rdev->mman.bdev);
 	rw_enter_write(&rdev->pm.rwlock);
@@ -864,7 +858,7 @@ static void radeon_dynpm_idle_work_handler(struct work_struct *work)
 				   rdev->pm.dynpm_can_upclock) {
 				rdev->pm.dynpm_planned_action =
 					DYNPM_ACTION_UPCLOCK;
-				rdev->pm.dynpm_action_timeout = jiffies +
+				rdev->pm.dynpm_action_timeout = ticks +
 				msecs_to_jiffies(RADEON_RECLOCK_DELAY_MS);
 			}
 		} else if (not_processed == 0) { /* should downclock */
@@ -874,7 +868,7 @@ static void radeon_dynpm_idle_work_handler(struct work_struct *work)
 				   rdev->pm.dynpm_can_downclock) {
 				rdev->pm.dynpm_planned_action =
 					DYNPM_ACTION_DOWNCLOCK;
-				rdev->pm.dynpm_action_timeout = jiffies +
+				rdev->pm.dynpm_action_timeout = ticks +
 				msecs_to_jiffies(RADEON_RECLOCK_DELAY_MS);
 			}
 		}
@@ -883,18 +877,16 @@ static void radeon_dynpm_idle_work_handler(struct work_struct *work)
 		 * to false since we want to wait for vbl to avoid flicker.
 		 */
 		if (rdev->pm.dynpm_planned_action != DYNPM_ACTION_NONE &&
-		    jiffies > rdev->pm.dynpm_action_timeout) {
+		    ticks > rdev->pm.dynpm_action_timeout) {
 			radeon_pm_get_dynpm_state(rdev);
 			radeon_pm_set_clocks(rdev);
 		}
 
-		schedule_delayed_work(&rdev->pm.dynpm_idle_work,
-				      msecs_to_jiffies(RADEON_IDLE_LOOP_MS));
+		timeout_add_msec(&rdev->pm.dynpm_idle_to, RADEON_IDLE_LOOP_MS);
 	}
 	rw_exit_write(&rdev->pm.rwlock);
 	ttm_bo_unlock_delayed_workqueue(&rdev->mman.bdev, resched);
 }
-#endif
 
 /*
  * Debugfs info
