@@ -107,9 +107,7 @@ struct ttm_object_device {
 struct ttm_ref_object {
 	struct drm_hash_item hash;
 	struct list_head head;
-#ifdef notyet
-	struct kref kref;
-#endif
+	u_int kref;
 	enum ttm_ref_type ref_type;
 	struct ttm_base_object *obj;
 	struct ttm_object_file *tfile;
@@ -213,34 +211,30 @@ EXPORT_SYMBOL(ttm_base_object_unref);
 struct ttm_base_object *ttm_base_object_lookup(struct ttm_object_file *tfile,
 					       uint32_t key)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
 	struct ttm_object_device *tdev = tfile->tdev;
 	struct ttm_base_object *base;
 	struct drm_hash_item *hash;
 	int ret;
 
-	rcu_read_lock();
-	ret = drm_ht_find_item_rcu(&tdev->object_hash, key, &hash);
+	mtx_enter(&tdev->object_lock);
+	ret = drm_ht_find_item(&tdev->object_hash, key, &hash);
 
 	if (likely(ret == 0)) {
 		base = drm_hash_entry(hash, struct ttm_base_object, hash);
 		refcount_acquire(&base->refcount);
 	}
-	rcu_read_unlock();
+	mtx_leave(&tdev->object_lock);
 
 	if (unlikely(ret != 0))
 		return NULL;
 
 	if (tfile != base->tfile && !base->shareable) {
-		pr_err("Attempted access of non-shareable object\n");
+		DRM_ERROR("Attempted access of non-shareable object\n");
 		ttm_base_object_unref(&base);
 		return NULL;
 	}
 
 	return base;
-#endif
 }
 EXPORT_SYMBOL(ttm_base_object_lookup);
 
@@ -248,9 +242,6 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 		       struct ttm_base_object *base,
 		       enum ttm_ref_type ref_type, bool *existed)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_open_hash *ht = &tfile->ref_hash[ref_type];
 	struct ttm_ref_object *ref;
 	struct drm_hash_item *hash;
@@ -308,15 +299,11 @@ int ttm_ref_object_add(struct ttm_object_file *tfile,
 	}
 
 	return ret;
-#endif
 }
 EXPORT_SYMBOL(ttm_ref_object_add);
 
-#ifdef notyet
-static void ttm_ref_object_release(struct kref *kref)
+static void ttm_ref_object_release(struct ttm_ref_object *ref)
 {
-	struct ttm_ref_object *ref =
-	    container_of(kref, struct ttm_ref_object, kref);
 	struct ttm_base_object *base = ref->obj;
 	struct ttm_object_file *tfile = ref->tfile;
 	struct drm_open_hash *ht;
@@ -335,14 +322,10 @@ static void ttm_ref_object_release(struct kref *kref)
 	free(ref, M_DRM);
 	rw_enter_write(&tfile->lock);
 }
-#endif
 
 int ttm_ref_object_base_unref(struct ttm_object_file *tfile,
 			      unsigned long key, enum ttm_ref_type ref_type)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_open_hash *ht = &tfile->ref_hash[ref_type];
 	struct ttm_ref_object *ref;
 	struct drm_hash_item *hash;
@@ -359,14 +342,11 @@ int ttm_ref_object_base_unref(struct ttm_object_file *tfile,
 		ttm_ref_object_release(ref);
 	rw_exit_write(&tfile->lock);
 	return 0;
-#endif
 }
 EXPORT_SYMBOL(ttm_ref_object_base_unref);
 
 void ttm_object_file_release(struct ttm_object_file **p_tfile)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct ttm_ref_object *ref;
 	struct list_head *list;
 	unsigned int i;
@@ -383,7 +363,7 @@ void ttm_object_file_release(struct ttm_object_file **p_tfile)
 	while (!list_empty(&tfile->ref_list)) {
 		list = tfile->ref_list.next;
 		ref = list_entry(list, struct ttm_ref_object, head);
-		ttm_ref_object_release(&ref->kref);
+		ttm_ref_object_release(ref);
 	}
 
 	for (i = 0; i < TTM_REF_NUM; ++i)
@@ -391,16 +371,12 @@ void ttm_object_file_release(struct ttm_object_file **p_tfile)
 
 	rw_exit_write(&tfile->lock);
 	ttm_object_file_unref(&tfile);
-#endif
 }
 EXPORT_SYMBOL(ttm_object_file_release);
 
 struct ttm_object_file *ttm_object_file_init(struct ttm_object_device *tdev,
 					     unsigned int hash_order)
 {
-	printf("%s stub\n", __func__);
-	return NULL;
-#ifdef notyet
 	struct ttm_object_file *tfile = malloc(sizeof(*tfile), M_DRM, M_WAITOK);
 	unsigned int i;
 	unsigned int j = 0;
@@ -409,7 +385,7 @@ struct ttm_object_file *ttm_object_file_init(struct ttm_object_device *tdev,
 	if (unlikely(tfile == NULL))
 		return NULL;
 
-	rwlock_init(&tfile->lock);
+	rw_init(&tfile->lock, "ttmfl");
 	tfile->tdev = tdev;
 	refcount_init(&tfile->refcount, 1);
 	INIT_LIST_HEAD(&tfile->ref_list);
@@ -430,7 +406,6 @@ out_err:
 	free(tfile, M_DRM);
 
 	return NULL;
-#endif
 }
 EXPORT_SYMBOL(ttm_object_file_init);
 
