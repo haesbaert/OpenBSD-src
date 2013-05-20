@@ -1369,10 +1369,7 @@ int radeon_resume_kms(struct drm_device *dev)
  */
 int radeon_gpu_reset(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct drm_device *dev = (struct drm_device *)rdev->drmdev;
+	struct drm_device *dev = rdev->ddev;
 	unsigned ring_sizes[RADEON_NUM_RINGS];
 	uint32_t *ring_data[RADEON_NUM_RINGS];
 
@@ -1440,7 +1437,6 @@ retry:
 
 	rw_exit_write(&rdev->exclusive_lock);
 	return r;
-#endif
 }
 
 
