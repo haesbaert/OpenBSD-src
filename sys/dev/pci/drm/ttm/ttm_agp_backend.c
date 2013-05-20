@@ -45,9 +45,6 @@ struct ttm_agp_backend {
 
 static int ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 	struct drm_mm_node *node = bo_mem->mm_node;
 	struct agp_memory *mem;
@@ -77,14 +74,10 @@ static int ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 		pr_err("AGP Bind memory failed\n");
 
 	return ret;
-#endif
 }
 
 static int ttm_agp_unbind(struct ttm_tt *ttm)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 
 	if (agp_be->mem) {
@@ -94,7 +87,6 @@ static int ttm_agp_unbind(struct ttm_tt *ttm)
 		agp_be->mem = NULL;
 	}
 	return 0;
-#endif
 }
 
 static void ttm_agp_destroy(struct ttm_tt *ttm)
