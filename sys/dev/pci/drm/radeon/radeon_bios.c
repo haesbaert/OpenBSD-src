@@ -39,10 +39,10 @@
  * BIOS.
  */
 
-bool	 radeondrm_read_vga_bios(struct radeon_device *);
+bool	 radeon_read_platform_bios(struct radeon_device *);
 
 bool
-radeondrm_read_vga_bios(struct radeon_device *rdev)
+radeon_read_platform_bios(struct radeon_device *rdev)
 {
 #if defined(__amd64__) || defined(__i386__)
 	uint8_t __iomem *bios;
@@ -688,7 +688,7 @@ bool radeon_get_bios(struct radeon_device *rdev)
 	if (r == false)
 		r = igp_read_bios_from_vram(rdev);
 	if (r == false)
-		r = radeondrm_read_vga_bios(rdev);
+		r = radeon_read_platform_bios(rdev);
 	if (r == false)
 		r = radeon_read_bios(rdev);
 	if (r == false) {
