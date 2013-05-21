@@ -535,6 +535,11 @@ struct ttm_bo_device {
 	struct rwlock vm_lock;
 	struct ttm_mem_type_manager man[TTM_NUM_MEM_TYPES];
 	struct mutex fence_lock;
+
+	bus_space_tag_t iot;
+	bus_space_tag_t memt;
+	bus_dma_tag_t dmat;
+
 	/*
 	 * Protected by the vm lock.
 	 */

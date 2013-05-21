@@ -455,9 +455,6 @@ radeon_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 	mem->bus.size = mem->num_pages << PAGE_SHIFT;
 	mem->bus.base = 0;
 	mem->bus.is_iomem = false;
-	mem->bus.iot = rdev->iot;
-	mem->bus.memt = rdev->memt;
-	mem->bus.dmat = rdev->dmat;
 	if (!(man->flags & TTM_MEMTYPE_FLAG_MAPPABLE))
 		return -EINVAL;
 	switch (mem->mem_type) {
@@ -779,6 +776,9 @@ int radeon_ttm_init(struct radeon_device *rdev)
 		DRM_ERROR("failed initializing buffer object driver(%d).\n", r);
 		return r;
 	}
+	rdev->mman.bdev.iot = rdev->iot;
+	rdev->mman.bdev.memt = rdev->memt;
+	rdev->mman.bdev.dmat = rdev->dmat;
 	rdev->mman.initialized = true;
 	r = ttm_bo_init_mm(&rdev->mman.bdev, TTM_PL_VRAM,
 				rdev->mc.real_vram_size >> PAGE_SHIFT);

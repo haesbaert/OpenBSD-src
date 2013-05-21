@@ -206,13 +206,13 @@ int ttm_mem_reg_ioremap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 		else
 			flags = 0;
 
-		if (bus_space_map(mem->bus.memt, mem->bus.base + mem->bus.offset,
+		if (bus_space_map(bdev->memt, mem->bus.base + mem->bus.offset,
 		    mem->bus.size, BUS_SPACE_MAP_LINEAR | flags, &mem->bus.bsh)) {
 			printf("%s bus_space_map failed\n", __func__);
 			return -ENOMEM;
 		}
 
-		addr = bus_space_vaddr(mem->bus.memt, mem->bus.bsh);
+		addr = bus_space_vaddr(bdev->memt, mem->bus.bsh);
 
 		if (!addr) {
 			(void) ttm_mem_io_lock(man, false);
@@ -233,7 +233,7 @@ void ttm_mem_reg_iounmap(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem,
 	man = &bdev->man[mem->mem_type];
 
 	if (virtual && mem->bus.addr == NULL)
-		bus_space_unmap(mem->bus.memt, mem->bus.bsh, mem->bus.size);
+		bus_space_unmap(bdev->memt, mem->bus.bsh, mem->bus.size);
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(bdev, mem);
 	ttm_mem_io_unlock(man);
@@ -538,14 +538,14 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 		else
 			flags = 0;
 
-		if (bus_space_map(bo->mem.bus.memt,
+		if (bus_space_map(bo->bdev->memt,
 		    mem->bus.base + bo->mem.bus.offset,
 		    bo->mem.bus.size, BUS_SPACE_MAP_LINEAR | flags,
 		    &bo->mem.bus.bsh)) {
 			printf("%s bus_space_map failed\n", __func__);
 			map->virtual = 0;
 		} else
-			map->virtual = bus_space_vaddr(bo->mem.bus.memt,
+			map->virtual = bus_space_vaddr(bo->bdev->memt,
 			    bo->mem.bus.bsh);
 	}
 	return (!map->virtual) ? -ENOMEM : 0;
