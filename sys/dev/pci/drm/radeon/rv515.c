@@ -552,7 +552,8 @@ void rv515_fini(struct radeon_device *rdev)
 	radeon_fence_driver_fini(rdev);
 	radeon_bo_fini(rdev);
 	radeon_atombios_fini(rdev);
-	free(rdev->bios, M_DRM);
+	if (rdev->bios)
+		free(rdev->bios, M_DRM);
 	rdev->bios = NULL;
 }
 

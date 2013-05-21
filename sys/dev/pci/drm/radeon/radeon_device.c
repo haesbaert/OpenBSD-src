@@ -790,7 +790,8 @@ void radeon_atombios_fini(struct radeon_device *rdev)
 		free(rdev->mode_info.atom_context->scratch, M_DRM);
 		free(rdev->mode_info.atom_context, M_DRM);
 	}
-	free(rdev->mode_info.atom_card_info, M_DRM);
+	if (rdev->mode_info.atom_card_info)
+		free(rdev->mode_info.atom_card_info, M_DRM);
 }
 
 /* COMBIOS */
