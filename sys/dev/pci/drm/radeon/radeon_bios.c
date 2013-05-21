@@ -31,9 +31,56 @@
 #include "radeon.h"
 #include "atom.h"
 
+#include <dev/isa/isareg.h>
+#include <dev/isa/isavar.h>
+
+
 /*
  * BIOS.
  */
+
+bool	 radeondrm_read_vga_bios(struct radeon_device *);
+
+bool
+radeondrm_read_vga_bios(struct radeon_device *rdev)
+{
+#if defined(__amd64__) || defined(__i386__)
+	uint8_t __iomem *bios;
+	bus_size_t size = 256 * 1024; /* ??? */
+	uint8_t *found = NULL;
+	int i;
+	
+	
+	if (!(rdev->flags & RADEON_IS_IGP))
+		if (!radeon_card_posted(rdev))
+			return false;
+
+	rdev->bios = NULL;
+
+	bios = (u8 *)ISA_HOLE_VADDR(0xc0000);
+
+	for (i = 0; i + 2 < size; i++) {
+		if (bios[i] == 0x55 && bios[i + 1] == 0xaa) {
+			found = bios + i;
+			break;
+		}
+			
+	}
+	if (found == NULL) {
+		DRM_ERROR("bios size zero or checksum mismatch\n");
+		return false;
+	}
+
+	rdev->bios = malloc(size, M_DRM, M_WAITOK);
+	if (rdev->bios == NULL)
+		return false;
+
+	memcpy(rdev->bios, found, size);
+
+	return true;
+#endif
+	return false;
+}
 
 /* If you boot an IGP board with a discrete card as the primary,
  * the IGP rom is not accessible via the rom bar as the IGP rom is
@@ -640,6 +687,8 @@ bool radeon_get_bios(struct radeon_device *rdev)
 		r = radeon_acpi_vfct_bios(rdev);
 	if (r == false)
 		r = igp_read_bios_from_vram(rdev);
+	if (r == false)
+		r = radeondrm_read_vga_bios(rdev);
 	if (r == false)
 		r = radeon_read_bios(rdev);
 	if (r == false) {
