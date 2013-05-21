@@ -29,7 +29,6 @@
 #include <dev/pci/drm/radeon_drm.h>
 
 #if __OS_HAS_AGP
-#ifdef notyet
 
 struct radeon_agpmode_quirk {
 	u32 hostbridge_vendor;
@@ -123,16 +122,13 @@ static struct radeon_agpmode_quirk radeon_agpmode_quirk_list[] = {
 		PCI_VENDOR_ATI, 0x0152, 2},
 	{ 0, 0, 0, 0, 0, 0, 0 },
 };
-#endif // notyet
 #endif
 
 int radeon_agp_init(struct radeon_device *rdev)
 {
 #if __OS_HAS_AGP
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct radeon_agpmode_quirk *p = radeon_agpmode_quirk_list;
+	struct drm_device *ddev = rdev->ddev;
 	struct drm_agp_mode mode;
 	struct drm_agp_info info;
 	uint32_t agp_status;
@@ -154,15 +150,13 @@ int radeon_agp_init(struct radeon_device *rdev)
 		return ret;
 	}
 
-#ifdef notyet
-	if (ddev->agp->agp_info.aper_size < 32) {
+	if ((ddev->agp->info.ai_aperture_size >> 20) < 32) {
 		drm_agp_release(rdev->ddev);
-		dev_warn(rdev->dev, "AGP aperture too small (%zuM) "
+		DRM_ERROR("AGP aperture too small (%zuM) "
 			"need at least 32M, disabling AGP\n",
-			ddev->agp->agp_info.aper_size);
+			ddev->agp->info.ai_aperture_size >> 20);
 		return -EINVAL;
 	}
-#endif
 
 	mode.mode = info.mode;
 	/* chips with the agp to pcie bridge don't have the AGP_STATUS register
@@ -248,8 +242,8 @@ int radeon_agp_init(struct radeon_device *rdev)
 		return ret;
 	}
 
-	rdev->mc.agp_base = ddev->agp->agp_info.aper_base;
-	rdev->mc.gtt_size = ddev->agp->agp_info.aper_size << 20;
+	rdev->mc.agp_base = ddev->agp->info.ai_aperture_base;
+	rdev->mc.gtt_size = ddev->agp->info.ai_aperture_size;
 	rdev->mc.gtt_start = rdev->mc.agp_base;
 	rdev->mc.gtt_end = rdev->mc.gtt_start + rdev->mc.gtt_size - 1;
 	dev_info(rdev->dev, "GTT: %lluM 0x%08llX - 0x%08llX\n",
@@ -260,7 +254,6 @@ int radeon_agp_init(struct radeon_device *rdev)
 		WREG32(RADEON_AGP_CNTL, RREG32(RADEON_AGP_CNTL) | 0x000e0000);
 	}
 	return 0;
-#endif // notyet
 #else
 	return 0;
 #endif
