@@ -43,37 +43,44 @@
  */
 static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return false;
-#ifdef notyet
 	uint8_t __iomem *bios;
 	bus_addr_t vram_base;
 	bus_size_t size = 256 * 1024; /* ??? */
-
+	bus_space_handle_t bsh;
+	bus_space_tag_t bst = rdev->memt;
+	
 	if (!(rdev->flags & RADEON_IS_IGP))
 		if (!radeon_card_posted(rdev))
 			return false;
 
+	vram_base = pci_conf_read(rdev->pc, rdev->pa_tag, PCI_MAPREG_START);
+
 	rdev->bios = NULL;
-	vram_base = pci_resource_start(rdev->pdev, 0);
-	bios = ioremap(vram_base, size);
-	if (!bios) {
+
+	if (bus_space_map(bst, vram_base, size, BUS_SPACE_MAP_LINEAR, &bsh) != 0)
+		return false;
+
+	bios = bus_space_vaddr(rdev->memt, bsh);
+	if (bios == NULL) {
+		bus_space_unmap(bst, bsh, size);
+		return false;
+	}
+	if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa) {
+		DRM_ERROR("bios size zero or checksum mismatch\n");
+		bus_space_unmap(bst, bsh, size);
 		return false;
 	}
 
-	if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa) {
-		iounmap(bios);
-		return false;
-	}
 	rdev->bios = malloc(size, M_DRM, M_WAITOK);
 	if (rdev->bios == NULL) {
-		iounmap(bios);
+		bus_space_unmap(bst, bsh, size);
 		return false;
 	}
-	memcpy_fromio(rdev->bios, bios, size);
-	iounmap(bios);
+
+	memcpy(rdev->bios, bios, size);
+	bus_space_unmap(bst, bsh, size);
+
 	return true;
-#endif
 }
 
 static bool radeon_read_bios(struct radeon_device *rdev)
