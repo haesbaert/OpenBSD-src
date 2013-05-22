@@ -329,17 +329,42 @@ int radeon_mode_dumb_mmap(struct drm_file *filp,
 			  struct drm_device *dev,
 			  uint32_t handle, uint64_t *offset_p)
 {
+	struct radeon_device *rdev = dev->dev_private;
 	struct drm_obj *gobj;
 	struct radeon_bo *robj;
+	struct drm_local_map *map;
+	voff_t offset;
+	vsize_t	end, nsize;
+	int ret = 0;
 
 	gobj = drm_gem_object_lookup(dev, filp, handle);
 	if (gobj == NULL) {
 		return -ENOENT;
 	}
 	robj = gem_to_radeon_bo(gobj);
-	*offset_p = radeon_bo_mmap_offset(robj);
-	drm_gem_object_unreference_unlocked(gobj);
-	return 0;
+
+	offset = (voff_t)*offset_p;
+
+	/* XXX bind to gtt */
+
+	end = round_page(offset + robj->gem_base.size);
+	offset = trunc_page(offset);
+	nsize = end - offset;
+
+#if 0
+	ret = drm_addmap(dev, offset + rdev->mc.gtt_start, nsize, _DRM_AGP,
+	    _DRM_WRITE_COMBINING, &map);
+#else
+	ret = drm_addmap(dev, rdev->fb_aper_offset + offset, rdev->fb_aper_size,
+	    _DRM_FRAME_BUFFER, _DRM_WRITE_COMBINING, &map);
+#endif
+
+	if (ret == 0)
+		*offset_p = map->ext;
+	else
+		drm_unref(&robj->gem_base.uobj);
+
+	return (ret);
 }
 
 int radeon_gem_mmap_ioctl(struct drm_device *dev, void *data,
