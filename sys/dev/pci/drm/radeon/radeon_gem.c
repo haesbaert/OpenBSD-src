@@ -329,12 +329,10 @@ int radeon_mode_dumb_mmap(struct drm_file *filp,
 			  struct drm_device *dev,
 			  uint32_t handle, uint64_t *offset_p)
 {
-	struct radeon_device *rdev = dev->dev_private;
 	struct drm_obj *gobj;
 	struct radeon_bo *robj;
 	struct drm_local_map *map;
 	voff_t offset;
-	vsize_t	end, nsize;
 	int ret = 0;
 
 	gobj = drm_gem_object_lookup(dev, filp, handle);
@@ -347,17 +345,8 @@ int radeon_mode_dumb_mmap(struct drm_file *filp,
 
 	/* XXX bind to gtt */
 
-	end = round_page(offset + robj->gem_base.size);
-	offset = trunc_page(offset);
-	nsize = end - offset;
-
-#if 0
-	ret = drm_addmap(dev, offset + rdev->mc.gtt_start, nsize, _DRM_AGP,
-	    _DRM_WRITE_COMBINING, &map);
-#else
-	ret = drm_addmap(dev, rdev->fb_aper_offset + offset, rdev->fb_aper_size,
+	ret = drm_addmap(dev, radeon_bo_gpu_offset(robj), radeon_bo_size(robj),
 	    _DRM_FRAME_BUFFER, _DRM_WRITE_COMBINING, &map);
-#endif
 
 	if (ret == 0)
 		*offset_p = map->ext;
