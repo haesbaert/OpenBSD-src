@@ -294,7 +294,7 @@ static int radeonfb_create(struct radeon_fbdev *rfbdev,
 #endif
 	DRM_INFO("vram apper at 0x%lX\n",  (unsigned long)rdev->mc.aper_base);
 	DRM_INFO("size %lu\n", (unsigned long)radeon_bo_size(rbo));
-	DRM_INFO("fb depth is %d\n", fb->depth);
+	DRM_INFO("fb depth is %d bpp is %d\n", fb->depth, fb->bits_per_pixel);
 	DRM_INFO("   pitch is %d\n", fb->pitches[0]);
 
 	memset(rbo->kptr, 0x0, radeon_bo_size(rbo));
