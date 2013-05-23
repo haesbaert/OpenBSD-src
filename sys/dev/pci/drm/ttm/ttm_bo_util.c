@@ -539,8 +539,8 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 			flags = 0;
 
 		if (bus_space_map(bo->bdev->memt,
-		    mem->bus.base + bo->mem.bus.offset,
-		    bo->mem.bus.size, BUS_SPACE_MAP_LINEAR | flags,
+		    mem->bus.base + bo->mem.bus.offset + offset,
+		    size, BUS_SPACE_MAP_LINEAR | flags,
 		    &bo->mem.bus.bsh)) {
 			printf("%s bus_space_map failed\n", __func__);
 			map->virtual = 0;
