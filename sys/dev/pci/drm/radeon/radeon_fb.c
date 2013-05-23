@@ -305,6 +305,25 @@ static int radeonfb_create(struct radeon_fbdev *rfbdev,
 	ri->ri_width = sizes->fb_width;
 	ri->ri_height = sizes->fb_height;
 
+	switch (fb->pixel_format) {
+	case DRM_FORMAT_XRGB8888:
+		ri->ri_rnum = 8;
+		ri->ri_rpos = 16;
+		ri->ri_gnum = 8;
+		ri->ri_gpos = 8;
+		ri->ri_bnum = 8;
+		ri->ri_bpos = 0;
+		break;
+	case DRM_FORMAT_RGB565:
+		ri->ri_rnum = 5;
+		ri->ri_rpos = 11;
+		ri->ri_gnum = 6;
+		ri->ri_gpos = 5;
+		ri->ri_bnum = 5;
+		ri->ri_bpos = 0;
+		break;
+	}
+
 #if 0
 	vga_switcheroo_client_fb_set(rdev->ddev->pdev, info);
 #endif
