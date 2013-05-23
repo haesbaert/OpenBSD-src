@@ -676,25 +676,25 @@ void ttm_bo_kunmap(struct ttm_bo_kmap_obj *map)
 
 	if (!map->virtual)
 		return;
-#ifdef notyet
 	switch (map->bo_kmap_type) {
 	case ttm_bo_map_iomap:
-		iounmap(map->virtual);
+		bus_space_unmap(bo->bdev->memt, bo->mem.bus.bsh,
+		    bo->mem.bus.size);
 		break;
+#ifdef notyet
 	case ttm_bo_map_vmap:
 		vunmap(map->virtual);
 		break;
 	case ttm_bo_map_kmap:
 		kunmap(map->page);
 		break;
+#endif
 	case ttm_bo_map_premapped:
 		break;
 	default:
-		BUG();
+		printf("%s partial stub type %d\n", __func__, map->bo_kmap_type);
+//		BUG();
 	}
-#else
-	printf("%s partial stub\n", __func__);
-#endif
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(map->bo->bdev, &map->bo->mem);
 	ttm_mem_io_unlock(man);
