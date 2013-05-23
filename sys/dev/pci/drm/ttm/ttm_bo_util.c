@@ -574,6 +574,18 @@ kmap(struct vm_page *pg)
 	return (vaddr);
 }
 
+void kunmap(vaddr_t va);
+
+void
+kunmap(vaddr_t va)
+{
+#if !defined(__HAVE_PMAP_DIRECT)
+	pmap_kremove(va, PAGE_SIZE);
+	uvm_km_free(kernel_map, va, PAGE_SIZE);
+	pmap_update(pmap_kernel());
+#endif
+}
+
 uint8_t * vmap(paddr_t pa, unsigned int count, unsigned long flags, vm_prot_t prot);
 
 uint8_t *
@@ -590,6 +602,16 @@ vmap(paddr_t pa, unsigned int count, unsigned long flags, vm_prot_t prot)
 	vaddr = (u_int8_t *)va;
 
 	return (vaddr);
+}
+
+void vunmap(vaddr_t, vsize_t);
+
+void
+vunmap(vaddr_t va, vsize_t size)
+{
+	pmap_remove(pmap_kernel(), va, va + size);
+	uvm_km_free(kernel_map, va, size);
+	pmap_update(pmap_kernel());
 }
 
 static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
@@ -681,19 +703,16 @@ void ttm_bo_kunmap(struct ttm_bo_kmap_obj *map)
 		bus_space_unmap(bo->bdev->memt, bo->mem.bus.bsh,
 		    bo->mem.bus.size);
 		break;
-#ifdef notyet
 	case ttm_bo_map_vmap:
-		vunmap(map->virtual);
+		vunmap((vaddr_t)map->virtual, bo->mem.bus.size);
 		break;
 	case ttm_bo_map_kmap:
-		kunmap(map->page);
+		kunmap((vaddr_t)map->virtual);
 		break;
-#endif
 	case ttm_bo_map_premapped:
 		break;
 	default:
-		printf("%s partial stub type %d\n", __func__, map->bo_kmap_type);
-//		BUG();
+		BUG();
 	}
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(map->bo->bdev, &map->bo->mem);
