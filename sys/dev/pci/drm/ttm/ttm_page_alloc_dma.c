@@ -286,10 +286,14 @@ static struct kobj_type ttm_pool_kobj_type = {
 static int set_pages_array_wb(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
 		unmap_page_from_agp(pages[i]);
+#endif // notyet
 #endif
 	return 0;
 }
@@ -297,10 +301,14 @@ static int set_pages_array_wb(struct vm_page **pages, int addrinarray)
 static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
 		map_page_into_agp(pages[i]);
+#endif // notyet
 #endif
 	return 0;
 }
@@ -308,10 +316,14 @@ static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 static int set_pages_array_uc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
 		map_page_into_agp(pages[i]);
+#endif // notyet
 #endif
 	return 0;
 }

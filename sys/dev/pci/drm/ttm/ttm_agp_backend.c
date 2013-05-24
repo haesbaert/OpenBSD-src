@@ -40,56 +40,75 @@
 struct ttm_agp_backend {
 	struct ttm_tt ttm;
 	struct agp_memory *mem;
-	struct agp_bridge_data *bridge;
+	struct drm_agp_head *agp;
 };
 
-static int ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
+int	 ttm_agp_bind(struct ttm_tt *, struct ttm_mem_reg *);
+int	 ttm_agp_unbind(struct ttm_tt *);
+void	 ttm_agp_destroy(struct ttm_tt *);
+
+int
+ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 {
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 	struct drm_mm_node *node = bo_mem->mm_node;
 	struct agp_memory *mem;
-	int ret, cached = (bo_mem->placement & TTM_PL_FLAG_CACHED);
+	int ret;
+//	int cached = (bo_mem->placement & TTM_PL_FLAG_CACHED);
 	unsigned i;
+	int pgnum;
 
-	mem = agp_allocate_memory(agp_be->bridge, ttm->num_pages, AGP_USER_MEMORY);
+	mem = agp_alloc_memory(agp_be->agp->agpdev, 0, /* XXX non zero type? */
+	    ttm->num_pages << AGP_PAGE_SHIFT);
 	if (unlikely(mem == NULL))
 		return -ENOMEM;
 
-	mem->page_count = 0;
+//	mem->pages = 0;
 	for (i = 0; i < ttm->num_pages; i++) {
 		struct vm_page *page = ttm->pages[i];
 
 		if (!page)
 			page = ttm->dummy_read_page;
 
+#ifdef notyet
 		mem->pages[mem->page_count++] = page;
+#endif
 	}
 	agp_be->mem = mem;
 
+#ifdef notyet
 	mem->is_flushed = 1;
 	mem->type = (cached) ? AGP_USER_CACHED_MEMORY : AGP_USER_MEMORY;
+#endif
 
-	ret = agp_bind_memory(mem, node->start);
+	pgnum = (node->start + PAGE_SIZE - 1) / PAGE_SIZE;
+
+	ret = agp_bind_memory(agp_be->agp->agpdev, mem, pgnum * PAGE_SIZE);
 	if (ret)
-		pr_err("AGP Bind memory failed\n");
+		DRM_ERROR("AGP Bind memory failed\n");
+//	mem->bound = agp_be->agp->base + (pgnum << PAGE_SHIFT);
 
 	return ret;
 }
 
-static int ttm_agp_unbind(struct ttm_tt *ttm)
+int
+ttm_agp_unbind(struct ttm_tt *ttm)
 {
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 
 	if (agp_be->mem) {
-		if (agp_be->mem->is_bound)
-			return agp_unbind_memory(agp_be->mem);
-		agp_free_memory(agp_be->mem);
+#ifdef notyet
+		if (agp_be->mem->bound)
+			return agp_unbind_memory(agp_be->agp->agpdev, agp_be->mem);
+#endif
+		agp_free_memory(agp_be->agp->agpdev, agp_be->mem);
 		agp_be->mem = NULL;
 	}
 	return 0;
 }
 
-static void ttm_agp_destroy(struct ttm_tt *ttm)
+void
+ttm_agp_destroy(struct ttm_tt *ttm)
 {
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 
@@ -105,8 +124,9 @@ static struct ttm_backend_func ttm_agp_func = {
 	.destroy = ttm_agp_destroy,
 };
 
-struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
-				 struct agp_bridge_data *bridge,
+struct ttm_tt *
+ttm_agp_tt_create(struct ttm_bo_device *bdev,
+				 struct drm_agp_head *agp,
 				 unsigned long size, uint32_t page_flags,
 				 struct vm_page *dummy_read_page)
 {
@@ -117,7 +137,7 @@ struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
 		return NULL;
 
 	agp_be->mem = NULL;
-	agp_be->bridge = bridge;
+	agp_be->agp = agp;
 	agp_be->ttm.func = &ttm_agp_func;
 
 	if (ttm_tt_init(&agp_be->ttm, bdev, size, page_flags, dummy_read_page)) {
@@ -128,7 +148,8 @@ struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
 }
 EXPORT_SYMBOL(ttm_agp_tt_create);
 
-int ttm_agp_tt_populate(struct ttm_tt *ttm)
+int
+ttm_agp_tt_populate(struct ttm_tt *ttm)
 {
 	if (ttm->state != tt_unpopulated)
 		return 0;
@@ -137,7 +158,8 @@ int ttm_agp_tt_populate(struct ttm_tt *ttm)
 }
 EXPORT_SYMBOL(ttm_agp_tt_populate);
 
-void ttm_agp_tt_unpopulate(struct ttm_tt *ttm)
+void
+ttm_agp_tt_unpopulate(struct ttm_tt *ttm)
 {
 	ttm_pool_unpopulate(ttm);
 }

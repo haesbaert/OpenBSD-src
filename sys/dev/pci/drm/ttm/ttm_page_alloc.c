@@ -39,7 +39,7 @@
 #include <dev/pci/drm/ttm/ttm_page_alloc.h>
 
 #ifdef TTM_HAS_AGP
-#include <asm/agp.h>
+#include <dev/pci/agpvar.h>
 #endif
 
 #include <uvm/uvm_extern.h>
@@ -250,10 +250,14 @@ int
 set_pages_array_wb(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
 		unmap_page_from_agp(pages[i]);
+#endif // notyet
 #endif
 	return 0;
 }
@@ -261,10 +265,14 @@ set_pages_array_wb(struct vm_page **pages, int addrinarray)
 static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
 		map_page_into_agp(pages[i]);
+#endif // notyet
 #endif
 	return 0;
 }
@@ -272,10 +280,14 @@ static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 static int set_pages_array_uc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#ifdef notyet
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
 		map_page_into_agp(pages[i]);
+#endif
 #endif
 	return 0;
 }
@@ -678,10 +690,7 @@ ttm_page_pool_get_pages(struct ttm_page_pool *pool,
 					enum ttm_caching_state cstate,
 					unsigned count)
 {
-	printf("%s stub\n", __func__);
-	return 0;
-#ifdef notyet
-	struct list_head *p;
+	vm_page_t p;
 	unsigned i;
 
 	mtx_enter(&pool->lock);
@@ -689,34 +698,21 @@ ttm_page_pool_get_pages(struct ttm_page_pool *pool,
 
 	if (count >= pool->npages) {
 		/* take all pages from the pool */
-		list_splice_init(&pool->list, pages);
+		TAILQ_CONCAT(pages, &pool->list, pageq);
 		count -= pool->npages;
 		pool->npages = 0;
 		goto out;
 	}
-	/* find the last pages to include for requested number of pages. Split
-	 * pool to begin and halve it to reduce search space. */
-	if (count <= pool->npages/2) {
-		i = 0;
-		list_for_each(p, &pool->list) {
-			if (++i == count)
-				break;
-		}
-	} else {
-		i = pool->npages + 1;
-		list_for_each_prev(p, &pool->list) {
-			if (--i == count)
-				break;
-		}
+	for (i = 0; i < count; i++) {
+		p = TAILQ_FIRST(&pool->list);
+		TAILQ_REMOVE(&pool->list, p, pageq);
+		TAILQ_INSERT_TAIL(pages, p, pageq);
 	}
-	/* Cut 'count' number of pages from the pool */
-	list_cut_position(pages, &pool->list, p);
 	pool->npages -= count;
 	count = 0;
 out:
 	mtx_leave(&pool->lock);
 	return count;
-#endif
 }
 
 /* Put all pages in pages list to correct pool to wait for reuse */

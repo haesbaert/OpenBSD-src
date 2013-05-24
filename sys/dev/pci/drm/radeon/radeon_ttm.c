@@ -604,17 +604,12 @@ struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
 {
 	struct radeon_device *rdev;
 	struct radeon_ttm_tt *gtt;
-//	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 
 	rdev = radeon_get_rdev(bdev);
 #if __OS_HAS_AGP
 	if (rdev->flags & RADEON_IS_AGP) {
-		printf("%s partial stub\n", __func__);
-		return NULL;
-#ifdef notyet
-		return ttm_agp_tt_create(bdev, ddev->agp->bridge,
+		return ttm_agp_tt_create(bdev, rdev->ddev->agp,
 					 size, page_flags, dummy_read_page);
-#endif
 	}
 #endif
 
@@ -655,12 +650,7 @@ radeon_ttm_tt_populate(struct ttm_tt *ttm)
 	rdev = radeon_get_rdev(ttm->bdev);
 #if __OS_HAS_AGP
 	if (rdev->flags & RADEON_IS_AGP) {
-#ifdef notyet
 		return ttm_agp_tt_populate(ttm);
-#else
-		printf("%s partial stub\n", __func__);
-		return -ENOSYS;
-#endif // notyet
 	}
 #endif
 
@@ -709,11 +699,7 @@ radeon_ttm_tt_unpopulate(struct ttm_tt *ttm)
 	rdev = radeon_get_rdev(ttm->bdev);
 #if __OS_HAS_AGP
 	if (rdev->flags & RADEON_IS_AGP) {
-#ifdef notyet
 		ttm_agp_tt_unpopulate(ttm);
-#else
-		printf("%s partial stub\n", __func__);
-#endif
 		return;
 	}
 #endif
