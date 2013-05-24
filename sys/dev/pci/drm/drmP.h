@@ -125,6 +125,16 @@
 
 extern struct cfdriver drm_cd;
 
+/* freebsd compat */
+#define	TAILQ_CONCAT(head1, head2, field) do {				\
+	if (!TAILQ_EMPTY(head2)) {					\
+		*(head1)->tqh_last = (head2)->tqh_first;		\
+		(head2)->tqh_first->field.tqe_prev = (head1)->tqh_last;	\
+		(head1)->tqh_last = (head2)->tqh_last;			\
+		TAILQ_INIT((head2));					\
+	}								\
+} while (0)
+
 /* linux compat */
 typedef u_int64_t u64;
 typedef u_int32_t u32;
