@@ -8,7 +8,6 @@
 
 #include <machine/intr.h> 	/* XXX */
 
-extern int hz;			/* XXX temporary */
 /*
  * ITHREADS
  */
@@ -68,7 +67,7 @@ ithread(void *v_is)
 		 * the tsleep call is atomic.
 		 */
 		if (!is->is_scheduled) {
-			tsleep(is->is_proc, PVM, "interrupt", hz);
+			tsleep(is->is_proc, PVM, "interrupt", 0);
 			DPRINTF(20, "ithread %p woke up\n", curproc->p_pid);
 		}
 		/* XXX remove hz when we're sure we have no races */
@@ -101,10 +100,11 @@ ithread_handler(int num)
 	pic = is->is_pic;
 
 	/* See if we can take this interrupt */
-	if (ci->ci_ilevel >= is->is_maxlevel) {	/* Can't take it, >= or > ? */
+	if (ci->ci_ilevel >= is->is_maxlevel) {
 		DPRINTF(10, "ithread %u can't take interrupt num=%d pin=%d"
-		    "(ilevel = %d, maxlevel = %d)\n",
-		    curproc->p_pid, num, is->is_pin, ci->ci_ilevel, is->is_maxlevel);
+		    "(ilevel = %d, maxlevel = %d depth = %d)\n",
+		    curproc->p_pid, num, is->is_pin, ci->ci_ilevel,
+		    is->is_maxlevel, ci->ci_idepth);
 		/* Set pending interrupt vector */
 		ci->ci_ipending |= (1 << num);
 		/* Leave ioapic masked, probably unecessary */
@@ -130,6 +130,8 @@ ithread_handler(int num)
 
 	is->is_scheduled = 1;
 	wakeup(is->is_proc);
+
+	DPRINTF(20, "waking up ithread %u\n", is->is_proc->p_pid);
 
 	return (0);
 }
