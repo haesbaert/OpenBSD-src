@@ -132,7 +132,7 @@ int db_is_active;
 /*
  * panic on spl assertion failure?
  */
-int splassert_ctl = 1;
+int splassert_ctl = 3;
 
 /*
  * v_putc: routine to putc on virtual console
