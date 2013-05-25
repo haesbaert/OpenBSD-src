@@ -511,26 +511,30 @@ IDTVEC(intr_##name##num)						;\
 	INTRFASTEXIT
 
 #define	ITHREADINTRSTUB(name, num)					\
-IDTVEC(recurse_##name##num)					;\
+IDTVEC(recurse_##name##num)						;\
 	INTR_RECURSE_HWFRAME						;\
 	subq	$8,%rsp							;\
 	pushq	$T_ASTFLT		/* trap # for doing ASTs */	;\
 	INTRENTRY							;\
-IDTVEC(resume_##name##num)					\
+IDTVEC(resume_##name##num)						\
 	movq	$IREENT_MAGIC,TF_ERR(%rsp)				;\
 	movl	%ebx,%r13d						;\
+	movq	CPUVAR(ISOURCES) + (num) * 8, %rdi			;\
+	movl	IS_MAXLEVEL(%rdi),%ebx					;\
 	movq	$num, %rdi						;\
 	jmp	1f							;\
-IDTVEC(intr_##name##num)					;\
+IDTVEC(intr_##name##num)						;\
 	pushq	$0			/* dummy error code */		;\
 	pushq	$T_ASTFLT		/* trap # for doing ASTs */	;\
 	INTRENTRY							;\
 	movq	$num, %rdi						;\
 	movl	CPUVAR(ILEVEL),%r13d					;\
+	movl	CPUVAR(ILEVEL),%ebx					;\
 1:									\
 	pushq	%r13							;\
 	cli								;\
 	incl	CPUVAR(IDEPTH)						;\
+	movl	%ebx, CPUVAR(ILEVEL)					;\
 	call	_C_LABEL(ithread_handler)				;\
 	sti								;\
 	jmp	_C_LABEL(Xdoreti)	/* lower spl and do ASTs XXX INTRFASTEXIT */	
