@@ -560,3 +560,9 @@ void
 lapic_setup(struct pic *pic, struct cpu_info *ci, int pin, int idtvec, int type)
 {
 }
+
+void
+lapic_ackeoi(void)
+{
+	i82489_writereg(LAPIC_EOI, 0);
+}

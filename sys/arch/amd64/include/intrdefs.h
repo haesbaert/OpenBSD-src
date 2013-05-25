@@ -35,6 +35,8 @@
 #define	NIPL		16
 
 #define	IPL_MPSAFE	0x100
+#define	IPL_THREAD	0x200
+#define IPL_FLAGS	(IPL_MPSAFE | IPL_THREAD)
 
 /* Interrupt sharing types. */
 #define	IST_NONE	0	/* none */
