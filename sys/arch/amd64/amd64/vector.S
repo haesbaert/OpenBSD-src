@@ -530,6 +530,7 @@ IDTVEC(intr_##name##num)					;\
 1:									\
 	pushq	%r13							;\
 	cli								;\
+	incl	CPUVAR(IDEPTH)						;\
 	call	_C_LABEL(ithread_handler)				;\
 	sti								;\
 	jmp	_C_LABEL(Xdoreti)	/* lower spl and do ASTs XXX INTRFASTEXIT */	
