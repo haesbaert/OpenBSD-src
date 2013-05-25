@@ -76,6 +76,8 @@ struct intrsource {
 	int is_type;			/* level, edge */
 	int is_idtvec;
 	int is_minlevel;
+	int is_scheduled;		/* proc is runnable */
+	struct proc *is_proc;		/* ithread proc */
 };
 
 #define IS_LEGACY	0x0001		/* legacy ISA irq source */
@@ -189,6 +191,7 @@ extern void Xsofttty(void);
 extern struct intrstub i8259_stubs[];
 extern struct intrstub ioapic_edge_stubs[];
 extern struct intrstub ioapic_level_stubs[];
+extern struct intrstub ithread_level_stubs[];
 
 struct cpu_info;
 

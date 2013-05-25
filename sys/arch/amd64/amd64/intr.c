@@ -46,6 +46,7 @@
 #include <sys/malloc.h>
 #include <sys/proc.h>
 #include <sys/errno.h>
+#include <sys/ithread.h>
 
 #include <machine/atomic.h>
 #include <machine/i8259.h>
@@ -353,8 +354,8 @@ intr_establish(int legacy_irq, struct pic *pic, int pin, int type, int level,
 		panic("intr_establish: non-legacy IRQ on i8259");
 #endif
 
-	flags = level & IPL_MPSAFE;
-	level &= ~IPL_MPSAFE;
+	flags = level & IPL_FLAGS;
+	level &= ~IPL_FLAGS;
 
 	KASSERT(level <= IPL_TTY || level >= IPL_CLOCK || flags & IPL_MPSAFE);
 
@@ -423,7 +424,7 @@ intr_establish(int legacy_irq, struct pic *pic, int pin, int type, int level,
 	 * This is O(N^2), but we want to preserve the order, and N is
 	 * generally small.
 	 */
-	for (p = &ci->ci_isources[slot]->is_handlers;
+	for (p = &source->is_handlers;
 	     (q = *p) != NULL && q->ih_level > level;
 	     p = &q->ih_next)
 		;
@@ -444,15 +445,21 @@ intr_establish(int legacy_irq, struct pic *pic, int pin, int type, int level,
 
 	simple_unlock(&ci->ci_slock);
 
-	if (ci->ci_isources[slot]->is_resume == NULL ||
-	    source->is_idtvec != idt_vec) {
+	if (flags & IPL_THREAD) {
+		/* XXX missing the case where the idt_vec changes */
+		source->is_resume = ithread_level_stubs[slot].ist_resume;
+		source->is_recurse = ithread_level_stubs[slot].ist_recurse;
+		setgate(&idt[idt_vec], ithread_level_stubs[slot].ist_entry, 0, SDT_SYS386IGT,
+		    SEL_KPL, GSEL(GCODE_SEL, SEL_KPL));
+		ithread_create(source);
+	} else if (source->is_resume == NULL || source->is_idtvec != idt_vec) {
 		if (source->is_idtvec != 0 && source->is_idtvec != idt_vec)
 			idt_vec_free(source->is_idtvec);
 		source->is_idtvec = idt_vec;
 		stubp = type == IST_LEVEL ?
 		    &pic->pic_level_stubs[slot] : &pic->pic_edge_stubs[slot];
-		ci->ci_isources[slot]->is_resume = stubp->ist_resume;
-		ci->ci_isources[slot]->is_recurse = stubp->ist_recurse;
+		source->is_resume = stubp->ist_resume;
+		source->is_recurse = stubp->ist_recurse;
 		setgate(&idt[idt_vec], stubp->ist_entry, 0, SDT_SYS386IGT,
 		    SEL_KPL, GSEL(GCODE_SEL, SEL_KPL));
 	}
@@ -740,3 +747,4 @@ softintr(int sir)
 	__asm __volatile("lock; orq %1, %0" :
 	    "=m"(ci->ci_ipending) : "ir" (1UL << sir));
 }
+
