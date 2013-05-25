@@ -32,8 +32,8 @@ ithread(void *v_is)
 	sched_peg_curproc(&cpu_info_primary);
 	KERNEL_UNLOCK();
 
-	DPRINTF(1, "cpu %d ithread %p pin %d started\n",
-	    curcpu()->ci_cpuid, curproc->p_pid, is->is_pin);
+	DPRINTF(1, "ithread %p pin %d started\n",
+	    curproc->p_pid, is->is_pin);
 
 	for (; ;) {
 		rc = 0;
@@ -54,7 +54,7 @@ ithread(void *v_is)
 		splx(s);
 		
 		if (!rc)
-			printf("stray interrupt ?\n");
+			printf("stray interrupt pin %d ?\n", is->is_pin);
 
 		pic->pic_hwunmask(pic, is->is_pin);
 
@@ -92,19 +92,19 @@ ithread_handler(int num)
 	struct intrsource *is = ci->ci_isources[num];
 	struct pic *pic;
 
-	DPRINTF(10, "cpu %d ithread %u got interrupt %d\n",
-	    ci->ci_cpuid, curproc->p_pid, num);
-
 	if (is == NULL) /* XXX make it fatal for now */
 		panic("stray interrupt %d\n", num);
+
+	DPRINTF(10, "ithread %u got interrupt num=%d pin=%d\n",
+	    curproc->p_pid, num, is->is_pin);
 
 	pic = is->is_pic;
 
 	/* See if we can take this interrupt */
 	if (ci->ci_ilevel >= is->is_maxlevel) {	/* Can't take it, >= or > ? */
-		DPRINTF(10, "cpu %d ithread %u can't take interrupt %d "
+		DPRINTF(10, "ithread %u can't take interrupt num=%d pin=%d"
 		    "(ilevel = %d, maxlevel = %d)\n",
-		    ci->ci_cpuid, curproc->p_pid, ci->ci_ilevel, is->is_maxlevel);
+		    curproc->p_pid, num, is->is_pin, ci->ci_ilevel, is->is_maxlevel);
 		/* Set pending interrupt vector */
 		ci->ci_ipending |= num;
 		/* Leave ioapic masked, probably unecessary */
@@ -115,9 +115,9 @@ ithread_handler(int num)
 		return (0);
 	}
 
-	DPRINTF(10, "cpu %d ithread %u accepted interrupt %d "
+	DPRINTF(10, "ithread %u accepted interrupt %d "
 	    "(ilevel = %d, maxlevel = %d)\n",
-	    ci->ci_cpuid, curproc->p_pid, num, ci->ci_ilevel, is->is_maxlevel);
+	    curproc->p_pid, num, ci->ci_ilevel, is->is_maxlevel);
 
 	/* We're taking it */
 	uvmexp.intrs++;		/* XXX per cpu */
