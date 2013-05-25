@@ -106,7 +106,7 @@ ithread_handler(int num)
 		    "(ilevel = %d, maxlevel = %d)\n",
 		    curproc->p_pid, num, is->is_pin, ci->ci_ilevel, is->is_maxlevel);
 		/* Set pending interrupt vector */
-		ci->ci_ipending |= num;
+		ci->ci_ipending |= (1 << num);
 		/* Leave ioapic masked, probably unecessary */
 		pic->pic_hwmask(pic, is->is_pin);
 		/* Acknowledge lapic EOI, we'll keep the ioapic pin masked  */
