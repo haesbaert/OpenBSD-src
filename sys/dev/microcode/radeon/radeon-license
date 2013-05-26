@@ -1,0 +1,112 @@
+Copyright 2007-2009 Advanced Micro Devices, Inc.
+All Rights Reserved.
+ 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+ 
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+ 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The following files are under the above license:
+
+	radeon-r100_cp radeon-r200_cp radeon-r300_cp radeon-r420_cp
+	radeon-r520_cp radeon-r600_me radeon-r600_pfp radeon-rs600_cp
+	radeon-rs690_cp radeon-rs780_me radeon-rs780_pfp radeon-rv610_me
+	radeon-rv610_pfp radeon-rv620_me radeon-rv620_pfp radeon-rv630_me
+	radeon-rv630_pfp radeon-rv635_me radeon-rv635_pfp radeon-rv670_me
+	radeon-rv670_pfp radeon-rv710_me radeon-rv710_pfp radeon-rv730_me
+	radeon-rv730_pfp radeon-rv770_me radeon-rv770_pfp 
+
+Copyright (C) 2009-2013  Advanced Micro Devices, Inc. All rights reserved.
+
+REDISTRIBUTION: Permission is hereby granted, free of any license fees,
+to any person obtaining a copy of this microcode (the "Software"), to
+install, reproduce, copy and distribute copies, in binary form only, of
+the Software and to permit persons to whom the Software is provided to
+do the same, provided that the following conditions are met:
+
+No reverse engineering, decompilation, or disassembly of this Software
+is permitted.
+
+Redistributions must reproduce the above copyright notice, this
+permission notice, and the following disclaimers and notices in the
+Software documentation and/or other materials provided with the
+Software.
+
+DISCLAIMER: THE USE OF THE SOFTWARE IS AT YOUR SOLE RISK.  THE SOFTWARE
+IS PROVIDED "AS IS" AND WITHOUT WARRANTY OF ANY KIND AND COPYRIGHT
+HOLDER AND ITS LICENSORS EXPRESSLY DISCLAIM ALL WARRANTIES, EXPRESS AND
+IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+COPYRIGHT HOLDER AND ITS LICENSORS DO NOT WARRANT THAT THE SOFTWARE WILL
+MEET YOUR REQUIREMENTS, OR THAT THE OPERATION OF THE SOFTWARE WILL BE
+UNINTERRUPTED OR ERROR-FREE.  THE ENTIRE RISK ASSOCIATED WITH THE USE OF
+THE SOFTWARE IS ASSUMED BY YOU.  FURTHERMORE, COPYRIGHT HOLDER AND ITS
+LICENSORS DO NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE
+OR THE RESULTS OF THE USE OF THE SOFTWARE IN TERMS OF ITS CORRECTNESS,
+ACCURACY, RELIABILITY, CURRENTNESS, OR OTHERWISE.
+
+DISCLAIMER: UNDER NO CIRCUMSTANCES INCLUDING NEGLIGENCE, SHALL COPYRIGHT
+HOLDER AND ITS LICENSORS OR ITS DIRECTORS, OFFICERS, EMPLOYEES OR AGENTS
+("AUTHORIZED REPRESENTATIVES") BE LIABLE FOR ANY INCIDENTAL, INDIRECT,
+SPECIAL OR CONSEQUENTIAL DAMAGES (INCLUDING DAMAGES FOR LOSS OF BUSINESS
+PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION, AND THE
+LIKE) ARISING OUT OF THE USE, MISUSE OR INABILITY TO USE THE SOFTWARE,
+BREACH OR DEFAULT, INCLUDING THOSE ARISING FROM INFRINGEMENT OR ALLEGED
+INFRINGEMENT OF ANY PATENT, TRADEMARK, COPYRIGHT OR OTHER INTELLECTUAL
+PROPERTY RIGHT EVEN IF COPYRIGHT HOLDER AND ITS AUTHORIZED
+REPRESENTATIVES HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.  IN
+NO EVENT SHALL COPYRIGHT HOLDER OR ITS AUTHORIZED REPRESENTATIVES TOTAL
+LIABILITY FOR ALL DAMAGES, LOSSES, AND CAUSES OF ACTION (WHETHER IN
+CONTRACT, TORT (INCLUDING NEGLIGENCE) OR OTHERWISE) EXCEED THE AMOUNT OF
+US$10.
+
+Notice:  The Software is subject to United States export laws and
+regulations.  You agree to comply with all domestic and international
+export laws and regulations that apply to the Software, including but
+not limited to the Export Administration Regulations administered by the
+U.S. Department of Commerce and International Traffic in Arm Regulations
+administered by the U.S. Department of State.  These laws include
+restrictions on destinations, end users and end use.
+
+The following files are under the above license:
+
+	radeon-aruba_me radeon-aruba_pfp radeon-aruba_rlc
+	radeon-barts_mc radeon-barts_me radeon-barts_pfp
+	radeon-btc_rlc
+	radeon-caicos_mc radeon-caicos_me radeon-caicos_pfp
+	radeon-cayman_mc radeon-cayman_me radeon-cayman_pfp radeon-cayman_rlc
+	radeon-cedar_me radeon-cedar_pfp radeon-cedar_rlc
+	radeon-cypress_me radeon-cypress_pfp radeon-cypress_rlc
+	radeon-cypress_uvd
+	radeon-hainan_ce radeon-hainan_mc radeon-hainan_me radeon-hainan_pfp
+	radeon-hainan_rlc
+	radeon-juniper_me radeon-juniper_pfp radeon-juniper_rlc
+	radeon-oland_ce radeon-oland_mc radeon-oland_me radeon-oland_pfp
+	radeon-oland_rlc
+	radeon-palm_me radeon-palm_pfp
+	radeon-pitcairn_ce radeon-pitcairn_mc radeon-pitcairn_me
+	radeon-pitcairn_pfp radeon-pitcairn_rlc
+	radeon-r600_rlc radeon-r700_rlc
+	radeon-redwood_me radeon-redwood_pfp radeon-redwood_rlc
+	radeon-rv710_uvd
+	radeon-sumo2_me radeon-sumo2_pfp
+	radeon-sumo_me radeon-sumo_pfp radeon-sumo_rlc radeon-sumo_uvd
+	radeon-tahiti_ce radeon-tahiti_mc radeon-tahiti_me radeon-tahiti_pfp
+	radeon-tahiti_rlc radeon-tahiti_uvd
+	radeon-turks_mc radeon-turks_me radeon-turks_pfp
+	radeon-verde_ce radeon-verde_mc radeon-verde_me radeon-verde_pfp
+	radeon-verde_rlc 
