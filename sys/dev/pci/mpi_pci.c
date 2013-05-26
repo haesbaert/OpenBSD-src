@@ -142,7 +142,7 @@ mpi_pci_attach(struct device *parent, struct device *self, void *aux)
 		goto unmap;
 	}
 	intrstr = pci_intr_string(psc->psc_pc, ih);
-	psc->psc_ih = pci_intr_establish(psc->psc_pc, ih, IPL_BIO,
+	psc->psc_ih = pci_intr_establish(psc->psc_pc, ih, IPL_BIO | IPL_THREAD,
 	    mpi_intr, sc, sc->sc_dev.dv_xname);
 	if (psc->psc_ih == NULL) {
 		printf(": unable to map interrupt%s%s\n",
