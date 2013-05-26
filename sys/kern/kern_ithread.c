@@ -70,7 +70,6 @@ ithread(void *v_is)
 			tsleep(is->is_proc, PVM, "interrupt", 0);
 			DPRINTF(20, "ithread %p woke up\n", curproc->p_pid);
 		}
-		/* XXX remove hz when we're sure we have no races */
 		splx(s);
 	}
 }
@@ -78,60 +77,21 @@ ithread(void *v_is)
 
 /* XXX intr_shared_edge totalmente ignorado */
 /*
- * We're called with interrupts disable, so no need to protect anything. This is
- * the code that gets called when get a real interrupt, it's sole purpose is to
- * schedule the interrupt source to run. So no need to do any ci_ilevel or
- * ci_depth wankery, if we want to run normal handlers in this stub, then it is
- * different.
+ * We're called with interrupts disabled, so no need to protect anything. This
+ * is the code that gets called when get a real interrupt, it's sole purpose is
+ * to schedule the interrupt source to run.
  */
 int
-ithread_handler(int num)
+ithread_handler(struct intrsource *is)
 {
 	struct cpu_info *ci = curcpu();
-	struct intrsource *is = ci->ci_isources[num];
-	struct pic *pic;
 
-	if (is == NULL) /* XXX make it fatal for now */
-		panic("stray interrupt %d\n", num);
-
-	DPRINTF(10, "ithread %u got interrupt num=%d pin=%d\n",
-	    curproc->p_pid, num, is->is_pin);
-
-	pic = is->is_pic;
-
-	/* See if we can take this interrupt */
-	if (ci->ci_ilevel >= is->is_maxlevel) {
-		DPRINTF(10, "ithread %u can't take interrupt num=%d pin=%d"
-		    "(ilevel = %d, maxlevel = %d depth = %d)\n",
-		    curproc->p_pid, num, is->is_pin, ci->ci_ilevel,
-		    is->is_maxlevel, ci->ci_idepth);
-		/* Set pending interrupt vector */
-		ci->ci_ipending |= (1 << num);
-		/* Leave ioapic masked, probably unecessary */
-		pic->pic_hwmask(pic, is->is_pin);
-		/* Acknowledge lapic EOI, we'll keep the ioapic pin masked  */
-		lapic_ackeoi();
-
-		return (0);
-	}
-
-	DPRINTF(10, "ithread %u accepted interrupt %d "
+	DPRINTF(10, "ithread accepted interrupt pin %d "
 	    "(ilevel = %d, maxlevel = %d)\n",
-	    curproc->p_pid, num, ci->ci_ilevel, is->is_maxlevel);
-
-	/* We're taking it */
-	uvmexp.intrs++;		/* XXX per cpu */
-
-	/* Acknowledge lapic EOI, we'll keep the ioapic pin masked  */
-	lapic_ackeoi();
-
-	/* Leave ioapic masked, probably unecessary */
-	pic->pic_hwmask(pic, is->is_pin);
+	    is->is_pin, ci->ci_ilevel, is->is_maxlevel);
 
 	is->is_scheduled = 1;
 	wakeup(is->is_proc);
-
-	DPRINTF(20, "waking up ithread %u\n", is->is_proc->p_pid);
 
 	return (0);
 }

@@ -510,7 +510,7 @@ IDTVEC(intr_##name##num)						;\
 	sti								;\
 	INTRFASTEXIT
 
-#define	ITHREADINTRSTUB(name, num)					\
+#define	ITHREADINTRSTUB(name, num, early_ack, late_ack, mask, unmask, level_mask) \
 IDTVEC(recurse_##name##num)						;\
 	INTR_RECURSE_HWFRAME						;\
 	subq	$8,%rsp							;\
@@ -519,25 +519,47 @@ IDTVEC(recurse_##name##num)						;\
 IDTVEC(resume_##name##num)						\
 	movq	$IREENT_MAGIC,TF_ERR(%rsp)				;\
 	movl	%ebx,%r13d						;\
-	movq	CPUVAR(ISOURCES) + (num) * 8, %rdi			;\
-	movl	IS_MAXLEVEL(%rdi),%ebx					;\
-	movq	$num, %rdi						;\
+	movq	CPUVAR(ISOURCES) + (num) * 8, %r14			;\
+	movl	IS_MAXLEVEL(%r14),%ebx					;\
 	jmp	1f							;\
 IDTVEC(intr_##name##num)						;\
 	pushq	$0			/* dummy error code */		;\
 	pushq	$T_ASTFLT		/* trap # for doing ASTs */	;\
 	INTRENTRY							;\
-	movq	$num, %rdi						;\
+	movq	CPUVAR(ISOURCES) + (num) * 8, %r14			;\
+	mask(num)			/* mask it in hardware */	;\
+	early_ack(num)			/* and allow other intrs */	;\
+	testq	%r14,%r14						;\
+	jz	9f			/* stray */			;\
+	movl	IS_MAXLEVEL(%r14),%ebx					;\
 	movl	CPUVAR(ILEVEL),%r13d					;\
-	movl	CPUVAR(ILEVEL),%ebx					;\
+	cmpl	%ebx,%r13d						;\
+	jae	10f			/* currently masked; hold it */	;\
+	incl	_C_LABEL(uvmexp)+V_INTR	/* statistical info */		;\
 1:									\
 	pushq	%r13							;\
+	movl	%ebx,CPUVAR(ILEVEL)					;\
 	cli								;\
+	level_mask(num)							;\
 	incl	CPUVAR(IDEPTH)						;\
-	movl	%ebx, CPUVAR(ILEVEL)					;\
+	movq	%r14, %rdi						;\
 	call	_C_LABEL(ithread_handler)				;\
+	late_ack(num)							;\
 	sti								;\
-	jmp	_C_LABEL(Xdoreti)	/* lower spl and do ASTs XXX INTRFASTEXIT */	
+	jmp	_C_LABEL(Xdoreti)	/* lower spl and do ASTs */	;\
+10:									\
+	cli								;\
+	movq	$(1 << num),%rax					;\
+	orq	%rax,CPUVAR(IPENDING)					;\
+	level_mask(num)							;\
+	late_ack(num)							;\
+	sti								;\
+	INTRFASTEXIT							;\
+9:									\
+	unmask(num)							;\
+	late_ack(num)							;\
+	sti								;\
+	INTRFASTEXIT
 
 #define ICUADDR IO_ICU1
 
@@ -711,70 +733,70 @@ INTRSTUB(ioapic_level,63,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
 
 #endif
 
-ITHREADINTRSTUB(ithread_level,0)
-ITHREADINTRSTUB(ithread_level,1)
-ITHREADINTRSTUB(ithread_level,2)
-ITHREADINTRSTUB(ithread_level,3)
-ITHREADINTRSTUB(ithread_level,4)
-ITHREADINTRSTUB(ithread_level,5)
-ITHREADINTRSTUB(ithread_level,6)
-ITHREADINTRSTUB(ithread_level,7)
-ITHREADINTRSTUB(ithread_level,8)
-ITHREADINTRSTUB(ithread_level,9)
-ITHREADINTRSTUB(ithread_level,10)
-ITHREADINTRSTUB(ithread_level,11)
-ITHREADINTRSTUB(ithread_level,12)
-ITHREADINTRSTUB(ithread_level,13)
-ITHREADINTRSTUB(ithread_level,14)
-ITHREADINTRSTUB(ithread_level,15)
-ITHREADINTRSTUB(ithread_level,16)
-ITHREADINTRSTUB(ithread_level,17)
-ITHREADINTRSTUB(ithread_level,18)
-ITHREADINTRSTUB(ithread_level,19)
-ITHREADINTRSTUB(ithread_level,20)
-ITHREADINTRSTUB(ithread_level,21)
-ITHREADINTRSTUB(ithread_level,22)
-ITHREADINTRSTUB(ithread_level,23)
-ITHREADINTRSTUB(ithread_level,24)
-ITHREADINTRSTUB(ithread_level,25)
-ITHREADINTRSTUB(ithread_level,26)
-ITHREADINTRSTUB(ithread_level,27)
-ITHREADINTRSTUB(ithread_level,28)
-ITHREADINTRSTUB(ithread_level,29)
-ITHREADINTRSTUB(ithread_level,30)
-ITHREADINTRSTUB(ithread_level,31)
-ITHREADINTRSTUB(ithread_level,32)
-ITHREADINTRSTUB(ithread_level,33)
-ITHREADINTRSTUB(ithread_level,34)
-ITHREADINTRSTUB(ithread_level,35)
-ITHREADINTRSTUB(ithread_level,36)
-ITHREADINTRSTUB(ithread_level,37)
-ITHREADINTRSTUB(ithread_level,38)
-ITHREADINTRSTUB(ithread_level,39)
-ITHREADINTRSTUB(ithread_level,40)
-ITHREADINTRSTUB(ithread_level,41)
-ITHREADINTRSTUB(ithread_level,42)
-ITHREADINTRSTUB(ithread_level,43)
-ITHREADINTRSTUB(ithread_level,44)
-ITHREADINTRSTUB(ithread_level,45)
-ITHREADINTRSTUB(ithread_level,46)
-ITHREADINTRSTUB(ithread_level,47)
-ITHREADINTRSTUB(ithread_level,48)
-ITHREADINTRSTUB(ithread_level,49)
-ITHREADINTRSTUB(ithread_level,50)
-ITHREADINTRSTUB(ithread_level,51)
-ITHREADINTRSTUB(ithread_level,52)
-ITHREADINTRSTUB(ithread_level,53)
-ITHREADINTRSTUB(ithread_level,54)
-ITHREADINTRSTUB(ithread_level,55)
-ITHREADINTRSTUB(ithread_level,56)
-ITHREADINTRSTUB(ithread_level,57)
-ITHREADINTRSTUB(ithread_level,58)
-ITHREADINTRSTUB(ithread_level,59)
-ITHREADINTRSTUB(ithread_level,60)
-ITHREADINTRSTUB(ithread_level,61)
-ITHREADINTRSTUB(ithread_level,62)
-ITHREADINTRSTUB(ithread_level,63)
+ITHREADINTRSTUB(ithread_level,0,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,1,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,2,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,3,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,4,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,5,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,6,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,7,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,8,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,9,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,10,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,11,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,12,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,13,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,14,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,15,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,16,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,17,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,18,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,19,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,20,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,21,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,22,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,23,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,24,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,25,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,26,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,27,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,28,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,29,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,30,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,31,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,32,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,33,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,34,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,35,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,36,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,37,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,38,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,39,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,40,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,41,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,42,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,43,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,44,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,45,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,46,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,47,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,48,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,49,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,50,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,51,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,52,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,53,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,54,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,55,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,56,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,57,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,58,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,59,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,60,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,61,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,62,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
+ITHREADINTRSTUB(ithread_level,63,voidop,ioapic_asm_ack,voidop,ioapic_unmask,ioapic_mask)
 
 	.globl _C_LABEL(i8259_stubs)
 _C_LABEL(i8259_stubs):
