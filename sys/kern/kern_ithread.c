@@ -85,13 +85,39 @@ int
 ithread_handler(struct intrsource *is)
 {
 	struct cpu_info *ci = curcpu();
+	struct proc *p = is->is_proc;
+	int s;
+
+	splassert(is->is_maxlevel);
 
 	DPRINTF(10, "ithread accepted interrupt pin %d "
 	    "(ilevel = %d, maxlevel = %d)\n",
 	    is->is_pin, ci->ci_ilevel, is->is_maxlevel);
 
 	is->is_scheduled = 1;
-	wakeup(is->is_proc);
+
+	switch (p->p_stat) {
+	case SRUN:
+	case SONPROC:
+		break;
+	case SSLEEP:
+		unsleep(p);
+		p->p_stat = SRUN;
+		p->p_slptime = 0;
+		/*
+		 * Setting the thread to runnable is cheaper than a normal
+		 * process since the process state can be protected by blocking
+		 * interrupts. There is also no need to choose a cpu since we're
+		 * pinned. XXX we're not there yet and still rely on normal
+		 * SCHED_LOCK crap.
+		 */
+		SCHED_LOCK(s);
+		setrunqueue(p);
+		SCHED_UNLOCK(s);
+		break;
+	default:
+		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
+	}
 
 	return (0);
 }
