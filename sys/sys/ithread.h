@@ -5,6 +5,7 @@ struct intrsource;
 
 void	ithread(void *);
 int	ithread_handler(struct intrsource *);
+void	ithread_sleep(struct intrsource *);
 void	ithread_create(struct intrsource *);
 void	ithread_create2(void *);
 
