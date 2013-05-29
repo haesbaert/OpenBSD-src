@@ -114,8 +114,6 @@ struct schedstate_percpu {
 	struct proc *spc_reaper;	/* dead proc reaper */
 #endif
 	LIST_HEAD(,proc) spc_deadproc;
-	TAILQ_HEAD(, proc) spc_ithread_slpq; /* ithread sleep queue */
-	TAILQ_HEAD(, proc) spc_ithread_runq; /* ithread run queue */
 };
 
 #ifdef	_KERNEL
