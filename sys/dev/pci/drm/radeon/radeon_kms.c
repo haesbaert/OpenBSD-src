@@ -1497,12 +1497,30 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	rdev->fb_aper_offset = bar->base;
 	rdev->fb_aper_size = bar->maxsize;
 
+	bar = vga_pci_bar_info((struct vga_pci_softc *)parent, 1);
+	if (bar == NULL) {
+		printf(": can't get IO BAR info\n");
+		return;
+	}
+	if (bar->maptype != PCI_MAPREG_TYPE_IO) {
+		printf(": BAR 1 is not of type IO\n");
+		return;
+	}
+	rdev->rio_mem_size = bar->maxsize;
+	rdev->ioregs = vga_pci_bar_map((struct vga_pci_softc *)parent, 
+	    bar->addr, 0, 0);
+	if (rdev->ioregs == NULL) {
+		printf(": can't map IO space\n");
+		return;
+	}
+
 	bar = vga_pci_bar_info((struct vga_pci_softc *)parent, 2);
 	if (bar == NULL) {
 		printf(": can't get BAR info\n");
 		return;
 	}
-
+	rdev->rmmio_base = bar->base;
+	rdev->rmmio_size = bar->maxsize;
 	rdev->regs = vga_pci_bar_map((struct vga_pci_softc *)parent, 
 	    bar->addr, 0, 0);
 	if (rdev->regs == NULL) {

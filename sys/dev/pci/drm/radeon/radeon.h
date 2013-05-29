@@ -1557,8 +1557,6 @@ struct radeon_device {
 	bus_dma_tag_t			dmat;
 	void				*irqh;
 
-	struct vga_pci_bar		*regs;
-
 	struct rasops_info		ro;
 
 	struct rwlock 			exclusive_lock;
@@ -1585,7 +1583,7 @@ struct radeon_device {
 	bus_size_t			rmmio_size;
 	/* protects concurrent MM_INDEX/DATA based register access */
 	struct mutex			mmio_idx_lock;
-	void __iomem			*rmmio;
+	struct vga_pci_bar		*regs;		/* ~= rmmio */
 	radeon_rreg_t			mc_rreg;
 	radeon_wreg_t			mc_wreg;
 	radeon_rreg_t			pll_rreg;
@@ -1594,7 +1592,7 @@ struct radeon_device {
 	radeon_rreg_t			pciep_rreg;
 	radeon_wreg_t			pciep_wreg;
 	/* io port */
-	void __iomem                    *rio_mem;
+	struct vga_pci_bar		*ioregs;	/* ~= rio_mem */
 	bus_size_t			rio_mem_size;
 	struct radeon_clock             clock;
 	struct radeon_mc		mc;
