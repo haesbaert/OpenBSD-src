@@ -142,6 +142,14 @@ ithread_register(struct intrsource *is)
 }
 
 void
+ithread_deregister(struct intrsource *is)
+{
+	DPRINTF(1, "ithread_deregister intrsource pin %d\n", is->is_pin);
+
+	TAILQ_REMOVE(&ithreads, is, entry);
+}
+
+void
 ithread_forkall(void)
 {
 	struct intrsource *is;
