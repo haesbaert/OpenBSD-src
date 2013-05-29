@@ -191,7 +191,6 @@ extern void Xsofttty(void);
 extern struct intrstub i8259_stubs[];
 extern struct intrstub ioapic_edge_stubs[];
 extern struct intrstub ioapic_level_stubs[];
-extern struct intrstub ithread_level_stubs[];
 
 struct cpu_info;
 
