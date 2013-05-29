@@ -1178,14 +1178,12 @@ static void radeon_debugfs_remove_files(struct radeon_device *rdev);
  */
 void radeon_device_fini(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
-
 	DRM_INFO("radeon: finishing device.\n");
 	rdev->shutdown = true;
 	/* evict vram memory */
 	radeon_bo_evict_vram(rdev);
 	radeon_fini(rdev);
+#ifdef notyet
 	vga_switcheroo_unregister_client(rdev->pdev);
 	vga_client_register(rdev->pdev, NULL, NULL, NULL);
 	if (rdev->rio_mem)
