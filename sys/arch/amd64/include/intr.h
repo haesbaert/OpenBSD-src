@@ -78,6 +78,7 @@ struct intrsource {
 	int is_minlevel;
 	int is_scheduled;		/* proc is runnable */
 	struct proc *is_proc;		/* ithread proc */
+	TAILQ_ENTRY(intrsource) entry;	/* entry in ithreads list */
 };
 
 #define IS_LEGACY	0x0001		/* legacy ISA irq source */

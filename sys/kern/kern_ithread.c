@@ -3,6 +3,7 @@
 #include <sys/proc.h>
 #include <sys/ithread.h>
 #include <sys/kthread.h>
+#include <sys/queue.h>
 
 #include <uvm/uvm_extern.h>
 
@@ -19,6 +20,8 @@ int ithread_debug = 10;
 #else
 #define DPRINTF(l, x...)
 #endif	/* ITHREAD_DEBUG */
+
+TAILQ_HEAD(, intrsource) ithreads = TAILQ_HEAD_INITIALIZER(ithreads);
 
 void
 ithread(void *v_is)
@@ -123,26 +126,31 @@ ithread_handler(struct intrsource *is)
 }
 
 void
-ithread_create(struct intrsource *is)
+ithread_register(struct intrsource *is)
 {
-	if (is->is_proc)
-		return;
+	struct intrsource *is2;
 
-	DPRINTF(1, "ithread_create for cpu %d pin %d\n",
-	    curcpu()->ci_cpuid, is->is_pin);
+	/* Prevent multiple inclusion */
+	TAILQ_FOREACH(is2, &ithreads, entry) {
+		if (is2 == is)
+			return;
+	}
 
-	kthread_create_deferred(ithread_create2, is);
+	DPRINTF(1, "ithread_register intrsource pin %d\n", is->is_pin);
+
+	TAILQ_INSERT_TAIL(&ithreads, is, entry);
 }
 
 void
-ithread_create2(void *v_is)
+ithread_forkall(void)
 {
-	struct intrsource *is = v_is;
+	struct intrsource *is;
 
-	DPRINTF(1, "ithread_create2 for cpu %d pin %d\n",
-	    curcpu()->ci_cpuid, is->is_pin);
+	TAILQ_FOREACH(is, &ithreads, entry) {
+		DPRINTF(1, "ithread forking intrsource pin %d\n", is->is_pin);
 
-	if (kthread_create(ithread, is, &is->is_proc,
-	    "ithread%d", is->is_idtvec))
-		panic("ithread create2");
+		if (kthread_create(ithread, is, &is->is_proc,
+		    "ithread pin %d", is->is_pin))
+			panic("ithread_forkall");
+	}
 }

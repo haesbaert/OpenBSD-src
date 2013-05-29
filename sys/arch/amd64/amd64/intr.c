@@ -455,7 +455,7 @@ intr_establish(int legacy_irq, struct pic *pic, int pin, int type, int level,
 		source->is_recurse = stubp->ist_recurse;
 		setgate(&idt[idt_vec], stubp->ist_entry, 0, SDT_SYS386IGT,
 		    SEL_KPL, GSEL(GCODE_SEL, SEL_KPL));
-		ithread_create(source);
+		ithread_register(source);
 	}
 
 	pic->pic_addroute(pic, ci, pin, idt_vec, type);
