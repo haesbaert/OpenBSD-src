@@ -484,6 +484,9 @@ intr_disestablish(struct intrhand *ih)
 	struct intrsource *source;
 	int idtvec;
 
+	if (!cold)
+		panic("ithreads do not support intr_disestablish if not cold yet");
+
 	ci = ih->ih_cpu;
 	pic = ci->ci_isources[ih->ih_slot]->is_pic;
 	source = ci->ci_isources[ih->ih_slot];
@@ -519,6 +522,7 @@ intr_disestablish(struct intrhand *ih)
 #endif
 
 	if (source->is_handlers == NULL) {
+		ithread_deregister(source);
 		free(source, M_DEVBUF);
 		ci->ci_isources[ih->ih_slot] = NULL;
 		if (pic != &i8259_pic)
