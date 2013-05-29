@@ -1961,10 +1961,6 @@ void r600_cp_stop(struct radeon_device *rdev)
 
 int r600_init_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct platform_device *pdev;
 	const char *chip_name;
 	const char *rlc_chip_name;
 	size_t pfp_req_size, me_req_size, rlc_req_size;
@@ -1973,84 +1969,86 @@ int r600_init_microcode(struct radeon_device *rdev)
 
 	DRM_DEBUG("\n");
 
+#if 0
 	pdev = platform_device_register_simple("radeon_cp", 0, NULL, 0);
 	err = IS_ERR(pdev);
 	if (err) {
 		DRM_ERROR( "radeon_cp: Failed to register firmware\n");
 		return -EINVAL;
 	}
+#endif
 
 	switch (rdev->family) {
 	case CHIP_R600:
-		chip_name = "R600";
-		rlc_chip_name = "R600";
+		chip_name = "r600";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RV610:
-		chip_name = "RV610";
-		rlc_chip_name = "R600";
+		chip_name = "rv610";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RV630:
-		chip_name = "RV630";
-		rlc_chip_name = "R600";
+		chip_name = "rv630";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RV620:
-		chip_name = "RV620";
-		rlc_chip_name = "R600";
+		chip_name = "rv620";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RV635:
-		chip_name = "RV635";
-		rlc_chip_name = "R600";
+		chip_name = "rv635";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RV670:
-		chip_name = "RV670";
-		rlc_chip_name = "R600";
+		chip_name = "rv670";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RS780:
 	case CHIP_RS880:
-		chip_name = "RS780";
-		rlc_chip_name = "R600";
+		chip_name = "rs780";
+		rlc_chip_name = "r600";
 		break;
 	case CHIP_RV770:
-		chip_name = "RV770";
-		rlc_chip_name = "R700";
+		chip_name = "rv770";
+		rlc_chip_name = "r700";
 		break;
 	case CHIP_RV730:
 	case CHIP_RV740:
-		chip_name = "RV730";
-		rlc_chip_name = "R700";
+		chip_name = "rv730";
+		rlc_chip_name = "r700";
 		break;
 	case CHIP_RV710:
-		chip_name = "RV710";
-		rlc_chip_name = "R700";
+		chip_name = "rv710";
+		rlc_chip_name = "r700";
 		break;
 	case CHIP_CEDAR:
-		chip_name = "CEDAR";
-		rlc_chip_name = "CEDAR";
+		chip_name = "cedar";
+		rlc_chip_name = "cedar";
 		break;
 	case CHIP_REDWOOD:
-		chip_name = "REDWOOD";
-		rlc_chip_name = "REDWOOD";
+		chip_name = "redwood";
+		rlc_chip_name = "redwood";
 		break;
 	case CHIP_JUNIPER:
-		chip_name = "JUNIPER";
-		rlc_chip_name = "JUNIPER";
+		chip_name = "juniper";
+		rlc_chip_name = "juniper";
 		break;
 	case CHIP_CYPRESS:
 	case CHIP_HEMLOCK:
-		chip_name = "CYPRESS";
-		rlc_chip_name = "CYPRESS";
+		chip_name = "cypress";
+		rlc_chip_name = "cypress";
 		break;
 	case CHIP_PALM:
-		chip_name = "PALM";
-		rlc_chip_name = "SUMO";
+		chip_name = "palm";
+		rlc_chip_name = "sumo";
 		break;
 	case CHIP_SUMO:
-		chip_name = "SUMO";
-		rlc_chip_name = "SUMO";
+		chip_name = "sumo";
+		rlc_chip_name = "sumo";
 		break;
 	case CHIP_SUMO2:
-		chip_name = "SUMO2";
-		rlc_chip_name = "SUMO";
+		chip_name = "sumo2";
+		rlc_chip_name = "sumo";
 		break;
 	default: BUG();
 	}
@@ -2071,64 +2069,64 @@ int r600_init_microcode(struct radeon_device *rdev)
 
 	DRM_INFO("Loading %s Microcode\n", chip_name);
 
-	snprintf(fw_name, sizeof(fw_name), "radeon/%s_pfp.bin", chip_name);
-	err = request_firmware(&rdev->pfp_fw, fw_name, &pdev->dev);
+	snprintf(fw_name, sizeof(fw_name), "radeon-%s_pfp", chip_name);
+	err = loadfirmware(fw_name, &rdev->pfp_fw, &rdev->pfp_fw_size);
 	if (err)
 		goto out;
-	if (rdev->pfp_fw->size != pfp_req_size) {
+	if (rdev->pfp_fw_size != pfp_req_size) {
 		DRM_ERROR(
 		       "r600_cp: Bogus length %zu in firmware \"%s\"\n",
-		       rdev->pfp_fw->size, fw_name);
+		       rdev->pfp_fw_size, fw_name);
 		err = -EINVAL;
 		goto out;
 	}
 
-	snprintf(fw_name, sizeof(fw_name), "radeon/%s_me.bin", chip_name);
-	err = request_firmware(&rdev->me_fw, fw_name, &pdev->dev);
+	snprintf(fw_name, sizeof(fw_name), "radeon-%s_me", chip_name);
+	err = loadfirmware(fw_name, &rdev->me_fw, &rdev->me_fw_size);
 	if (err)
 		goto out;
-	if (rdev->me_fw->size != me_req_size) {
+	if (rdev->me_fw_size != me_req_size) {
 		DRM_ERROR(
 		       "r600_cp: Bogus length %zu in firmware \"%s\"\n",
-		       rdev->me_fw->size, fw_name);
+		       rdev->me_fw_size, fw_name);
 		err = -EINVAL;
 	}
 
-	snprintf(fw_name, sizeof(fw_name), "radeon/%s_rlc.bin", rlc_chip_name);
-	err = request_firmware(&rdev->rlc_fw, fw_name, &pdev->dev);
+	snprintf(fw_name, sizeof(fw_name), "radeon-%s_rlc", rlc_chip_name);
+	err = loadfirmware(fw_name, &rdev->rlc_fw, &rdev->rlc_fw_size);
 	if (err)
 		goto out;
-	if (rdev->rlc_fw->size != rlc_req_size) {
+	if (rdev->rlc_fw_size != rlc_req_size) {
 		DRM_ERROR(
 		       "r600_rlc: Bogus length %zu in firmware \"%s\"\n",
-		       rdev->rlc_fw->size, fw_name);
+		       rdev->rlc_fw_size, fw_name);
 		err = -EINVAL;
 	}
 
 out:
-	platform_device_unregister(pdev);
-
 	if (err) {
 		if (err != -EINVAL)
 			DRM_ERROR(
 			       "r600_cp: Failed to load firmware \"%s\"\n",
 			       fw_name);
-		release_firmware(rdev->pfp_fw);
-		rdev->pfp_fw = NULL;
-		release_firmware(rdev->me_fw);
-		rdev->me_fw = NULL;
-		release_firmware(rdev->rlc_fw);
-		rdev->rlc_fw = NULL;
+		if (rdev->pfp_fw) {
+			free(rdev->pfp_fw, M_DEVBUF);
+			rdev->pfp_fw = NULL;
+		}
+		if (rdev->me_fw) {
+			free(rdev->me_fw, M_DEVBUF);
+			rdev->me_fw = NULL;
+		}
+		if (rdev->rlc_fw) {
+			free(rdev->rlc_fw, M_DEVBUF);
+			rdev->rlc_fw = NULL;
+		}
 	}
 	return err;
-#endif
 }
 
 static int r600_cp_load_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	const __be32 *fw_data;
 	int i;
 
@@ -2151,13 +2149,13 @@ static int r600_cp_load_microcode(struct radeon_device *rdev)
 
 	WREG32(CP_ME_RAM_WADDR, 0);
 
-	fw_data = (const __be32 *)rdev->me_fw->data;
+	fw_data = (const __be32 *)rdev->me_fw;
 	WREG32(CP_ME_RAM_WADDR, 0);
 	for (i = 0; i < PM4_UCODE_SIZE * 3; i++)
 		WREG32(CP_ME_RAM_DATA,
 		       be32_to_cpup(fw_data++));
 
-	fw_data = (const __be32 *)rdev->pfp_fw->data;
+	fw_data = (const __be32 *)rdev->pfp_fw;
 	WREG32(CP_PFP_UCODE_ADDR, 0);
 	for (i = 0; i < PFP_UCODE_SIZE; i++)
 		WREG32(CP_PFP_UCODE_DATA,
@@ -2167,7 +2165,6 @@ static int r600_cp_load_microcode(struct radeon_device *rdev)
 	WREG32(CP_ME_RAM_WADDR, 0);
 	WREG32(CP_ME_RAM_RADDR, 0);
 	return 0;
-#endif
 }
 
 int r600_cp_start(struct radeon_device *rdev)
@@ -3308,9 +3305,6 @@ r600_rlc_start(struct radeon_device *rdev)
 
 static int r600_rlc_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	u32 i;
 	const __be32 *fw_data;
 
@@ -3337,7 +3331,7 @@ static int r600_rlc_init(struct radeon_device *rdev)
 	WREG32(RLC_MC_CNTL, 0);
 	WREG32(RLC_UCODE_CNTL, 0);
 
-	fw_data = (const __be32 *)rdev->rlc_fw->data;
+	fw_data = (const __be32 *)rdev->rlc_fw;
 	if (rdev->family >= CHIP_ARUBA) {
 		for (i = 0; i < ARUBA_RLC_UCODE_SIZE; i++) {
 			WREG32(RLC_UCODE_ADDR, i);
@@ -3369,7 +3363,6 @@ static int r600_rlc_init(struct radeon_device *rdev)
 	r600_rlc_start(rdev);
 
 	return 0;
-#endif
 }
 
 static void r600_enable_interrupts(struct radeon_device *rdev)

@@ -1620,19 +1620,16 @@ struct radeon_device {
 	bool				need_dma32;
 	bool				accel_working;
 	struct radeon_surface_reg surface_regs[RADEON_GEM_MAX_SURFACES];
-	u_char				*me_fw;	/* all family ME firmware */
+	u_char				*me_fw;		/* all family ME firmware */
 	size_t				me_fw_size;
-	const u32 (*pfp_fw)[2];
-	const u32 (*rlc_fw)[2];
-	const u32 (*mc_fw)[2];
-	const u32 (*ce_fw)[2];
-#ifdef notyet
-	const struct firmware *me_fw;	/* all family ME firmware */
-	const struct firmware *pfp_fw;	/* r6/700 PFP firmware */
-	const struct firmware *rlc_fw;	/* r6/700 RLC firmware */
-	const struct firmware *mc_fw;	/* NI MC firmware */
-	const struct firmware *ce_fw;	/* SI CE firmware */
-#endif
+	u_char				*pfp_fw;	/* r6/700 PFP firmware */	
+	size_t				pfp_fw_size;
+	u_char				*rlc_fw;	/* r6/700 RLC firmware */
+	size_t				rlc_fw_size;
+	u_char				*mc_fw;		/* NI MC firmware */
+	size_t				mc_fw_size;
+	u_char				*ce_fw;		/* SI CE firmware */
+	size_t				ce_fw_size;
 	struct r600_blit r600_blit;
 	struct r600_vram_scratch vram_scratch;
 	int msi_enabled; /* msi enabled */

@@ -205,9 +205,6 @@ static const u32 cayman_io_mc_regs[BTC_IO_MC_REGS_SIZE][2] = {
 
 int ni_mc_load_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	const __be32 *fw_data;
 	u32 mem_type, running, blackout = 0;
 	u32 *io_mc_regs;
@@ -259,7 +256,7 @@ int ni_mc_load_microcode(struct radeon_device *rdev)
 			WREG32(MC_SEQ_IO_DEBUG_DATA, io_mc_regs[(i << 1) + 1]);
 		}
 		/* load the MC ucode */
-		fw_data = (const __be32 *)rdev->mc_fw->data;
+		fw_data = (const __be32 *)rdev->mc_fw;
 		for (i = 0; i < ucode_size; i++)
 			WREG32(MC_SEQ_SUP_PGM, be32_to_cpup(fw_data++));
 
@@ -280,15 +277,10 @@ int ni_mc_load_microcode(struct radeon_device *rdev)
 	}
 
 	return 0;
-#endif
 }
 
 int ni_init_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct platform_device *pdev;
 	const char *chip_name;
 	const char *rlc_chip_name;
 	size_t pfp_req_size, me_req_size, rlc_req_size, mc_req_size;
@@ -297,49 +289,42 @@ int ni_init_microcode(struct radeon_device *rdev)
 
 	DRM_DEBUG("\n");
 
-	pdev = platform_device_register_simple("radeon_cp", 0, NULL, 0);
-	err = IS_ERR(pdev);
-	if (err) {
-		DRM_ERROR( "radeon_cp: Failed to register firmware\n");
-		return -EINVAL;
-	}
-
 	switch (rdev->family) {
 	case CHIP_BARTS:
-		chip_name = "BARTS";
-		rlc_chip_name = "BTC";
+		chip_name = "barts";
+		rlc_chip_name = "btc";
 		pfp_req_size = EVERGREEN_PFP_UCODE_SIZE * 4;
 		me_req_size = EVERGREEN_PM4_UCODE_SIZE * 4;
 		rlc_req_size = EVERGREEN_RLC_UCODE_SIZE * 4;
 		mc_req_size = BTC_MC_UCODE_SIZE * 4;
 		break;
 	case CHIP_TURKS:
-		chip_name = "TURKS";
-		rlc_chip_name = "BTC";
+		chip_name = "turks";
+		rlc_chip_name = "btc";
 		pfp_req_size = EVERGREEN_PFP_UCODE_SIZE * 4;
 		me_req_size = EVERGREEN_PM4_UCODE_SIZE * 4;
 		rlc_req_size = EVERGREEN_RLC_UCODE_SIZE * 4;
 		mc_req_size = BTC_MC_UCODE_SIZE * 4;
 		break;
 	case CHIP_CAICOS:
-		chip_name = "CAICOS";
-		rlc_chip_name = "BTC";
+		chip_name = "caicos";
+		rlc_chip_name = "btc";
 		pfp_req_size = EVERGREEN_PFP_UCODE_SIZE * 4;
 		me_req_size = EVERGREEN_PM4_UCODE_SIZE * 4;
 		rlc_req_size = EVERGREEN_RLC_UCODE_SIZE * 4;
 		mc_req_size = BTC_MC_UCODE_SIZE * 4;
 		break;
 	case CHIP_CAYMAN:
-		chip_name = "CAYMAN";
-		rlc_chip_name = "CAYMAN";
+		chip_name = "cayman";
+		rlc_chip_name = "cayman";
 		pfp_req_size = CAYMAN_PFP_UCODE_SIZE * 4;
 		me_req_size = CAYMAN_PM4_UCODE_SIZE * 4;
 		rlc_req_size = CAYMAN_RLC_UCODE_SIZE * 4;
 		mc_req_size = CAYMAN_MC_UCODE_SIZE * 4;
 		break;
 	case CHIP_ARUBA:
-		chip_name = "ARUBA";
-		rlc_chip_name = "ARUBA";
+		chip_name = "aruba";
+		rlc_chip_name = "aruba";
 		/* pfp/me same size as CAYMAN */
 		pfp_req_size = CAYMAN_PFP_UCODE_SIZE * 4;
 		me_req_size = CAYMAN_PM4_UCODE_SIZE * 4;
@@ -351,72 +336,77 @@ int ni_init_microcode(struct radeon_device *rdev)
 
 	DRM_INFO("Loading %s Microcode\n", chip_name);
 
-	snprintf(fw_name, sizeof(fw_name), "radeon/%s_pfp.bin", chip_name);
-	err = request_firmware(&rdev->pfp_fw, fw_name, &pdev->dev);
+	snprintf(fw_name, sizeof(fw_name), "radeon-%s_pfp", chip_name);
+	err = loadfirmware(fw_name, &rdev->pfp_fw, &rdev->pfp_fw_size);
 	if (err)
 		goto out;
-	if (rdev->pfp_fw->size != pfp_req_size) {
+	if (rdev->pfp_fw_size != pfp_req_size) {
 		DRM_ERROR(
 		       "ni_cp: Bogus length %zu in firmware \"%s\"\n",
-		       rdev->pfp_fw->size, fw_name);
+		       rdev->pfp_fw_size, fw_name);
 		err = -EINVAL;
 		goto out;
 	}
 
-	snprintf(fw_name, sizeof(fw_name), "radeon/%s_me.bin", chip_name);
-	err = request_firmware(&rdev->me_fw, fw_name, &pdev->dev);
+	snprintf(fw_name, sizeof(fw_name), "radeon-%s_me", chip_name);
+	err = loadfirmware(fw_name, &rdev->me_fw, &rdev->me_fw_size);
 	if (err)
 		goto out;
-	if (rdev->me_fw->size != me_req_size) {
+	if (rdev->me_fw_size != me_req_size) {
 		DRM_ERROR(
 		       "ni_cp: Bogus length %zu in firmware \"%s\"\n",
-		       rdev->me_fw->size, fw_name);
+		       rdev->me_fw_size, fw_name);
 		err = -EINVAL;
 	}
 
-	snprintf(fw_name, sizeof(fw_name), "radeon/%s_rlc.bin", rlc_chip_name);
-	err = request_firmware(&rdev->rlc_fw, fw_name, &pdev->dev);
+	snprintf(fw_name, sizeof(fw_name), "radeon-%s_rlc", rlc_chip_name);
+	err = loadfirmware(fw_name, &rdev->rlc_fw, &rdev->rlc_fw_size);
 	if (err)
 		goto out;
-	if (rdev->rlc_fw->size != rlc_req_size) {
+	if (rdev->rlc_fw_size != rlc_req_size) {
 		DRM_ERROR(
 		       "ni_rlc: Bogus length %zu in firmware \"%s\"\n",
-		       rdev->rlc_fw->size, fw_name);
+		       rdev->rlc_fw_size, fw_name);
 		err = -EINVAL;
 	}
 
 	/* no MC ucode on TN */
 	if (!(rdev->flags & RADEON_IS_IGP)) {
-		snprintf(fw_name, sizeof(fw_name), "radeon/%s_mc.bin", chip_name);
-		err = request_firmware(&rdev->mc_fw, fw_name, &pdev->dev);
+		snprintf(fw_name, sizeof(fw_name), "radeon-%s_mc", chip_name);
+		err = loadfirmware(fw_name, &rdev->mc_fw, &rdev->mc_fw_size);
 		if (err)
 			goto out;
-		if (rdev->mc_fw->size != mc_req_size) {
+		if (rdev->mc_fw_size != mc_req_size) {
 			DRM_ERROR(
 			       "ni_mc: Bogus length %zu in firmware \"%s\"\n",
-			       rdev->mc_fw->size, fw_name);
+			       rdev->mc_fw_size, fw_name);
 			err = -EINVAL;
 		}
 	}
 out:
-	platform_device_unregister(pdev);
-
 	if (err) {
 		if (err != -EINVAL)
 			DRM_ERROR(
 			       "ni_cp: Failed to load firmware \"%s\"\n",
 			       fw_name);
-		release_firmware(rdev->pfp_fw);
-		rdev->pfp_fw = NULL;
-		release_firmware(rdev->me_fw);
-		rdev->me_fw = NULL;
-		release_firmware(rdev->rlc_fw);
-		rdev->rlc_fw = NULL;
-		release_firmware(rdev->mc_fw);
-		rdev->mc_fw = NULL;
+		if (rdev->pfp_fw) {
+			free(rdev->pfp_fw, M_DEVBUF);
+			rdev->pfp_fw = NULL;
+		}
+		if (rdev->me_fw) {
+			free(rdev->me_fw, M_DEVBUF);
+			rdev->me_fw = NULL;
+		}
+		if (rdev->rlc_fw) {
+			free(rdev->rlc_fw, M_DEVBUF);
+			rdev->rlc_fw = NULL;
+		}
+		if (rdev->mc_fw) {
+			free(rdev->mc_fw, M_DEVBUF);
+			rdev->mc_fw = NULL;
+		}
 	}
 	return err;
-#endif
 }
 
 /*
@@ -949,9 +939,6 @@ static void cayman_cp_enable(struct radeon_device *rdev, bool enable)
 
 static int cayman_cp_load_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	const __be32 *fw_data;
 	int i;
 
@@ -960,13 +947,13 @@ static int cayman_cp_load_microcode(struct radeon_device *rdev)
 
 	cayman_cp_enable(rdev, false);
 
-	fw_data = (const __be32 *)rdev->pfp_fw->data;
+	fw_data = (const __be32 *)rdev->pfp_fw;
 	WREG32(CP_PFP_UCODE_ADDR, 0);
 	for (i = 0; i < CAYMAN_PFP_UCODE_SIZE; i++)
 		WREG32(CP_PFP_UCODE_DATA, be32_to_cpup(fw_data++));
 	WREG32(CP_PFP_UCODE_ADDR, 0);
 
-	fw_data = (const __be32 *)rdev->me_fw->data;
+	fw_data = (const __be32 *)rdev->me_fw;
 	WREG32(CP_ME_RAM_WADDR, 0);
 	for (i = 0; i < CAYMAN_PM4_UCODE_SIZE; i++)
 		WREG32(CP_ME_RAM_DATA, be32_to_cpup(fw_data++));
@@ -975,7 +962,6 @@ static int cayman_cp_load_microcode(struct radeon_device *rdev)
 	WREG32(CP_ME_RAM_WADDR, 0);
 	WREG32(CP_ME_RAM_RADDR, 0);
 	return 0;
-#endif
 }
 
 static int cayman_cp_start(struct radeon_device *rdev)
