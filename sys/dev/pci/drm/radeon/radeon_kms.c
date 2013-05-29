@@ -101,6 +101,7 @@ int	radeondrm_probe(struct device *, void *, void *);
 void	radeondrm_attach_kms(struct device *, struct device *, void *);
 int	radeondrm_detach_kms(struct device *, int);
 int	radeondrm_activate_kms(struct device *, int);
+void	radeondrm_attachhook(void *);
 
 struct cfattach radeondrm_ca = {
         sizeof (struct radeon_device), radeondrm_probe, radeondrm_attach_kms,
@@ -993,8 +994,8 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	struct drm_device	*dev;
 	struct pci_attach_args	*pa = aux;
 	struct vga_pci_bar	*bar;
-	int			 r, acpi_status;
 	const struct drm_pcidev *id_entry;
+	struct vga_pci_softc	*vga_sc = (struct vga_pci_softc *)parent;
 	int			 is_agp;
 
 	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
@@ -1056,13 +1057,27 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	dev = (struct drm_device *)drm_attach_pci(&kms_driver, pa, is_agp, self);
 	rdev->ddev = dev;
 
+	vga_sc->sc_type = -1;
+
+	if (rootvp == NULL)
+		mountroothook_establish(radeondrm_attachhook, rdev);
+	else
+		radeondrm_attachhook(rdev);
+}
+
+void
+radeondrm_attachhook(void *xsc)
+{
+	struct radeon_device	*rdev = xsc;
+	int			 r, acpi_status;
+
 	/* radeon_device_init should report only fatal error
 	 * like memory allocation failure or iomapping failure,
 	 * or memory manager initialization failure, it must
 	 * properly initialize the GPU MC controller and permit
 	 * VRAM allocation
 	 */
-	r = radeon_device_init(rdev, dev);
+	r = radeon_device_init(rdev, rdev->ddev);
 	if (r) {
 		printf(": Fatal error during GPU init\n");
 		return;
@@ -1088,7 +1103,7 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 {
 	extern int wsdisplay_console_initted;
 	struct wsemuldisplaydev_attach_args aa;
-	struct vga_pci_softc *vga_sc = (struct vga_pci_softc *)parent;
+	struct device *parent = rdev->dev.dv_parent;
 	struct rasops_info *ri = &rdev->ro;
 
 	if (ri->ri_bits == NULL)
@@ -1126,7 +1141,6 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 
 	printf("%s: %dx%d\n", rdev->dev.dv_xname, ri->ri_width, ri->ri_height);
 
-	vga_sc->sc_type = -1;
 	config_found(parent, &aa, wsemuldisplaydevprint);
 }
 }
