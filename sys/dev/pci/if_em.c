@@ -1656,7 +1656,7 @@ em_allocate_pci_resources(struct em_softc *sc)
 	sc->hw.back = &sc->osdep;
 
 	intrstr = pci_intr_string(pc, ih);
-	sc->sc_intrhand = pci_intr_establish(pc, ih, IPL_NET | IPL_THREAD, em_intr, sc,
+	sc->sc_intrhand = pci_intr_establish(pc, ih, IPL_NET, em_intr, sc,
 					      sc->sc_dv.dv_xname);
 	if (sc->sc_intrhand == NULL) {
 		printf(": couldn't establish interrupt");

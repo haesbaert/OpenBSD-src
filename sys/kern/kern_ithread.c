@@ -125,12 +125,6 @@ ithread_handler(struct intrsource *is)
 void
 ithread_create(struct intrsource *is)
 {
-	struct intrhand *ih;
-
-	/* Make sure all handlers are marked as IPL_THREAD */
-	for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next)
-		KASSERT(ih->ih_flags & IPL_THREAD);
-
 	if (is->is_proc)
 		return;
 
