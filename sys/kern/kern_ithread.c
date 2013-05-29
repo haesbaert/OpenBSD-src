@@ -51,7 +51,7 @@ ithread(void *v_is)
 				KERNEL_UNLOCK();
 		}
 		splx(s);
-
+		
 		if (!rc)
 			printf("stray interrupt pin %d ?\n", is->is_pin);
 
@@ -67,7 +67,7 @@ ithread(void *v_is)
 		 * the tsleep call is atomic.
 		 */
 		if (!is->is_scheduled) {
-			ithread_sleep(is);
+			tsleep(is->is_proc, PVM, "interrupt", 0);
 			DPRINTF(20, "ithread %p woke up\n", curproc->p_pid);
 		}
 		splx(s);
@@ -85,8 +85,8 @@ int
 ithread_handler(struct intrsource *is)
 {
 	struct cpu_info *ci = curcpu();
-	struct schedstate_percpu *spc = &ci->ci_schedstate;
 	struct proc *p = is->is_proc;
+	int s;
 
 	splassert(is->is_maxlevel);
 
@@ -101,9 +101,8 @@ ithread_handler(struct intrsource *is)
 	case SONPROC:
 		break;
 	case SSLEEP:
-		TAILQ_REMOVE(&spc->spc_ithread_slpq, p, p_runq);
-		p->p_wmesg   = NULL;
-		p->p_stat    = SRUN;
+		unsleep(p);
+		p->p_stat = SRUN;
 		p->p_slptime = 0;
 		/*
 		 * Setting the thread to runnable is cheaper than a normal
@@ -112,37 +111,15 @@ ithread_handler(struct intrsource *is)
 		 * pinned. XXX we're not there yet and still rely on normal
 		 * SCHED_LOCK crap.
 		 */
-		TAILQ_INSERT_TAIL(&spc->spc_ithread_runq, p, p_runq);
+		SCHED_LOCK(s);
+		setrunqueue(p);
+		SCHED_UNLOCK(s);
 		break;
 	default:
 		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
 	}
 
 	return (0);
-}
-
-void
-ithread_sleep(struct intrsource *is)
-{
-	struct proc *p = curproc;
-	struct schedstate_percpu *spc = &curcpu()->ci_schedstate;
-	int s;
-
-	KASSERT(p == is->is_proc);
-	KASSERT(p->p_stat == SONPROC);
-	splassert(is->is_maxlevel);
-
-	p->p_wmesg = "interrupt";
-	p->p_stat = SSLEEP;
-
-	TAILQ_INSERT_TAIL(&spc->spc_ithread_slpq, p, p_runq);
-
-	/*
-	 * XXX mi_switch() still wants SCHED_LOCK, we must zefix it.
-	 */
-	SCHED_LOCK(s);
-	mi_switch();
-	SCHED_UNLOCK(s);
 }
 
 void

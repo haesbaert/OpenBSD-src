@@ -89,8 +89,6 @@ sched_init_cpu(struct cpu_info *ci)
 	kthread_create_deferred(sched_kthreads_create, ci);
 
 	LIST_INIT(&spc->spc_deadproc);
-	TAILQ_INIT(&spc->spc_ithread_slpq);
-	TAILQ_INIT(&spc->spc_ithread_runq);
 
 	/*
 	 * Slight hack here until the cpuset code handles cpu_info
@@ -153,7 +151,7 @@ sched_idle(void *v)
 	KASSERT(curproc == spc->spc_idleproc);
 
 	while (1) {
-		while (spc->spc_whichqs || !TAILQ_EMPTY(&spc->spc_ithread_runq)) {
+		while (!curcpu_is_idle()) {
 			struct proc *dead;
 
 			SCHED_LOCK(s);
@@ -171,7 +169,7 @@ sched_idle(void *v)
 
 		cpuset_add(&sched_idle_cpus, ci);
 		cpu_idle_enter();
-		while (spc->spc_whichqs == 0 && TAILQ_EMPTY(&spc->spc_ithread_runq)) {
+		while (spc->spc_whichqs == 0) {
 			if (spc->spc_schedflags & SPCF_SHOULDHALT &&
 			    (spc->spc_schedflags & SPCF_HALTED) == 0) {
 				cpuset_del(&sched_idle_cpus, ci);
@@ -294,11 +292,7 @@ sched_chooseproc(void)
 	}
 
 again:
-	if ((p = TAILQ_FIRST(&spc->spc_ithread_runq)) != NULL) {
-		TAILQ_REMOVE(&spc->spc_ithread_runq, p, p_runq);
-		sched_noidle++;
-		KASSERT(p->p_stat == SRUN);
-	} else if (spc->spc_whichqs) {
+	if (spc->spc_whichqs) {
 		queue = ffs(spc->spc_whichqs) - 1;
 		p = TAILQ_FIRST(&spc->spc_qs[queue]);
 		remrunqueue(p);
