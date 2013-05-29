@@ -5,7 +5,7 @@ struct intrsource;
 
 void	ithread(void *);
 int	ithread_handler(struct intrsource *);
-void	ithread_create(struct intrsource *);
-void	ithread_create2(void *);
+void	ithread_register(struct intrsource *);
+void	ithread_forkall(void);
 
 #endif /* _SYS_ITHREAD_H_ */
