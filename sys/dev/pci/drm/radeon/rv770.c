@@ -318,9 +318,6 @@ void r700_cp_stop(struct radeon_device *rdev)
 
 static int rv770_cp_load_microcode(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	const __be32 *fw_data;
 	int i;
 
@@ -340,13 +337,13 @@ static int rv770_cp_load_microcode(struct radeon_device *rdev)
 	DRM_MDELAY(15);
 	WREG32(GRBM_SOFT_RESET, 0);
 
-	fw_data = (const __be32 *)rdev->pfp_fw->data;
+	fw_data = (const __be32 *)rdev->pfp_fw;
 	WREG32(CP_PFP_UCODE_ADDR, 0);
 	for (i = 0; i < R700_PFP_UCODE_SIZE; i++)
 		WREG32(CP_PFP_UCODE_DATA, be32_to_cpup(fw_data++));
 	WREG32(CP_PFP_UCODE_ADDR, 0);
 
-	fw_data = (const __be32 *)rdev->me_fw->data;
+	fw_data = (const __be32 *)rdev->me_fw;
 	WREG32(CP_ME_RAM_WADDR, 0);
 	for (i = 0; i < R700_PM4_UCODE_SIZE; i++)
 		WREG32(CP_ME_RAM_DATA, be32_to_cpup(fw_data++));
@@ -355,7 +352,6 @@ static int rv770_cp_load_microcode(struct radeon_device *rdev)
 	WREG32(CP_ME_RAM_WADDR, 0);
 	WREG32(CP_ME_RAM_RADDR, 0);
 	return 0;
-#endif
 }
 
 void r700_cp_fini(struct radeon_device *rdev)
