@@ -93,15 +93,12 @@ file	dev/pci/drm/radeon/ni.c				radeondrm
 file	dev/pci/drm/radeon/r100.c			radeondrm
 file	dev/pci/drm/radeon/r200.c			radeondrm
 file	dev/pci/drm/radeon/r300.c			radeondrm
-#file	dev/pci/drm/radeon/r300_cmdbuf.c		radeondrm	UMS
 file	dev/pci/drm/radeon/r420.c			radeondrm
 file	dev/pci/drm/radeon/r520.c			radeondrm
 file	dev/pci/drm/radeon/r600.c			radeondrm
 file	dev/pci/drm/radeon/r600_audio.c			radeondrm
-#file	dev/pci/drm/radeon/r600_blit.c			radeondrm	UMS
 file	dev/pci/drm/radeon/r600_blit_kms.c		radeondrm
 file	dev/pci/drm/radeon/r600_blit_shaders.c		radeondrm
-#file	dev/pci/drm/radeon/r600_cp.c			radeondrm	UMS
 file	dev/pci/drm/radeon/r600_cs.c			radeondrm
 file	dev/pci/drm/radeon/r600_hdmi.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_acpi.c		radeondrm
@@ -113,33 +110,27 @@ file	dev/pci/drm/radeon/radeon_bios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_clocks.c		radeondrm
 file	dev/pci/drm/radeon/radeon_combios.c		radeondrm
 file	dev/pci/drm/radeon/radeon_connectors.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_cp.c			radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_cs.c			radeondrm
 file	dev/pci/drm/radeon/radeon_cursor.c		radeondrm
 file	dev/pci/drm/radeon/radeon_device.c		radeondrm
 file	dev/pci/drm/radeon/radeon_display.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_drv.c			radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_encoders.c		radeondrm
 file	dev/pci/drm/radeon/radeon_fb.c			radeondrm
 file	dev/pci/drm/radeon/radeon_fence.c		radeondrm
 file	dev/pci/drm/radeon/radeon_gart.c		radeondrm
 file	dev/pci/drm/radeon/radeon_gem.c			radeondrm
 file	dev/pci/drm/radeon/radeon_i2c.c			radeondrm
-#file	dev/pci/drm/radeon/radeon_ioc32.c		radeondrm	UMS
-#file	dev/pci/drm/radeon/radeon_irq.c			radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_irq_kms.c		radeondrm
 file	dev/pci/drm/radeon/radeon_kms.c			radeondrm
 file	dev/pci/drm/radeon/radeon_legacy_crtc.c		radeondrm
 file	dev/pci/drm/radeon/radeon_legacy_encoders.c	radeondrm
 file	dev/pci/drm/radeon/radeon_legacy_tv.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_mem.c			radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_object.c		radeondrm
 file	dev/pci/drm/radeon/radeon_pm.c			radeondrm
 #file	dev/pci/drm/radeon/radeon_prime.c		radeondrm
 file	dev/pci/drm/radeon/radeon_ring.c		radeondrm
 file	dev/pci/drm/radeon/radeon_sa.c			radeondrm
 file	dev/pci/drm/radeon/radeon_semaphore.c		radeondrm
-#file	dev/pci/drm/radeon/radeon_state.c		radeondrm	UMS
 file	dev/pci/drm/radeon/radeon_test.c		radeondrm
 #file	dev/pci/drm/radeon/radeon_trace_points.c	radeondrm
 file	dev/pci/drm/radeon/radeon_ttm.c			radeondrm
