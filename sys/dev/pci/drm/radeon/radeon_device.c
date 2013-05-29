@@ -1105,7 +1105,9 @@ int radeon_device_init(struct radeon_device *rdev,
 
 	/* Registers mapping */
 	/* TODO: block userspace mapping of io register */
+#endif
 	mtx_init(&rdev->mmio_idx_lock, IPL_NONE);
+#ifdef notyet
 	rdev->rmmio_base = pci_resource_start(rdev->pdev, 2);
 	rdev->rmmio_size = pci_resource_len(rdev->pdev, 2);
 	rdev->rmmio = ioremap(rdev->rmmio_base, rdev->rmmio_size);
