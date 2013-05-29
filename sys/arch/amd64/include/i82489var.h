@@ -122,6 +122,5 @@ extern void lapic_enable(void);
 extern void lapic_calibrate_timer(struct cpu_info *ci);
 extern void lapic_startclock(void);
 extern void lapic_initclocks(void);
-extern void lapic_ackeoi(void);
 
 #endif
