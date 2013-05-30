@@ -20,12 +20,13 @@
 #include <sys/ithread.h>
 #include <sys/kthread.h>
 #include <sys/queue.h>
+#include <sys/malloc.h>
 
 #include <uvm/uvm_extern.h>
 
-#include <machine/intr.h> 	/* XXX */
+#include <machine/intr.h>	/* XXX */
 
-#define ITHREAD_DEBUG
+//#define ITHREAD_DEBUG
 #ifdef ITHREAD_DEBUG
 int ithread_debug = 10;
 #define DPRINTF(l, x...)	do { if ((l) <= ithread_debug) printf(x); } while (0)
@@ -46,7 +47,7 @@ ithread(void *v_is)
 	sched_peg_curproc(&cpu_info_primary);
 	KERNEL_UNLOCK();
 
-	DPRINTF(1, "ithread %p pin %d started\n",
+	DPRINTF(1, "ithread %u pin %d started\n",
 	    curproc->p_pid, is->is_pin);
 
 	for (; ;) {
@@ -66,7 +67,7 @@ ithread(void *v_is)
 				KERNEL_UNLOCK();
 		}
 		splx(s);
-		
+
 		if (!rc)
 			printf("stray interrupt pin %d ?\n", is->is_pin);
 
@@ -83,7 +84,7 @@ ithread(void *v_is)
 		 */
 		if (!is->is_scheduled) {
 			tsleep(is->is_proc, PVM, "interrupt", 0);
-			DPRINTF(20, "ithread %p woke up\n", curproc->p_pid);
+			DPRINTF(20, "ithread %u woke up\n", curproc->p_pid);
 		}
 		splx(s);
 	}
@@ -99,7 +100,9 @@ ithread(void *v_is)
 int
 ithread_handler(struct intrsource *is)
 {
+#ifdef ITHREAD_DEBUG
 	struct cpu_info *ci = curcpu();
+#endif
 	struct proc *p = is->is_proc;
 	int s;
 
@@ -165,12 +168,161 @@ void
 ithread_forkall(void)
 {
 	struct intrsource *is;
+	static int softs;
 
 	TAILQ_FOREACH(is, &ithreads, entry) {
 		DPRINTF(1, "ithread forking intrsource pin %d\n", is->is_pin);
 
-		if (kthread_create(ithread, is, &is->is_proc,
-		    "ithread pin %d", is->is_pin))
-			panic("ithread_forkall");
+		if (is->is_pic == &softintr_pic) {
+			if (kthread_create(ithread_softmain, is, &is->is_proc,
+			    "ithread soft %d", softs++))
+				panic("ithread_forkall");
+		} else {
+			if (kthread_create(ithread, is, &is->is_proc,
+			    "ithread pin %d", is->is_pin))
+				panic("ithread_forkall");
+		}
 	}
+}
+
+/*
+ * Generic painfully slow soft interrupts, this is a temporary implementation to
+ * allow us to kill the IPL subsystem and remove all "interrupts" from the
+ * system. In the future we'll have real message passing for remote scheduling
+ * and one softint per cpu when applicable. These soft threads interlock through
+ * SCHED_LOCK, which is totally unacceptable in the future.
+ */
+struct intrsource *
+ithread_softregister(int level, int (*handler)(void *), void *arg, int flags)
+{
+	struct intrsource *is;
+	struct intrhand *ih;
+
+	is = malloc(sizeof(*is), M_DEVBUF, M_NOWAIT | M_ZERO);
+	if (is == NULL)
+		panic("ithread_softregister");
+
+	is->is_type = IST_LEVEL; /* XXX more like level than EDGE */
+	is->is_pic = &softintr_pic;
+	is->is_minlevel = IPL_HIGH;
+
+	ih = malloc(sizeof(*ih), M_DEVBUF, M_NOWAIT | M_ZERO);
+	if (ih == NULL)
+		panic("ithread_softregister");
+
+	ih->ih_fun = handler;
+	ih->ih_arg = arg;
+	ih->ih_level = level;
+	ih->ih_flags = flags;
+	ih->ih_pin = 0;
+	ih->ih_cpu = &cpu_info_primary;
+
+	/* Just prepend it */
+	ih->ih_next = is->is_handlers;
+	is->is_handlers = ih;
+
+	if (ih->ih_level > is->is_maxlevel)
+		is->is_maxlevel = ih->ih_level;
+	if (ih->ih_level < is->is_minlevel) /* XXX minlevel will be gone */
+		is->is_minlevel = ih->ih_level;
+
+	ithread_register(is);
+
+	return (is);
+}
+
+void
+ithread_softmain(void *v_is)
+{
+	int s;
+	struct intrsource *is = v_is;
+	struct intrhand *ih;
+
+	sched_peg_curproc(&cpu_info_primary);
+	KERNEL_UNLOCK();
+
+	DPRINTF(1, "ithread soft %u started\n", curproc->p_pid);
+
+	for (; ;) {
+		s = splraise(is->is_maxlevel);
+		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
+			is->is_scheduled = 0; /* protected by is->is_maxlevel */
+
+			if ((ih->ih_flags & IPL_MPSAFE) == 0)
+				KERNEL_LOCK();
+
+			KASSERT(ih->ih_level <= is->is_maxlevel);
+			(*ih->ih_fun)(ih->ih_arg);
+			if ((ih->ih_flags & IPL_MPSAFE) == 0)
+				KERNEL_UNLOCK();
+		}
+		splx(s);
+
+		/*
+		 * XXX Could use atomic_npoll() or something similar.
+		 */
+		if (!is->is_scheduled) { /* optimistic test */
+			ithread_softsleep(is);
+			DPRINTF(20, "ithread soft %u woke up\n", curproc->p_pid);
+		}
+	}
+}
+
+void
+ithread_softsched(struct intrsource *is)
+{
+	int s;
+	struct proc *p;
+
+	if (is == NULL || is->is_proc == NULL)
+		return;
+
+	p = is->is_proc;
+
+	SCHED_LOCK(s);
+	is->is_scheduled = 1;
+
+	switch (p->p_stat) {
+	case SRUN:
+	case SONPROC:
+		break;
+	case SSLEEP:
+		unsleep(p);
+		p->p_stat = SRUN;
+		p->p_slptime = 0;
+		setrunqueue(p);
+		break;
+	default:
+		SCHED_UNLOCK(s);
+		panic("ithread_softsched: unexpected thread state %d\n", p->p_stat);
+	}
+	SCHED_UNLOCK(s);
+}
+
+
+/* XXX kern_synch.c, temporary */
+#define TABLESIZE	128
+#define LOOKUP(x)	(((long)(x) >> 8) & (TABLESIZE - 1))
+extern TAILQ_HEAD(slpque,proc) slpque[TABLESIZE];
+
+void
+ithread_softsleep(struct intrsource *is)
+{
+	struct proc *p = is->is_proc;
+	int s;
+
+	KASSERT(curproc == p);
+	KASSERT(p->p_stat == SONPROC);
+
+	SCHED_LOCK(s);
+	if (!is->is_scheduled) {
+		p->p_wchan = p;
+		p->p_wmesg = "softintr";
+		p->p_slptime = 0;
+		p->p_priority = PVM & PRIMASK;
+		TAILQ_INSERT_TAIL(&slpque[LOOKUP(p)], p, p_runq);
+		p->p_stat = SSLEEP;
+		mi_switch();
+	}
+	SCHED_UNLOCK(s);
 }

@@ -62,6 +62,7 @@
 #include <sys/ptrace.h>
 #include <sys/sched.h>
 #include <sys/user.h>
+#include <sys/ithread.h>
 
 #include <sys/mount.h>
 #include <sys/syscallargs.h>
@@ -1237,7 +1238,8 @@ proc_stop(struct proc *p, int sw)
 		 * We need this soft interrupt to be handled fast.
 		 * Extra calls to softclock don't hurt.
 		 */
-                softintr_schedule(softclock_si);
+		/* XXX causes recursion on SCHED_LOCK */
+		ithread_softsched(softclock_si);
 	}
 	if (sw)
 		mi_switch();

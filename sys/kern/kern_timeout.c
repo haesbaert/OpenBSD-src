@@ -319,7 +319,7 @@ timeout_hardclock_update(void)
 	return (ret);
 }
 
-void
+int
 softclock(void *arg)
 {
 	struct timeout *to;
@@ -353,6 +353,8 @@ softclock(void *arg)
 		}
 	}
 	mtx_leave(&timeout_mutex);
+
+	return (1);
 }
 
 #ifndef SMALL_KERNEL

@@ -75,6 +75,7 @@
 #include <sys/syslog.h>
 #include <sys/device.h>
 #include <sys/vnode.h>
+#include <sys/ithread.h>
 #ifdef DDB
 #include <ddb/db_var.h>
 #endif
@@ -1088,7 +1089,7 @@ comdiag(void *arg)
 	    floods, floods == 1 ? "" : "s");
 }
 
-void
+int
 comsoft(void *arg)
 {
 	struct com_softc *sc = (struct com_softc *)arg;
@@ -1105,7 +1106,7 @@ comsoft(void *arg)
 	};
 
 	if (sc == NULL || sc->sc_ibufp == sc->sc_ibuf)
-		return;
+		return (0);
 
 	tp = sc->sc_tty;
 
@@ -1116,7 +1117,7 @@ comsoft(void *arg)
 
 	if (ibufp == ibufend) {
 		splx(s);
-		return;
+		return (0);
 	}
 
 	sc->sc_ibufp = sc->sc_ibuf = (ibufp == sc->sc_ibufs[0]) ?
@@ -1126,7 +1127,7 @@ comsoft(void *arg)
 
 	if (tp == NULL || !ISSET(tp->t_state, TS_ISOPEN)) {
 		splx(s);
-		return;
+		return (0);
 	}
 
 	if (ISSET(tp->t_cflag, CRTSCTS) &&
@@ -1150,6 +1151,8 @@ comsoft(void *arg)
 		c |= lsrmap[(*ibufp++ & (LSR_BI|LSR_FE|LSR_PE)) >> 2];
 		(*linesw[tp->t_line].l_rint)(c, tp);
 	}
+
+	return (1);
 }
 
 #ifdef KGDB
@@ -1815,7 +1818,7 @@ com_attach_subr(struct com_softc *sc)
 
 	timeout_set(&sc->sc_diag_tmo, comdiag, sc);
 	timeout_set(&sc->sc_dtr_tmo, com_raisedtr, sc);
-	sc->sc_si = softintr_establish(IPL_TTY, comsoft, sc);
+	sc->sc_si = ithread_softregister(IPL_TTY, comsoft, sc, 0);
 	if (sc->sc_si == NULL)
 		panic("%s: can't establish soft interrupt",
 		    sc->sc_dev.dv_xname);
