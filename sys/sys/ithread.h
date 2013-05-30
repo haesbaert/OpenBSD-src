@@ -24,5 +24,10 @@ int	ithread_handler(struct intrsource *);
 void	ithread_register(struct intrsource *);
 void	ithread_deregister(struct intrsource *);
 void	ithread_forkall(void);
+void	ithread_softmain(void *);
+struct intrsource *
+ithread_softregister(int, int (*)(void *), void *, int);
+void	ithread_softsched(struct intrsource *);
+void	ithread_softsleep(struct intrsource *);
 
 #endif /* _SYS_ITHREAD_H_ */
