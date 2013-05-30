@@ -2007,9 +2007,7 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 	u32 misc, misc2 = 0;
 	int num_modes = 0, i;
 	int state_index = 0;
-#ifdef notyet
 	struct radeon_i2c_bus_rec i2c_bus;
-#endif
 	union power_info *power_info;
 	int index = GetIndexIntoMasterTable(DATA, PowerPlayInfo);
         u16 data_offset;
@@ -2026,9 +2024,9 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 		DRM_INFO("Possible %s thermal controller at 0x%02x\n",
 			 thermal_controller_names[power_info->info.ucOverdriveThermalController],
 			 power_info->info.ucOverdriveControllerAddress >> 1);
-#ifdef notyet
 		i2c_bus = radeon_lookup_i2c_gpio(rdev, power_info->info.ucOverdriveI2cLine);
 		rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
+#ifdef notyet
 		if (rdev->pm.i2c_bus) {
 			struct i2c_board_info info = { };
 			const char *name = thermal_controller_names[power_info->info.
@@ -2189,9 +2187,7 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 static void radeon_atombios_add_pplib_thermal_controller(struct radeon_device *rdev,
 							 ATOM_PPLIB_THERMALCONTROLLER *controller)
 {
-#ifdef notyet
 	struct radeon_i2c_bus_rec i2c_bus;
-#endif
 
 	/* add the i2c bus for thermal/fan chip */
 	if (controller->ucType > 0) {
@@ -2238,9 +2234,9 @@ static void radeon_atombios_add_pplib_thermal_controller(struct radeon_device *r
 				 controller->ucI2cAddress >> 1,
 				 (controller->ucFanParameters &
 				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
-#ifdef notyet
 			i2c_bus = radeon_lookup_i2c_gpio(rdev, controller->ucI2cLine);
 			rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
+#ifdef notyet
 			if (rdev->pm.i2c_bus) {
 				struct i2c_board_info info = { };
 				const char *name = pp_lib_thermal_controller_names[controller->ucType];
