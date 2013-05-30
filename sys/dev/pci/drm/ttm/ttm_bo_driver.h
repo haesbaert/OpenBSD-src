@@ -562,9 +562,8 @@ struct ttm_bo_device {
 	 * Internal protection.
 	 */
 
-#ifdef notyet
-	struct delayed_work wq;
-#endif
+	struct workq_task task;
+	struct timeout to;
 
 	bool need_dma32;
 };

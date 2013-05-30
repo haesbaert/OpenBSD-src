@@ -70,6 +70,8 @@ bool	 ttm_bo_mt_compatible(struct ttm_mem_type_manager *, uint32_t,
 	     uint32_t, uint32_t *);
 int	 ttm_bo_mem_compat(struct ttm_placement *, struct ttm_mem_reg *);
 int	 ttm_bo_force_list_clean(struct ttm_bo_device *, unsigned, bool);
+void	 ttm_bo_delayed_tick(void *);
+void	 ttm_bo_delayed_workqueue(void *, void *);
 
 #ifdef notyet
 static struct attribute ttm_bo_count = {
@@ -592,10 +594,8 @@ ttm_bo_cleanup_refs_or_queue(struct ttm_buffer_object *bo)
 		driver->sync_obj_flush(sync_obj);
 		driver->sync_obj_unref(&sync_obj);
 	}
-#ifdef notyet
-	schedule_delayed_work(&bdev->wq,
-			      ((HZ / 100) < 1) ? 1 : HZ / 100);
-#endif
+	timeout_add(&bdev->to,
+			      ((hz / 100) < 1) ? 1 : hz / 100);
 }
 
 /**
@@ -748,19 +748,25 @@ out:
 	return ret;
 }
 
-#ifdef notyet
 void
-ttm_bo_delayed_workqueue(struct work_struct *work)
+ttm_bo_delayed_tick(void *arg)
 {
-	struct ttm_bo_device *bdev =
-	    container_of(work, struct ttm_bo_device, wq.work);
+	struct ttm_bo_device *bdev = arg;
+
+	workq_queue_task(NULL, &bdev->task, 0,
+	    ttm_bo_delayed_workqueue, bdev, NULL);
+}
+
+void
+ttm_bo_delayed_workqueue(void *arg1, void *arg2)
+{
+	struct ttm_bo_device *bdev = arg1;
 
 	if (ttm_bo_delayed_delete(bdev, false)) {
-		schedule_delayed_work(&bdev->wq,
-				      ((HZ / 100) < 1) ? 1 : HZ / 100);
+		timeout_add(&bdev->to,
+				      ((hz / 100) < 1) ? 1 : hz / 100);
 	}
 }
-#endif
 
 void
 ttm_bo_release(struct ttm_buffer_object *bo)
@@ -798,23 +804,17 @@ EXPORT_SYMBOL(ttm_bo_unref);
 int
 ttm_bo_lock_delayed_workqueue(struct ttm_bo_device *bdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	return cancel_delayed_work_sync(&bdev->wq);
-#endif
+	timeout_del(&bdev->to);
+	return 0;
 }
 EXPORT_SYMBOL(ttm_bo_lock_delayed_workqueue);
 
 void
 ttm_bo_unlock_delayed_workqueue(struct ttm_bo_device *bdev, int resched)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	if (resched)
-		schedule_delayed_work(&bdev->wq,
-				      ((HZ / 100) < 1) ? 1 : HZ / 100);
-#endif
+		timeout_add(&bdev->to,
+				      ((hz / 100) < 1) ? 1 : hz / 100);
 }
 EXPORT_SYMBOL(ttm_bo_unlock_delayed_workqueue);
 
@@ -1607,9 +1607,7 @@ ttm_bo_device_release(struct ttm_bo_device *bdev)
 	list_del(&bdev->device_list);
 	rw_exit_write(&glob->device_list_rwlock);
 
-#ifdef notyet
-	cancel_delayed_work_sync(&bdev->wq);
-#endif
+	timeout_del(&bdev->to);
 
 	while (ttm_bo_delayed_delete(bdev, true))
 		;
@@ -1658,9 +1656,7 @@ ttm_bo_device_init(struct ttm_bo_device *bdev,
 	if (unlikely(ret != 0))
 		goto out_no_addr_mm;
 
-#ifdef notyet
-	INIT_DELAYED_WORK(&bdev->wq, ttm_bo_delayed_workqueue);
-#endif
+	timeout_set(&bdev->to, ttm_bo_delayed_tick, bdev);
 	INIT_LIST_HEAD(&bdev->ddestroy);
 	bdev->dev_mapping = NULL;
 	bdev->glob = glob;
