@@ -247,7 +247,7 @@ int radeon_irq_kms_init(struct radeon_device *rdev)
 {
 	int r = 0;
 
-	mtx_init(&rdev->irq.lock, IPL_NONE);
+	mtx_init(&rdev->irq.lock, IPL_TTY);
 	r = drm_vblank_init(rdev->ddev, rdev->num_crtc);
 	if (r) {
 		return r;
