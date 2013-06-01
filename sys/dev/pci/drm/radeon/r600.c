@@ -827,15 +827,13 @@ void r600_hpd_fini(struct radeon_device *rdev)
  */
 void r600_pcie_gart_tlb_flush(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	unsigned i;
 	u32 tmp;
 
 	/* flush hdp cache so updates hit vram */
 	if ((rdev->family >= CHIP_RV770) && (rdev->family <= CHIP_RV740) &&
 	    !(rdev->flags & RADEON_IS_AGP)) {
-		void __iomem *ptr = (void *)rdev->gart.ptr;
+		volatile uint32_t *ptr = rdev->gart.ptr;
 		u32 tmp;
 
 		/* r7xx hw bug.  write to HDP_DEBUG1 followed by fb read
@@ -844,7 +842,7 @@ void r600_pcie_gart_tlb_flush(struct radeon_device *rdev)
 		 * method for them.
 		 */
 		WREG32(HDP_DEBUG1, 0);
-		tmp = readl((void __iomem *)ptr);
+		tmp = *ptr;
 	} else
 		WREG32(R_005480_HDP_MEM_COHERENCY_FLUSH_CNTL, 0x1);
 
@@ -864,7 +862,6 @@ void r600_pcie_gart_tlb_flush(struct radeon_device *rdev)
 		}
 		DRM_UDELAY(1);
 	}
-#endif
 }
 
 int r600_pcie_gart_init(struct radeon_device *rdev)
