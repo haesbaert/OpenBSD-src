@@ -4235,13 +4235,12 @@ int r600_get_pcie_lanes(struct radeon_device *rdev)
 
 static void r600_pcie_gen2_enable(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	u32 link_width_cntl, lanes, speed_cntl, training_cntl, tmp;
 	u16 link_cntl2;
 	u32 mask;
 	int ret;
+#endif
 
 	if (radeon_pcie_gen2 == 0)
 		return;
@@ -4253,13 +4252,15 @@ static void r600_pcie_gen2_enable(struct radeon_device *rdev)
 		return;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(ddev))
+	if (ASIC_IS_X2(rdev))
 		return;
 
 	/* only RV6xx+ chips are supported */
 	if (rdev->family <= CHIP_R600)
 		return;
 
+	printf("%s partial stub\n", __func__);
+#ifdef notyet
 	ret = drm_pcie_get_speed_cap_mask(rdev->ddev, &mask);
 	if (ret != 0)
 		return;
