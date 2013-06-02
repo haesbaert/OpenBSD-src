@@ -1197,6 +1197,8 @@ void radeon_device_fini(struct radeon_device *rdev)
 #endif
 }
 
+#define console_lock()
+#define console_unlock()
 
 /*
  * Suspend & resume.
@@ -1211,8 +1213,7 @@ void radeon_device_fini(struct radeon_device *rdev)
  * Returns 0 for success or an error on failure.
  * Called at driver suspend.
  */
-#ifdef notyet
-int radeon_suspend_kms(struct drm_device *dev, pm_message_t state)
+int radeon_suspend_kms(struct drm_device *dev)
 {
 	struct radeon_device *rdev;
 	struct drm_crtc *crtc;
@@ -1223,13 +1224,17 @@ int radeon_suspend_kms(struct drm_device *dev, pm_message_t state)
 	if (dev == NULL || dev->dev_private == NULL) {
 		return -ENODEV;
 	}
+#ifdef notyet
 	if (state.event == PM_EVENT_PRETHAW) {
 		return 0;
 	}
+#endif
 	rdev = dev->dev_private;
 
+#ifdef notyet
 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
+#endif
 
 	drm_kms_helper_poll_disable(dev);
 
@@ -1283,12 +1288,14 @@ int radeon_suspend_kms(struct drm_device *dev, pm_message_t state)
 
 	radeon_agp_suspend(rdev);
 
+#ifdef notyet
 	pci_save_state(dev->pdev);
 	if (state.event == PM_EVENT_SUSPEND) {
 		/* Shut down the device */
 		pci_disable_device(dev->pdev);
 		pci_set_power_state(dev->pdev, PCI_D3hot);
 	}
+#endif
 	console_lock();
 	radeon_fbdev_set_suspend(rdev, 1);
 	console_unlock();
@@ -1310,16 +1317,20 @@ int radeon_resume_kms(struct drm_device *dev)
 	struct radeon_device *rdev = dev->dev_private;
 	int r;
 
+#ifdef notyet
 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
+#endif
 
 	console_lock();
+#ifdef notyet
 	pci_set_power_state(dev->pdev, PCI_D0);
 	pci_restore_state(dev->pdev);
 	if (pci_enable_device(dev->pdev)) {
 		console_unlock();
 		return -1;
 	}
+#endif
 	/* resume AGP if in use */
 	radeon_agp_resume(rdev);
 	radeon_resume(rdev);
@@ -1358,7 +1369,6 @@ int radeon_resume_kms(struct drm_device *dev)
 	drm_kms_helper_poll_enable(dev);
 	return 0;
 }
-#endif // notyet
 
 /**
  * radeon_gpu_reset - reset the asic

@@ -1648,12 +1648,14 @@ radeondrm_attachhook(void *xsc)
 int
 radeondrm_activate_kms(struct device *arg, int act)
 {
-//	struct radeon_device *rdev = (struct radeon_device *)arg;
+	struct radeon_device *rdev = (struct radeon_device *)arg;
 
 	switch (act) {
 	case DVACT_SUSPEND:
+		radeon_suspend_kms(rdev->ddev);
 		break;
 	case DVACT_RESUME:
+		radeon_resume_kms(rdev->ddev);
 		break;
 	}
 

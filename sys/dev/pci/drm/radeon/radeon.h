@@ -1898,9 +1898,7 @@ extern bool radeon_ttm_bo_is_radeon_bo(struct ttm_buffer_object *bo);
 extern void radeon_vram_location(struct radeon_device *rdev, struct radeon_mc *mc, u64 base);
 extern void radeon_gtt_location(struct radeon_device *rdev, struct radeon_mc *mc);
 extern int radeon_resume_kms(struct drm_device *dev);
-#ifdef notyet
-extern int radeon_suspend_kms(struct drm_device *dev, pm_message_t state);
-#endif
+extern int radeon_suspend_kms(struct drm_device *dev);
 extern void radeon_ttm_set_active_vram_size(struct radeon_device *rdev, u64 size);
 
 /*
