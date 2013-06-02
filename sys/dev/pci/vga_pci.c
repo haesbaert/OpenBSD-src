@@ -173,12 +173,6 @@ static const struct vga_device_description vga_devs[] = {
 	    	0x0000, 0x0000 },
 	    {	0xffff, 0xffff, 0x0000, 0x0000 }, 1, 0
 	},
-
-	{	/* All ATI video until further notice */
-	    {	PCI_VENDOR_ATI, 0x0000,
-		0x0000, 0x0000 },
-	    {	0xffff, 0x0000, 0x0000, 0x0000}, 1, 0
-	},
 };
 #endif
 
