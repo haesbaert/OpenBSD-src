@@ -3114,13 +3114,10 @@ free_scratch:
  */
 int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct radeon_ib ib;
 	unsigned i;
 	int r;
-	void __iomem *ptr = (void *)rdev->vram_scratch.ptr;
+	volatile uint32_t *ptr = rdev->vram_scratch.ptr;
 	u32 tmp = 0;
 
 	if (!ptr) {
@@ -3129,7 +3126,7 @@ int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 	}
 
 	tmp = 0xCAFEDEAD;
-	writel(tmp, ptr);
+	*ptr = tmp;
 
 	r = radeon_ib_get(rdev, ring->idx, &ib, NULL, 256);
 	if (r) {
@@ -3155,7 +3152,7 @@ int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 		return r;
 	}
 	for (i = 0; i < rdev->usec_timeout; i++) {
-		tmp = readl(ptr);
+		tmp = *ptr;
 		if (tmp == 0xDEADBEEF)
 			break;
 		DRM_UDELAY(1);
@@ -3168,7 +3165,6 @@ int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 	}
 	radeon_ib_free(rdev, &ib);
 	return r;
-#endif
 }
 
 /**
