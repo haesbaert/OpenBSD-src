@@ -3713,11 +3713,10 @@ void evergreen_fini(struct radeon_device *rdev)
 
 void evergreen_pcie_gen2_enable(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
 #ifdef notyet
-	struct drm_device *ddev = rdev->ddev;
 	u32 link_width_cntl, speed_cntl, mask;
 	int ret;
+#endif
 
 	if (radeon_pcie_gen2 == 0)
 		return;
@@ -3729,9 +3728,11 @@ void evergreen_pcie_gen2_enable(struct radeon_device *rdev)
 		return;
 
 	/* x2 cards have a special sequence */
-	if (ASIC_IS_X2(ddev))
+	if (ASIC_IS_X2(rdev))
 		return;
-
+	
+	printf("%s partial stub\n", __func__);
+#ifdef notyet
 	ret = drm_pcie_get_speed_cap_mask(ddev, &mask);
 	if (ret != 0)
 		return;
