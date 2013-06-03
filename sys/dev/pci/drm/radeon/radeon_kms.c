@@ -1392,6 +1392,7 @@ void radeondrm_free_screen(void *, void *);
 int radeondrm_show_screen(void *, void *, int,
     void (*)(void *, int, int), void *);
 void radeondrm_doswitch(void *, void *);
+int radeondrm_getchar(void *, int, int, struct wsdisplay_charcell *);
 
 struct wsscreen_descr radeondrm_stdscreen = {
 	"std",
@@ -1415,7 +1416,10 @@ struct wsdisplay_accessops radeondrm_accessops = {
 	radeondrm_wsmmap,
 	radeondrm_alloc_screen,
 	radeondrm_free_screen,
-	radeondrm_show_screen
+	radeondrm_show_screen,
+	NULL,
+	NULL,
+	radeondrm_getchar
 };
 
 int
@@ -1483,6 +1487,15 @@ radeondrm_doswitch(void *v, void *cookie)
 
 	if (rdev->switchcb)
 		(rdev->switchcb)(rdev->switchcbarg, 0, 0);
+}
+
+int
+radeondrm_getchar(void *v, int row, int col, struct wsdisplay_charcell *cell)
+{
+	struct radeon_device *rdev = v;
+	struct rasops_info *ri = &rdev->ro;
+
+	return rasops_getchar(ri, row, col, cell);
 }
 
 /**
