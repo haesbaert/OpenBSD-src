@@ -1116,9 +1116,11 @@ struct radeon_i2c_chan *radeon_i2c_create_dp(struct drm_device *dev,
 		 "Radeon aux bus %s", name);
 	i2c_set_adapdata(&i2c->adapter, i2c);
 	i2c->adapter.algo_data = &i2c->algo.dp;
-	i2c->algo.dp.aux_ch = radeon_dp_i2c_aux_ch;
-	i2c->algo.dp.address = 0;
 #endif
+	i2c->adapter.ic_cookie = &i2c->algo.dp;
+	i2c->algo.dp.aux_ch = radeon_dp_i2c_aux_ch;
+	i2c->algo.dp.adapter = &i2c->adapter;
+	i2c->algo.dp.address = 0;
 	ret = i2c_dp_aux_add_bus(&i2c->adapter);
 	if (ret) {
 		DRM_INFO("Failed to register i2c %s\n", name);
