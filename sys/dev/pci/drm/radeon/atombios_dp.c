@@ -196,10 +196,7 @@ static u8 radeon_read_dpcd_reg(struct radeon_connector *radeon_connector,
 int radeon_dp_i2c_aux_ch(struct i2c_controller *adapter, int mode,
 			 u8 write_byte, u8 *read_byte)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	struct i2c_algo_dp_aux_data *algo_data = adapter->algo_data;
+	struct i2c_algo_dp_aux_data *algo_data = adapter->ic_cookie;
 	struct radeon_i2c_chan *auxch = (struct radeon_i2c_chan *)adapter;
 	u16 address = algo_data->address;
 	u8 msg[5];
@@ -286,7 +283,6 @@ int radeon_dp_i2c_aux_ch(struct i2c_controller *adapter, int mode,
 
 	DRM_DEBUG_KMS("aux i2c too many retries, giving up\n");
 	return -EIO;
-#endif
 }
 
 /***** general DP utility functions *****/
