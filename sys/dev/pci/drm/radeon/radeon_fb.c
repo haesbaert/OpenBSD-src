@@ -461,3 +461,22 @@ bool radeon_fbdev_robj_is_fb(struct radeon_device *rdev, struct radeon_bo *robj)
 		return true;
 	return false;
 }
+
+void
+radeondrm_burner(void *v, u_int on, u_int flags)
+{
+	struct radeon_device *rdev = v;
+	struct drm_fb_helper *helper = &rdev->mode_info.rfbdev->helper;
+	int dpms_mode;
+
+	if (on)
+		dpms_mode = DRM_MODE_DPMS_ON;
+	else {
+		if (flags & WSDISPLAY_BURN_VBLANK)
+			dpms_mode = DRM_MODE_DPMS_OFF;
+		else
+			dpms_mode = DRM_MODE_DPMS_STANDBY;
+	}
+
+	drm_fb_helper_dpms(helper, dpms_mode);
+}

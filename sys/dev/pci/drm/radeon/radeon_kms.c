@@ -1419,7 +1419,8 @@ struct wsdisplay_accessops radeondrm_accessops = {
 	radeondrm_show_screen,
 	NULL,
 	NULL,
-	radeondrm_getchar
+	radeondrm_getchar,
+	radeondrm_burner
 };
 
 int
