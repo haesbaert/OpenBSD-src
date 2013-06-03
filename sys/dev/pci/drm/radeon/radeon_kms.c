@@ -30,6 +30,8 @@
 #include <dev/pci/drm/radeon_drm.h>
 #include "radeon_asic.h"
 
+void	drm_fb_helper_restore(void);
+
 /* can't include radeon_drv.h due to duplicated defines in radeon_reg.h */
 
 #define DRIVER_NAME		"radeon"
@@ -1389,6 +1391,7 @@ int radeondrm_alloc_screen(void *, const struct wsscreen_descr *,
 void radeondrm_free_screen(void *, void *);
 int radeondrm_show_screen(void *, void *, int,
     void (*)(void *, int, int), void *);
+void radeondrm_doswitch(void *, void *);
 
 struct wsscreen_descr radeondrm_stdscreen = {
 	"std",
@@ -1453,7 +1456,33 @@ radeondrm_show_screen(void *v, void *cookie, int waitok,
 	struct radeon_device *rdev = v;
 	struct rasops_info *ri = &rdev->ro;
 
-	return rasops_show_screen(ri, cookie, waitok, cb, cbarg);
+	if (cookie == ri->ri_active)
+		return (0);
+
+	rdev->switchcb = cb;
+	rdev->switchcbarg = cbarg;
+	if (cb) {
+		workq_queue_task(NULL, &rdev->switchwqt, 0,
+		    radeondrm_doswitch, v, cookie);
+		return (EAGAIN);
+	}
+
+	radeondrm_doswitch(v, cookie);
+
+	return (0);
+}
+
+void
+radeondrm_doswitch(void *v, void *cookie)
+{
+	struct radeon_device *rdev = v;
+	struct rasops_info *ri = &rdev->ro;
+
+	rasops_show_screen(ri, cookie, 0, NULL, NULL);
+	drm_fb_helper_restore();
+
+	if (rdev->switchcb)
+		(rdev->switchcb)(rdev->switchcbarg, 0, 0);
 }
 
 /**
@@ -1609,7 +1638,6 @@ radeondrm_attachhook(void *xsc)
 	if (ri->ri_bits == NULL)
 		return;
 
-	void drm_fb_helper_restore(void);
 	drm_fb_helper_restore();
 
 	ri->ri_flg = RI_CENTER | RI_VCONS;

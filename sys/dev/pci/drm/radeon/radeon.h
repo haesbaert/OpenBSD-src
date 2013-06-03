@@ -1557,6 +1557,9 @@ struct radeon_device {
 	bus_dma_tag_t			dmat;
 	void				*irqh;
 
+	void				(*switchcb)(void *, int, int);
+	void				*switchcbarg;
+	struct workq_task		switchwqt;
 	struct rasops_info		ro;
 
 	struct rwlock 			exclusive_lock;
