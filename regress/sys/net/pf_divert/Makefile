@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.1.1.1 2013/06/03 05:06:38 bluhm Exp $
+#	$OpenBSD: Makefile,v 1.1 2013/06/03 05:06:38 bluhm Exp $
 
 # The following ports must be installed for the regression tests:
 # p5-IO-Socket-INET6	object interface for AF_INET and AF_INET6 domain sockets
