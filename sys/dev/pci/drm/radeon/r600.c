@@ -2485,12 +2485,9 @@ int r600_ring_test(struct radeon_device *rdev, struct radeon_ring *ring)
 int r600_dma_ring_test(struct radeon_device *rdev,
 		       struct radeon_ring *ring)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	unsigned i;
 	int r;
-	void __iomem *ptr = (void *)rdev->vram_scratch.ptr;
+	volatile uint32_t *ptr = rdev->vram_scratch.ptr;
 	u32 tmp;
 
 	if (!ptr) {
@@ -2499,7 +2496,7 @@ int r600_dma_ring_test(struct radeon_device *rdev,
 	}
 
 	tmp = 0xCAFEDEAD;
-	writel(tmp, ptr);
+	*ptr = tmp;
 
 	r = radeon_ring_lock(rdev, ring, 4);
 	if (r) {
@@ -2513,7 +2510,7 @@ int r600_dma_ring_test(struct radeon_device *rdev,
 	radeon_ring_unlock_commit(rdev, ring);
 
 	for (i = 0; i < rdev->usec_timeout; i++) {
-		tmp = readl(ptr);
+		tmp = *ptr;
 		if (tmp == 0xDEADBEEF)
 			break;
 		DRM_UDELAY(1);
@@ -2527,7 +2524,6 @@ int r600_dma_ring_test(struct radeon_device *rdev,
 		r = -EINVAL;
 	}
 	return r;
-#endif
 }
 
 /*
