@@ -1282,6 +1282,7 @@ ttm_bo_init(struct ttm_bo_device *bdev,
 	}
 	bo->destroy = destroy;
 
+	uvm_objinit(&bo->uobj, NULL, 1);
 	refcount_init(&bo->kref, 1);
 	refcount_init(&bo->list_kref, 1);
 	atomic_set(&bo->cpu_writers, 0);

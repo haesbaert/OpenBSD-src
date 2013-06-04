@@ -186,6 +186,8 @@ struct ttm_tt;
  */
 
 struct ttm_buffer_object {
+	struct uvm_object uobj;
+
 	/**
 	 * Members constant at init.
 	 */
@@ -694,6 +696,8 @@ extern int ttm_fbdev_mmap(struct vm_area_struct *vma,
 extern int ttm_bo_mmap(struct file *filp, struct vm_area_struct *vma,
 		       struct ttm_bo_device *bdev);
 #endif
+extern struct uvm_object *ttm_bo_mmap(voff_t, vsize_t,
+				      struct ttm_bo_device *);
 
 /**
  * ttm_bo_io

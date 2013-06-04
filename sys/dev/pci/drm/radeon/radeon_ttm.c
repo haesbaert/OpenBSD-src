@@ -846,59 +846,60 @@ void radeon_ttm_set_active_vram_size(struct radeon_device *rdev, u64 size)
 	man->size = size >> PAGE_SHIFT;
 }
 
-#ifdef notyet
-static struct vm_operations_struct radeon_ttm_vm_ops;
-static const struct vm_operations_struct *ttm_vm_ops = NULL;
-#endif
+struct uvm_pagerops radeon_ttm_vm_ops;
+const struct uvm_pagerops *ttm_vm_ops = NULL;
 
-#ifdef notyet
-static int radeon_ttm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+int radeon_ttm_fault(struct uvm_faultinfo *, vaddr_t, vm_page_t *,
+        int, int, vm_fault_t, vm_prot_t, int);
+
+int
+radeon_ttm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
+    int npages, int centeridx, vm_fault_t fault_type,
+    vm_prot_t access_type, int flags)
 {
 	struct ttm_buffer_object *bo;
 	struct radeon_device *rdev;
 	int r;
 
-	bo = (struct ttm_buffer_object *)vma->vm_private_data;	
-	if (bo == NULL) {
-		return VM_FAULT_NOPAGE;
-	}
+	bo = (struct ttm_buffer_object *)ufi->entry->object.uvm_obj;
 	rdev = radeon_get_rdev(bo->bdev);
 	rw_enter_read(&rdev->pm.mclk_lock);
-	r = ttm_vm_ops->fault(vma, vmf);
+	r = ttm_vm_ops->pgo_fault(ufi, vaddr, pps, npages, centeridx,
+				  fault_type, access_type, flags);
 	rw_exit_read(&rdev->pm.mclk_lock);
 	return r;
 }
-#endif
 
-#ifdef notyet
-int radeon_mmap(struct file *filp, struct vm_area_struct *vma)
+struct uvm_object *radeon_mmap(struct drm_device *, voff_t, vsize_t);
+
+struct uvm_object *
+radeon_mmap(struct drm_device *dev, voff_t off, vsize_t size)
 {
-	struct drm_file *file_priv;
-	struct radeon_device *rdev;
-	int r;
+	struct radeon_device *rdev = dev->dev_private;
+	struct uvm_object *uobj;
 
-	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
-		return drm_mmap(filp, vma);
-	}
+	if (unlikely(off < DRM_FILE_PAGE_OFFSET))
+		return NULL;
 
+#if 0
 	file_priv = filp->private_data;
 	rdev = file_priv->minor->dev->dev_private;
 	if (rdev == NULL) {
 		return -EINVAL;
 	}
-	r = ttm_bo_mmap(filp, vma, &rdev->mman.bdev);
-	if (unlikely(r != 0)) {
-		return r;
+#endif
+	uobj = ttm_bo_mmap(off, size, &rdev->mman.bdev);
+	if (unlikely(uobj == NULL)) {
+		return NULL;
 	}
 	if (unlikely(ttm_vm_ops == NULL)) {
-		ttm_vm_ops = vma->vm_ops;
+		ttm_vm_ops = uobj->pgops;
 		radeon_ttm_vm_ops = *ttm_vm_ops;
-		radeon_ttm_vm_ops.fault = &radeon_ttm_fault;
+		radeon_ttm_vm_ops.pgo_fault = &radeon_ttm_fault;
 	}
-	vma->vm_ops = &radeon_ttm_vm_ops;
-	return 0;
+	uobj->pgops = &radeon_ttm_vm_ops;
+	return uobj;
 }
-#endif
 
 
 #define RADEON_DEBUGFS_MEM_TYPES 2

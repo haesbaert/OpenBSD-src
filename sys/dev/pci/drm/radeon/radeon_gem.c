@@ -34,8 +34,6 @@ void	 radeon_gem_object_free(struct drm_obj *);
 int	 radeon_gem_set_domain(struct drm_obj *, uint32_t, uint32_t);
 int	 radeon_gem_object_open(struct drm_obj *, struct drm_file *);
 void	 radeon_gem_object_close(struct drm_obj *, struct drm_file *);
-int	 radeon_mode_dumber_mmap(struct drm_file *, struct drm_device *,
-	     uint32_t, uint64_t *);
 
 int radeon_gem_object_init(struct drm_obj *obj)
 {
@@ -327,43 +325,10 @@ int radeon_gem_set_domain_ioctl(struct drm_device *dev, void *data,
 	return r;
 }
 
-int radeon_mode_dumber_mmap(struct drm_file *filp,
-			  struct drm_device *dev,
-			  uint32_t handle, uint64_t *offset_p)
-{
-	struct drm_obj *gobj;
-	struct radeon_bo *robj;
-	struct drm_local_map *map;
-	voff_t offset;
-	int ret = 0;
-
-	gobj = drm_gem_object_lookup(dev, filp, handle);
-	if (gobj == NULL) {
-		return -ENOENT;
-	}
-	robj = gem_to_radeon_bo(gobj);
-
-	offset = (voff_t)*offset_p;
-
-	/* XXX bind to gtt */
-
-	ret = drm_addmap(dev, radeon_bo_gpu_offset(robj), radeon_bo_size(robj),
-	    _DRM_FRAME_BUFFER, _DRM_WRITE_COMBINING, &map);
-
-	if (ret == 0)
-		*offset_p = map->ext;
-	else
-		drm_unref(&robj->gem_base.uobj);
-
-	return (ret);
-}
-
 int radeon_mode_dumb_mmap(struct drm_file *filp,
 			  struct drm_device *dev,
 			  uint32_t handle, uint64_t *offset_p)
 {
-	return radeon_mode_dumber_mmap(filp, dev, handle, offset_p);
-#ifdef notyet
 	struct drm_obj *gobj;
 	struct radeon_bo *robj;
 
@@ -375,7 +340,6 @@ int radeon_mode_dumb_mmap(struct drm_file *filp,
 	*offset_p = radeon_bo_mmap_offset(robj);
 	drm_gem_object_unreference_unlocked(gobj);
 	return 0;
-#endif
 }
 
 int radeon_gem_mmap_ioctl(struct drm_device *dev, void *data,
