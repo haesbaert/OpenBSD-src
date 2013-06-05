@@ -299,10 +299,8 @@ ttm_bo_mmap(voff_t off, vsize_t size, struct ttm_bo_device *bdev)
 
 	rw_enter_read(&bdev->vm_lock);
 	bo = ttm_bo_vm_lookup_rb(bdev, off >> PAGE_SHIFT, size >> PAGE_SHIFT);
-#if 0
-	if (likely(bo != NULL) && !kref_get_unless_zero(&bo->kref))
-		bo = NULL;
-#endif
+	if (likely(bo != NULL))
+		refcount_acquire(&bo->kref);
 	rw_exit_read(&bdev->vm_lock);
 
 	if (unlikely(bo == NULL)) {
