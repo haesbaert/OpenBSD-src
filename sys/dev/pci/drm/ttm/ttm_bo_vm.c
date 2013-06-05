@@ -233,7 +233,6 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 			paddr = VM_PAGE_TO_PHYS(page);
 		}
 
-		printf("vaddr %llx, paddr %llx\n", vaddr, paddr);
 		ret = pmap_enter(ufi->orig_map->pmap, vaddr, paddr,
 		    mapprot, PMAP_CANFAIL | mapprot);
 
