@@ -324,12 +324,10 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 		     struct radeon_sa_bo **sa_bo,
 		     unsigned size, unsigned align, bool block)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct radeon_fence *fences[RADEON_NUM_RINGS];
 	unsigned tries[RADEON_NUM_RINGS];
 	int i, r;
+	int ret = 0;
 
 	BUG_ON(align > RADEON_GPU_PAGE_SIZE);
 	BUG_ON(size > sa_manager->size);
@@ -367,10 +365,12 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 		mtx_enter(&sa_manager->wq_lock);
 		/* if we have nothing to wait for block */
 		if (r == -ENOENT && block) {
-			r = wait_event_interruptible_locked(
-				sa_manager->wq, 
-				radeon_sa_event(sa_manager, size, align)
-			);
+			while (ret == 0) {
+				if (radeon_sa_event(sa_manager, size, align))
+					break;
+				ret = msleep(&sa_manager->wq, &sa_manager->wq_lock,
+				    PZERO | PCATCH, "samgr", 0);
+			}
 
 		} else if (r == -ENOENT) {
 			r = -ENOMEM;
@@ -382,14 +382,11 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 	free(*sa_bo, M_DRM);
 	*sa_bo = NULL;
 	return r;
-#endif
 }
 
 void radeon_sa_bo_free(struct radeon_device *rdev, struct radeon_sa_bo **sa_bo,
 		       struct radeon_fence *fence)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	struct radeon_sa_manager *sa_manager;
 
 	if (sa_bo == NULL || *sa_bo == NULL) {
@@ -405,10 +402,9 @@ void radeon_sa_bo_free(struct radeon_device *rdev, struct radeon_sa_bo **sa_bo,
 	} else {
 		radeon_sa_bo_remove_locked(*sa_bo);
 	}
-	wake_up_all_locked(&sa_manager->wq);
+	wakeup(&sa_manager->wq);
 	mtx_leave(&sa_manager->wq_lock);
 	*sa_bo = NULL;
-#endif
 }
 
 #if defined(CONFIG_DEBUG_FS)
