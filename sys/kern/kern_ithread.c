@@ -106,6 +106,13 @@ ithread_handler(struct intrsource *is)
 	struct proc *p = is->is_proc;
 	int s;
 
+	if (p == NULL) {
+		is->is_scheduled = 1;
+		DPRINTF(1, "received interrupt pin %d before ithread is ready",
+		    is->is_pin);
+		return (0);
+	}
+
 	splassert(is->is_maxlevel);
 
 	DPRINTF(10, "ithread accepted interrupt pin %d "
