@@ -106,6 +106,7 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 	struct vm_page *page;
 	paddr_t paddr;
 	vm_prot_t mapprot;
+	int pmap_flags;
 	boolean_t locked = TRUE;
 	int ret;
 	int i;
@@ -202,11 +203,11 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 	 */
 	mapprot = ufi->entry->protection;
 	if (bo->mem.bus.is_iomem) {
-//		mapprot = ttm_io_prot(bo->mem.placement);
+		pmap_flags = ttm_pmap_flags(bo->mem.placement);
 	} else {
 		ttm = bo->ttm;
-		mapprot = (bo->mem.placement & TTM_PL_FLAG_CACHED) ?
-		    mapprot : ttm_io_prot(bo->mem.placement);
+		pmap_flags = (bo->mem.placement & TTM_PL_FLAG_CACHED) ?
+		    0 : ttm_pmap_flags(bo->mem.placement);
 
 		/* Allocate all page at once, most common usage */
 		if (ttm->bdev->driver->ttm_tt_populate(ttm)) {
@@ -233,8 +234,8 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 			paddr = VM_PAGE_TO_PHYS(page);
 		}
 
-		ret = pmap_enter(ufi->orig_map->pmap, vaddr, paddr,
-		    mapprot, PMAP_CANFAIL | mapprot);
+		ret = pmap_enter(ufi->orig_map->pmap, vaddr,
+		    paddr | pmap_flags, mapprot, PMAP_CANFAIL | mapprot);
 
 		/*
 		 * Somebody beat us to this PTE or prefaulting to

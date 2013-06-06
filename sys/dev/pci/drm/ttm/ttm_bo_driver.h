@@ -982,6 +982,7 @@ extern int ttm_bo_move_accel_cleanup(struct ttm_buffer_object *bo,
  * setting up a PTE with the caching model indicated by @c_state.
  */
 extern vm_prot_t ttm_io_prot(uint32_t caching_flags);
+extern int ttm_pmap_flags(uint32_t caching_flags);
 
 extern const struct ttm_mem_type_manager_func ttm_bo_manager_func;
 

@@ -520,6 +520,14 @@ vm_prot_t ttm_io_prot(uint32_t caching_flags)
 }
 EXPORT_SYMBOL(ttm_io_prot);
 
+int ttm_pmap_flags(uint32_t caching_flags)
+{
+	if (caching_flags & TTM_PL_FLAG_WC)
+		return PMAP_WC;
+	else
+		return PMAP_NOCACHE;
+}
+
 static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 			  unsigned long offset,
 			  unsigned long size,
