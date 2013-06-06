@@ -559,14 +559,13 @@ static int ttm_bo_ioremap(struct ttm_buffer_object *bo,
 	return (!map->virtual) ? -ENOMEM : 0;
 }
 
-uint8_t *kmap(struct vm_page *);
+void *kmap(struct vm_page *);
 
 /* based on i915_gem_swizzle_page */
-uint8_t *
+void *
 kmap(struct vm_page *pg)
 {
 	vaddr_t va;
-	uint8_t *vaddr;
 
 #if defined (__HAVE_PMAP_DIRECT)
 	va = pmap_map_direct(pg);
@@ -577,31 +576,32 @@ kmap(struct vm_page *pg)
 	pmap_kenter_pa(va, VM_PAGE_TO_PHYS(pg), UVM_PROT_RW);
 	pmap_update(pmap_kernel());
 #endif
-	vaddr = (u_int8_t *)va;
-
-	return (vaddr);
+	return (void *)va;
 }
 
-void kunmap(vaddr_t va);
+void kunmap(void *addr);
 
 void
-kunmap(vaddr_t va)
+kunmap(void *addr)
 {
-#if !defined(__HAVE_PMAP_DIRECT)
+	vaddr_t va = (vaddr_t)addr;
+
+#if defined (__HAVE_PMAP_DIRECT)
+	pmap_unmap_direct(va);
+#else
 	pmap_kremove(va, PAGE_SIZE);
 	uvm_km_free(kernel_map, va, PAGE_SIZE);
 	pmap_update(pmap_kernel());
 #endif
 }
 
-uint8_t *vmap(struct vm_page **, unsigned int, unsigned long, vm_prot_t);
+void *vmap(struct vm_page **, unsigned int, unsigned long, vm_prot_t);
 
-uint8_t *
+void *
 vmap(struct vm_page **pages, unsigned int npages, unsigned long flags,
     vm_prot_t prot)
 {
 	vaddr_t va;
-	uint8_t *vaddr;
 	paddr_t pa;
 	int i;
 
@@ -614,16 +614,16 @@ vmap(struct vm_page **pages, unsigned int npages, unsigned long flags,
 		pmap_update(pmap_kernel());
 	}
 
-	vaddr = (u_int8_t *)va;
-
-	return (vaddr);
+	return (void *)va;
 }
 
-void vunmap(vaddr_t, vsize_t);
+void vunmap(void *, size_t);
 
 void
-vunmap(vaddr_t va, vsize_t size)
+vunmap(void *addr, size_t size)
 {
+	vaddr_t va = (vaddr_t)addr;
+
 	pmap_remove(pmap_kernel(), va, va + size);
 	uvm_km_free(kernel_map, va, size);
 	pmap_update(pmap_kernel());
@@ -719,10 +719,10 @@ void ttm_bo_kunmap(struct ttm_bo_kmap_obj *map)
 		    bo->mem.bus.size);
 		break;
 	case ttm_bo_map_vmap:
-		vunmap((vaddr_t)map->virtual, bo->mem.bus.size);
+		vunmap(map->virtual, bo->mem.bus.size);
 		break;
 	case ttm_bo_map_kmap:
-		kunmap((vaddr_t)map->virtual);
+		kunmap(map->virtual);
 		break;
 	case ttm_bo_map_premapped:
 		break;
