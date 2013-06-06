@@ -61,6 +61,7 @@ int radeon_sa_bo_manager_init(struct radeon_device *rdev,
 #ifdef notyet
 	init_waitqueue_head(&sa_manager->wq);
 #endif
+	mtx_init(&sa_manager->wq_lock, IPL_NONE);
 	sa_manager->bo = NULL;
 	sa_manager->size = size;
 	sa_manager->domain = domain;
@@ -342,7 +343,7 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 	INIT_LIST_HEAD(&(*sa_bo)->olist);
 	INIT_LIST_HEAD(&(*sa_bo)->flist);
 
-	mtx_enter(&sa_manager->wq.lock);
+	mtx_enter(&sa_manager->wq_lock);
 	do {
 		for (i = 0; i < RADEON_NUM_RINGS; ++i) {
 			fences[i] = NULL;
@@ -354,16 +355,16 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 
 			if (radeon_sa_bo_try_alloc(sa_manager, *sa_bo,
 						   size, align)) {
-				mtx_leave(&sa_manager->wq.lock);
+				mtx_leave(&sa_manager->wq_lock);
 				return 0;
 			}
 
 			/* see if we can skip over some allocations */
 		} while (radeon_sa_bo_next_hole(sa_manager, fences, tries));
 
-		mtx_leave(&sa_manager->wq.lock);
+		mtx_leave(&sa_manager->wq_lock);
 		r = radeon_fence_wait_any(rdev, fences, false);
-		mtx_enter(&sa_manager->wq.lock);
+		mtx_enter(&sa_manager->wq_lock);
 		/* if we have nothing to wait for block */
 		if (r == -ENOENT && block) {
 			r = wait_event_interruptible_locked(
@@ -377,7 +378,7 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 
 	} while (!r);
 
-	mtx_leave(&sa_manager->wq.lock);
+	mtx_leave(&sa_manager->wq_lock);
 	free(*sa_bo, M_DRM);
 	*sa_bo = NULL;
 	return r;
@@ -396,7 +397,7 @@ void radeon_sa_bo_free(struct radeon_device *rdev, struct radeon_sa_bo **sa_bo,
 	}
 
 	sa_manager = (*sa_bo)->manager;
-	mtx_enter(&sa_manager->wq.lock);
+	mtx_enter(&sa_manager->wq_lock);
 	if (fence && !radeon_fence_signaled(fence)) {
 		(*sa_bo)->fence = radeon_fence_ref(fence);
 		list_add_tail(&(*sa_bo)->flist,
@@ -405,7 +406,7 @@ void radeon_sa_bo_free(struct radeon_device *rdev, struct radeon_sa_bo **sa_bo,
 		radeon_sa_bo_remove_locked(*sa_bo);
 	}
 	wake_up_all_locked(&sa_manager->wq);
-	mtx_leave(&sa_manager->wq.lock);
+	mtx_leave(&sa_manager->wq_lock);
 	*sa_bo = NULL;
 #endif
 }
