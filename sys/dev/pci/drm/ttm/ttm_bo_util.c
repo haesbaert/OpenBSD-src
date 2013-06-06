@@ -586,18 +586,25 @@ kunmap(vaddr_t va)
 #endif
 }
 
-uint8_t * vmap(paddr_t pa, unsigned int count, unsigned long flags, vm_prot_t prot);
+uint8_t *vmap(struct vm_page **, unsigned int, unsigned long, vm_prot_t);
 
 uint8_t *
-vmap(paddr_t pa, unsigned int count, unsigned long flags, vm_prot_t prot)
+vmap(struct vm_page **pages, unsigned int npages, unsigned long flags,
+    vm_prot_t prot)
 {
 	vaddr_t va;
 	uint8_t *vaddr;
+	paddr_t pa;
+	int i;
 
-	va = uvm_km_alloc(kernel_map, PAGE_SIZE * count);
-	pmap_enter(pmap_kernel(), va, pa, prot | VM_PROT_READ | VM_PROT_WRITE,
-	    VM_PROT_READ | VM_PROT_WRITE | PMAP_WIRED);
-	pmap_update(pmap_kernel());
+	va = uvm_km_alloc(kernel_map, PAGE_SIZE * npages);
+	for (i = 0; i < npages; i++) {
+		pa = VM_PAGE_TO_PHYS(pages[i]);
+		pmap_enter(pmap_kernel(), va + (i * PAGE_SIZE), pa,
+		    prot | VM_PROT_READ | VM_PROT_WRITE,
+		    VM_PROT_READ | VM_PROT_WRITE | PMAP_WIRED);
+		pmap_update(pmap_kernel());
+	}
 
 	vaddr = (u_int8_t *)va;
 
@@ -649,7 +656,7 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 			0 :
 			ttm_io_prot(mem->placement);
 		map->bo_kmap_type = ttm_bo_map_vmap;
-		map->virtual = vmap((paddr_t)(ttm->pages + start_page), num_pages,
+		map->virtual = vmap(ttm->pages + start_page, num_pages,
 				    0, prot);
 	}
 	return (!map->virtual) ? -ENOMEM : 0;
