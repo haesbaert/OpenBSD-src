@@ -193,17 +193,17 @@ ttm_bo_release_list(struct ttm_buffer_object *bo)
 int
 ttm_bo_wait_unreserved(struct ttm_buffer_object *bo, bool interruptible)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
-	if (interruptible) {
-		return wait_event_interruptible(bo->event_queue,
-					       !ttm_bo_is_reserved(bo));
-	} else {
-		wait_event(bo->event_queue, !ttm_bo_is_reserved(bo));
-		return 0;
+	int ret = 0;
+
+	while (ret == 0) {
+		if (!ttm_bo_is_reserved(bo))
+			break;
+		ret = -tsleep(&bo->event_queue,
+		    PZERO | (interruptible ? PCATCH : 0), "ttmwt", 0);
+		
 	}
-#endif
+
+	return (ret);
 }
 EXPORT_SYMBOL(ttm_bo_wait_unreserved);
 
