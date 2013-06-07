@@ -40,7 +40,6 @@ int radeon_gem_object_init(struct drm_obj *obj)
 #ifdef notyet
 	BUG();
 #endif
-	printf("%s stub\n", __func__);
 
 	return 0;
 }
