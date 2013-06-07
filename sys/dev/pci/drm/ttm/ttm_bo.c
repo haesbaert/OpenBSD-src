@@ -1524,10 +1524,8 @@ ttm_bo_global_kobj_release(struct ttm_bo_global *glob)
 {
 
 	ttm_mem_unregister_shrink(glob->mem_glob, &glob->shrink);
-#ifdef notyet
-	__free_page(glob->dummy_read_page);
-	free(glob, M_DRM);
-#endif
+	km_free(glob->dummy_read_page, PAGE_SIZE, &kv_any, &kp_dma_zero);
+	drm_free(glob);
 }
 
 void
