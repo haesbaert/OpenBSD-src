@@ -284,8 +284,8 @@ int radeon_cs_parser_init(struct radeon_cs_parser *p, void *data)
 			p->chunks[p->chunk_ib_idx].kpage[1] = malloc(PAGE_SIZE, M_DRM, M_WAITOK);
 			if (p->chunks[p->chunk_ib_idx].kpage[0] == NULL ||
 			    p->chunks[p->chunk_ib_idx].kpage[1] == NULL) {
-				free(p->chunks[p->chunk_ib_idx].kpage[0], M_DRM);
-				free(p->chunks[p->chunk_ib_idx].kpage[1], M_DRM);
+				drm_free(p->chunks[p->chunk_ib_idx].kpage[0]);
+				drm_free(p->chunks[p->chunk_ib_idx].kpage[1]);
 				p->chunks[p->chunk_ib_idx].kpage[0] = NULL;
 				p->chunks[p->chunk_ib_idx].kpage[1] = NULL;
 				return -ENOMEM;
@@ -326,18 +326,18 @@ static void radeon_cs_parser_fini(struct radeon_cs_parser *parser, int error)
 				drm_gem_object_unreference_unlocked(parser->relocs[i].gobj);
 		}
 	}
-	free(parser->track, M_DRM);
-	free(parser->relocs, M_DRM);
-	free(parser->relocs_ptr, M_DRM);
+	drm_free(parser->track);
+	drm_free(parser->relocs);
+	drm_free(parser->relocs_ptr);
 	for (i = 0; i < parser->nchunks; i++) {
-		free(parser->chunks[i].kdata, M_DRM);
+		drm_free(parser->chunks[i].kdata);
 		if ((parser->rdev->flags & RADEON_IS_AGP)) {
-			free(parser->chunks[i].kpage[0], M_DRM);
-			free(parser->chunks[i].kpage[1], M_DRM);
+			drm_free(parser->chunks[i].kpage[0]);
+			drm_free(parser->chunks[i].kpage[1]);
 		}
 	}
-	free(parser->chunks, M_DRM);
-	free(parser->chunks_array, M_DRM);
+	drm_free(parser->chunks);
+	drm_free(parser->chunks_array);
 	radeon_ib_free(parser->rdev, &parser->ib);
 	radeon_ib_free(parser->rdev, &parser->const_ib);
 }

@@ -204,7 +204,7 @@ void radeon_fence_process(struct radeon_device *rdev, int ring)
 static void radeon_fence_destroy(struct radeon_fence *fence)
 {
 
-	free(fence, M_DRM);
+	drm_free(fence);
 }
 
 /**
