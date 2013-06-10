@@ -67,10 +67,8 @@ static void radeon_ttm_bo_destroy(struct ttm_buffer_object *tbo)
 	rw_exit_write(&bo->rdev->gem.rwlock);
 	radeon_bo_clear_surface_reg(bo);
 	radeon_bo_clear_va(bo);
-#ifdef notyet
 	drm_gem_object_release(&bo->gem_base);
-	kfree(bo);
-#endif
+	pool_put(&bo->rdev->ddev->objpl, bo);
 }
 
 bool radeon_ttm_bo_is_radeon_bo(struct ttm_buffer_object *bo)
@@ -116,7 +114,6 @@ int radeon_bo_create(struct radeon_device *rdev,
 		     struct sg_table *sg, struct radeon_bo **bo_ptr)
 {
 	struct radeon_bo *bo;
-	struct drm_obj *drm_bo;
 	enum ttm_bo_type type;
 	unsigned long page_align = roundup(byte_align, PAGE_SIZE) >> PAGE_SHIFT;
 	size_t acc_size;
@@ -139,10 +136,14 @@ int radeon_bo_create(struct radeon_device *rdev,
 	acc_size = ttm_bo_dma_acc_size(&rdev->mman.bdev, size,
 				       sizeof(struct radeon_bo));
 
-	drm_bo = drm_gem_object_alloc(rdev->ddev, size);
-	if (drm_bo == NULL)
+	bo = pool_get(&rdev->ddev->objpl, PR_WAITOK | PR_ZERO);
+	if (bo == NULL)
 		return -ENOMEM;
-	bo = gem_to_radeon_bo(drm_bo);
+	r = drm_gem_object_init(rdev->ddev, &bo->gem_base, size);
+	if (unlikely(r)) {
+		pool_put(&rdev->ddev->objpl, bo);
+		return r;
+	}
 	bo->rdev = rdev;
 	bo->surface_reg = -1;
 	INIT_LIST_HEAD(&bo->list);

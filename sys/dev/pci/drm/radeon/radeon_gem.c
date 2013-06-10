@@ -37,9 +37,7 @@ void	 radeon_gem_object_close(struct drm_obj *, struct drm_file *);
 
 int radeon_gem_object_init(struct drm_obj *obj)
 {
-#ifdef notyet
 	BUG();
-#endif
 
 	return 0;
 }
