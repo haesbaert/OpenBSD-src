@@ -827,7 +827,7 @@ void
 ttm_page_pool_init_locked(struct ttm_page_pool *pool, int flags,
 		char *name)
 {
-	mtx_init(&pool->lock, IPL_NONE);
+	mtx_init(&pool->lock, IPL_TTY);
 	pool->fill_lock = false;
 	TAILQ_INIT(&pool->list);
 	pool->npages = pool->nfrees = 0;

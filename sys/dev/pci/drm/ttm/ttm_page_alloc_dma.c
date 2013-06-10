@@ -647,7 +647,7 @@ static struct dma_pool *ttm_dma_pool_init(struct device *dev, gfp_t flags,
 	INIT_LIST_HEAD(&pool->free_list);
 	INIT_LIST_HEAD(&pool->inuse_list);
 	INIT_LIST_HEAD(&pool->pools);
-	mtx_init(&pool->lock, IPL_NONE);
+	mtx_init(&pool->lock, IPL_TTY);
 	pool->dev = dev;
 	pool->npages_free = pool->npages_in_use = 0;
 	pool->nfrees = 0;
