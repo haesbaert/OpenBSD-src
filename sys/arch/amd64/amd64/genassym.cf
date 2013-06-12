@@ -42,6 +42,7 @@ member	P_MD_FLAGS	p_md.md_flags
 member	P_MD_ASTPENDING	p_md.md_astpending
 member	p_flag
 member	p_cpu
+member	p_crit
 
 export	P_SYSTEM
 
