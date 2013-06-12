@@ -39,7 +39,7 @@
 
 struct ttm_agp_backend {
 	struct ttm_tt ttm;
-	struct agp_memory *mem;
+	struct drm_agp_mem *entry;
 	struct drm_agp_head *agp;
 };
 
@@ -50,19 +50,36 @@ void	 ttm_agp_destroy(struct ttm_tt *);
 int
 ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 {
-	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
-	struct drm_mm_node *node = bo_mem->mm_node;
-	struct agp_memory *mem;
+	struct ttm_agp_backend	*agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
+	struct drm_mm_node	*node = bo_mem->mm_node;
+	struct drm_agp_mem	*entry;
+	void			*handle;
 	int ret;
 //	int cached = (bo_mem->placement & TTM_PL_FLAG_CACHED);
-	unsigned i;
+//	unsigned i;
 	int pgnum;
 
-	mem = agp_alloc_memory(agp_be->agp->agpdev, 0, /* XXX non zero type? */
-	    ttm->num_pages << AGP_PAGE_SHIFT);
-	if (unlikely(mem == NULL))
+	entry = drm_alloc(sizeof(*entry));
+	if (entry == NULL)
 		return -ENOMEM;
 
+	/* XXX should be using bus_dmamap_load_raw with ttm->pages ? */
+	handle = agp_alloc_memory(agp_be->agp->agpdev, 0, /* XXX non zero type? */
+	    ttm->num_pages << AGP_PAGE_SHIFT);
+	if (unlikely(handle == NULL)) {
+		drm_free(entry);
+		return -ENOMEM;
+	}
+
+	entry->handle = handle;
+	entry->bound = 0;
+	entry->pages = ttm->num_pages;
+
+//	DRM_LOCK();
+	TAILQ_INSERT_HEAD(&agp_be->agp->memory, entry, link);
+//	DRM_UNLOCK();
+
+#ifdef notyet
 //	mem->pages = 0;
 	for (i = 0; i < ttm->num_pages; i++) {
 		struct vm_page *page = ttm->pages[i];
@@ -70,23 +87,24 @@ ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 		if (!page)
 			page = ttm->dummy_read_page;
 
-#ifdef notyet
 		mem->pages[mem->page_count++] = page;
-#endif
 	}
 	agp_be->mem = mem;
 
-#ifdef notyet
 	mem->is_flushed = 1;
 	mem->type = (cached) ? AGP_USER_CACHED_MEMORY : AGP_USER_MEMORY;
 #endif
 
+	agp_be->entry = entry;
+
 	pgnum = (node->start + PAGE_SIZE - 1) / PAGE_SIZE;
 
-	ret = agp_bind_memory(agp_be->agp->agpdev, mem, pgnum * PAGE_SIZE);
+	ret = agp_bind_memory(agp_be->agp->agpdev, entry->handle,
+	    pgnum * PAGE_SIZE);
 	if (ret)
 		DRM_ERROR("AGP Bind memory failed\n");
-//	mem->bound = agp_be->agp->base + (pgnum << PAGE_SHIFT);
+	else
+		entry->bound = agp_be->agp->base + (pgnum << PAGE_SHIFT);
 
 	return ret;
 }
@@ -96,13 +114,13 @@ ttm_agp_unbind(struct ttm_tt *ttm)
 {
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 
-	if (agp_be->mem) {
-#ifdef notyet
-		if (agp_be->mem->bound)
-			return agp_unbind_memory(agp_be->agp->agpdev, agp_be->mem);
-#endif
-		agp_free_memory(agp_be->agp->agpdev, agp_be->mem);
-		agp_be->mem = NULL;
+	if (agp_be->entry) {
+		if (agp_be->entry->bound)
+			return agp_unbind_memory(agp_be->agp->agpdev,
+			    agp_be->entry->handle);
+		agp_free_memory(agp_be->agp->agpdev, agp_be->entry->handle);
+		drm_free(agp_be->entry);
+		agp_be->entry = NULL;
 	}
 	return 0;
 }
@@ -112,7 +130,7 @@ ttm_agp_destroy(struct ttm_tt *ttm)
 {
 	struct ttm_agp_backend *agp_be = container_of(ttm, struct ttm_agp_backend, ttm);
 
-	if (agp_be->mem)
+	if (agp_be->entry)
 		ttm_agp_unbind(ttm);
 	ttm_tt_fini(ttm);
 	free(agp_be, M_DRM);
@@ -136,7 +154,7 @@ ttm_agp_tt_create(struct ttm_bo_device *bdev,
 	if (!agp_be)
 		return NULL;
 
-	agp_be->mem = NULL;
+	agp_be->entry = NULL;
 	agp_be->agp = agp;
 	agp_be->ttm.func = &ttm_agp_func;
 
