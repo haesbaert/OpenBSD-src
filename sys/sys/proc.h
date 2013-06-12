@@ -319,6 +319,7 @@ struct proc {
 
 	u_char	p_priority;	/* Process priority. */
 	u_char	p_usrpri;	/* User-priority based on p_cpu and ps_nice. */
+	int	p_crit;		/* Critical depth */
 	char	p_comm[MAXCOMLEN+1];
 
 #ifndef	__HAVE_MD_TCB
