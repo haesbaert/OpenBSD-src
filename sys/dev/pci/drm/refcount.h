@@ -52,7 +52,7 @@ refcount_acquire(volatile u_int *count)
 {
 	/* check if refcount overflowed */
 	KASSERT(*count < UINT_MAX);
-	*count += 1;
+	atomic_inc(count);
 }
 
 static __inline int
@@ -61,12 +61,10 @@ refcount_release(volatile u_int *count)
 	u_int old;
 
 	/* XXX: Should this have a rel membar? */
-	old = atomic_fetchadd_int(count, -1);
+	old = atomic_fetchsub_int(count, 1);
 
 	/* check for negative refcount */
-#ifdef notyet
 	KASSERT(old > 0);
-#endif
 	return (old == 1);
 }
 

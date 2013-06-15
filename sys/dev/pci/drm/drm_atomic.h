@@ -50,20 +50,14 @@ typedef u_int64_t atomic64_t;
 /* FIXME */
 #define atomic_set(p, v)	(*(p) = (v))
 #define atomic_read(p)		(*(p))
-#define atomic_inc(p)		(*(p) += 1)
-#define atomic_dec(p)		(*(p) -= 1)
+#define atomic_inc(p)		__sync_fetch_and_add(p, 1)
+#define atomic_dec(p)		__sync_fetch_and_sub(p, 1)
 #define atomic_add(n, p)	(*(p) += (n))
+#define atomic_fetchadd_int(p, n) __sync_fetch_and_add(p, n)
+#define atomic_fetchsub_int(p, n) __sync_fetch_and_sub(p, n)
 
 #define atomic64_set(p, v)	(*(p) = (v))
 #define atomic64_read(p)	(*(p))
-
-static __inline u_int
-atomic_fetchadd_int(volatile u_int32_t *p, u_int32_t v)
-{
-	u_int old = *p;
-	*p += v;
-	return (old);
-}
 
 static __inline int
 atomic_xchg(volatile int *p, int new)
