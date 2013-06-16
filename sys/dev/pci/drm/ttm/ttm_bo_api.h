@@ -213,7 +213,7 @@ struct ttm_buffer_object {
 	 */
 
 	struct ttm_mem_reg mem;
-	struct file *persistent_swap_storage;
+	struct uvm_object *persistent_swap_storage;
 	struct ttm_tt *ttm;
 	bool evicted;
 
@@ -496,7 +496,7 @@ extern int ttm_bo_init(struct ttm_bo_device *bdev,
 			struct ttm_placement *placement,
 			uint32_t page_alignment,
 			bool interrubtible,
-			struct file *persistent_swap_storage,
+			struct uvm_object *persistent_swap_storage,
 			size_t acc_size,
 			struct sg_table *sg,
 			void (*destroy) (struct ttm_buffer_object *));
@@ -533,7 +533,7 @@ extern int ttm_bo_create(struct ttm_bo_device *bdev,
 				struct ttm_placement *placement,
 				uint32_t page_alignment,
 				bool interruptible,
-				struct file *persistent_swap_storage,
+				struct uvm_object *persistent_swap_storage,
 				struct ttm_buffer_object **p_bo);
 
 /**
