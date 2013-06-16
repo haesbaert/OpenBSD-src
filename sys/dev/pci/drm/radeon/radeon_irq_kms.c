@@ -55,6 +55,9 @@ radeon_driver_irq_handler_kms(void *arg)
 	struct drm_device *dev = arg;
 	struct radeon_device *rdev = dev->dev_private;
 
+	if (!rdev->irq.installed)
+		return (0);
+
 	return radeon_irq_process(rdev);
 }
 
