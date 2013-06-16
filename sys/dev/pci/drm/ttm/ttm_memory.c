@@ -251,6 +251,7 @@ ttm_shrink(struct ttm_mem_global *glob, bool from_wq,
 			goto out;
 	}
 out:
+	glob->task_queued = false;
 	mtx_leave(&glob->lock);
 }
 
@@ -362,6 +363,7 @@ ttm_mem_global_init(struct ttm_mem_global *glob)
 #ifdef notyet
 	glob->swap_queue = create_singlethread_workqueue("ttm_swap");
 #endif
+	glob->task_queued = false;
 
 	refcount_init(&glob->kobj_ref, 1);
 
@@ -434,6 +436,10 @@ ttm_check_swapping(struct ttm_mem_global *glob)
 		}
 	}
 
+	if (glob->task_queued)
+		needs_swapping = false;
+	else
+		glob->task_queued = true;
 	mtx_leave(&glob->lock);
 
 	if (unlikely(needs_swapping))

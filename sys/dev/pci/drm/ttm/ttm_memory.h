@@ -73,6 +73,7 @@ struct ttm_mem_global {
 	struct workqueue_struct *swap_queue;
 #endif
 	struct workq_task task;
+	bool task_queued;
 	struct mutex lock;
 	struct ttm_mem_zone *zones[TTM_MEM_MAX_ZONES];
 	unsigned int num_zones;
