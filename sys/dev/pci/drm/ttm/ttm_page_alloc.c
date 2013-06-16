@@ -168,7 +168,6 @@ ttm_vm_page_free(vm_page_t m)
 	KASSERT(m->wire_count == 1);
 	KASSERT((m->pg_flags & PG_FAKE) != 0);
 #endif
-	uvm_pageunwire(m);
 	uvm_pagefree(m);
 }
 
