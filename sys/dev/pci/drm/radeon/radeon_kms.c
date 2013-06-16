@@ -1600,6 +1600,14 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	dev = (struct drm_device *)drm_attach_pci(&kms_driver, pa, is_agp, self);
 	rdev->ddev = dev;
 
+	rdev->irqh = pci_intr_establish(pa->pa_pc, rdev->intrh, IPL_TTY,
+	    radeon_driver_irq_handler_kms, rdev->ddev, rdev->dev.dv_xname);
+	if (rdev->irqh == NULL) {
+		printf("%s: couldn't establish interrupt\n",
+		    rdev->dev.dv_xname);
+		return;
+	}
+
 	vga_sc->sc_type = -1;
 
 	if (rootvp == NULL)
