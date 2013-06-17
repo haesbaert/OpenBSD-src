@@ -63,7 +63,6 @@ int64_t	 timeval_to_ns(const struct timeval *);
 struct timeval ns_to_timeval(const int64_t);
 void	 drm_irq_vgaarb_nokms(void *, bool);
 struct timeval get_drm_timestamp(void);
-u32	 drm_vblank_count_and_time(struct drm_device *, int, struct timeval *);
 void	 send_vblank_event(struct drm_device *,
 	     struct drm_pending_vblank_event *, unsigned long,
 	     struct timeval *);

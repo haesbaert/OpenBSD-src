@@ -917,6 +917,7 @@ int	drm_irq_uninstall(struct drm_device *);
 void	drm_vblank_cleanup(struct drm_device *);
 int	drm_vblank_init(struct drm_device *, int);
 u_int32_t drm_vblank_count(struct drm_device *, int);
+u_int32_t drm_vblank_count_and_time(struct drm_device *, int, struct timeval *);
 int	drm_vblank_get(struct drm_device *, int);
 void	drm_vblank_put(struct drm_device *, int);
 void	drm_vblank_off(struct drm_device *, int);
