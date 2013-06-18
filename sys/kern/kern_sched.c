@@ -150,6 +150,9 @@ sched_idle(void *v)
 	KASSERT(ci == curcpu());
 	KASSERT(curproc == spc->spc_idleproc);
 
+	/* Now we have a full-blown process, we can enable interrupts */
+	enable_intr();
+
 	while (1) {
 		while (!curcpu_is_idle()) {
 			struct proc *dead;
