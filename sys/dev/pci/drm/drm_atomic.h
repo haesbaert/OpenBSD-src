@@ -30,23 +30,13 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifdef __OpenBSD__
 #include <machine/atomic.h>
-#endif
 
 /* Many of these implementations are rather fake, but good enough. */
 
 typedef u_int32_t atomic_t;
 typedef u_int64_t atomic64_t;
 
-#ifdef __FreeBSD__
-#define atomic_set(p, v)	(*(p) = (v))
-#define atomic_read(p)		(*(p))
-#define atomic_inc(p)		atomic_add_int(p, 1)
-#define atomic_dec(p)		atomic_subtract_int(p, 1)
-#define atomic_add(n, p)	atomic_add_int(p, n)
-#define atomic_sub(n, p)	atomic_subtract_int(p, n)
-#else /* __FreeBSD__ */
 /* FIXME */
 #define atomic_set(p, v)	(*(p) = (v))
 #define atomic_read(p)		(*(p))
@@ -115,18 +105,10 @@ atomic_sub_return(int i, atomic_t *p)
 /* FIXME */
 #define atomic_add_int(p, v)      *(p) += v
 #define atomic_subtract_int(p, v) *(p) -= v
-#ifdef __OpenBSD__
 #define atomic_set_int(p, bits)		atomic_setbits_int(p,bits)
 #define atomic_clear_int(p, bits)	atomic_clearbits_int(p,bits)
-#else
-#define atomic_set_int(p, bits)   *(p) |= (bits)
-#define atomic_clear_int(p, bits) *(p) &= ~(bits)
-#endif
-#endif /* !__FreeBSD__ */
 
-#if !defined(__FreeBSD_version) || (__FreeBSD_version < 500000)
 #if defined(__i386__) || defined(__amd64__)
-/* The extra atomic functions from 5.0 haven't been merged to 4.x */
 static __inline int
 atomic_cmpset_int(volatile u_int *dst, u_int exp, u_int src)
 {
@@ -160,7 +142,6 @@ atomic_cmpset_int(__volatile__ u_int *dst, u_int old, u_int new)
 	return 0;
 }
 #endif /* !__i386__ */
-#endif /* !__FreeBSD_version || __FreeBSD_version < 500000 */
 
 static __inline atomic_t
 test_and_set_bit(u_int b, volatile void *p)
