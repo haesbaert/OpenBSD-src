@@ -1378,6 +1378,8 @@ radeondrm_detach_kms(struct device *self, int flags)
 		rdev->ddev = NULL;
 	}
 
+	pci_intr_disestablish(rdev->pc, rdev->irqh);
+
 	if (rdev->regs != NULL)
 		vga_pci_bar_unmap(rdev->regs);
 
