@@ -125,7 +125,7 @@ atomic_inc_not_zero(atomic_t *p)
 
 #if defined(__i386__) || defined(__amd64__)
 static __inline int
-atomic_cmpset_int(volatile u_int *dst, u_int exp, u_int src)
+drm_atomic_cmpset_int(volatile u_int *dst, u_int exp, u_int src)
 {
 	int res = exp;
 
@@ -135,7 +135,7 @@ atomic_cmpset_int(volatile u_int *dst, u_int exp, u_int src)
 	"       setz	%%al ;		"
 	"	movzbl	%%al,%0 ;	"
 	"1:				"
-	"# atomic_cmpset_int"
+	"# drm_atomic_cmpset_int"
 	: "+a" (res)			/* 0 (result) */
 	: "r" (src),			/* 1 */
 	  "m" (*(dst))			/* 2 */
@@ -145,7 +145,7 @@ atomic_cmpset_int(volatile u_int *dst, u_int exp, u_int src)
 }
 #else /* __i386__ */
 static __inline int
-atomic_cmpset_int(__volatile__ u_int *dst, u_int old, u_int new)
+drm_atomic_cmpset_int(__volatile__ u_int *dst, u_int old, u_int new)
 {
 	int s = splhigh();
 	if (*dst==old) {

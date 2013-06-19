@@ -62,7 +62,7 @@ drm_lock_take(struct drm_lock_data *lock_data, unsigned int context)
 			new = old | _DRM_LOCK_CONT;
 		else
 			new = context | _DRM_LOCK_HELD;
-	} while (!atomic_cmpset_int(lock, old, new));
+	} while (!drm_atomic_cmpset_int(lock, old, new));
 
 	if (_DRM_LOCKING_CONTEXT(old) == context && _DRM_LOCK_IS_HELD(old)) {
 		if (context != DRM_KERNEL_CONTEXT)
@@ -84,7 +84,7 @@ drm_lock_free(struct drm_lock_data *lock_data, unsigned int context)
 	do {
 		old  = *lock;
 		new  = 0;
-	} while (!atomic_cmpset_int(lock, old, new));
+	} while (!drm_atomic_cmpset_int(lock, old, new));
 	mtx_leave(&lock_data->spinlock);
 
 	if (_DRM_LOCK_IS_HELD(old) && _DRM_LOCKING_CONTEXT(old) != context) {
