@@ -40,6 +40,10 @@
 #include <sys/lock.h>
 #include <sys/systm.h>
 #include <sys/sched.h>
+#include <sys/mutex.h>
+#include <sys/crit.h>
+
+#include <machine/atomic.h>
 
 #ifdef MP_LOCKDEBUG
 /* CPU-dependent timing, this needs to be settable from ddb. */
@@ -132,4 +136,78 @@ _kernel_unlock(void)
 {
 	__mp_unlock(&kernel_lock);
 }
+
 #endif /* MULTIPROCESSOR */
+
+void
+mtx_init(struct mutex *mtx, int ipl)
+{
+	mtx->mtx_wantipl = ipl;
+	mtx->mtx_oldipl	 = IPL_NONE;
+	mtx->mtx_owner	 = NULL;
+}
+
+int
+mtx_enter_try(struct mutex *mtx)
+{
+	struct cpu_info *ci = curcpu();
+	int s;
+
+#ifdef DIAGNOSTIC
+	if (__predict_false(mtx->mtx_owner == ci))
+		panic("mtx_enter_try: locking against myself");
+#endif
+	crit_enter();
+
+	if (mtx->mtx_wantipl != IPL_NONE)
+		s = splraise(mtx->mtx_wantipl);
+
+#ifdef MULTIPROCESSOR
+	if (atomic_cmpset_ptr(&mtx->mtx_owner, NULL, ci) == 0) {
+		if (mtx->mtx_wantipl != IPL_NONE)
+			splx(s);
+		crit_leave();
+		return (0);
+	}
+#else
+	mtx->mtx_owner = ci;
+#endif
+
+#ifdef DIAGNOSTIC
+	ci->ci_mutex_level++;
+#endif
+
+	if (mtx->mtx_wantipl != IPL_NONE)
+		mtx->mtx_oldipl = s;
+
+	crit_leave();
+
+	return (1);
+}
+
+void
+mtx_enter(struct mutex *mtx)
+{
+	while (mtx_enter_try(mtx) == 0)
+		;
+}
+
+void
+mtx_leave(struct mutex *mtx)
+{
+	struct cpu_info *ci = curcpu();
+	int s;
+#ifdef DIAGNOSTIC
+	if (__predict_false(mtx->mtx_owner != ci))
+		panic("mtx_leave: lock not held");
+#endif
+	if (mtx->mtx_wantipl != IPL_NONE)
+		s = mtx->mtx_oldipl;
+	/* XXX compiler fence here ? */
+	mtx->mtx_owner = NULL;
+#ifdef DIAGNOSTIC
+	ci->ci_mutex_level--;
+#endif
+	if (mtx->mtx_wantipl != IPL_NONE)
+		splx(s);
+}
