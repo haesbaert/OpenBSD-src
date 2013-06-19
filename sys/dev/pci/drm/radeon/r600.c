@@ -3863,6 +3863,10 @@ restart_ih:
 		return (0);
 
 	rptr = rdev->ih.rptr;
+
+	if (wptr == rptr)
+		return (0);
+
 	DRM_DEBUG("r600_irq_process start: rptr %d, wptr %d\n", rptr, wptr);
 
 	/* Order reading of wptr vs. reading of IH ring data */
