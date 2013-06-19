@@ -3857,16 +3857,14 @@ int r600_irq_process(struct radeon_device *rdev)
 
 	wptr = r600_get_ih_wptr(rdev);
 
+	if (wptr == rdev->ih.rptr)
+		return (0);
 restart_ih:
 	/* is somebody else already processing irqs? */
 	if (atomic_xchg(&rdev->ih.lock, 1))
 		return (0);
 
 	rptr = rdev->ih.rptr;
-
-	if (wptr == rptr)
-		return (0);
-
 	DRM_DEBUG("r600_irq_process start: rptr %d, wptr %d\n", rptr, wptr);
 
 	/* Order reading of wptr vs. reading of IH ring data */
