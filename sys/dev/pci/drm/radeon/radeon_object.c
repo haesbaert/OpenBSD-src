@@ -336,6 +336,12 @@ int radeon_bo_init(struct radeon_device *rdev)
 	    _DRM_FRAME_BUFFER, _DRM_WRITE_COMBINING, &map);
 	/* fake a 'cookie', seems to be unused? */
 	rdev->mc.vram_mtrr = 1;
+
+	uvm_page_physload(atop(rdev->mc.aper_base),
+			  atop(rdev->mc.aper_base + rdev->mc.aper_size),
+			  atop(rdev->mc.aper_base),
+			  atop(rdev->mc.aper_base + rdev->mc.aper_size),
+			  PHYSLOAD_DEVICE);
 	
 	DRM_INFO("Detected VRAM RAM=%lluM, BAR=%lluM\n",
 		rdev->mc.mc_vram_size >> 20,
