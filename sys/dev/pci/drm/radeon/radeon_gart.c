@@ -66,19 +66,20 @@
 int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
 {
 	struct drm_dmamem *dmah;
+	int flags = 0;
 
+#if defined(__amd64__) || defined(__amd64__)
+	if (rdev->family == CHIP_RS400 || rdev->family == CHIP_RS480 ||
+	    rdev->family == CHIP_RS690 || rdev->family == CHIP_RS740) {
+		flags |= BUS_DMA_NOCACHE;
+	}
+#endif
 	dmah = drm_dmamem_alloc(rdev->dmat, rdev->gart.table_size, 0,
-				1, rdev->gart.table_size, 0, 0);
+				1, rdev->gart.table_size, flags, 0);
 	if (dmah == NULL) {
 		return -ENOMEM;
 	}
-#ifdef CONFIG_X86
-	if (rdev->family == CHIP_RS400 || rdev->family == CHIP_RS480 ||
-	    rdev->family == CHIP_RS690 || rdev->family == CHIP_RS740) {
-		set_memory_uc((unsigned long)ptr,
-			      rdev->gart.table_size >> PAGE_SHIFT);
-	}
-#endif
+
 	rdev->gart.dmah = dmah;
 	rdev->gart.table_addr = dmah->map->dm_segs[0].ds_addr;
 	rdev->gart.ptr = dmah->kva;
@@ -100,13 +101,6 @@ void radeon_gart_table_ram_free(struct radeon_device *rdev)
 	if (rdev->gart.ptr == NULL) {
 		return;
 	}
-#ifdef CONFIG_X86
-	if (rdev->family == CHIP_RS400 || rdev->family == CHIP_RS480 ||
-	    rdev->family == CHIP_RS690 || rdev->family == CHIP_RS740) {
-		set_memory_wb((unsigned long)rdev->gart.ptr,
-			      rdev->gart.table_size >> PAGE_SHIFT);
-	}
-#endif
 	drm_dmamem_free(rdev->dmat, rdev->gart.dmah);
 	rdev->gart.ptr = NULL;
 	rdev->gart.table_addr = 0;
