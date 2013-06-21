@@ -68,7 +68,7 @@ int radeon_gart_table_ram_alloc(struct radeon_device *rdev)
 	struct drm_dmamem *dmah;
 	int flags = 0;
 
-#if defined(__amd64__) || defined(__amd64__)
+#if defined(__amd64__) || defined(__i386__)
 	if (rdev->family == CHIP_RS400 || rdev->family == CHIP_RS480 ||
 	    rdev->family == CHIP_RS690 || rdev->family == CHIP_RS740) {
 		flags |= BUS_DMA_NOCACHE;
