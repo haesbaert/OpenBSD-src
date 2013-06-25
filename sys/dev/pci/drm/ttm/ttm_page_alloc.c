@@ -244,19 +244,19 @@ static struct kobj_type ttm_pool_kobj_type = {
 
 static struct ttm_pool_manager *_manager;
 
-#ifndef CONFIG_X86
 int
 set_pages_array_wb(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
+#if defined(__amd64__) || defined(__i386__)
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
-		unmap_page_from_agp(pages[i]);
-#endif // notyet
+		atomic_clearbits_int(&pages[i]->pg_flags, PG_PMAP_WC);
+#else
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#endif
 #endif
 	return 0;
 }
@@ -264,14 +264,15 @@ set_pages_array_wb(struct vm_page **pages, int addrinarray)
 static int set_pages_array_wc(struct vm_page **pages, int addrinarray)
 {
 #ifdef TTM_HAS_AGP
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
+#if defined(__amd64__) || defined(__i386__)
 	int i;
 
 	for (i = 0; i < addrinarray; i++)
-		map_page_into_agp(pages[i]);
-#endif // notyet
+		atomic_setbits_int(&pages[i]->pg_flags, PG_PMAP_WC);
+#else
+	printf("%s stub\n", __func__);
+	return -ENOSYS;
+#endif
 #endif
 	return 0;
 }
@@ -290,7 +291,6 @@ static int set_pages_array_uc(struct vm_page **pages, int addrinarray)
 #endif
 	return 0;
 }
-#endif
 
 /**
  * Select the right pool or requested caching state and ttm flags. */
