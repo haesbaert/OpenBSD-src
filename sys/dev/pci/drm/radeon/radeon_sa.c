@@ -326,8 +326,7 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 {
 	struct radeon_fence *fences[RADEON_NUM_RINGS];
 	unsigned tries[RADEON_NUM_RINGS];
-	int i, r;
-	int ret = 0;
+	int i, r, error;
 
 	BUG_ON(align > RADEON_GPU_PAGE_SIZE);
 	BUG_ON(size > sa_manager->size);
@@ -365,11 +364,15 @@ int radeon_sa_bo_new(struct radeon_device *rdev,
 		mtx_enter(&sa_manager->wq_lock);
 		/* if we have nothing to wait for block */
 		if (r == -ENOENT && block) {
-			while (ret == 0) {
+			r = 0;
+			while (r == 0) {
 				if (radeon_sa_event(sa_manager, size, align))
 					break;
-				ret = msleep(&sa_manager->wq, &sa_manager->wq_lock,
+				error = msleep(&sa_manager->wq, &sa_manager->wq_lock,
 				    PZERO | PCATCH, "samgr", 0);
+				if (error == ERESTART)
+					error = EINTR; /* XXX */
+				r = -error;
 			}
 
 		} else if (r == -ENOENT) {
