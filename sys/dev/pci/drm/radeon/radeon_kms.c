@@ -69,6 +69,7 @@ void	radeon_set_filp_rights(struct drm_device *, struct drm_file **,
 	    struct drm_file *, uint32_t *);
 
 int	radeondrm_ioctl_kms(struct drm_device *, u_long, caddr_t, struct drm_file *);
+int	radeon_ioctl_kms(struct drm_device *, u_long, caddr_t, struct drm_file *);
 int	radeon_dma_ioctl_kms(struct drm_device *, struct drm_dma *, struct drm_file *);
 
 int	radeon_cp_init_kms(struct drm_device *, void *, struct drm_file *);
@@ -2264,6 +2265,13 @@ int
 radeondrm_ioctl_kms(struct drm_device *dev, u_long cmd, caddr_t data,
     struct drm_file *file_priv)
 {
+	return -(radeon_ioctl_kms(dev, cmd, data, file_priv));
+}
+
+int
+radeon_ioctl_kms(struct drm_device *dev, u_long cmd, caddr_t data,
+    struct drm_file *file_priv)
+{
 	if (file_priv->authenticated == 1) {
 		switch (cmd) {
 		case DRM_IOCTL_RADEON_CP_IDLE:
@@ -2354,5 +2362,5 @@ radeondrm_ioctl_kms(struct drm_device *dev, u_long cmd, caddr_t data,
 			return (radeon_mem_init_heap_kms(dev, data, file_priv));
 		}
 	}
-	return (EINVAL);
+	return -EINVAL;
 }
