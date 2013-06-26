@@ -249,6 +249,12 @@ int radeon_agp_init(struct radeon_device *rdev)
 	dev_info(rdev->dev, "GTT: %lluM 0x%08llX - 0x%08llX\n",
 		rdev->mc.gtt_size >> 20, rdev->mc.gtt_start, rdev->mc.gtt_end);
 
+	uvm_page_physload(atop(rdev->mc.agp_base),
+			  atop(rdev->mc.agp_base + rdev->mc.gtt_size),
+			  atop(rdev->mc.agp_base),
+			  atop(rdev->mc.agp_base + rdev->mc.gtt_size),
+			  PHYSLOAD_DEVICE);
+
 	/* workaround some hw issues */
 	if (rdev->family < CHIP_R200) {
 		WREG32(RADEON_AGP_CNTL, RREG32(RADEON_AGP_CNTL) | 0x000e0000);
