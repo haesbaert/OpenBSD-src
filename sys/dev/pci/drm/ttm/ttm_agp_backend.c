@@ -67,6 +67,7 @@ ttm_agp_bind(struct ttm_tt *ttm, struct ttm_mem_reg *bo_mem)
 		sc->sc_methods->bind_page(sc->sc_chipc, addr, VM_PAGE_TO_PHYS(page), 0);
 		addr += PAGE_SIZE;
 	}
+	agp_flush_cache();
 	sc->sc_methods->flush_tlb(sc->sc_chipc);
 	agp_be->bound = sc->sc_apaddr + (node->start << PAGE_SHIFT);
 	KASSERT(agp_be->bound);
@@ -88,6 +89,7 @@ ttm_agp_unbind(struct ttm_tt *ttm)
 			sc->sc_methods->unbind_page(sc->sc_chipc, addr);
 			addr += PAGE_SIZE;
 		}
+		agp_flush_cache();
 		sc->sc_methods->flush_tlb(sc->sc_chipc);
 		agp_be->bound = 0;
 	}
