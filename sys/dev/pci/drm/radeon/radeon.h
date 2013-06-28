@@ -1548,7 +1548,6 @@ typedef void (*radeon_wreg_t)(struct radeon_device*, uint32_t, uint32_t);
 struct radeon_device {
 	struct device			dev;
 	struct drm_device		*ddev;
-//	struct device			*drmdev;
 
 	pci_chipset_tag_t		pc;
 	pcitag_t			pa_tag;
