@@ -746,7 +746,6 @@ static struct ttm_bo_driver radeon_bo_driver = {
 
 int radeon_ttm_init(struct radeon_device *rdev)
 {
-//	struct drm_device *ddev = (struct drm_device *)rdev->drmdev;
 	int r;
 
 	r = radeon_ttm_global_init(rdev);
@@ -798,7 +797,7 @@ int radeon_ttm_init(struct radeon_device *rdev)
 	DRM_INFO("radeon: %uM of GTT memory ready.\n",
 		 (unsigned)(rdev->mc.gtt_size / (1024 * 1024)));
 #ifdef notyet
-	rdev->mman.bdev.dev_mapping = ddev->dev_mapping;
+	rdev->mman.bdev.dev_mapping = rdev->ddev->dev_mapping;
 #endif
 
 	r = radeon_ttm_debugfs_init(rdev);
