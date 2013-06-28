@@ -24,7 +24,7 @@
 /* XXX do we need compiler barriers around static inline stuff ? */
 /* XXX we need to make sure we have a process context soon, for now just keep
  * this counter so that we can hunt it. */
-u_int crit_escaped;
+extern u_int crit_escaped;
 
 static inline void
 crit_enter(void)
