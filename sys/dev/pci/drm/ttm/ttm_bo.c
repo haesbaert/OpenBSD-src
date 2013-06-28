@@ -1701,12 +1701,15 @@ ttm_bo_unmap_virtual_locked(struct ttm_buffer_object *bo)
 {
 	struct ttm_tt *ttm = bo->ttm;
 	struct vm_page *page;
+	bus_addr_t addr;
 	paddr_t paddr;
 	int i;
 
 	if (bo->mem.bus.is_iomem) {
 		for (i = 0; i < bo->mem.num_pages; ++i) {
-			paddr = (bo->mem.bus.base + bo->mem.bus.offset) + (i << PAGE_SHIFT);
+			addr = bo->mem.bus.base + bo->mem.bus.offset;
+			paddr = bus_space_mmap(bo->bdev->memt, addr,    
+					       i << PAGE_SHIFT, 0, 0);
 			page = PHYS_TO_VM_PAGE(paddr);
 			if (unlikely(page == NULL))
 				continue;

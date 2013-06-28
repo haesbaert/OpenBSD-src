@@ -330,6 +330,7 @@ void radeon_bo_force_delete(struct radeon_device *rdev)
 int radeon_bo_init(struct radeon_device *rdev)
 {
 	struct drm_local_map	*map;
+	paddr_t start, end;
 
 	/* Add an MTRR for the VRAM */
 	drm_addmap(rdev->ddev, rdev->mc.aper_base, rdev->mc.aper_size,
@@ -337,12 +338,10 @@ int radeon_bo_init(struct radeon_device *rdev)
 	/* fake a 'cookie', seems to be unused? */
 	rdev->mc.vram_mtrr = 1;
 
-	uvm_page_physload(atop(rdev->mc.aper_base),
-			  atop(rdev->mc.aper_base + rdev->mc.aper_size),
-			  atop(rdev->mc.aper_base),
-			  atop(rdev->mc.aper_base + rdev->mc.aper_size),
-			  PHYSLOAD_DEVICE);
-	
+	start = atop(bus_space_mmap(rdev->memt, rdev->mc.aper_base, 0, 0, 0));
+	end = start + atop(rdev->mc.aper_size);
+	uvm_page_physload(start, end, start, end, PHYSLOAD_DEVICE);
+
 	DRM_INFO("Detected VRAM RAM=%lluM, BAR=%lluM\n",
 		rdev->mc.mc_vram_size >> 20,
 		(unsigned long long)rdev->mc.aper_size >> 20);

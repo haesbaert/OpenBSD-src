@@ -104,6 +104,7 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 	unsigned long page_last;
 	struct ttm_tt *ttm = NULL;
 	struct vm_page *page;
+	bus_addr_t addr;
 	paddr_t paddr;
 	vm_prot_t mapprot;
 	int pmap_flags;
@@ -221,9 +222,12 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 	 * first page.
 	 */
 	for (i = 0; i < TTM_BO_VM_NUM_PREFAULT; ++i) {
-		if (bo->mem.bus.is_iomem)
-			paddr = (bo->mem.bus.base + bo->mem.bus.offset) + (page_offset << PAGE_SHIFT);
-		else {
+		if (bo->mem.bus.is_iomem) {
+			addr = bo->mem.bus.base + bo->mem.bus.offset;
+			paddr = bus_space_mmap(bdev->memt, addr,
+					       page_offset << PAGE_SHIFT,
+					       mapprot, 0);
+		} else {
 			page = ttm->pages[page_offset];
 			if (unlikely(!page && i == 0)) {
 				retval = VM_PAGER_ERROR;
