@@ -90,26 +90,25 @@ void evergreen_tiling_fields(unsigned tiling_flags, unsigned *bankw,
 
 void evergreen_fix_pci_max_read_req_size(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
-	u16 ctl, v;
-	int err;
+	pcireg_t ctl, v;
+	int off;
 
-	err = pcie_capability_read_word(rdev->pdev, PCI_EXP_DEVCTL, &ctl);
-	if (err)
+	if (pci_get_capability(rdev->pc, rdev->pa_tag, PCI_CAP_PCIEXPRESS,
+			       &off, &ctl) == 0)
 		return;
 
-	v = (ctl & PCI_EXP_DEVCTL_READRQ) >> 12;
+	ctl = pci_conf_read(rdev->pc, rdev->pa_tag, off + PCI_PCIE_DCSR);
+
+	v = (ctl & PCI_PCIE_DCSR_MPS) >> 12;
 
 	/* if bios or OS sets MAX_READ_REQUEST_SIZE to an invalid value, fix it
 	 * to avoid hangs or perfomance issues
 	 */
 	if ((v == 0) || (v == 6) || (v == 7)) {
-		ctl &= ~PCI_EXP_DEVCTL_READRQ;
+		ctl &= ~PCI_PCIE_DCSR_MPS;
 		ctl |= (2 << 12);
-		pcie_capability_write_word(rdev->pdev, PCI_EXP_DEVCTL, ctl);
+		pci_conf_write(rdev->pc, rdev->pa_tag, off + PCI_PCIE_DCSR, ctl);
 	}
-#endif
 }
 
 /**
