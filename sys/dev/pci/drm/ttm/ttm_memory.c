@@ -367,7 +367,7 @@ ttm_mem_global_init(struct ttm_mem_global *glob)
 
 	refcount_init(&glob->kobj_ref, 1);
 
-	mem = physmem * PAGE_SIZE;
+	mem = ptoa(physmem);
 
 	ret = ttm_mem_init_kernel_zone(glob, mem);
 	if (unlikely(ret != 0))
