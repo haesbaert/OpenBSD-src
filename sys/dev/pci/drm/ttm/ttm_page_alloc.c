@@ -160,8 +160,27 @@ void	 ttm_put_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
 int	 ttm_get_pages(struct vm_page **, unsigned, int, enum ttm_caching_state);
 void	 ttm_page_pool_init_locked(struct ttm_page_pool *, int, char *);
 
-static void
-ttm_vm_page_free(vm_page_t m)
+struct vm_page *ttm_uvm_alloc_page(void);
+void	 ttm_uvm_free_page(struct vm_page *);
+
+struct vm_page *
+ttm_uvm_alloc_page(void)
+{
+	struct pglist mlist;
+	int error;
+
+	TAILQ_INIT(&mlist);
+	error = uvm_pglistalloc(PAGE_SIZE, dma_constraint.ucr_low,
+				dma_constraint.ucr_high, 0, 0, &mlist,
+				1, UVM_PLA_WAITOK | UVM_PLA_ZERO);
+	if (error)
+		return NULL;
+
+	return TAILQ_FIRST(&mlist);
+}
+
+void
+ttm_uvm_free_page(struct vm_page *m)
 {
 #ifdef notyet
 	KASSERT(m->uobject == NULL);
@@ -322,7 +341,7 @@ ttm_pages_put(struct vm_page *pages[], unsigned npages)
 	if (set_pages_array_wb(pages, npages))
 		printf("Failed to set %d pages to wb!\n", npages);
 	for (i = 0; i < npages; ++i)
-		ttm_vm_page_free(pages[i]);
+		ttm_uvm_free_page(pages[i]);
 }
 
 void
@@ -520,7 +539,7 @@ ttm_handle_caching_state_failure(struct pglist *pages,
 	/* Failed pages have to be freed */
 	for (i = 0; i < cpages; ++i) {
 		TAILQ_REMOVE(pages, failed_pages[i], pageq);
-		ttm_vm_page_free(failed_pages[i]);
+		ttm_uvm_free_page(failed_pages[i]);
 	}
 }
 
@@ -549,7 +568,7 @@ static int ttm_alloc_new_pages(struct pglist *pages, int gfp_flags,
 	}
 
 	for (i = 0, cpages = 0; i < count; ++i) {
-		p = uvm_pagealloc(NULL, 0, NULL, UVM_PGA_ZERO);
+		p = ttm_uvm_alloc_page();
 
 		if (!p) {
 			printf("Unable to get page %u\n", i);
@@ -712,7 +731,7 @@ ttm_put_pages(struct vm_page **pages, unsigned npages, int flags,
 		/* No pool for this memory type so free the pages */
 		for (i = 0; i < npages; i++) {
 			if (pages[i]) {
-				ttm_vm_page_free(pages[i]);
+				ttm_uvm_free_page(pages[i]);
 				pages[i] = NULL;
 			}
 		}
@@ -773,7 +792,7 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 
 		for (r = 0; r < npages; ++r) {
 //			p = km_alloc(PAGE_SIZE, &kv_any, kp, &kd_waitok);
-			p = uvm_pagealloc(NULL, 0, NULL, UVM_PGA_ZERO);
+			p = ttm_uvm_alloc_page();
 			if (!p) {
 
 				printf("ttm: Unable to allocate page\n");
