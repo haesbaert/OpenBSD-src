@@ -207,7 +207,7 @@ void		uhci_root_intr_done(struct usbd_xfer *);
 
 usbd_status	uhci_open(struct usbd_pipe *);
 void		uhci_poll(struct usbd_bus *);
-void		uhci_softintr(void *);
+int		uhci_softintr(void *);
 
 usbd_status	uhci_device_request(struct usbd_xfer *xfer);
 
@@ -1158,7 +1158,7 @@ uhci_intr1(struct uhci_softc *sc)
 	return (1);
 }
 
-void
+int
 uhci_softintr(void *v)
 {
 	struct uhci_softc *sc = v;
@@ -1168,7 +1168,7 @@ uhci_softintr(void *v)
 		     sc->sc_bus.intr_context));
 
 	if (sc->sc_bus.dying)
-		return;
+		return (0);
 
 	sc->sc_bus.intr_context++;
 
@@ -1194,6 +1194,8 @@ uhci_softintr(void *v)
 	}
 
 	sc->sc_bus.intr_context--;
+
+	return (0);
 }
 
 /* Check for an interrupt. */

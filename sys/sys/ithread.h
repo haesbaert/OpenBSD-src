@@ -27,6 +27,7 @@ void	ithread_forkall(void);
 void	ithread_softmain(void *);
 struct intrsource *
 ithread_softregister(int, int (*)(void *), void *, int);
+void	ithread_softderegister(struct intrsource *);
 void	ithread_softsched(struct intrsource *);
 void	ithread_softsleep(struct intrsource *);
 

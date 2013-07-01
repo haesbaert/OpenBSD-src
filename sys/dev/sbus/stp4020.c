@@ -539,7 +539,7 @@ stp4020_iointr(arg)
 			}
 			/* Call card handler, if any */
 			if (h->softint != NULL) {
-				softintr_schedule(h->softint);
+				ithread_softsched(h->softint);
 
 				/*
 				 * Disable this sbus interrupt, until the
@@ -860,7 +860,7 @@ stp4020_chip_intr_establish(pch, pf, ipl, handler, arg, xname)
 	 */
 	h->intrhandler = handler;
 	h->intrarg = arg;
-	h->softint = softintr_establish(ipl, stp4020_intr_dispatch, h);
+	h->softint = ithread_softregister(ipl, stp4020_intr_dispatch, h, 0);
 
 	return h->softint != NULL ? h : NULL;
 }
@@ -873,7 +873,7 @@ stp4020_chip_intr_disestablish(pch, ih)
 	struct stp4020_socket *h = (struct stp4020_socket *)pch;
 
 	if (h->softint != NULL) {
-		softintr_disestablish(h->softint);
+		ithread_softderegister(h->softint);
 		h->softint = NULL;
 	}
 	h->intrhandler = NULL;

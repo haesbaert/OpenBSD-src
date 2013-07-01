@@ -223,7 +223,7 @@ com_detach(struct device *self, int flags)
 
 	timeout_del(&sc->sc_dtr_tmo);
 	timeout_del(&sc->sc_diag_tmo);
-	softintr_disestablish(sc->sc_si);
+	ithread_softderegister(sc->sc_si);
 
 	return (0);
 }
@@ -1233,7 +1233,7 @@ comintr(void *arg)
 		if (ISSET(lsr, LSR_RXRDY)) {
 			u_char *p = sc->sc_ibufp;
 
-			softintr_schedule(sc->sc_si);
+			ithread_softsched(sc->sc_si);
 			do {
 				data = bus_space_read_1(iot, ioh, com_data);
 				if (ISSET(lsr, LSR_BI)) {

@@ -1557,8 +1557,6 @@ init_x86_64(paddr_t first_avail)
 	intr_default_setup();
 	fpuinit(&cpu_info_primary);
 
-	softintr_init();
-
 	/* XXXXXXXXXXXXXXX splraise(IPL_IPI)
 	 * removed since we don't have IPL_IPI anymore and we don't have a
 	 * process context at this point. I don't know if this is actually
