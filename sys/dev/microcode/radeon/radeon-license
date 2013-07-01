@@ -85,28 +85,39 @@ restrictions on destinations, end users and end use.
 The following files are under the above license:
 
 	radeon-aruba_me radeon-aruba_pfp radeon-aruba_rlc
-	radeon-barts_mc radeon-barts_me radeon-barts_pfp
+	radeon-barts_mc radeon-barts_me radeon-barts_pfp radeon-barts_smc
+	radeon-bonaire_ce radeon-bonaire_mc radeon-bonaire_me
+	radeon-bonaire_mec radeon-bonaire_pfp radeon-bonaire_rlc
+	radeon-bonaire_sdma radeon-bonaire_uvd
 	radeon-btc_rlc
-	radeon-caicos_mc radeon-caicos_me radeon-caicos_pfp
+	radeon-caicos_mc radeon-caicos_me radeon-caicos_pfp radeon-caicos_smc
 	radeon-cayman_mc radeon-cayman_me radeon-cayman_pfp radeon-cayman_rlc
-	radeon-cedar_me radeon-cedar_pfp radeon-cedar_rlc
+	radeon-cayman_smc
+	radeon-cedar_me radeon-cedar_pfp radeon-cedar_rlc radeon-cedar_smc
 	radeon-cypress_me radeon-cypress_pfp radeon-cypress_rlc
-	radeon-cypress_uvd
+	radeon-cypress_smc radeon-cypress_uvd
 	radeon-hainan_ce radeon-hainan_mc radeon-hainan_me radeon-hainan_pfp
-	radeon-hainan_rlc
+	radeon-hainan_rlc radeon-hainan_smc
 	radeon-juniper_me radeon-juniper_pfp radeon-juniper_rlc
+	radeon-juniper_smc
+	radeon-kabini_ce radeon-kabini_me radeon-kabini_mec
+	radeon-kabini_pfp radeon-kabini_rlc radeon-kabini_sdma
 	radeon-oland_ce radeon-oland_mc radeon-oland_me radeon-oland_pfp
-	radeon-oland_rlc
+	radeon-oland_rlc radeon-oland_smc
 	radeon-palm_me radeon-palm_pfp
 	radeon-pitcairn_ce radeon-pitcairn_mc radeon-pitcairn_me
-	radeon-pitcairn_pfp radeon-pitcairn_rlc
+	radeon-pitcairn_pfp radeon-pitcairn_rlc radeon-pitcairn_smc
 	radeon-r600_rlc radeon-r700_rlc
 	radeon-redwood_me radeon-redwood_pfp radeon-redwood_rlc
-	radeon-rv710_uvd
+	radeon-redwood_smc
+	radeon-rv710_smc radeon-rv710_uvd
+	radeon-rv730_smc
+	radeon-rv740_smc
+	radeon-rv770_smc
 	radeon-sumo2_me radeon-sumo2_pfp
 	radeon-sumo_me radeon-sumo_pfp radeon-sumo_rlc radeon-sumo_uvd
 	radeon-tahiti_ce radeon-tahiti_mc radeon-tahiti_me radeon-tahiti_pfp
-	radeon-tahiti_rlc radeon-tahiti_uvd
-	radeon-turks_mc radeon-turks_me radeon-turks_pfp
+	radeon-tahiti_rlc radeon-tahiti_smc radeon-tahiti_uvd
+	radeon-turks_mc radeon-turks_me radeon-turks_pfp radeon-turks_smc
 	radeon-verde_ce radeon-verde_mc radeon-verde_me radeon-verde_pfp
-	radeon-verde_rlc 
+	radeon-verde_rlc radeon-verde_smc 

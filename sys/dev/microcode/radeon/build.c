@@ -60,34 +60,56 @@
 #include "barts_mc.h"
 #include "barts_me.h"
 #include "barts_pfp.h"
+#include "barts_smc.h"
+#include "bonaire_ce.h"
+#include "bonaire_mc.h"
+#include "bonaire_me.h"
+#include "bonaire_mec.h"
+#include "bonaire_pfp.h"
+#include "bonaire_rlc.h"
+#include "bonaire_sdma.h"
+#include "bonaire_uvd.h"
 #include "btc_rlc.h"
 #include "caicos_mc.h"
 #include "caicos_me.h"
 #include "caicos_pfp.h"
+#include "caicos_smc.h"
 #include "cayman_mc.h"
 #include "cayman_me.h"
 #include "cayman_pfp.h"
 #include "cayman_rlc.h"
+#include "cayman_smc.h"
 #include "cedar_me.h"
 #include "cedar_pfp.h"
 #include "cedar_rlc.h"
+#include "cedar_smc.h"
 #include "cypress_me.h"
 #include "cypress_pfp.h"
 #include "cypress_rlc.h"
+#include "cypress_smc.h"
 #include "cypress_uvd.h"
 #include "hainan_ce.h"
 #include "hainan_mc.h"
 #include "hainan_me.h"
 #include "hainan_pfp.h"
 #include "hainan_rlc.h"
+#include "hainan_smc.h"
 #include "juniper_me.h"
 #include "juniper_pfp.h"
 #include "juniper_rlc.h"
+#include "juniper_smc.h"
+#include "kabini_ce.h"
+#include "kabini_me.h"
+#include "kabini_mec.h"
+#include "kabini_pfp.h"
+#include "kabini_rlc.h"
+#include "kabini_sdma.h"
 #include "oland_ce.h"
 #include "oland_mc.h"
 #include "oland_me.h"
 #include "oland_pfp.h"
 #include "oland_rlc.h"
+#include "oland_smc.h"
 #include "palm_me.h"
 #include "palm_pfp.h"
 #include "pitcairn_ce.h"
@@ -95,12 +117,18 @@
 #include "pitcairn_me.h"
 #include "pitcairn_pfp.h"
 #include "pitcairn_rlc.h"
+#include "pitcairn_smc.h"
 #include "r600_rlc.h"
 #include "r700_rlc.h"
 #include "redwood_me.h"
 #include "redwood_pfp.h"
 #include "redwood_rlc.h"
+#include "redwood_smc.h"
+#include "rv710_smc.h"
 #include "rv710_uvd.h"
+#include "rv730_smc.h"
+#include "rv740_smc.h"
+#include "rv770_smc.h"
 #include "sumo2_me.h"
 #include "sumo2_pfp.h"
 #include "sumo_me.h"
@@ -112,15 +140,18 @@
 #include "tahiti_me.h"
 #include "tahiti_pfp.h"
 #include "tahiti_rlc.h"
+#include "tahiti_smc.h"
 #include "tahiti_uvd.h"
 #include "turks_mc.h"
 #include "turks_me.h"
 #include "turks_pfp.h"
+#include "turks_smc.h"
 #include "verde_ce.h"
 #include "verde_mc.h"
 #include "verde_me.h"
 #include "verde_pfp.h"
 #include "verde_rlc.h"
+#include "verde_smc.h"
 
 static void
 output(const char *name, const uint8_t *ucode, int size)
@@ -182,34 +213,56 @@ main(void)
 	output("radeon-barts_mc", barts_mc, sizeof barts_mc);
 	output("radeon-barts_me", barts_me, sizeof barts_me);
 	output("radeon-barts_pfp", barts_pfp, sizeof barts_pfp);
+	output("radeon-barts_smc", barts_smc, sizeof barts_smc);
+	output("radeon-bonaire_ce", bonaire_ce, sizeof bonaire_ce);
+	output("radeon-bonaire_mc", bonaire_mc, sizeof bonaire_mc);
+	output("radeon-bonaire_me", bonaire_me, sizeof bonaire_me);
+	output("radeon-bonaire_mec", bonaire_mec, sizeof bonaire_mec);
+	output("radeon-bonaire_pfp", bonaire_pfp, sizeof bonaire_pfp);
+	output("radeon-bonaire_rlc", bonaire_rlc, sizeof bonaire_rlc);
+	output("radeon-bonaire_sdma", bonaire_sdma, sizeof bonaire_sdma);
+	output("radeon-bonaire_uvd", bonaire_uvd, sizeof bonaire_uvd);
 	output("radeon-btc_rlc", btc_rlc, sizeof btc_rlc);
 	output("radeon-caicos_mc", caicos_mc, sizeof caicos_mc);
 	output("radeon-caicos_me", caicos_me, sizeof caicos_me);
 	output("radeon-caicos_pfp", caicos_pfp, sizeof caicos_pfp);
+	output("radeon-caicos_smc", caicos_smc, sizeof caicos_smc);
 	output("radeon-cayman_mc", cayman_mc, sizeof cayman_mc);
 	output("radeon-cayman_me", cayman_me, sizeof cayman_me);
 	output("radeon-cayman_pfp", cayman_pfp, sizeof cayman_pfp);
 	output("radeon-cayman_rlc", cayman_rlc, sizeof cayman_rlc);
+	output("radeon-cayman_smc", cayman_smc, sizeof cayman_smc);
 	output("radeon-cedar_me", cedar_me, sizeof cedar_me);
 	output("radeon-cedar_pfp", cedar_pfp, sizeof cedar_pfp);
 	output("radeon-cedar_rlc", cedar_rlc, sizeof cedar_rlc);
+	output("radeon-cedar_smc", cedar_smc, sizeof cedar_smc);
 	output("radeon-cypress_me", cypress_me, sizeof cypress_me);
 	output("radeon-cypress_pfp", cypress_pfp, sizeof cypress_pfp);
 	output("radeon-cypress_rlc", cypress_rlc, sizeof cypress_rlc);
+	output("radeon-cypress_smc", cypress_smc, sizeof cypress_smc);
 	output("radeon-cypress_uvd", cypress_uvd, sizeof cypress_uvd);
 	output("radeon-hainan_ce", hainan_ce, sizeof hainan_ce);
 	output("radeon-hainan_mc", hainan_mc, sizeof hainan_mc);
 	output("radeon-hainan_me", hainan_me, sizeof hainan_me);
 	output("radeon-hainan_pfp", hainan_pfp, sizeof hainan_pfp);
 	output("radeon-hainan_rlc", hainan_rlc, sizeof hainan_rlc);
+	output("radeon-hainan_smc", hainan_smc, sizeof hainan_smc);
 	output("radeon-juniper_me", juniper_me, sizeof juniper_me);
 	output("radeon-juniper_pfp", juniper_pfp, sizeof juniper_pfp);
 	output("radeon-juniper_rlc", juniper_rlc, sizeof juniper_rlc);
+	output("radeon-juniper_smc", juniper_smc, sizeof juniper_smc);
+	output("radeon-kabini_ce", kabini_ce, sizeof kabini_ce);
+	output("radeon-kabini_me", kabini_me, sizeof kabini_me);
+	output("radeon-kabini_mec", kabini_mec, sizeof kabini_mec);
+	output("radeon-kabini_pfp", kabini_pfp, sizeof kabini_pfp);
+	output("radeon-kabini_rlc", kabini_rlc, sizeof kabini_rlc);
+	output("radeon-kabini_sdma", kabini_sdma, sizeof kabini_sdma);
 	output("radeon-oland_ce", oland_ce, sizeof oland_ce);
 	output("radeon-oland_mc", oland_mc, sizeof oland_mc);
 	output("radeon-oland_me", oland_me, sizeof oland_me);
 	output("radeon-oland_pfp", oland_pfp, sizeof oland_pfp);
 	output("radeon-oland_rlc", oland_rlc, sizeof oland_rlc);
+	output("radeon-oland_smc", oland_smc, sizeof oland_smc);
 	output("radeon-palm_me", palm_me, sizeof palm_me);
 	output("radeon-palm_pfp", palm_pfp, sizeof palm_pfp);
 	output("radeon-pitcairn_ce", pitcairn_ce, sizeof pitcairn_ce);
@@ -217,12 +270,18 @@ main(void)
 	output("radeon-pitcairn_me", pitcairn_me, sizeof pitcairn_me);
 	output("radeon-pitcairn_pfp", pitcairn_pfp, sizeof pitcairn_pfp);
 	output("radeon-pitcairn_rlc", pitcairn_rlc, sizeof pitcairn_rlc);
+	output("radeon-pitcairn_smc", pitcairn_smc, sizeof pitcairn_smc);
 	output("radeon-r600_rlc", r600_rlc, sizeof r600_rlc);
 	output("radeon-r700_rlc", r700_rlc, sizeof r700_rlc);
 	output("radeon-redwood_me", redwood_me, sizeof redwood_me);
 	output("radeon-redwood_pfp", redwood_pfp, sizeof redwood_pfp);
 	output("radeon-redwood_rlc", redwood_rlc, sizeof redwood_rlc);
+	output("radeon-redwood_smc", redwood_smc, sizeof redwood_smc);
+	output("radeon-rv710_smc", rv710_smc, sizeof rv710_smc);
 	output("radeon-rv710_uvd", rv710_uvd, sizeof rv710_uvd);
+	output("radeon-rv730_smc", rv730_smc, sizeof rv730_smc);
+	output("radeon-rv740_smc", rv740_smc, sizeof rv740_smc);
+	output("radeon-rv770_smc", rv770_smc, sizeof rv770_smc);
 	output("radeon-sumo2_me", sumo2_me, sizeof sumo2_me);
 	output("radeon-sumo2_pfp", sumo2_pfp, sizeof sumo2_pfp);
 	output("radeon-sumo_me", sumo_me, sizeof sumo_me);
@@ -234,15 +293,18 @@ main(void)
 	output("radeon-tahiti_me", tahiti_me, sizeof tahiti_me);
 	output("radeon-tahiti_pfp", tahiti_pfp, sizeof tahiti_pfp);
 	output("radeon-tahiti_rlc", tahiti_rlc, sizeof tahiti_rlc);
+	output("radeon-tahiti_smc", tahiti_smc, sizeof tahiti_smc);
 	output("radeon-tahiti_uvd", tahiti_uvd, sizeof tahiti_uvd);
 	output("radeon-turks_mc", turks_mc, sizeof turks_mc);
 	output("radeon-turks_me", turks_me, sizeof turks_me);
 	output("radeon-turks_pfp", turks_pfp, sizeof turks_pfp);
+	output("radeon-turks_smc", turks_smc, sizeof turks_smc);
 	output("radeon-verde_ce", verde_ce, sizeof verde_ce);
 	output("radeon-verde_mc", verde_mc, sizeof verde_mc);
 	output("radeon-verde_me", verde_me, sizeof verde_me);
 	output("radeon-verde_pfp", verde_pfp, sizeof verde_pfp);
 	output("radeon-verde_rlc", verde_rlc, sizeof verde_rlc);
+	output("radeon-verde_smc", verde_smc, sizeof verde_smc);
 
 	return 0;
 }
