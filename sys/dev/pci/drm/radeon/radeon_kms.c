@@ -1485,18 +1485,8 @@ radeondrm_doswitch(void *v, void *cookie)
 {
 	struct radeon_device *rdev = v;
 	struct rasops_info *ri = &rdev->ro;
-	struct radeon_crtc *radeon_crtc;
-	int i, crtc;
 
 	rasops_show_screen(ri, cookie, 0, NULL, NULL);
-	for (crtc = 0; crtc < rdev->num_crtc; crtc++) {
-		for (i = 0; i < 256; i++) {
-			radeon_crtc = rdev->mode_info.crtcs[crtc];
-			radeon_crtc->lut_r[i] = rasops_cmap[3 * i] << 2;
-			radeon_crtc->lut_g[i] = rasops_cmap[(3 * i) + 1] << 2;
-			radeon_crtc->lut_b[i] = rasops_cmap[(3 * i) + 2] << 2;
-		}
-	}
 	drm_fb_helper_restore();
 
 	if (rdev->switchcb)
