@@ -336,13 +336,7 @@ magma_attach(struct device *parent, struct device *dev, void *aux)
 		return;
 	}
 
-	sc->sc_sih = softintr_establish(IPL_TTY, magma_soft, sc);
-	if (sc->sc_sih == NULL) {
-		printf(": can't get soft intr\n");
-		bus_space_unmap(sc->sc_bustag, sc->sc_iohandle,
-		    sa->sa_reg[0].sbr_size);
-		return;
-	}
+	sc->sc_sih = ithread_softregister(IPL_TTY, magma_soft, sc, 0);
 
 	printf(": %s\n", card->mb_realname);
 
@@ -652,7 +646,7 @@ magma_hard(void *arg)
 	*/
 
 	if (needsoftint)
-		softintr_schedule(sc->sc_sih);
+		ithread_softsched(sc->sc_sih);
 
 	return (serviced);
 }

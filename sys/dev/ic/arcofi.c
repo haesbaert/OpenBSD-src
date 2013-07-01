@@ -1078,7 +1078,7 @@ arcofi_hwintr(void *v)
 			if (cur != NULL && cur != past) {
 				*cur++ = data;
 				if (cur == past) {
-					softintr_schedule(sc->sc_sih);
+					ithread_softsched(sc->sc_sih);
 					break;
 				}
 			}
@@ -1105,7 +1105,7 @@ arcofi_hwintr(void *v)
 					arcofi_write(sc, ARCOFI_FIFO_DATA,
 					    *cur++);
 				if (cur == past) {
-					softintr_schedule(sc->sc_sih);
+					ithread_softsched(sc->sc_sih);
 					break;
 				}
 			}

@@ -224,11 +224,7 @@ spifattach(parent, self, aux)
 		goto fail_unmapregs;
 	}
 
-	sc->sc_softih = softintr_establish(IPL_TTY, spifsoftintr, sc);
-	if (sc->sc_softih == NULL) {
-		printf(": can't get soft intr\n");
-		goto fail_unmapregs;
-	}
+	sc->sc_softih = ithread_softregister(IPL_TTY, spifsoftintr, sc, 0);
 
 	sc->sc_node = sa->sa_node;
 
@@ -918,7 +914,7 @@ spifstcintr(vsc)
 	}
 
 	if (needsoft)
-		softintr_schedule(sc->sc_softih);
+		ithread_softsched(sc->sc_softih);
 	return (r);
 }
 

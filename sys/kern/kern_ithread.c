@@ -239,6 +239,16 @@ ithread_softregister(int level, int (*handler)(void *), void *arg, int flags)
 }
 
 void
+ithread_softderegister(struct intrsource *is)
+{
+	if (!cold)
+		panic("ithread_softderegister only works on cold case");
+
+	ithread_deregister(is);
+	free(is, M_DEVBUF);
+}
+
+void
 ithread_softmain(void *v_is)
 {
 	int s;

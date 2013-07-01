@@ -581,52 +581,7 @@ static char *x86_ipi_names[X86_NIPI] = X86_IPI_NAMES;
 void
 cpu_intr_init(struct cpu_info *ci)
 {
-	struct intrsource *isp;
-#if NLAPIC > 0 && defined(MULTIPROCESSOR) && 0
-	int i;
-#endif
-
-	isp = malloc(sizeof (struct intrsource), M_DEVBUF, M_NOWAIT|M_ZERO);
-	if (isp == NULL)
-		panic("can't allocate fixed interrupt source");
-	isp->is_recurse = Xsoftclock;
-	isp->is_resume = Xsoftclock;
-	fake_softclock_intrhand.ih_level = IPL_SOFTCLOCK;
-	isp->is_handlers = &fake_softclock_intrhand;
-	isp->is_pic = &softintr_pic;
-	ci->ci_isources[SIR_CLOCK] = isp;
-	isp = malloc(sizeof (struct intrsource), M_DEVBUF, M_NOWAIT|M_ZERO);
-	if (isp == NULL)
-		panic("can't allocate fixed interrupt source");
-	isp->is_recurse = Xsoftnet;
-	isp->is_resume = Xsoftnet;
-	fake_softnet_intrhand.ih_level = IPL_SOFTNET;
-	isp->is_handlers = &fake_softnet_intrhand;
-	isp->is_pic = &softintr_pic;
-	ci->ci_isources[SIR_NET] = isp;
-	isp = malloc(sizeof (struct intrsource), M_DEVBUF, M_NOWAIT|M_ZERO);
-	if (isp == NULL)
-		panic("can't allocate fixed interrupt source");
-	isp->is_recurse = Xsofttty;
-	isp->is_resume = Xsofttty;
-	fake_softtty_intrhand.ih_level = IPL_SOFTTTY;
-	isp->is_handlers = &fake_softtty_intrhand;
-	isp->is_pic = &softintr_pic;
-	ci->ci_isources[SIR_TTY] = isp;
-#if NLAPIC > 0
-	isp = malloc(sizeof (struct intrsource), M_DEVBUF, M_NOWAIT|M_ZERO);
-	if (isp == NULL)
-		panic("can't allocate fixed interrupt source");
-	isp->is_recurse = Xrecurse_lapic_ltimer;
-	isp->is_resume = Xresume_lapic_ltimer;
-	fake_timer_intrhand.ih_level = IPL_CLOCK;
-	isp->is_handlers = &fake_timer_intrhand;
-	isp->is_pic = &local_pic;
-	ci->ci_isources[LIR_TIMER] = isp;
-#endif
-
 	intr_calculatemasks(ci);
-
 }
 
 #ifdef MULTIPROCESSOR
