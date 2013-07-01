@@ -141,7 +141,6 @@ void softintr(int);
 /*
  * Software interrupt masks
  */
-#define	splsoftclock()	splraise(IPL_SOFTCLOCK)
 #define	splsoftnet()	splraise(IPL_SOFTNET)
 #define	splsofttty()	splraise(IPL_SOFTTTY)
 
