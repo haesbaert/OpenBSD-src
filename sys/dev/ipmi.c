@@ -1765,16 +1765,16 @@ ipmi_watchdog(void *arg, int period)
 {
 	struct ipmi_softc	*sc = arg;
 	struct ipmi_watchdog	wdog;
-	int			s, rc, len;
+	int			rc, len;
 
 	if (sc->sc_wdog_period == period) {
 		if (period != 0) {
-			s = splsoftclock();
+			crit_enter();
 			/* tickle the watchdog */
 			rc = ipmi_sendcmd(sc, BMC_SA, BMC_LUN, APP_NETFN,
 			    APP_RESET_WATCHDOG, 0, NULL);
 			rc = ipmi_recvcmd(sc, 0, &len, NULL);
-			splx(s);
+			crit_leave();
 		}
 		return (period);
 	}
@@ -1782,7 +1782,7 @@ ipmi_watchdog(void *arg, int period)
 	if (period < 10 && period > 0)
 		period = 10;
 
-	s = splsoftclock();
+	crit_enter();
 	/* XXX what to do if poking wdog fails? */
 	rc = ipmi_sendcmd(sc, BMC_SA, BMC_LUN, APP_NETFN,
 	    APP_GET_WATCHDOG_TIMER, 0, NULL);
@@ -1798,7 +1798,7 @@ ipmi_watchdog(void *arg, int period)
 	    APP_SET_WATCHDOG_TIMER, sizeof(wdog), &wdog);
 	rc = ipmi_recvcmd(sc, 0, &len, NULL);
 
-	splx(s);
+	crit_leave();
 
 	sc->sc_wdog_period = period;
 	return (period);

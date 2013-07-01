@@ -990,7 +990,7 @@ void
 wihap_mgmt_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 {
 	caddr_t	pkt;
-	int	s, len;
+	int	len;
 
 	if (sc->sc_ic.ic_if.if_flags & IFF_DEBUG)
 		wihap_debug_frame_type(rxfrm);
@@ -1002,7 +1002,7 @@ wihap_mgmt_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 	    htole16(WI_FTYPE_MGMT)) {
 
 		/* any of the following will mess w/ the station list */
-		s = splsoftclock();
+		crit_enter();
 		switch (letoh16(rxfrm->wi_frame_ctl) & WI_FCTL_STYPE) {
 		case WI_STYPE_MGMT_ASREQ:
 			wihap_assoc_req(sc, rxfrm, pkt, len);
@@ -1032,7 +1032,7 @@ wihap_mgmt_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 			wihap_deauth_req(sc, rxfrm, pkt, len);
 			break;
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	m_freem(m);
@@ -1068,23 +1068,22 @@ wihap_check_tx(struct wihap_info *whi, u_int8_t addr[], u_int8_t *txrate)
 {
 	struct wihap_sta_info *sta;
 	static u_int8_t txratetable[] = { 10, 20, 55, 110 };
-	int s;
 
 	if (addr[0] & 0x01) {
 		*txrate = 0; /* XXX: multicast rate? */
 		return (1);
 	}
 
-	s = splsoftclock();
+	crit_enter();
 	sta = wihap_sta_find(whi, addr);
 	if (sta != NULL && (sta->flags & WI_SIFLAGS_ASSOC)) {
 		/* Keep it active. */
 		timeout_add_sec(&sta->tmo, whi->inactivity_time);
 		*txrate = txratetable[sta->tx_curr_rate];
-		splx(s);
+		crit_leave();
 		return (1);
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1105,7 +1104,7 @@ wihap_data_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 	struct ifnet		*ifp = &sc->sc_ic.ic_if;
 	struct wihap_info	*whi = &sc->wi_hostap_info;
 	struct wihap_sta_info	*sta;
-	int			mcast, s;
+	int			mcast;
 	u_int16_t		fctl;
 
 	/*
@@ -1132,7 +1131,7 @@ wihap_data_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 		return (1);
 	}
 
-	s = splsoftclock();
+	crit_enter();
 
 	/* Find source station. */
 	sta = wihap_sta_find(whi, rxfrm->wi_addr2);
@@ -1144,7 +1143,7 @@ wihap_data_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 			    ether_sprintf(rxfrm->wi_addr2));
 		wihap_sta_disassoc(sc, rxfrm->wi_addr2,
 		    IEEE80211_REASON_ASSOC_LEAVE);
-		splx(s);
+		crit_leave();
 		m_freem(m);
 		return (1);
 	}
@@ -1152,7 +1151,7 @@ wihap_data_input(struct wi_softc *sc, struct wi_frame *rxfrm, struct mbuf *m)
 	timeout_add_sec(&sta->tmo, whi->inactivity_time);
 	sta->sig_info = letoh16(rxfrm->wi_q_info);
 
-	splx(s);
+	crit_leave();
 
 	/* Repeat this packet to BSS? */
 	mcast = (rxfrm->wi_addr3[0] & 0x01) != 0;

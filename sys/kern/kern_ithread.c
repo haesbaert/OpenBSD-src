@@ -262,7 +262,10 @@ ithread_softmain(void *v_is)
 	DPRINTF(1, "ithread soft %u started\n", curproc->p_pid);
 
 	for (; ;) {
-		s = splraise(is->is_maxlevel);
+		if (is->is_maxlevel <= IPL_CRIT)
+			crit_enter();
+		else
+			s = splraise(is->is_maxlevel);
 		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
 			is->is_scheduled = 0; /* protected by is->is_maxlevel */
 
@@ -274,7 +277,10 @@ ithread_softmain(void *v_is)
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_UNLOCK();
 		}
-		splx(s);
+		if (is->is_maxlevel == IPL_CRIT)
+			crit_leave();
+		else
+			splx(s);
 
 		/*
 		 * XXX Could use atomic_npoll() or something similar.
