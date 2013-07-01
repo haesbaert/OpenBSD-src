@@ -467,7 +467,8 @@ static void cayman_gpu_init(struct radeon_device *rdev)
 		    (ddev->pci_device == 0x990F) ||
 		    (ddev->pci_device == 0x9910) ||
 		    (ddev->pci_device == 0x9917) ||
-		    (ddev->pci_device == 0x9999)) {
+		    (ddev->pci_device == 0x9999) ||
+		    (ddev->pci_device == 0x999C)) {
 			rdev->config.cayman.max_simds_per_se = 6;
 			rdev->config.cayman.max_backends_per_se = 2;
 		} else if ((ddev->pci_device == 0x9903) ||
@@ -476,7 +477,8 @@ static void cayman_gpu_init(struct radeon_device *rdev)
 			   (ddev->pci_device == 0x990D) ||
 			   (ddev->pci_device == 0x990E) ||
 			   (ddev->pci_device == 0x9913) ||
-			   (ddev->pci_device == 0x9918)) {
+			   (ddev->pci_device == 0x9918) ||
+			   (ddev->pci_device == 0x999D)) {
 			rdev->config.cayman.max_simds_per_se = 4;
 			rdev->config.cayman.max_backends_per_se = 2;
 		} else if ((ddev->pci_device == 0x9919) ||
