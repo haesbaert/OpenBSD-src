@@ -2040,6 +2040,8 @@ static int radeon_atombios_parse_power_table_1_3(struct radeon_device *rdev)
 	num_modes = power_info->info.ucNumOfPowerModeEntries;
 	if (num_modes > ATOM_MAX_NUMBEROF_POWER_BLOCK)
 		num_modes = ATOM_MAX_NUMBEROF_POWER_BLOCK;
+	if (num_modes == 0)
+		return state_index;
 	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) * num_modes,
 	    M_DRM, M_WAITOK | M_ZERO);
 	if (!rdev->pm.power_state)
@@ -2448,6 +2450,8 @@ static int radeon_atombios_parse_power_table_4_5(struct radeon_device *rdev)
 	power_info = (union power_info *)(mode_info->atom_context->bios + data_offset);
 
 	radeon_atombios_add_pplib_thermal_controller(rdev, &power_info->pplib.sThermalController);
+	if (power_info->pplib.ucNumStates == 0)
+		return state_index;
 	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) *
 				       power_info->pplib.ucNumStates, M_DRM, M_WAITOK | M_ZERO);
 	if (!rdev->pm.power_state)
@@ -2547,6 +2551,8 @@ static int radeon_atombios_parse_power_table_6(struct radeon_device *rdev)
 	non_clock_info_array = (struct _NonClockInfoArray *)
 		(mode_info->atom_context->bios + data_offset +
 		 le16_to_cpu(power_info->pplib.usNonClockInfoArrayOffset));
+	if (state_array->ucNumEntries == 0)
+		return state_index;
 	rdev->pm.power_state = malloc(sizeof(struct radeon_power_state) *
 				       state_array->ucNumEntries, M_DRM, M_WAITOK | M_ZERO);
 	if (!rdev->pm.power_state)
@@ -2635,7 +2641,9 @@ void radeon_atombios_get_power_modes(struct radeon_device *rdev)
 		default:
 			break;
 		}
-	} else {
+	}
+
+	if (state_index == 0) {
 		rdev->pm.power_state = malloc(sizeof(struct radeon_power_state),
 		    M_DRM, M_WAITOK | M_ZERO);
 		if (rdev->pm.power_state) {
