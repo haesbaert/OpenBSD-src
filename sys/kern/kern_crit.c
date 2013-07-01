@@ -14,19 +14,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef _SYS_CRIT_H
-#define _SYS_CRIT_H
-
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
 
-/* XXX do we need compiler barriers around static inline stuff ? */
 /* XXX we need to make sure we have a process context soon, for now just keep
  * this counter so that we can hunt it. */
-extern u_int crit_escaped;
+u_int crit_escaped;
 
-static inline void
+void
 crit_enter(void)
 {
 	if (curproc == NULL) {
@@ -36,7 +32,7 @@ crit_enter(void)
 	curproc->p_crit++;
 }
 
-static inline void
+void
 crit_leave(void)
 {
 	if (curproc == NULL) {
@@ -47,7 +43,7 @@ crit_leave(void)
 	KASSERT(curproc->p_crit >= 0);
 }
 
-static inline int
+int
 crit_inside(void)
 {
 	if (curproc == NULL) {
@@ -57,5 +53,3 @@ crit_inside(void)
 	KASSERT(curproc);
 	return (curproc->p_crit);
 }
-
-#endif	/* _SYS_CRIT_H */

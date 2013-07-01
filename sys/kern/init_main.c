@@ -131,7 +131,6 @@ struct	timespec boottime;
 int	ncpus =  1;
 int	ncpusfound = 1;			/* number of cpus we find */
 __volatile int start_init_exec;		/* semaphore for start_init() */
-u_int	crit_escaped;
 
 #if !defined(NO_PROPOLICE)
 #ifdef __ELF__
