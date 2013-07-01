@@ -49,12 +49,6 @@
  */
 #define LIR_TIMER	62
 
-/* Soft interrupt masks. */
-#define	SIR_CLOCK	61
-#define	SIR_NET		60
-#define	SIR_TTY		59
-
-
 /*
  * Maximum # of interrupt sources per CPU. 64 to fit in one word.
  * ioapics can theoretically produce more, but it's not likely to
