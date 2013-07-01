@@ -41,7 +41,6 @@
 #include <sys/systm.h>
 #include <sys/sched.h>
 #include <sys/mutex.h>
-#include <sys/crit.h>
 
 #include <machine/atomic.h>
 

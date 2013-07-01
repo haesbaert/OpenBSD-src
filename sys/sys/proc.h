@@ -547,6 +547,9 @@ void	cpu_exit(struct proc *);
 int	fork1(struct proc *, int, int, void *, pid_t *, void (*)(void *),
 	    void *, register_t *, struct proc **);
 int	groupmember(gid_t, struct ucred *);
+void	crit_enter(void);
+void	crit_leave(void);
+int	crit_inside(void);
 
 enum single_thread_mode {
 	SINGLE_SUSPEND,		/* other threads to stop wherever they are */
