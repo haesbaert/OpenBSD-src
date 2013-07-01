@@ -42,7 +42,7 @@ crit_leave(void)
 		return;
 	}
 	/* XXX temporary */
-	if (curproc->p_crit == 1)
+	if (curproc->p_crit == 1 && curcpu()->ci_ipis)
 		x86_ipi_handler();
 	curproc->p_crit--;
 	KASSERT(curproc->p_crit >= 0);
