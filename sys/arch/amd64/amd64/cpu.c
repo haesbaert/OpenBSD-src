@@ -581,6 +581,7 @@ cpu_hatch(void *v)
 
 	bzero(&fakeproc, sizeof(fakeproc));
 	curproc = &fakeproc;
+	crit_enter();
 
 #ifdef DEBUG
 	if (ci->ci_flags & CPUF_PRESENT)

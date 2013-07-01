@@ -1558,7 +1558,13 @@ init_x86_64(paddr_t first_avail)
 	fpuinit(&cpu_info_primary);
 
 	softintr_init();
-	splraise(IPL_IPI);
+
+	/* XXXXXXXXXXXXXXX splraise(IPL_IPI)
+	 * removed since we don't have IPL_IPI anymore and we don't have a
+	 * process context at this point. I don't know if this is actually
+	 * necessary, nothing seems to break at amd64.
+	 */
+	
 	enable_intr();
 
 #ifdef DDB
