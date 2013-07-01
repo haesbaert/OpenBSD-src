@@ -204,11 +204,11 @@ ttm_bo_vm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 	 */
 	mapprot = ufi->entry->protection;
 	if (bo->mem.bus.is_iomem) {
-		pmap_flags = ttm_pmap_flags(bo->mem.placement);
+		pmap_flags = ttm_io_prot(bo->mem.placement, 0);
 	} else {
 		ttm = bo->ttm;
 		pmap_flags = (bo->mem.placement & TTM_PL_FLAG_CACHED) ?
-		    0 : ttm_pmap_flags(bo->mem.placement);
+		    0 : ttm_io_prot(bo->mem.placement, 0);
 
 		/* Allocate all page at once, most common usage */
 		if (ttm->bdev->driver->ttm_tt_populate(ttm)) {

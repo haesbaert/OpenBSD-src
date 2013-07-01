@@ -36,6 +36,10 @@
 #include <dev/pci/drm/drm_mm.h>
 #include <dev/pci/drm/drm_global.h>
 
+typedef int pgprot_t;
+#define pgprot_val(v)	(v)
+#define PAGE_KERNEL	0
+
 struct ttm_backend_func {
 	/**
 	 * struct ttm_backend_func member bind
@@ -981,8 +985,7 @@ extern int ttm_bo_move_accel_cleanup(struct ttm_buffer_object *bo,
  * Utility function that returns the pgprot_t that should be used for
  * setting up a PTE with the caching model indicated by @c_state.
  */
-extern vm_prot_t ttm_io_prot(uint32_t caching_flags);
-extern int ttm_pmap_flags(uint32_t caching_flags);
+extern pgprot_t ttm_io_prot(uint32_t caching_flags, pgprot_t tmp);
 
 extern const struct ttm_mem_type_manager_func ttm_bo_manager_func;
 
