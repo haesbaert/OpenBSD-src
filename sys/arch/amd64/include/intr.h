@@ -137,7 +137,6 @@ void softintr(int);
 #define	splaudio()	splraise(IPL_AUDIO)
 #define	splclock()	splraise(IPL_CLOCK)
 #define	splstatclock()	splclock()
-#define splipi()	splraise(IPL_IPI)
 
 /*
  * Software interrupt masks

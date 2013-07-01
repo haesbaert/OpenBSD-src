@@ -21,6 +21,8 @@
 /* XXX we need to make sure we have a process context soon, for now just keep
  * this counter so that we can hunt it. */
 u_int crit_escaped;
+u_int crit_ipis;
+u_int nocrit_ipis;
 
 void
 crit_enter(void)
@@ -39,6 +41,9 @@ crit_leave(void)
 		crit_escaped++;
 		return;
 	}
+	/* XXX temporary */
+	if (curproc->p_crit == 1)
+		x86_ipi_handler();
 	curproc->p_crit--;
 	KASSERT(curproc->p_crit >= 0);
 }
