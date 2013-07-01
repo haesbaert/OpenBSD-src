@@ -121,6 +121,7 @@ ithread_handler(struct intrsource *is)
 
 	is->is_scheduled = 1;
 
+	SCHED_LOCK(s);
 	switch (p->p_stat) {
 	case SRUN:
 	case SONPROC:
@@ -136,13 +137,13 @@ ithread_handler(struct intrsource *is)
 		 * pinned. XXX we're not there yet and still rely on normal
 		 * SCHED_LOCK crap.
 		 */
-		SCHED_LOCK(s);
 		setrunqueue(p);
-		SCHED_UNLOCK(s);
 		break;
 	default:
+		SCHED_UNLOCK(s);
 		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
 	}
+	SCHED_UNLOCK(s);
 
 	return (0);
 }
