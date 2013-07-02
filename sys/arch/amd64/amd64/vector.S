@@ -312,31 +312,33 @@ calltrap:
 
 #if NLAPIC > 0
 #ifdef MULTIPROCESSOR
-
+IDTVEC(recurse_lapic_ipi)
+	INTR_RECURSE_HWFRAME
+	pushq	$0		
+	pushq	$T_ASTFLT
+	INTRENTRY		
+	jmp	1f
 IDTVEC(intr_lapic_ipi)
 	pushq	$0		
 	pushq	$T_ASTFLT
 	INTRENTRY		
 	movl	$0,_C_LABEL(local_apic)+LAPIC_EOI
-	cmpq	$0,CPUVAR(CURPROC)
-	je	3f
-	movq	CPUVAR(CURPROC),%rax
-	cmpl	$0,P_CRIT(%rax)
-	jne	2f
+	movl	CPUVAR(ILEVEL),%ebx
+	cmpl	$IPL_IPI,%ebx
+	jae	2f
+IDTVEC(resume_lapic_ipi)
+1:
 	incl	CPUVAR(IDEPTH)
-	call	_C_LABEL(crit_enter)
+	movl	$IPL_IPI,CPUVAR(ILEVEL)
+        sti
+	pushq	%rbx
 	call	_C_LABEL(x86_ipi_handler)
-	call	_C_LABEL(crit_leave)
-	decl	CPUVAR(IDEPTH)
-	incl	_C_LABEL(nocrit_ipis)
+	jmp	_C_LABEL(Xdoreti)
+2:
+	movq	$(1 << LIR_IPI),%rax
+	orq	%rax,CPUVAR(IPENDING)
 	sti
 	INTRFASTEXIT
-2:	incl	_C_LABEL(crit_ipis)
-	sti
-	INTRFASTEXIT
-3:	movabsq	$4f, %rdi
-	call	_C_LABEL(panic)
-4:	.asciz	"intr_lapic_ipi curproc is not set :=("
 
 IDTVEC(ipi_invltlb)
 	pushq	%rax

@@ -581,6 +581,22 @@ static char *x86_ipi_names[X86_NIPI] = X86_IPI_NAMES;
 void
 cpu_intr_init(struct cpu_info *ci)
 {
+	struct intrsource *isp;
+
+#if NLAPIC > 0
+#ifdef MULTIPROCESSOR
+	isp = malloc(sizeof (struct intrsource), M_DEVBUF, M_NOWAIT|M_ZERO);
+	if (isp == NULL)
+		panic("can't allocate fixed interrupt source");
+	isp->is_recurse = Xrecurse_lapic_ipi;
+	isp->is_resume = Xresume_lapic_ipi;
+	fake_ipi_intrhand.ih_level = IPL_IPI;
+	isp->is_handlers = &fake_ipi_intrhand;
+	isp->is_pic = &local_pic;
+	ci->ci_isources[LIR_IPI] = isp;
+#endif
+#endif
+
 	intr_calculatemasks(ci);
 }
 
