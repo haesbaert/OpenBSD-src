@@ -58,3 +58,12 @@ crit_inside(void)
 	KASSERT(curproc);
 	return (curproc->p_crit);
 }
+
+void
+crit_assert(void)
+{
+#ifdef DIAGNOSTIC
+	if (__predict_false(curproc->p_crit <= 0))
+		panic("not in critical section");
+#endif
+}
