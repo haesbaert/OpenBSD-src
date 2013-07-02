@@ -466,7 +466,7 @@ IDTVEC(intr_##name##num)						;\
 	level_mask(num)							;\
 	incl	CPUVAR(IDEPTH)						;\
 	movq	%r14, %rdi						;\
-	call	_C_LABEL(ithread_handler)				;\
+	call	_C_LABEL(ithread_run)					;\
 	late_ack(num)							;\
 	sti								;\
 	jmp	_C_LABEL(Xdoreti)	/* lower spl and do ASTs */	;\
