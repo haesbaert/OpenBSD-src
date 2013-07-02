@@ -550,6 +550,7 @@ int	groupmember(gid_t, struct ucred *);
 void	crit_enter(void);
 void	crit_leave(void);
 int	crit_inside(void);
+void	crit_assert(void);
 
 enum single_thread_mode {
 	SINGLE_SUSPEND,		/* other threads to stop wherever they are */
