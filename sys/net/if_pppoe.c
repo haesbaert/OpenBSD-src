@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/ioctl.h>
+#include <sys/proc.h>
 #include <net/if.h>
 #include <net/if_types.h>
 #include <net/if_sppp.h>
@@ -364,7 +365,7 @@ pppoeintr(void)
 	struct mbuf *m;
 	int s;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 	
 	for (;;) {
 		s = splnet();

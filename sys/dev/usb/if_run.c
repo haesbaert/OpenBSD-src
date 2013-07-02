@@ -32,6 +32,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -620,9 +621,9 @@ run_detach(struct device *self, int flags)
 {
 	struct run_softc *sc = (struct run_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int qid, s;
+	int qid;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->scan_to))
 		timeout_del(&sc->scan_to);
@@ -644,7 +645,7 @@ run_detach(struct device *self, int flags)
 		run_free_tx_ring(sc, qid);
 	run_free_rx_ring(sc);
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -1485,23 +1486,22 @@ run_task(void *arg)
 	struct run_softc *sc = arg;
 	struct run_host_cmd_ring *ring = &sc->cmdq;
 	struct run_host_cmd *cmd;
-	int s;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
 	/* process host commands */
-	s = splusb();
+	crit_enter();
 	while (ring->next != ring->cur) {
 		cmd = &ring->cmd[ring->next];
-		splx(s);
+		crit_leave();
 		/* callback */
 		cmd->cb(sc, cmd->data);
-		s = splusb();
+		crit_enter();
 		ring->queued--;
 		ring->next = (ring->next + 1) % RUN_HOST_CMD_RING_COUNT;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1510,12 +1510,11 @@ run_do_async(struct run_softc *sc, void (*cb)(struct run_softc *, void *),
 {
 	struct run_host_cmd_ring *ring = &sc->cmdq;
 	struct run_host_cmd *cmd;
-	int s;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
-	s = splusb();
+	crit_enter();
 	cmd = &ring->cmd[ring->cur];
 	cmd->cb = cb;
 	KASSERT(len <= sizeof (cmd->data));
@@ -1525,7 +1524,7 @@ run_do_async(struct run_softc *sc, void (*cb)(struct run_softc *, void *),
 	/* if there is no pending command already, schedule a task */
 	if (++ring->queued == 1)
 		usb_add_task(sc->sc_udev, &sc->sc_task);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -3535,7 +3534,7 @@ run_stop(struct ifnet *ifp, int disable)
 	struct run_softc *sc = ifp->if_softc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	uint32_t tmp;
-	int s, ntries, qid;
+	int ntries, qid;
 
 	if (ifp->if_flags & IFF_RUNNING)
 		run_set_leds(sc, 0);	/* turn all LEDs off */
@@ -3547,11 +3546,11 @@ run_stop(struct ifnet *ifp, int disable)
 	timeout_del(&sc->scan_to);
 	timeout_del(&sc->calib_to);
 
-	s = splusb();
+	crit_enter();
 	ieee80211_new_state(ic, IEEE80211_S_INIT, -1);
 	/* wait for all queued asynchronous commands to complete */
 	usb_wait_task(sc->sc_udev, &sc->sc_task);
-	splx(s);
+	crit_leave();
 
 	/* disable Tx/Rx */
 	run_read(sc, RT2860_MAC_SYS_CTRL, &tmp);

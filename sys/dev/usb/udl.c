@@ -33,6 +33,7 @@
 #include <sys/kernel.h>
 #include <sys/malloc.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include <uvm/uvm_extern.h>
 
@@ -1824,13 +1825,13 @@ udl_cmd_send_async(struct udl_softc *sc)
 	struct udl_cmd_buf *cb = &sc->sc_cmd_buf;
 	struct udl_cmd_xfer *cx;
 	usbd_status error;
-	int i, s;
+	int i;
 
 	/* check if command xfer queue is full */
 	if (sc->sc_cmd_xfer_cnt == UDL_CMD_XFER_COUNT)
 		return (USBD_IN_USE);
 
-	s = splusb();	/* no callbacks please until accounting is done */
+	crit_enter();	/* no callbacks please until accounting is done */
 
 	/* find a free command xfer buffer */
 	for (i = 0; i < UDL_CMD_XFER_COUNT; i++) {
@@ -1856,7 +1857,7 @@ udl_cmd_send_async(struct udl_softc *sc)
 	error = usbd_transfer(cx->xfer);
 	if (error != 0 && error != USBD_IN_PROGRESS) {
 		printf("%s: %s: %s!\n", DN(sc), FUNC, usbd_errstr(error));
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	DPRINTF(2, "%s: %s: sending %d bytes from buffer no. %d\n",
@@ -1868,7 +1869,7 @@ udl_cmd_send_async(struct udl_softc *sc)
 	cx->busy = 1;
 	sc->sc_cmd_xfer_cnt++;
 
-	splx(s);
+	crit_leave();
 
 	return (USBD_NORMAL_COMPLETION);
 }

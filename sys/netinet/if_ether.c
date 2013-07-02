@@ -50,6 +50,7 @@
 #include <sys/timeout.h>
 #include <sys/kernel.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -120,10 +121,9 @@ void
 arptimer(void *arg)
 {
 	struct timeout *to = (struct timeout *)arg;
-	int s;
 	struct llinfo_arp *la, *nla;
 
-	s = splsoftnet();
+	crit_enter();
 	timeout_add_sec(to, arpt_prune);
 	for (la = LIST_FIRST(&llinfo_arp); la != NULL; la = nla) {
 		struct rtentry *rt = la->la_rt;
@@ -132,7 +132,7 @@ arptimer(void *arg)
 		if (rt->rt_expire && rt->rt_expire <= time_second)
 			arptfree(la); /* timer has expired; clear */
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*

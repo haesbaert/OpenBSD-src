@@ -40,6 +40,7 @@
 #include <sys/timeout.h>
 #include <sys/kthread.h>
 #include <sys/tree.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -393,7 +394,6 @@ wi_usb_detach(struct device *self, int flags)
 	struct wi_usb_softc	*sc = (struct wi_usb_softc *)self;
 	struct ifnet		*ifp = WI_GET_IFP(sc);
 	struct wi_softc		*wsc = &sc->sc_wi;
-	int s;
 	int err;
 
 	/* Detached before attach finished, so just bail out. */
@@ -410,12 +410,12 @@ wi_usb_detach(struct device *self, int flags)
 
 	/* tasks? */
 
-	s = splusb();
+	crit_enter();
 	/* detach wi */
 
 	if (!(wsc->wi_flags & WI_FLAGS_ATTACHED)) {
 		printf("%s: already detached\n", sc->wi_usb_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
@@ -482,7 +482,7 @@ wi_usb_detach(struct device *self, int flags)
 		sc->wi_usb_ep[WI_USB_ENDPT_RX] = NULL;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1802,7 +1802,6 @@ wi_usb_thread(void *arg)
 {
 	struct wi_usb_softc *sc = arg;
 	struct wi_usb_thread_info *wi_thread_info;
-	int s;
 
 	wi_thread_info = malloc(sizeof(*wi_thread_info), M_DEVBUF, M_WAITOK);
 
@@ -1840,7 +1839,7 @@ wi_usb_thread(void *arg)
 		    sc->wi_usb_dev.dv_xname, __func__,
 		    wi_thread_info->status));
 
-		s = splusb();
+		crit_enter();
 		if (wi_thread_info->status & WI_START) {
 			wi_thread_info->status &= ~WI_START;
 			wi_usb_tx_lock(sc);
@@ -1856,7 +1855,7 @@ wi_usb_thread(void *arg)
 			wi_thread_info->status &= ~WI_WATCHDOG;
 			wi_func_io.f_watchdog( &sc->sc_wi.sc_ic.ic_if);
 		}
-		splx(s);
+		crit_leave();
 
 		DPRINTFN(5,("%s: %s: ending %x\n",
 		    sc->wi_usb_dev.dv_xname, __func__,
@@ -1864,7 +1863,7 @@ wi_usb_thread(void *arg)
 		wi_usb_ctl_unlock(sc);
 
 		if (wi_thread_info->status == 0) {
-			s = splnet();
+			int s = splnet();
 			wi_thread_info->idle = 1;
 			tsleep(wi_thread_info, PRIBIO, "wiIDL", 0);
 			wi_thread_info->idle = 0;

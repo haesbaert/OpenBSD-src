@@ -96,6 +96,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -833,7 +834,6 @@ int
 axe_detach(struct device *self, int flags)
 {
 	struct axe_softc	*sc = (struct axe_softc *)self;
-	int			s;
 	struct ifnet		*ifp = GET_IFP(sc);
 
 	DPRINTFN(2,("%s: %s: enter\n", sc->axe_dev.dv_xname, __func__));
@@ -855,7 +855,7 @@ axe_detach(struct device *self, int flags)
 	usb_rem_task(sc->axe_udev, &sc->axe_tick_task);
 	usb_rem_task(sc->axe_udev, &sc->axe_stop_task);
 
-	s = splusb();
+	crit_enter();
 
 	if (--sc->axe_refcnt >= 0) {
 		/* Wait for processes to go away */
@@ -884,7 +884,7 @@ axe_detach(struct device *self, int flags)
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->axe_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1462,21 +1462,20 @@ axe_watchdog(struct ifnet *ifp)
 	struct axe_softc	*sc;
 	struct axe_chain	*c;
 	usbd_status		stat;
-	int			s;
 
 	sc = ifp->if_softc;
 
 	ifp->if_oerrors++;
 	printf("axe%d: watchdog timeout\n", sc->axe_unit);
 
-	s = splusb();
+	crit_enter();
 	c = &sc->axe_cdata.axe_tx_chain[0];
 	usbd_get_xfer_status(c->axe_xfer, NULL, NULL, NULL, &stat);
 	axe_txeof(c->axe_xfer, c, stat);
 
 	if (!IFQ_IS_EMPTY(&ifp->if_snd))
 		axe_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 /*

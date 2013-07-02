@@ -181,9 +181,8 @@ void
 usbf_add_task(struct usbf_device *dev, struct usbf_task *task)
 {
 	struct usbf_softc *sc = dev->bus->usbfctl;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	if (!task->onqueue) {
 		DPRINTF(1,("usbf_add_task: task=%p, proc=%s\n",
 		    task, sc->sc_bus->intr_context ? "(null)" :
@@ -196,16 +195,15 @@ usbf_add_task(struct usbf_device *dev, struct usbf_task *task)
 		    curproc->p_comm));
 	}
 	wakeup(&sc->sc_tskq);
-	splx(s);
+	crit_leave();
 }
 
 void
 usbf_rem_task(struct usbf_device *dev, struct usbf_task *task)
 {
 	struct usbf_softc *sc = dev->bus->usbfctl;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	if (task->onqueue) {
 		DPRINTF(1,("usbf_rem_task: task=%p\n", task));
 		TAILQ_REMOVE(&sc->sc_tskq, task, next);
@@ -214,7 +212,7 @@ usbf_rem_task(struct usbf_device *dev, struct usbf_task *task)
 	} else {
 		DPRINTF(0,("usbf_rem_task: task=%p not on q", task));
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -241,11 +239,10 @@ usbf_task_thread(void *arg)
 {
 	struct usbf_softc *sc = arg;
 	struct usbf_task *task;
-	int s;
 
 	DPRINTF(0,("usbf_task_thread: start (pid %d)\n", curproc->p_pid));
 
-	s = splusb();
+	crit_enter();
 	while (!sc->sc_dying) {
 		task = TAILQ_FIRST(&sc->sc_tskq);
 		if (task == NULL) {
@@ -256,13 +253,13 @@ usbf_task_thread(void *arg)
 		if (task != NULL) {
 			TAILQ_REMOVE(&sc->sc_tskq, task, next);
 			task->onqueue = 0;
-			splx(s);
+			crit_leave();
 			task->fun(task->arg);
-			s = splusb();
+			crit_enter();
 			DPRINTF(1,("usbf_task_thread: done task=%p\n", task));
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	DPRINTF(0,("usbf_task_thread: exit\n"));
 	kthread_exit(0);

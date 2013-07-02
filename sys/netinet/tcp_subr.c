@@ -77,6 +77,7 @@
 #include <sys/protosw.h>
 #include <sys/kernel.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <net/route.h>
 #include <net/if.h>
@@ -575,11 +576,10 @@ void
 tcp_reaper(void *arg)
 {
 	struct tcpcb *tp = arg;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	pool_put(&tcpcb_pool, tp);
-	splx(s);
+	crit_leave();
 	tcpstat.tcps_closed++;
 }
 

@@ -71,6 +71,7 @@
 #include <sys/socket.h>
 #include <sys/protosw.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 #include <dev/rndvar.h>
 
 #include <net/if.h>
@@ -117,8 +118,7 @@ mld6_init()
 void
 mld6_start_listening(struct in6_multi *in6m)
 {
-	int s = splsoftnet();
-
+	crit_enter();
 	/*
 	 * RFC2710 page 10:
 	 * The node never sends a Report or Done for the link-scope all-nodes
@@ -140,7 +140,7 @@ mld6_start_listening(struct in6_multi *in6m)
 		in6m->in6m_state = MLD_IREPORTEDLAST;
 		mld_timers_are_running = 1;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -321,7 +321,6 @@ void
 mld6_fasttimeo(void)
 {
 	struct ifnet *ifp;
-	int s;
 
 	/*
 	 * Quick check to see if any work needs to be done, in order
@@ -330,11 +329,11 @@ mld6_fasttimeo(void)
 	if (!mld_timers_are_running)
 		return;
 
-	s = splsoftnet();
+	crit_enter();
 	mld_timers_are_running = 0;
 	TAILQ_FOREACH(ifp, &ifnet, if_list)
 		mld6_checktimer(ifp);
-	splx(s);
+	crit_leave();
 }
 
 void

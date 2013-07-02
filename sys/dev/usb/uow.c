@@ -24,6 +24,7 @@
 #include <sys/systm.h>
 #include <sys/device.h>
 #include <sys/kernel.h>
+#include <sys/proc.h>
 
 #include <dev/onewire/onewirereg.h>
 #include <dev/onewire/onewirevar.h>
@@ -234,10 +235,9 @@ int
 uow_detach(struct device *self, int flags)
 {
 	struct uow_softc *sc = (struct uow_softc *)self;
-	int rv = 0, s;
+	int rv = 0;
 
-	s = splusb();
-
+	crit_enter();
 	if (sc->sc_ph_ibulk != NULL) {
 		usbd_abort_pipe(sc->sc_ph_ibulk);
 		usbd_close_pipe(sc->sc_ph_ibulk);
@@ -257,7 +257,7 @@ uow_detach(struct device *self, int flags)
 	if (sc->sc_ow_dev != NULL)
 		rv = config_detach(sc->sc_ow_dev, flags);
 
-	splx(s);
+	crit_leave();
 
 	return (rv);
 }

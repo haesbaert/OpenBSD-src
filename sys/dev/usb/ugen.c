@@ -45,6 +45,7 @@
 #include <sys/selinfo.h>
 #include <sys/vnode.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbdi.h>
@@ -477,7 +478,6 @@ ugen_do_read(struct ugen_softc *sc, int endpt, struct uio *uio, int flag)
 	char buf[UGEN_BBSIZE];
 	struct usbd_xfer *xfer;
 	usbd_status err;
-	int s;
 	int flags, error = 0;
 	u_char buffer[UGEN_CHUNK];
 
@@ -503,10 +503,10 @@ ugen_do_read(struct ugen_softc *sc, int endpt, struct uio *uio, int flag)
 	switch (sce->edesc->bmAttributes & UE_XFERTYPE) {
 	case UE_INTERRUPT:
 		/* Block until activity occurred. */
-		s = splusb();
+		crit_enter();
 		while (sce->q.c_cc == 0) {
 			if (flag & IO_NDELAY) {
-				splx(s);
+				crit_leave();
 				return (EWOULDBLOCK);
 			}
 			sce->state |= UGEN_ASLP;
@@ -524,7 +524,7 @@ ugen_do_read(struct ugen_softc *sc, int endpt, struct uio *uio, int flag)
 			if (error)
 				break;
 		}
-		splx(s);
+		crit_leave();
 
 		/* Transfer as many chunks as possible. */
 		while (sce->q.c_cc > 0 && uio->uio_resid > 0 && !error) {
@@ -575,10 +575,10 @@ ugen_do_read(struct ugen_softc *sc, int endpt, struct uio *uio, int flag)
 		usbd_free_xfer(xfer);
 		break;
 	case UE_ISOCHRONOUS:
-		s = splusb();
+		crit_enter();
 		while (sce->cur == sce->fill) {
 			if (flag & IO_NDELAY) {
-				splx(s);
+				crit_leave();
 				return (EWOULDBLOCK);
 			}
 			sce->state |= UGEN_ASLP;
@@ -613,7 +613,7 @@ ugen_do_read(struct ugen_softc *sc, int endpt, struct uio *uio, int flag)
 			if(sce->cur >= sce->limit)
 				sce->cur = sce->ibuf;
 		}
-		splx(s);
+		crit_leave();
 		break;
 
 
@@ -764,7 +764,6 @@ ugen_detach(struct device *self, int flags)
 	struct ugen_softc *sc = (struct ugen_softc *)self;
 	struct ugen_endpoint *sce;
 	int i, dir;
-	int s;
 	int maj, mn;
 
 	DPRINTF(("ugen_detach: sc=%p flags=%d\n", sc, flags));
@@ -778,7 +777,7 @@ ugen_detach(struct device *self, int flags)
 		}
 	}
 
-	s = splusb();
+	crit_enter();
 	if (--sc->sc_refcnt >= 0) {
 		/* Wake everyone */
 		for (i = 0; i < USB_MAX_ENDPOINTS; i++)
@@ -786,7 +785,7 @@ ugen_detach(struct device *self, int flags)
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->sc_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	/* locate the major number */
 	for (maj = 0; maj < nchrdev; maj++)
@@ -1260,7 +1259,6 @@ ugenpoll(dev_t dev, int events, struct proc *p)
 	struct ugen_softc *sc;
 	struct ugen_endpoint *sce;
 	int revents = 0;
-	int s;
 
 	sc = ugen_cd.cd_devs[UGENUNIT(dev)];
 
@@ -1281,7 +1279,7 @@ ugenpoll(dev_t dev, int events, struct proc *p)
 		return (POLLERR);
 	}
 #endif
-	s = splusb();
+	crit_enter();
 	switch (sce->edesc->bmAttributes & UE_XFERTYPE) {
 	case UE_INTERRUPT:
 		if (events & (POLLIN | POLLRDNORM)) {
@@ -1311,7 +1309,7 @@ ugenpoll(dev_t dev, int events, struct proc *p)
 	default:
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return (revents);
 }
 
@@ -1324,11 +1322,10 @@ void
 filt_ugenrdetach(struct knote *kn)
 {
 	struct ugen_endpoint *sce = (void *)kn->kn_hook;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	SLIST_REMOVE(&sce->rsel.si_note, kn, knote, kn_selnext);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1372,7 +1369,6 @@ ugenkqfilter(dev_t dev, struct knote *kn)
 	struct ugen_softc *sc;
 	struct ugen_endpoint *sce;
 	struct klist *klist;
-	int s;
 
 	sc = ugen_cd.cd_devs[UGENUNIT(dev)];
 
@@ -1434,9 +1430,9 @@ ugenkqfilter(dev_t dev, struct knote *kn)
 
 	kn->kn_hook = (void *)sce;
 
-	s = splusb();
+	crit_enter();
 	SLIST_INSERT_HEAD(klist, kn, kn_selnext);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

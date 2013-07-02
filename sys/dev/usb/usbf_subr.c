@@ -683,9 +683,8 @@ void
 usbf_abort_pipe(struct usbf_pipe *pipe)
 {
 	struct usbf_xfer *xfer;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	pipe->repeat = 0;
 	pipe->aborting = 1;
 
@@ -697,7 +696,7 @@ usbf_abort_pipe(struct usbf_pipe *pipe)
 	}
 
 	pipe->aborting = 0;
-	splx(s);
+	crit_leave();
 }
 
 /* Abort all pipe operations and close the pipe. */
@@ -973,12 +972,11 @@ usbf_insert_transfer(struct usbf_xfer *xfer)
 {
 	struct usbf_pipe *pipe = xfer->pipe;
 	usbf_status err;
-	int s;
 
 	DPRINTF(1,("usbf_insert_transfer: xfer=%p pipe=%p running=%d\n",
 	    xfer, pipe, pipe->running));
 
-	s = splusb();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&pipe->queue, xfer, next);
 	if (pipe->running)
 		err = USBF_IN_PROGRESS;
@@ -986,7 +984,7 @@ usbf_insert_transfer(struct usbf_xfer *xfer)
 		pipe->running = 1;
 		err = USBF_NORMAL_COMPLETION;
 	}
-	splx(s);
+	crit_leave();
 	return err;
 }
 

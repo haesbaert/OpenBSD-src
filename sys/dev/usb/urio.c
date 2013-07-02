@@ -47,6 +47,7 @@
 #include <sys/selinfo.h>
 #include <sys/vnode.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbdi.h>
@@ -188,7 +189,6 @@ int
 urio_detach(struct device *self, int flags)
 {
 	struct urio_softc *sc = (struct urio_softc *)self;
-	int s;
 	int maj, mn;
 
 	DPRINTF(("urio_detach: sc=%p flags=%d\n", sc, flags));
@@ -205,12 +205,12 @@ urio_detach(struct device *self, int flags)
 		sc->sc_out_pipe = NULL;
 	}
 
-	s = splusb();
+	crit_enter();
 	if (--sc->sc_refcnt >= 0) {
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->sc_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	/* locate the major number */
 	for (maj = 0; maj < nchrdev; maj++)

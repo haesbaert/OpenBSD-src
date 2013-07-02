@@ -82,6 +82,7 @@
 #include <sys/domain.h>
 #include <sys/sysctl.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -1047,7 +1048,7 @@ if_down(struct ifnet *ifp)
 {
 	struct ifaddr *ifa;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	ifp->if_flags &= ~IFF_UP;
 	microtime(&ifp->if_lastchange);
@@ -1081,7 +1082,7 @@ if_up(struct ifnet *ifp)
 	struct ifaddr *ifa;
 #endif
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	ifp->if_flags |= IFF_UP;
 	microtime(&ifp->if_lastchange);
@@ -1208,7 +1209,7 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 	struct ifgroupreq *ifgr;
 	char ifdescrbuf[IFDESCRSIZE];
 	char ifrtlabelbuf[RTLABEL_LEN];
-	int s, error = 0;
+	int error = 0;
 	size_t bytesdone;
 	short oif_flags;
 	const char *label;
@@ -1277,13 +1278,17 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 		if ((error = suser(p, 0)) != 0)
 			return (error);
 		if (ifp->if_flags & IFF_UP && (ifr->ifr_flags & IFF_UP) == 0) {
-			s = splnet();
+			int s = splnet();
+			crit_enter();
 			if_down(ifp);
+			crit_leave();
 			splx(s);
 		}
 		if (ifr->ifr_flags & IFF_UP && (ifp->if_flags & IFF_UP) == 0) {
-			s = splnet();
+			int s = splnet();
+			crit_enter();
 			if_up(ifp);
+			crit_leave();
 			splx(s);
 		}
 		ifp->if_flags = (ifp->if_flags & IFF_CANTCHANGE) |
@@ -1299,8 +1304,10 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef INET6
 		if (ifr->ifr_flags & IFXF_NOINET6 &&
 		    !(ifp->if_xflags & IFXF_NOINET6)) {
-			s = splnet();
+			int s = splnet();
+			crit_enter();
 			in6_ifdetach(ifp);
+			crit_leave();
 			splx(s);
 		}
 		if (ifp->if_xflags & IFXF_NOINET6 &&
@@ -1308,8 +1315,10 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 			ifp->if_xflags &= ~IFXF_NOINET6;
 			if (ifp->if_flags & IFF_UP) {
 				/* configure link-local address */
-				s = splnet();
+				int s = splnet();
+				crit_enter();
 				in6_if_up(ifp);
+				crit_leave();
 				splx(s);
 			}
 		}
@@ -1318,18 +1327,22 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef MPLS
 		if (ISSET(ifr->ifr_flags, IFXF_MPLS) &&
 		    !ISSET(ifp->if_xflags, IFXF_MPLS)) {
-			s = splnet();
+			int s = splnet();
+			crit_enter();
 			ifp->if_xflags |= IFXF_MPLS;
 			ifp->if_ll_output = ifp->if_output; 
 			ifp->if_output = mpls_output;
+			crit_leave();
 			splx(s);
 		}
 		if (ISSET(ifp->if_xflags, IFXF_MPLS) &&
 		    !ISSET(ifr->ifr_flags, IFXF_MPLS)) {
-			s = splnet();
+			int s = splnet();
+			crit_enter();
 			ifp->if_xflags &= ~IFXF_MPLS;
 			ifp->if_output = ifp->if_ll_output; 
 			ifp->if_ll_output = NULL;
+			crit_leave();
 			splx(s);
 		}
 #endif
@@ -1338,18 +1351,22 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 		if (ifp->if_capabilities & IFCAP_WOL) {
 			if (ISSET(ifr->ifr_flags, IFXF_WOL) &&
 			    !ISSET(ifp->if_xflags, IFXF_WOL)) {
-				s = splnet();
+				int s = splnet();
+				crit_enter();
 				ifp->if_xflags |= IFXF_WOL;
 				error = ifp->if_wol(ifp, 1);
+				crit_leave();
 				splx(s);
 				if (error)
 					return (error);
 			}
 			if (ISSET(ifp->if_xflags, IFXF_WOL) &&
 			    !ISSET(ifr->ifr_flags, IFXF_WOL)) {
-				s = splnet();
+				int s = splnet();
+				crit_enter();
 				ifp->if_xflags &= ~IFXF_WOL;
 				error = ifp->if_wol(ifp, 0);
+				crit_leave();
 				splx(s);
 				if (error)
 					return (error);
@@ -1479,10 +1496,10 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 
 		/* make sure that the routing table exists */
 		if (!rtable_exists(ifr->ifr_rdomainid)) {
-			s = splsoftnet();
+			crit_enter();
 			if ((error = rtable_add(ifr->ifr_rdomainid)) == 0)
 				rtable_l2set(ifr->ifr_rdomainid, ifr->ifr_rdomainid);
-			splx(s);
+			crit_leave();
 			if (error)
 				return (error);
 		}
@@ -1494,6 +1511,7 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 		/* remove all routing entries when switching domains */
 		/* XXX hell this is ugly */
 		if (ifr->ifr_rdomainid != ifp->if_rdomain) {
+			crit_enter();
 			s = splnet();
 			if (ifp->if_flags & IFF_UP)
 				up = 1;
@@ -1518,6 +1536,7 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef INET
 			in_ifdetach(ifp);
 #endif
+			crit_leave();
 			splx(s);
 		}
 
@@ -1655,8 +1674,10 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef INET6
 		if (!(ifp->if_xflags & IFXF_NOINET6) &&
 		    (ifp->if_flags & IFF_UP) != 0) {
-			s = splnet();
+			int s = splnet();
+			crit_enter();
 			in6_if_up(ifp);
+			crit_leave();
 			splx(s);
 		}
 #endif
@@ -2297,6 +2318,7 @@ ifnewlladdr(struct ifnet *ifp)
 	int s;
 
 	s = splnet();
+	crit_enter();
 	up = ifp->if_flags & IFF_UP;
 
 	if (up) {
@@ -2337,5 +2359,6 @@ ifnewlladdr(struct ifnet *ifp)
 		ifrq.ifr_flags = ifp->if_flags;
 		(*ifp->if_ioctl)(ifp, SIOCSIFFLAGS, (caddr_t)&ifrq);
 	}
+	crit_leave();
 	splx(s);
 }

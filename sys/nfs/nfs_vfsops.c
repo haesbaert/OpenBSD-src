@@ -390,11 +390,10 @@ void
 nfs_decode_args(struct nfsmount *nmp, struct nfs_args *argp,
     struct nfs_args *nargp)
 {
-	int s;
 	int adjsock = 0;
 	int maxio;
 
-	s = splsoftnet();
+	crit_enter();
 
 #if 0
 	/* Re-bind if rsrvd port requested and wasn't on one */
@@ -408,7 +407,7 @@ nfs_decode_args(struct nfsmount *nmp, struct nfs_args *argp,
 	/* Update flags atomically.  Don't change the lock bits. */
 	nmp->nm_flag =
 	    (argp->flags & ~NFSMNT_INTERNAL) | (nmp->nm_flag & NFSMNT_INTERNAL);
-	splx(s);
+	crit_leave();
 
 	if ((argp->flags & NFSMNT_TIMEO) && argp->timeo > 0) {
 		nmp->nm_timeo = (argp->timeo * NFS_HZ + 5) / 10;

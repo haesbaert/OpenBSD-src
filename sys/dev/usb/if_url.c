@@ -50,6 +50,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -328,7 +329,6 @@ url_detach(struct device *self, int flags)
 {
 	struct url_softc *sc = (struct url_softc *)self;
 	struct ifnet *ifp = GET_IFP(sc);
-	int s;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
@@ -339,7 +339,7 @@ url_detach(struct device *self, int flags)
 	usb_rem_task(sc->sc_udev, &sc->sc_tick_task);
 	usb_rem_task(sc->sc_udev, &sc->sc_stop_task);
 
-	s = splusb();
+	crit_enter();
 
 	if (--sc->sc_refcnt >= 0) {
 		/* Wait for processes to go away */
@@ -368,7 +368,7 @@ url_detach(struct device *self, int flags)
 		       sc->sc_dev.dv_xname);
 #endif
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1095,21 +1095,20 @@ url_watchdog(struct ifnet *ifp)
 	struct url_softc *sc = ifp->if_softc;
 	struct url_chain *c;
 	usbd_status stat;
-	int s;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
 	ifp->if_oerrors++;
 	printf("%s: watchdog timeout\n", sc->sc_dev.dv_xname);
 
-	s = splusb();
+	crit_enter();
 	c = &sc->sc_cdata.url_tx_chain[0];
 	usbd_get_xfer_status(c->url_xfer, NULL, NULL, NULL, &stat);
 	url_txeof(c->url_xfer, c, stat);
 
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		url_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 void

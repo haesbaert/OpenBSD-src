@@ -28,6 +28,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -1502,14 +1503,13 @@ urndis_detach(struct device *self, int flags)
 {
 	struct urndis_softc	*sc;
 	struct ifnet		*ifp;
-	int			 s;
 
 	sc = (void*)self;
 
 	DPRINTF(("urndis_detach: %s flags %u\n", DEVNAME(sc),
 	    flags));
 
-	s = splusb();
+	crit_enter();
 
 	ifp = GET_IFP(sc);
 
@@ -1520,7 +1520,7 @@ urndis_detach(struct device *self, int flags)
 
 	urndis_stop(sc);
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }

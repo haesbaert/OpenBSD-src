@@ -428,10 +428,13 @@ ukbd_cnpollc(void *v, int on)
 	DPRINTFN(2,("ukbd_cnpollc: sc=%p on=%d\n", v, on));
 
 	usbd_interface2device_handle(sc->sc_hdev.sc_parent->sc_iface, &dev);
+	panic("XXX fix me");
+#if 0
 	if (on)
 		sc->sc_spl = splusb();
 	else
 		splx(sc->sc_spl);
+#endif
 	usbd_set_polling(dev, on);
 }
 

@@ -79,6 +79,7 @@
 #include <sys/timeout.h>
 #include <sys/kernel.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <dev/rndvar.h>
 
@@ -3421,7 +3422,6 @@ syn_cache_insert(struct syn_cache *sc, struct tcpcb *tp)
 {
 	struct syn_cache_head *scp;
 	struct syn_cache *sc2;
-	int s;
 
 	/*
 	 * If there are no entries in the hash table, reinitialize
@@ -3440,7 +3440,7 @@ syn_cache_insert(struct syn_cache *sc, struct tcpcb *tp)
 	 * Make sure that we don't overflow the per-bucket
 	 * limit or the total cache size limit.
 	 */
-	s = splsoftnet();
+	crit_enter();
 	if (scp->sch_length >= tcp_syn_bucket_limit) {
 		tcpstat.tcps_sc_bucketoverflow++;
 		/*
@@ -3510,7 +3510,7 @@ syn_cache_insert(struct syn_cache *sc, struct tcpcb *tp)
 	syn_cache_count++;
 
 	tcpstat.tcps_sc_added++;
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -3522,11 +3522,10 @@ void
 syn_cache_timer(void *arg)
 {
 	struct syn_cache *sc = arg;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	if (sc->sc_flags & SCF_DEAD) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -3551,25 +3550,24 @@ syn_cache_timer(void *arg)
 	sc->sc_rxtshift++;
 	SYN_CACHE_TIMER_ARM(sc);
 
-	splx(s);
+	crit_leave();
 	return;
 
  dropit:
 	tcpstat.tcps_sc_timed_out++;
 	syn_cache_rm(sc);
 	syn_cache_put(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
 syn_cache_reaper(void *arg)
 {
 	struct syn_cache *sc = arg;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	pool_put(&syn_cache_pool, (sc));
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -3582,9 +3580,8 @@ void
 syn_cache_cleanup(struct tcpcb *tp)
 {
 	struct syn_cache *sc, *nsc;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 
 	for (sc = LIST_FIRST(&tp->t_sc); sc != NULL; sc = nsc) {
 		nsc = LIST_NEXT(sc, sc_tpq);
@@ -3599,7 +3596,7 @@ syn_cache_cleanup(struct tcpcb *tp)
 	/* just for safety */
 	LIST_INIT(&tp->t_sc);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -3612,13 +3609,12 @@ syn_cache_lookup(struct sockaddr *src, struct sockaddr *dst,
 	struct syn_cache *sc;
 	struct syn_cache_head *scp;
 	u_int32_t hash;
-	int s;
 
 	SYN_HASHALL(hash, src, dst);
 
 	scp = &tcp_syn_cache[hash % tcp_syn_cache_size];
 	*headp = scp;
-	s = splsoftnet();
+	crit_enter();
 	for (sc = TAILQ_FIRST(&scp->sch_bucket); sc != NULL;
 	     sc = TAILQ_NEXT(sc, sc_bucketq)) {
 		if (sc->sc_hash != hash)
@@ -3626,11 +3622,11 @@ syn_cache_lookup(struct sockaddr *src, struct sockaddr *dst,
 		if (!bcmp(&sc->sc_src, src, src->sa_len) &&
 		    !bcmp(&sc->sc_dst, dst, dst->sa_len) &&
 		    rtable_l2(rtableid) == rtable_l2(sc->sc_rtableid)) {
-			splx(s);
+			crit_leave();
 			return (sc);
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (NULL);
 }
 
@@ -3666,16 +3662,15 @@ syn_cache_get(struct sockaddr *src, struct sockaddr *dst, struct tcphdr *th,
 	struct inpcb *inp = NULL;
 	struct tcpcb *tp = NULL;
 	struct mbuf *am;
-	int s;
 	struct socket *oso;
 #if NPF > 0
 	struct pf_divert *divert = NULL;
 #endif
 
-	s = splsoftnet();
+	crit_enter();
 	if ((sc = syn_cache_lookup(src, dst, &scp,
 	    sotoinpcb(so)->inp_rtableid)) == NULL) {
-		splx(s);
+		crit_leave();
 		return (NULL);
 	}
 
@@ -3687,13 +3682,13 @@ syn_cache_get(struct sockaddr *src, struct sockaddr *dst, struct tcphdr *th,
 	    SEQ_LEQ(th->th_seq, sc->sc_irs) ||
 	    SEQ_GT(th->th_seq, sc->sc_irs + 1 + sc->sc_win)) {
 		(void) syn_cache_respond(sc, m);
-		splx(s);
+		crit_leave();
 		return ((struct socket *)(-1));
 	}
 
 	/* Remove this cache entry */
 	syn_cache_rm(sc);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Ok, create the full blown connection, and set things up
@@ -3924,19 +3919,20 @@ syn_cache_reset(struct sockaddr *src, struct sockaddr *dst, struct tcphdr *th,
 {
 	struct syn_cache *sc;
 	struct syn_cache_head *scp;
-	int s = splsoftnet();
 
+	crit_enter();
+	
 	if ((sc = syn_cache_lookup(src, dst, &scp, rtableid)) == NULL) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if (SEQ_LT(th->th_seq, sc->sc_irs) ||
 	    SEQ_GT(th->th_seq, sc->sc_irs+1)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	syn_cache_rm(sc);
-	splx(s);
+	crit_leave();
 	tcpstat.tcps_sc_reset++;
 	syn_cache_put(sc);
 }
@@ -3947,16 +3943,15 @@ syn_cache_unreach(struct sockaddr *src, struct sockaddr *dst, struct tcphdr *th,
 {
 	struct syn_cache *sc;
 	struct syn_cache_head *scp;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	if ((sc = syn_cache_lookup(src, dst, &scp, rtableid)) == NULL) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	/* If the sequence number != sc_iss, then it's a bogus ICMP msg */
 	if (ntohl (th->th_seq) != sc->sc_iss) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -3970,12 +3965,12 @@ syn_cache_unreach(struct sockaddr *src, struct sockaddr *dst, struct tcphdr *th,
 	 */
 	if ((sc->sc_flags & SCF_UNREACH) == 0 || sc->sc_rxtshift < 3) {
 		sc->sc_flags |= SCF_UNREACH;
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	syn_cache_rm(sc);
-	splx(s);
+	crit_leave();
 	tcpstat.tcps_sc_unreach++;
 	syn_cache_put(sc);
 }

@@ -37,6 +37,7 @@
 #include <sys/kernel.h>
 #include <sys/device.h>
 #include <sys/malloc.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -294,7 +295,7 @@ usbd_transfer(struct usbd_xfer *xfer)
 	struct usb_dma *dmap = &xfer->dmabuf;
 	usbd_status err;
 	u_int size;
-	int flags, s;
+	int flags;
 
 	if (usbd_is_dying(pipe->device))
 		return (USBD_IOERROR);
@@ -348,7 +349,7 @@ usbd_transfer(struct usbd_xfer *xfer)
 	/* Sync transfer, wait for completion. */
 	if (err != USBD_IN_PROGRESS)
 		return (err);
-	s = splusb();
+	crit_enter();
 	while (!xfer->done) {
 		if (pipe->device->bus->use_polling)
 			panic("usbd_transfer: not done");
@@ -363,7 +364,7 @@ usbd_transfer(struct usbd_xfer *xfer)
 				xfer->status = USBD_TIMEOUT;
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (xfer->status);
 }
 
@@ -533,7 +534,6 @@ usbd_status
 usbd_abort_pipe(struct usbd_pipe *pipe)
 {
 	struct usbd_xfer *xfer;
-	int s;
 
 #ifdef DIAGNOSTIC
 	if (pipe == NULL) {
@@ -541,7 +541,7 @@ usbd_abort_pipe(struct usbd_pipe *pipe)
 		return (USBD_NORMAL_COMPLETION);
 	}
 #endif
-	s = splusb();
+	crit_enter();
 	DPRINTFN(2,("%s: pipe=%p\n", __func__, pipe));
 #ifdef USB_DEBUG
 	if (usbdebug > 5)
@@ -557,7 +557,7 @@ usbd_abort_pipe(struct usbd_pipe *pipe)
 		/* XXX only for non-0 usbd_clear_endpoint_stall(pipe); */
 	}
 	pipe->aborting = 0;
-	splx(s);
+	crit_leave();
 
 	return (USBD_NORMAL_COMPLETION);
 }
@@ -829,7 +829,6 @@ usb_insert_transfer(struct usbd_xfer *xfer)
 {
 	struct usbd_pipe *pipe = xfer->pipe;
 	usbd_status err;
-	int s;
 
 	DPRINTFN(5,("usb_insert_transfer: pipe=%p running=%d timeout=%d\n",
 	    pipe, pipe->running, xfer->timeout));
@@ -841,7 +840,7 @@ usb_insert_transfer(struct usbd_xfer *xfer)
 	}
 	xfer->busy_free = XFER_ONQU;
 #endif
-	s = splusb();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&pipe->queue, xfer, next);
 	if (pipe->running)
 		err = USBD_IN_PROGRESS;
@@ -849,7 +848,7 @@ usb_insert_transfer(struct usbd_xfer *xfer)
 		pipe->running = 1;
 		err = USBD_NORMAL_COMPLETION;
 	}
-	splx(s);
+	crit_leave();
 	return (err);
 }
 

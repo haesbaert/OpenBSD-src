@@ -29,6 +29,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -766,9 +767,8 @@ urtw_detach(struct device *self, int flags)
 {
 	struct urtw_softc *sc = (struct urtw_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->scan_to))
 		timeout_del(&sc->scan_to);
@@ -790,7 +790,7 @@ urtw_detach(struct device *self, int flags)
 	urtw_free_rx_data_list(sc);
 	urtw_close_pipes(sc);
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

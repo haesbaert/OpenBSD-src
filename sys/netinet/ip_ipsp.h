@@ -487,7 +487,7 @@ extern TAILQ_HEAD(ipsec_acquire_head, ipsec_acquire) ipsec_acquire_head;
 
 #define	SPI_CHAIN_ATTRIB(have, TDB_DIR, TDBP)				\
 do {									\
-	int s = splsoftnet();						\
+	crit_enter();							\
 	struct tdb *tmptdb = (TDBP);					\
 									\
 	(have) = 0;							\
@@ -497,7 +497,7 @@ do {									\
 		(have) |= TDB_ATTRIB(tmptdb);				\
 		tmptdb = tmptdb->TDB_DIR;				\
 	}								\
-	splx(s);							\
+	crit_leave(s);							\
 } while (/* CONSTCOND */ 0)
 
 /* Misc. */

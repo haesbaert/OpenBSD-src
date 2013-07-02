@@ -133,7 +133,8 @@ soo_poll(struct file *fp, int events, struct proc *p)
 {
 	struct socket *so = fp->f_data;
 	int revents = 0;
-	int s = splsoftnet();
+
+	crit_enter();
 
 	if (events & (POLLIN | POLLRDNORM)) {
 		if (soreadable(so))
@@ -160,7 +161,7 @@ soo_poll(struct file *fp, int events, struct proc *p)
 			so->so_snd.sb_flagsintr |= SB_SEL;
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (revents);
 }
 

@@ -44,6 +44,7 @@
 #include <sys/ioctl.h>
 #include <sys/syslog.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 #include <dev/rndvar.h>
 
 #include <net/if.h>
@@ -355,9 +356,7 @@ skip1:
 void
 nd6_llinfo_settimer(struct llinfo_nd6 *ln, long tick)
 {
-	int s;
-
-	s = splsoftnet();
+	crit_enter();
 
 	if (tick < 0) {
 		ln->ln_expire = 0;
@@ -374,20 +373,19 @@ nd6_llinfo_settimer(struct llinfo_nd6 *ln, long tick)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
 nd6_llinfo_timer(void *arg)
 {
-	int s;
 	struct llinfo_nd6 *ln;
 	struct rtentry *rt;
 	struct sockaddr_in6 *dst;
 	struct ifnet *ifp;
 	struct nd_ifinfo *ndi = NULL;
 
-	s = splsoftnet();
+	crit_enter();
 
 	ln = (struct llinfo_nd6 *)arg;
 
@@ -399,7 +397,7 @@ nd6_llinfo_timer(void *arg)
 			ln->ln_ntick = 0;
 			nd6_llinfo_settimer(ln, ln->ln_ntick);
 		}
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -490,7 +488,7 @@ nd6_llinfo_timer(void *arg)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -499,12 +497,11 @@ nd6_llinfo_timer(void *arg)
 void
 nd6_timer(void *ignored_arg)
 {
-	int s;
 	struct nd_defrouter *dr, *ndr;
 	struct nd_prefix *pr, *npr;
 	struct in6_ifaddr *ia6, *nia6;
 
-	s = splsoftnet();
+	crit_enter();
 	timeout_set(&nd6_timer_ch, nd6_timer, NULL);
 	timeout_add_sec(&nd6_timer_ch, nd6_prune);
 
@@ -551,7 +548,7 @@ nd6_timer(void *ignored_arg)
 			prelist_remove(pr);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -802,8 +799,7 @@ nd6_free(struct rtentry *rt, int gc)
 	 */
 
 	if (!ip6_forwarding) {
-		int s;
-		s = splsoftnet();
+		crit_enter();
 		dr = defrouter_lookup(&satosin6(rt_key(rt))->sin6_addr,
 		    rt->rt_ifp);
 
@@ -826,7 +822,7 @@ nd6_free(struct rtentry *rt, int gc)
 				    dr->expire - time_second * hz);
 			} else
 				nd6_llinfo_settimer(ln, (long)nd6_gctimer * hz);
-			splx(s);
+			crit_leave();
 			return (ln->ln_next);
 		}
 
@@ -868,7 +864,7 @@ nd6_free(struct rtentry *rt, int gc)
 			 */
 			defrouter_select();
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	/*
@@ -1234,7 +1230,6 @@ nd6_ioctl(u_long cmd, caddr_t data, struct ifnet *ifp)
 	struct in6_nbrinfo *nbi = (struct in6_nbrinfo *)data;
 	struct rtentry *rt;
 	int error = 0;
-	int s;
 
 	switch (cmd) {
 	case SIOCGIFINFO_IN6:
@@ -1253,7 +1248,7 @@ nd6_ioctl(u_long cmd, caddr_t data, struct ifnet *ifp)
 		/* flush all the prefix advertised by routers */
 		struct nd_prefix *pr, *npr;
 
-		s = splsoftnet();
+		crit_enter();
 		/* First purge the addresses referenced by a prefix. */
 		LIST_FOREACH_SAFE(pr, &nd_prefix, ndpr_entry, npr) {
 			struct in6_ifaddr *ia, *ia_next;
@@ -1281,7 +1276,7 @@ nd6_ioctl(u_long cmd, caddr_t data, struct ifnet *ifp)
 
 			prelist_remove(pr);
 		}
-		splx(s);
+		crit_leave();
 		break;
 	}
 	case SIOCSRTRFLUSH_IN6:
@@ -1289,12 +1284,12 @@ nd6_ioctl(u_long cmd, caddr_t data, struct ifnet *ifp)
 		/* flush all the default routers */
 		struct nd_defrouter *dr, *ndr;
 
-		s = splsoftnet();
+		crit_enter();
 		defrouter_reset();
 		TAILQ_FOREACH_SAFE(dr, &nd_defrouter, dr_entry, ndr)
 			defrtrlist_del(dr);
 		defrouter_select();
-		splx(s);
+		crit_leave();
 		break;
 	}
 	case SIOCGNBRINFO_IN6:
@@ -1314,18 +1309,18 @@ nd6_ioctl(u_long cmd, caddr_t data, struct ifnet *ifp)
 				*idp = htons(ifp->if_index);
 		}
 
-		s = splsoftnet();
+		crit_enter();
 		if ((rt = nd6_lookup(&nb_addr, 0, ifp)) == NULL ||
 		    (ln = (struct llinfo_nd6 *)rt->rt_llinfo) == NULL) {
 			error = EINVAL;
-			splx(s);
+			crit_leave();
 			break;
 		}
 		nbi->state = ln->ln_state;
 		nbi->asked = ln->ln_asked;
 		nbi->isrouter = ln->ln_router;
 		nbi->expire = ln->ln_expire;
-		splx(s);
+		crit_leave();
 
 		break;
 	}
@@ -1578,10 +1573,10 @@ fail:
 void
 nd6_slowtimo(void *ignored_arg)
 {
-	int s = splsoftnet();
 	struct nd_ifinfo *nd6if;
 	struct ifnet *ifp;
 
+	crit_enter();
 	timeout_set(&nd6_slowtimo_ch, nd6_slowtimo, NULL);
 	timeout_add_sec(&nd6_slowtimo_ch, ND6_SLOWTIMER_INTERVAL);
 	TAILQ_FOREACH(ifp, &ifnet, if_list) {
@@ -1598,7 +1593,7 @@ nd6_slowtimo(void *ignored_arg)
 			nd6if->reachable = ND_COMPUTE_RTIME(nd6if->basereachable);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 #define senderr(e) { error = (e); goto bad;}
@@ -1915,12 +1910,12 @@ nd6_sysctl(int name, void *oldp, size_t *oldlenp, void *newp, size_t newlen)
 int
 fill_drlist(void *oldp, size_t *oldlenp, size_t ol)
 {
-	int error = 0, s;
+	int error = 0;
 	struct in6_defrouter *d = NULL, *de = NULL;
 	struct nd_defrouter *dr;
 	size_t l;
 
-	s = splsoftnet();
+	crit_enter();
 
 	if (oldp) {
 		d = (struct in6_defrouter *)oldp;
@@ -1954,7 +1949,7 @@ fill_drlist(void *oldp, size_t *oldlenp, size_t ol)
 	} else
 		*oldlenp = l;
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -1962,13 +1957,13 @@ fill_drlist(void *oldp, size_t *oldlenp, size_t ol)
 int
 fill_prlist(void *oldp, size_t *oldlenp, size_t ol)
 {
-	int error = 0, s;
+	int error = 0;
 	struct nd_prefix *pr;
 	struct in6_prefix *p = NULL;
 	struct in6_prefix *pe = NULL;
 	size_t l;
 
-	s = splsoftnet();
+	crit_enter();
 
 	if (oldp) {
 		p = (struct in6_prefix *)oldp;
@@ -2052,7 +2047,7 @@ fill_prlist(void *oldp, size_t *oldlenp, size_t ol)
 	} else
 		*oldlenp = l;
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }

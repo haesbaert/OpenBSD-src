@@ -454,15 +454,16 @@ igmp_input(struct mbuf *m, ...)
 void
 igmp_joingroup(struct in_multi *inm)
 {
-	int i, s = splsoftnet();
+	int i;
 
+	crit_enter();
 	inm->inm_state = IGMP_IDLE_MEMBER;
 
 	if (!IN_LOCAL_GROUP(inm->inm_addr.s_addr) &&
 	    inm->inm_ifp &&
 	    (inm->inm_ifp->if_flags & IFF_LOOPBACK) == 0) {
 		if ((i = rti_fill(inm)) == -1) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		igmp_sendpkt(inm, i, 0);
@@ -472,7 +473,7 @@ igmp_joingroup(struct in_multi *inm)
 		igmp_timers_are_running = 1;
 	} else
 		inm->inm_timer = 0;
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -500,7 +501,6 @@ void
 igmp_fasttimo(void)
 {
 	struct ifnet *ifp;
-	int s;
 
 	/*
 	 * Quick check to see if any work needs to be done, in order
@@ -509,11 +509,11 @@ igmp_fasttimo(void)
 	if (!igmp_timers_are_running)
 		return;
 
-	s = splsoftnet();
+	crit_enter();
 	igmp_timers_are_running = 0;
 	TAILQ_FOREACH(ifp, &ifnet, if_list)
 		igmp_checktimer(ifp);
-	splx(s);
+	crit_leave();
 }
 
 
@@ -548,16 +548,15 @@ void
 igmp_slowtimo(void)
 {
 	struct router_info *rti;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	for (rti = rti_head; rti != 0; rti = rti->rti_next) {
 		if (rti->rti_type == IGMP_v1_ROUTER &&
 		    ++rti->rti_age >= IGMP_AGE_THRESHOLD) {
 			rti->rti_type = IGMP_v2_ROUTER;
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 void

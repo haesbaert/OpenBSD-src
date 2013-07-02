@@ -222,7 +222,7 @@ nfssvc_addsock(struct file *fp, struct mbuf *mynam)
 	struct nfssvc_sock *slp;
 	struct socket *so;
 	struct nfssvc_sock *tslp;
-	int error, s;
+	int error;
 
 	so = (struct socket *)fp->f_data;
 	tslp = NULL;
@@ -279,12 +279,12 @@ nfssvc_addsock(struct file *fp, struct mbuf *mynam)
 	slp->ns_nam = mynam;
 	fp->f_count++;
 	slp->ns_fp = fp;
-	s = splsoftnet();
+	crit_enter();
 	so->so_upcallarg = (caddr_t)slp;
 	so->so_upcall = nfsrv_rcv;
 	slp->ns_flag = (SLP_VALID | SLP_NEEDQ);
 	nfsrv_wakenfsd(slp);
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -302,11 +302,11 @@ nfssvc_nfsd(struct nfsd *nfsd)
 	int *solockp;
 	struct nfsrv_descript *nd = NULL;
 	struct mbuf *mreq;
-	int error = 0, cacherep, s, sotype;
+	int error = 0, cacherep, sotype;
 
 	cacherep = RC_DOIT;
 
-	s = splsoftnet();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&nfsd_head, nfsd, nfsd_chain);
 	nfs_numnfsd++;
 
@@ -350,7 +350,7 @@ loop:
 		goto loop;
 	}
 
-	splx(s);
+	crit_leave();
 
 	so = slp->ns_so;
 	sotype = so->so_type;
@@ -430,7 +430,7 @@ loop:
 		if (error == EINTR || error == ERESTART) {
 			pool_put(&nfsrv_descript_pl, nd);
 			nfsrv_slpderef(slp);
-			s = splsoftnet();
+			crit_enter();
 			goto done;
 		}
 		break;
@@ -445,7 +445,7 @@ loop:
 		nd = NULL;
 	}
 
-	s = splsoftnet();
+	crit_enter();
 	if (nfsrv_dorec(slp, nfsd, &nd)) {
 		nfsd->nfsd_flag &= ~NFSD_REQINPROG;
 		nfsd->nfsd_slp = NULL;
@@ -455,7 +455,7 @@ loop:
 
 done:
 	TAILQ_REMOVE(&nfsd_head, nfsd, nfsd_chain);
-	splx(s);
+	crit_leave();
 	free((caddr_t)nfsd, M_NFSD);
 	if (--nfs_numnfsd == 0)
 		nfsrv_init(1);	/* Reinitialize everything */

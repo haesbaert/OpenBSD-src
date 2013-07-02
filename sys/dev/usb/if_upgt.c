@@ -27,6 +27,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -461,11 +462,10 @@ upgt_detach(struct device *self, int flags)
 {
 	struct upgt_softc *sc = (struct upgt_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
 	DPRINTF(1, "%s: %s\n", sc->sc_dev.dv_xname, __func__);
 
-	s = splusb();
+	crit_enter();
 
 	/* abort and close TX / RX pipes */
 	if (sc->sc_tx_pipeh != NULL) {
@@ -499,7 +499,7 @@ upgt_detach(struct device *self, int flags)
 		if_detach(ifp);
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1494,10 +1494,10 @@ upgt_tx_task(void *arg)
 	struct upgt_lmac_tx_desc *txdesc;
 	struct mbuf *m;
 	uint32_t addr;
-	int len, i, s;
+	int len, i;
 	usbd_status error;
 
-	s = splusb();
+	crit_enter();
 
 	upgt_set_led(sc, UPGT_LED_BLINK);
 
@@ -1620,7 +1620,7 @@ upgt_tx_task(void *arg)
 	 */
 	upgt_get_stats(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 void

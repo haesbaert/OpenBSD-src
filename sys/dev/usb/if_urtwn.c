@@ -31,6 +31,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -406,9 +407,8 @@ urtwn_detach(struct device *self, int flags)
 {
 	struct urtwn_softc *sc = (struct urtwn_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->scan_to))
 		timeout_del(&sc->scan_to);
@@ -431,7 +431,7 @@ urtwn_detach(struct device *self, int flags)
 	/* Free Tx/Rx buffers. */
 	urtwn_free_tx_list(sc);
 	urtwn_free_rx_list(sc);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -620,20 +620,19 @@ urtwn_task(void *arg)
 	struct urtwn_softc *sc = arg;
 	struct urtwn_host_cmd_ring *ring = &sc->cmdq;
 	struct urtwn_host_cmd *cmd;
-	int s;
 
 	/* Process host commands. */
-	s = splusb();
+	crit_enter();
 	while (ring->next != ring->cur) {
 		cmd = &ring->cmd[ring->next];
-		splx(s);
+		crit_leave();
 		/* Invoke callback. */
 		cmd->cb(sc, cmd->data);
-		s = splusb();
+		crit_enter();
 		ring->queued--;
 		ring->next = (ring->next + 1) % URTWN_HOST_CMD_RING_COUNT;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -642,9 +641,8 @@ urtwn_do_async(struct urtwn_softc *sc,
 {
 	struct urtwn_host_cmd_ring *ring = &sc->cmdq;
 	struct urtwn_host_cmd *cmd;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	cmd = &ring->cmd[ring->cur];
 	cmd->cb = cb;
 	KASSERT(len <= sizeof(cmd->data));
@@ -654,7 +652,7 @@ urtwn_do_async(struct urtwn_softc *sc,
 	/* If there is no pending command already, schedule a task. */
 	if (++ring->queued == 1)
 		usb_add_task(sc->sc_udev, &sc->sc_task);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -3216,17 +3214,17 @@ urtwn_stop(struct ifnet *ifp)
 {
 	struct urtwn_softc *sc = ifp->if_softc;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int i, s;
+	int i;
 
 	sc->sc_tx_timer = 0;
 	ifp->if_timer = 0;
 	ifp->if_flags &= ~(IFF_RUNNING | IFF_OACTIVE);
 
-	s = splusb();
+	crit_enter();
 	ieee80211_new_state(ic, IEEE80211_S_INIT, -1);
 	/* Wait for all async commands to complete. */
 	urtwn_wait_async(sc);
-	splx(s);
+	crit_leave();
 
 	timeout_del(&sc->scan_to);
 	timeout_del(&sc->calib_to);

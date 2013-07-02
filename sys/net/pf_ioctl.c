@@ -579,13 +579,13 @@ pf_commit_altq(u_int32_t ticket)
 {
 	struct pf_altqqueue	*old_altqs;
 	struct pf_altq		*altq;
-	int			 s, err, error = 0;
+	int			 err, error = 0;
 
 	if (!altqs_inactive_open || ticket != ticket_altqs_inactive)
 		return (EBUSY);
 
 	/* swap altqs, keep the old. */
-	s = splsoftnet();
+	crit_enter();
 	old_altqs = pf_altqs_active;
 	pf_altqs_active = pf_altqs_inactive;
 	pf_altqs_inactive = old_altqs;
@@ -599,7 +599,7 @@ pf_commit_altq(u_int32_t ticket)
 			if (error == 0 && pf_altq_running)
 				error = pf_enable_altq(altq);
 			if (error != 0) {
-				splx(s);
+				crit_leave();
 				return (error);
 			}
 		}
@@ -622,7 +622,7 @@ pf_commit_altq(u_int32_t ticket)
 			pf_oqid_unref(altq->qid);
 		pool_put(&pf_altq_pl, altq);
 	}
-	splx(s);
+	crit_leave();
 
 	altqs_inactive_open = 0;
 	return (error);
@@ -887,7 +887,7 @@ pf_commit_rules(u_int32_t ticket, char *anchor)
 	struct pf_ruleset	*rs;
 	struct pf_rule		*rule, **old_array;
 	struct pf_rulequeue	*old_rules;
-	int			 s, error;
+	int			 error;
 	u_int32_t		 old_rcount;
 
 	rs = pf_find_ruleset(anchor);
@@ -903,7 +903,7 @@ pf_commit_rules(u_int32_t ticket, char *anchor)
 	}
 
 	/* Swap rules, keep the old. */
-	s = splsoftnet();
+	crit_enter();
 	old_rules = rs->rules.active.ptr;
 	old_rcount = rs->rules.active.rcount;
 	old_array = rs->rules.active.ptr_array;
@@ -928,7 +928,7 @@ pf_commit_rules(u_int32_t ticket, char *anchor)
 	rs->rules.inactive.rcount = 0;
 	rs->rules.inactive.open = 0;
 	pf_remove_if_empty_ruleset(rs);
-	splx(s);
+	crit_leave();
 	return (pf_commit_queues(anchor));
 }
 
@@ -1000,7 +1000,6 @@ pf_addr_copyout(struct pf_addr_wrap *addr)
 int
 pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 {
-	int			 s;
 	int			 error = 0;
 
 	/* XXX keep in sync with switch() below */
@@ -1110,7 +1109,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	else
 		rw_enter_read(&pf_consistency_lock);
 
-	s = splsoftnet();
+	crit_enter();
 	switch (cmd) {
 
 	case DIOCSTART:
@@ -2697,7 +2696,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 		break;
 	}
 fail:
-	splx(s);
+	crit_leave();
 	if (flags & FWRITE)
 		rw_exit_write(&pf_consistency_lock);
 	else

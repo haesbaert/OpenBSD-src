@@ -45,6 +45,7 @@
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 #include <sys/kernel.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -1866,11 +1867,10 @@ void
 bridge_timer(void *vsc)
 {
 	struct bridge_softc *sc = vsc;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	bridge_rtage(sc);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -2217,7 +2217,7 @@ bridge_ipsec(struct bridge_softc *sc, struct ifnet *ifp,
 	struct tdb *tdb;
 	u_int32_t spi;
 	u_int16_t cpi;
-	int error, off, s;
+	int error, off;
 	u_int8_t proto = 0;
 #ifdef INET
 	struct ip *ip;
@@ -2306,7 +2306,7 @@ bridge_ipsec(struct bridge_softc *sc, struct ifnet *ifp,
 		if (proto == 0)
 			goto skiplookup;
 
-		s = splsoftnet();
+		crit_enter();
 
 		tdb = gettdb(ifp->if_rdomain, spi, &dst, proto);
 		if (tdb != NULL && (tdb->tdb_flags & TDBF_INVALID) == 0 &&
@@ -2343,10 +2343,10 @@ bridge_ipsec(struct bridge_softc *sc, struct ifnet *ifp,
 			}
 
 			(*(tdb->tdb_xform->xf_input))(m, tdb, hlen, off);
-			splx(s);
+			crit_leave();
 			return (1);
 		} else {
-			splx(s);
+			crit_leave();
  skiplookup:
 			/* XXX do an input policy lookup */
 			return (0);

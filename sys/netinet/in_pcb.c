@@ -173,7 +173,7 @@ in_pcballoc(struct socket *so, struct inpcbtable *table)
 	struct inpcb *inp;
 	int s;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	if (inpcb_pool_initialized == 0) {
 		pool_init(&inpcb_pool, sizeof(struct inpcb), 0, 0, 0,
@@ -464,7 +464,7 @@ in_pcbdetach(struct inpcb *inp)
 	struct socket *so = inp->inp_socket;
 	int s;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	so->so_pcb = 0;
 	sofree(so);
@@ -481,6 +481,7 @@ in_pcbdetach(struct inpcb *inp)
 		ip_freemoptions(inp->inp_moptions);
 #ifdef IPSEC
 	/* IPsec cleanup here */
+	crit_enter();
 	if (inp->inp_tdb_in)
 		TAILQ_REMOVE(&inp->inp_tdb_in->tdb_inp_in,
 			     inp, inp_tdb_in_next);
@@ -493,6 +494,7 @@ in_pcbdetach(struct inpcb *inp)
 		ipsp_reffree(inp->inp_ipsec_remoteauth);
 	if (inp->inp_ipo)
 		ipsec_delete_policy(inp->inp_ipo);
+	crit_leave();
 #endif
 #if NPF > 0
 	if (inp->inp_pf_sk)
@@ -558,7 +560,7 @@ in_pcbnotifyall(struct inpcbtable *table, struct sockaddr *dst, u_int rdomain,
 	struct inpcb *inp, *oinp;
 	struct in_addr faddr;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 #ifdef INET6
 	/*

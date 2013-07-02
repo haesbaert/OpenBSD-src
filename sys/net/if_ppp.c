@@ -328,7 +328,7 @@ pppdealloc(struct ppp_softc *sc)
 {
     struct mbuf *m;
 
-    splsoftassert(IPL_SOFTNET);
+    crit_assert();
 
     if_down(&sc->sc_if);
     sc->sc_if.if_flags &= ~(IFF_UP|IFF_RUNNING);
@@ -424,14 +424,15 @@ pppioctl(struct ppp_softc *sc, u_long cmd, caddr_t data, int flag,
 	if ((error = suser(p, 0)) != 0)
 	    return (error);
 	flags = *(int *)data & SC_MASK;
-	s = splsoftnet();
+	crit_enter();
 #ifdef PPP_COMPRESS
 	if (sc->sc_flags & SC_CCP_OPEN && !(flags & SC_CCP_OPEN))
 	    ppp_ccp_closed(sc);
 #endif
-	splnet();
+	s = splnet();
 	sc->sc_flags = (sc->sc_flags & ~SC_MASK) | flags;
 	splx(s);
+	crit_leave();
 	break;
 
     case PPPIOCSMRU:
@@ -451,9 +452,9 @@ pppioctl(struct ppp_softc *sc, u_long cmd, caddr_t data, int flag,
 	if ((error = suser(p, 0)) != 0)
 	    return (error);
 	if (sc->sc_comp) {
-	    s = splsoftnet();
+	    crit_enter();
 	    sl_compress_setup(sc->sc_comp, *(int *)data);
-	    splx(s);
+	    crit_leave();
 	}
 	break;
 #endif
@@ -484,7 +485,7 @@ pppioctl(struct ppp_softc *sc, u_long cmd, caddr_t data, int flag,
 		 */
 		error = 0;
 		if (odp->transmit) {
-		    s = splsoftnet();
+		    crit_enter();
 		    if (sc->sc_xc_state != NULL)
 			(*sc->sc_xcomp->comp_free)(sc->sc_xc_state);
 		    sc->sc_xcomp = *cp;
@@ -499,7 +500,7 @@ pppioctl(struct ppp_softc *sc, u_long cmd, caddr_t data, int flag,
 		    sc->sc_flags &= ~SC_COMP_RUN;
 		    splx(s);
 		} else {
-		    s = splsoftnet();
+		    crit_enter();
 		    if (sc->sc_rc_state != NULL)
 			(*sc->sc_rcomp->decomp_free)(sc->sc_rc_state);
 		    sc->sc_rcomp = *cp;
@@ -510,9 +511,10 @@ pppioctl(struct ppp_softc *sc, u_long cmd, caddr_t data, int flag,
 				sc->sc_if.if_xname);
 			error = ENOBUFS;
 		    }
-		    splnet();
+		    s = splnet();
 		    sc->sc_flags &= ~SC_DECOMP_RUN;
 		    splx(s);
+		    crit_leave();
 		}
 		return (error);
 	    }
@@ -539,23 +541,23 @@ pppioctl(struct ppp_softc *sc, u_long cmd, caddr_t data, int flag,
 	    if ((error = suser(p, 0)) != 0)
 		return (error);
 	    if (npi->mode != sc->sc_npmode[npx]) {
-		s = splsoftnet();
+		crit_enter();
 		sc->sc_npmode[npx] = npi->mode;
 		if (npi->mode != NPMODE_QUEUE) {
 		    ppp_requeue(sc);
 		    (*sc->sc_start)(sc);
 		}
-		splx(s);
+		crit_leave();
 	    }
 	}
 	break;
 
     case PPPIOCGIDLE:
-	s = splsoftnet();
+	crit_enter();
 	t = time_second;
 	((struct ppp_idle *)data)->xmit_idle = t - sc->sc_last_sent;
 	((struct ppp_idle *)data)->recv_idle = t - sc->sc_last_recv;
-	splx(s);
+	crit_leave();
 	break;
 
 #if NBPFILTER > 0
@@ -681,7 +683,7 @@ pppoutput(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
     struct ppp_softc *sc = ifp->if_softc;
     int protocol, address, control;
     u_char *cp;
-    int s, error;
+    int error;
     struct ip *ip;
     struct ifqueue *ifq;
     enum NPmode mode;
@@ -812,7 +814,7 @@ pppoutput(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
     /*
      * Put the packet on the appropriate queue.
      */
-    s = splsoftnet();
+    crit_enter();
     if (mode == NPMODE_QUEUE) {
 	/* XXX we should limit the number of packets on this queue */
 	*sc->sc_npqtail = m0;
@@ -837,7 +839,7 @@ pppoutput(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
 	} else
 	    IFQ_ENQUEUE(&sc->sc_if.if_snd, m0, NULL, error);
 	if (error) {
-	    splx(s);
+	    crit_leave();
 	    sc->sc_if.if_oerrors++;
 	    sc->sc_stats.ppp_oerrors++;
 	    return (error);
@@ -847,7 +849,7 @@ pppoutput(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
     ifp->if_opackets++;
     ifp->if_obytes += len;
 
-    splx(s);
+    crit_leave();
     return (0);
 
 bad:
@@ -868,7 +870,7 @@ ppp_requeue(struct ppp_softc *sc)
     enum NPmode mode;
     int error;
 
-    splsoftassert(IPL_SOFTNET);
+    crit_assert();
 
     for (mpp = &sc->sc_npqueue; (m = *mpp) != NULL; ) {
 	switch (PPP_PROTOCOL(mtod(m, u_char *))) {
@@ -1075,12 +1077,11 @@ void
 pppintr(void)
 {
     struct ppp_softc *sc;
-    int s, s2;
+    int s2;
     struct mbuf *m;
 
-    splsoftassert(IPL_SOFTNET);
+    crit_enter();	/* XXX - what's the point of this? see comment above */
 
-    s = splsoftnet();	/* XXX - what's the point of this? see comment above */
     LIST_FOREACH(sc, &ppp_softc_list, sc_list) {
 	if (!(sc->sc_flags & SC_TBUSY)
 	    && (!IFQ_IS_EMPTY(&sc->sc_if.if_snd) ||
@@ -1099,7 +1100,7 @@ pppintr(void)
 	    ppp_inproc(sc, m);
 	}
     }
-    splx(s);
+    crit_leave();
 }
 
 #ifdef PPP_COMPRESS

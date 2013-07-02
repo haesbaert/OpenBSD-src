@@ -48,6 +48,7 @@
 #include <sys/selinfo.h>
 #include <sys/device.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -2663,7 +2664,7 @@ uaudio_trigger_input(void *addr, void *start, void *end, int blksize,
 	struct uaudio_softc *sc = addr;
 	struct chan *ch = &sc->sc_recchan;
 	usbd_status err;
-	int i, s;
+	int i;
 
 	if (sc->sc_dying)
 		return (EIO);
@@ -2689,10 +2690,10 @@ uaudio_trigger_input(void *addr, void *start, void *end, int blksize,
 	ch->intr = intr;
 	ch->arg = arg;
 
-	s = splusb();
+	crit_enter();
 	for (i = 0; i < UAUDIO_NCHANBUFS; i++)
 		uaudio_chan_rtransfer(ch);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -2705,7 +2706,7 @@ uaudio_trigger_output(void *addr, void *start, void *end, int blksize,
 	struct uaudio_softc *sc = addr;
 	struct chan *ch = &sc->sc_playchan;
 	usbd_status err;
-	int i, s;
+	int i;
 
 	if (sc->sc_dying)
 		return (EIO);
@@ -2731,14 +2732,14 @@ uaudio_trigger_output(void *addr, void *start, void *end, int blksize,
 	ch->intr = intr;
 	ch->arg = arg;
 
-	s = splusb();
+	crit_enter();
 	for (i = 0; i < UAUDIO_NCHANBUFS; i++)
 		uaudio_chan_ptransfer(ch);
 	if (ch->sync_pipe) {
 		for (i = 0; i < UAUDIO_NSYNCBUFS; i++)
 			uaudio_chan_psync_transfer(ch);
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

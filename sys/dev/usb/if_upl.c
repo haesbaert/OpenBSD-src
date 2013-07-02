@@ -43,6 +43,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -304,11 +305,10 @@ upl_detach(struct device *self, int flags)
 {
 	struct upl_softc	*sc = (struct upl_softc *)self;
 	struct ifnet		*ifp = &sc->sc_if;
-	int			s;
 
 	DPRINTFN(2,("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
-	s = splusb();
+	crit_enter();
 
 	if (ifp->if_flags & IFF_RUNNING)
 		upl_stop(sc);
@@ -324,7 +324,7 @@ upl_detach(struct device *self, int flags)
 		       sc->sc_dev.dv_xname);
 #endif
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

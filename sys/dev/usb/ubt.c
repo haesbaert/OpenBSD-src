@@ -445,7 +445,6 @@ int
 ubt_detach(struct device *self, int flags)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
-	int s;
 
 	DPRINTF("sc=%p flags=%d\n", sc, flags);
 
@@ -470,11 +469,11 @@ ubt_detach(struct device *self, int flags)
 	ubt_abortdealloc(sc);
 
 	/* wait for all processes to finish */
-	s = splusb();
+	crit_enter();
 	if (sc->sc_refcnt-- > 0)
 		usb_detach_wait(&sc->sc_dev);
 
-	splx(s);
+	crit_leave();
 
 	DPRINTFN(1, "driver detached\n");
 
@@ -700,14 +699,14 @@ ubt_enable(struct device *self)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
 	usbd_status err;
-	int s, i, error;
+	int i, error;
 
 	DPRINTFN(1, "sc=%p\n", sc);
 
 	if (sc->sc_enabled)
 		return 0;
 
-	s = splusb();
+	crit_enter();
 
 	/* Events */
 	sc->sc_evt_buf = malloc(UBT_BUFSIZ_EVENT, M_USBDEV, M_NOWAIT);
@@ -837,12 +836,12 @@ ubt_enable(struct device *self)
 	}
 
 	sc->sc_enabled = 1;
-	splx(s);
+	crit_leave();
 	return 0;
 
 bad:
 	ubt_abortdealloc(sc);
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -850,35 +849,33 @@ void
 ubt_disable(struct device *self)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
-	int s;
 
 	DPRINTFN(1, "sc=%p\n", sc);
 
 	if (sc->sc_enabled == 0)
 		return;
 
-	s = splusb();
+	crit_enter();
 	ubt_abortdealloc(sc);
 
 	sc->sc_enabled = 0;
-	splx(s);
+	crit_leave();
 }
 
 void
 ubt_xmit_cmd(struct device *self, struct mbuf *m)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
-	int s;
 
 	KASSERT(sc->sc_enabled);
 
-	s = splusb();
+	crit_enter();
 	IF_ENQUEUE(&sc->sc_cmd_queue, m);
 
 	if (sc->sc_cmd_busy == 0)
 		ubt_xmit_cmd_start(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -976,17 +973,16 @@ void
 ubt_xmit_acl(struct device *self, struct mbuf *m)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
-	int s;
 
 	KASSERT(sc->sc_enabled);
 
-	s = splusb();
+	crit_enter();
 	IF_ENQUEUE(&sc->sc_aclwr_queue, m);
 
 	if (sc->sc_aclwr_busy == 0)
 		ubt_xmit_acl_start(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1084,17 +1080,16 @@ void
 ubt_xmit_sco(struct device *self, struct mbuf *m)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
-	int s;
 
 	KASSERT(sc->sc_enabled);
 
-	s = splusb();
+	crit_enter();
 	IF_ENQUEUE(&sc->sc_scowr_queue, m);
 
 	if (sc->sc_scowr_busy == 0)
 		ubt_xmit_sco_start(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1571,13 +1566,12 @@ void
 ubt_stats(struct device *self, struct bt_stats *dest, int flush)
 {
 	struct ubt_softc *sc = (struct ubt_softc *)self;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	memcpy(dest, &sc->sc_stats, sizeof(struct bt_stats));
 
 	if (flush)
 		memset(&sc->sc_stats, 0, sizeof(struct bt_stats));
 
-	splx(s);
+	crit_leave();
 }

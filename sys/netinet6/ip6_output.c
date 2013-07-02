@@ -72,6 +72,7 @@
 #include <sys/socketvar.h>
 #include <sys/proc.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_enc.h>
@@ -1286,7 +1287,6 @@ ip6_ctloutput(int op, struct socket *so, int level, int optname,
 #ifdef IPSEC
 	struct tdb *tdb;
 	struct tdb_ident *tdbip, tdbi;
-	int s;
 #endif
 	u_int rtid = 0;
 
@@ -1628,14 +1628,14 @@ do { \
 					break;
 				}
 				tdbip = mtod(m, struct tdb_ident *);
-				s = splsoftnet();
+				crit_enter();
 				tdb = gettdb(tdbip->rdomain, tdbip->spi,
 				    &tdbip->dst, tdbip->proto);
 				if (tdb == NULL)
 					error = ESRCH;
 				else
 					tdb_add_inp(tdb, inp, 0);
-				splx(s);
+				crit_leave();
 #endif
 				break;
 
@@ -1920,7 +1920,7 @@ do { \
 #ifndef IPSEC
 				error = EINVAL;
 #else
-				s = splsoftnet();
+				crit_enter();
 				if (inp->inp_tdb_out == NULL) {
 					error = ENOENT;
 				} else {
@@ -1934,7 +1934,7 @@ do { \
 					bcopy((caddr_t)&tdbi, mtod(m, caddr_t),
 					    m->m_len);
 				}
-				splx(s);
+				crit_leave();
 #endif
 				break;
 

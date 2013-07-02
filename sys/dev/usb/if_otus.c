@@ -31,6 +31,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -240,9 +241,8 @@ otus_detach(struct device *self, int flags)
 {
 	struct otus_softc *sc = (struct otus_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->scan_to))
 		timeout_del(&sc->scan_to);
@@ -262,7 +262,7 @@ otus_detach(struct device *self, int flags)
 
 	otus_close_pipes(sc);
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -741,20 +741,19 @@ otus_task(void *arg)
 	struct otus_softc *sc = arg;
 	struct otus_host_cmd_ring *ring = &sc->cmdq;
 	struct otus_host_cmd *cmd;
-	int s;
 
 	/* Process host commands. */
-	s = splusb();
+	crit_enter();
 	while (ring->next != ring->cur) {
 		cmd = &ring->cmd[ring->next];
-		splx(s);
+		crit_leave();
 		/* Callback. */
 		cmd->cb(sc, cmd->data);
-		s = splusb();
+		crit_enter();
 		ring->queued--;
 		ring->next = (ring->next + 1) % OTUS_HOST_CMD_RING_COUNT;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -763,9 +762,8 @@ otus_do_async(struct otus_softc *sc, void (*cb)(struct otus_softc *, void *),
 {
 	struct otus_host_cmd_ring *ring = &sc->cmdq;
 	struct otus_host_cmd *cmd;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	cmd = &ring->cmd[ring->cur];
 	cmd->cb = cb;
 	KASSERT(len <= sizeof (cmd->data));
@@ -775,7 +773,7 @@ otus_do_async(struct otus_softc *sc, void (*cb)(struct otus_softc *, void *),
 	/* If there is no pending command already, schedule a task. */
 	if (++ring->queued == 1)
 		usb_add_task(sc->sc_udev, &sc->sc_task);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -847,7 +845,7 @@ otus_cmd(struct otus_softc *sc, uint8_t code, const void *idata, int ilen,
 {
 	struct otus_tx_cmd *cmd = &sc->tx_cmd;
 	struct ar_cmd_hdr *hdr;
-	int s, xferlen, error;
+	int xferlen, error;
 
 	/* Always bulk-out a multiple of 4 bytes. */
 	xferlen = (sizeof (*hdr) + ilen + 3) & ~3;
@@ -861,7 +859,7 @@ otus_cmd(struct otus_softc *sc, uint8_t code, const void *idata, int ilen,
 	DPRINTFN(2, ("sending command code=0x%02x len=%d token=%d\n",
 	    code, ilen, hdr->token));
 
-	s = splusb();
+	crit_enter();
 	cmd->odata = odata;
 	cmd->done = 0;
 
@@ -870,7 +868,7 @@ otus_cmd(struct otus_softc *sc, uint8_t code, const void *idata, int ilen,
 	    OTUS_CMD_TIMEOUT, NULL);
 	error = usbd_transfer(cmd->xfer);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		printf("%s: could not send command 0x%x (error=%s)\n",
 		    sc->sc_dev.dv_xname, code, usbd_errstr(error));
 		return EIO;
@@ -878,7 +876,7 @@ otus_cmd(struct otus_softc *sc, uint8_t code, const void *idata, int ilen,
 	if (!cmd->done)
 		error = tsleep(cmd, PCATCH, "otuscmd", hz);
 	cmd->odata = NULL;	/* In case answer is received too late. */
-	splx(s);
+	crit_leave();
 	if (error != 0) {
 		printf("%s: timeout waiting for command 0x%02x reply\n",
 		    sc->sc_dev.dv_xname, code);
@@ -2336,7 +2334,6 @@ otus_stop(struct ifnet *ifp)
 {
 	struct otus_softc *sc = ifp->if_softc;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
 	sc->sc_tx_timer = 0;
 	ifp->if_timer = 0;
@@ -2345,11 +2342,11 @@ otus_stop(struct ifnet *ifp)
 	timeout_del(&sc->scan_to);
 	timeout_del(&sc->calib_to);
 
-	s = splusb();
+	crit_enter();
 	ieee80211_new_state(ic, IEEE80211_S_INIT, -1);
 	/* Wait for all queued asynchronous commands to complete. */
 	usb_wait_task(sc->sc_udev, &sc->sc_task);
-	splx(s);
+	crit_leave();
 
 	/* Stop Rx. */
 	otus_write(sc, 0x1c3d30, 0);

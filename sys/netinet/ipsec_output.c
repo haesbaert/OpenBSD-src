@@ -28,6 +28,7 @@
 #include <sys/socket.h>
 #include <sys/kernel.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -590,9 +591,8 @@ ipsec_adjust_mtu(struct mbuf *m, u_int32_t mtu)
 	struct tdb *tdbp;
 	struct m_tag *mtag;
 	ssize_t adjust;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 
 	for (mtag = m_tag_find(m, PACKET_TAG_IPSEC_OUT_DONE, NULL); mtag;
 	     mtag = m_tag_find(m, PACKET_TAG_IPSEC_OUT_DONE, mtag)) {
@@ -614,5 +614,5 @@ ipsec_adjust_mtu(struct mbuf *m, u_int32_t mtu)
 		    adjust, m));
 	}
 
-	splx(s);
+	crit_leave();
 }

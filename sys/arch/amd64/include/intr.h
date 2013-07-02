@@ -141,7 +141,6 @@ void softintr(int);
 /*
  * Software interrupt masks
  */
-#define	splsoftnet()	splraise(IPL_SOFTNET)
 #define	splsofttty()	splraise(IPL_SOFTTTY)
 
 /*
@@ -168,10 +167,8 @@ void splassert_check(int, const char *);
 		splassert_check(__wantipl, __func__);	\
 	}						\
 } while (0)
-#define splsoftassert(wantipl) splassert(wantipl)
 #else
 #define splassert(wantipl)	do { /* nada */ } while (0)
-#define splsoftassert(wantipl)	do { /* nada */ } while (0)
 #endif
 
 #define IPLSHIFT 4			/* The upper nibble of vectors is the IPL.      */

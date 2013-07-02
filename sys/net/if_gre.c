@@ -51,6 +51,7 @@
 #include <sys/kernel.h>
 #include <sys/systm.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -676,7 +677,6 @@ gre_send_keepalive(void *arg)
 	struct ip *ip;
 	struct gre_h *gh;
 	struct sockaddr dst;
-	int s;
 
 	if (sc->sc_ka_timout)
 		timeout_add_sec(&sc->sc_ka_snd, sc->sc_ka_timout);
@@ -719,10 +719,10 @@ gre_send_keepalive(void *arg)
 	bzero(&dst, sizeof(dst));
 	dst.sa_family = AF_INET;
 
-	s = splsoftnet();
+	crit_enter();
 	/* should we care about the error? */
 	gre_output(&sc->sc_if, m, &dst, NULL);
-	splx(s);
+	crit_leave();
 }
 
 void

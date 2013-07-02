@@ -49,6 +49,7 @@
 #include <sys/kernel.h>
 #include <sys/socket.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -367,12 +368,11 @@ cdce_detach(struct device *self, int flags)
 {
 	struct cdce_softc	*sc = (struct cdce_softc *)self;	
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			 s;
 
 	if (!sc->cdce_attached)
 		return (0);
 
-	s = splusb();
+	crit_enter();
 
 	if (ifp->if_flags & IFF_RUNNING)
 		cdce_stop(sc);
@@ -383,7 +383,7 @@ cdce_detach(struct device *self, int flags)
 	}
 
 	sc->cdce_attached = 0;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

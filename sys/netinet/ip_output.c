@@ -1133,17 +1133,17 @@ ip_ctloutput(int op, struct socket *so, int level, int optname,
 
 			/* Unlink cached output TDB to force a re-search */
 			if (inp->inp_tdb_out) {
-				int s = splsoftnet();
+				crit_enter();
 				TAILQ_REMOVE(&inp->inp_tdb_out->tdb_inp_out,
 				    inp, inp_tdb_out_next);
-				splx(s);
+				crit_leave();
 			}
 
 			if (inp->inp_tdb_in) {
-				int s = splsoftnet();
+				crit_enter();
 				TAILQ_REMOVE(&inp->inp_tdb_in->tdb_inp_in,
 				    inp, inp_tdb_in_next);
-				splx(s);
+				crit_leave();
 			}
 
 			switch (optname) {
@@ -1329,17 +1329,17 @@ ip_ctloutput(int op, struct socket *so, int level, int optname,
 
 			/* Unlink cached output TDB to force a re-search */
 			if (inp->inp_tdb_out) {
-				int s = splsoftnet();
+				crit_enter();
 				TAILQ_REMOVE(&inp->inp_tdb_out->tdb_inp_out,
 				    inp, inp_tdb_out_next);
-				splx(s);
+				crit_leave();
 			}
 
 			if (inp->inp_tdb_in) {
-				int s = splsoftnet();
+				crit_enter();
 				TAILQ_REMOVE(&inp->inp_tdb_in->tdb_inp_in,
 				    inp, inp_tdb_in_next);
-				splx(s);
+				crit_leave();
 			}
 #endif
 			break;

@@ -149,7 +149,7 @@ sonewconn(struct socket *head, int connstatus)
 	struct socket *so;
 	int soqueue = connstatus ? 1 : 0;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	if (mclpools[0].pr_nout > mclpools[0].pr_hardlimit * 95 / 100)
 		return (NULL);
@@ -275,7 +275,7 @@ socantrcvmore(struct socket *so)
 int
 sbwait(struct sockbuf *sb)
 {
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	sb->sb_flagsintr |= SB_WAIT;
 	return (tsleep(&sb->sb_cc,
@@ -312,15 +312,14 @@ sb_lock(struct sockbuf *sb)
 void
 sowakeup(struct socket *so, struct sockbuf *sb)
 {
-	int s = splsoftnet();
-
+	crit_enter();
 	selwakeup(&sb->sb_sel);
 	sb->sb_flagsintr &= ~SB_SEL;
 	if (sb->sb_flagsintr & SB_WAIT) {
 		sb->sb_flagsintr &= ~SB_WAIT;
 		wakeup(&sb->sb_cc);
 	}
-	splx(s);
+	crit_leave();
 	if (so->so_state & SS_ASYNC)
 		csignal(so->so_pgid, SIGIO, so->so_siguid, so->so_sigeuid);
 }

@@ -40,6 +40,7 @@
 #include <sys/socketvar.h>
 #include <sys/errno.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -151,7 +152,7 @@ raw_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 {
 	struct rawcb *rp = sotorawcb(so);
 	int error = 0;
-	int len, s;
+	int len;
 
 	if (req == PRU_CONTROL)
 		return (EOPNOTSUPP);
@@ -163,7 +164,7 @@ raw_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 		error = EINVAL;
 		goto release;
 	}
-	s = splsoftnet();
+	crit_enter();
 	switch (req) {
 
 	/*
@@ -270,7 +271,7 @@ raw_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 		/*
 		 * stat: don't bother with a blocksize.
 		 */
-		splx(s);
+		crit_leave();
 		return (0);
 
 	/*
@@ -278,7 +279,7 @@ raw_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 	 */
 	case PRU_RCVOOB:
 	case PRU_RCVD:
-		splx(s);
+		crit_leave();
 		return (EOPNOTSUPP);
 
 	case PRU_LISTEN:
@@ -310,7 +311,7 @@ raw_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 	default:
 		panic("raw_usrreq");
 	}
-	splx(s);
+	crit_leave();
 release:
 	if (m != NULL)
 		m_freem(m);

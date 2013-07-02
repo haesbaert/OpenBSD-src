@@ -33,6 +33,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -433,9 +434,8 @@ zyd_detach(struct device *self, int flags)
 {
 	struct zyd_softc *sc = (struct zyd_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	usb_rem_task(sc->sc_udev, &sc->sc_task);
 	if (timeout_initialized(&sc->scan_to))
@@ -446,7 +446,7 @@ zyd_detach(struct device *self, int flags)
 	zyd_close_pipes(sc);
 
 	if (!sc->attached) {
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 
@@ -460,7 +460,7 @@ zyd_detach(struct device *self, int flags)
 
 	sc->attached = 0;
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -770,7 +770,6 @@ zyd_cmd(struct zyd_softc *sc, uint16_t code, const void *idata, int ilen,
 	struct zyd_cmd cmd;
 	uint16_t xferflags;
 	usbd_status error;
-	int s;
 
 	if ((xfer = usbd_alloc_xfer(sc->sc_udev)) == NULL)
 		return ENOMEM;
@@ -782,7 +781,7 @@ zyd_cmd(struct zyd_softc *sc, uint16_t code, const void *idata, int ilen,
 	if (!(flags & ZYD_CMD_FLAG_READ))
 		xferflags |= USBD_SYNCHRONOUS;
 	else
-		s = splusb();
+		crit_enter();
 
 	sc->odata = odata;
 	sc->olen  = olen;
@@ -792,7 +791,7 @@ zyd_cmd(struct zyd_softc *sc, uint16_t code, const void *idata, int ilen,
 	error = usbd_transfer(xfer);
 	if (error != USBD_IN_PROGRESS && error != 0) {
 		if (flags & ZYD_CMD_FLAG_READ)
-			splx(s);
+			crit_leave();
 		printf("%s: could not send command (error=%s)\n",
 		    sc->sc_dev.dv_xname, usbd_errstr(error));
 		(void)usbd_free_xfer(xfer);
@@ -805,7 +804,7 @@ zyd_cmd(struct zyd_softc *sc, uint16_t code, const void *idata, int ilen,
 	/* wait at most one second for command reply */
 	error = tsleep(sc, PCATCH, "zydcmd", hz);
 	sc->odata = NULL;	/* in case answer is received too late */
-	splx(s);
+	crit_leave();
 
 	(void)usbd_free_xfer(xfer);
 	return error;

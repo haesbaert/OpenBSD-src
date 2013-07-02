@@ -37,6 +37,7 @@
 #include <sys/kernel.h>
 #include <sys/pool.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -793,7 +794,6 @@ pfr_lookup_addr(struct pfr_ktable *kt, struct pfr_addr *ad, int exact)
 	union sockaddr_union	 sa, mask;
 	struct radix_node_head	*head;
 	struct pfr_kentry	*ke;
-	int			 s;
 
 	bzero(&sa, sizeof(sa));
 	if (ad->pfra_af == AF_INET) {
@@ -805,9 +805,9 @@ pfr_lookup_addr(struct pfr_ktable *kt, struct pfr_addr *ad, int exact)
 	}
 	if (ADDR_NETWORK(ad)) {
 		pfr_prepare_network(&mask, ad->pfra_af, ad->pfra_net);
-		s = splsoftnet(); /* rn_lookup makes use of globals */
+		crit_enter(); /* rn_lookup makes use of globals */
 		ke = (struct pfr_kentry *)rn_lookup(&sa, &mask, head);
-		splx(s);
+		crit_leave();
 		if (ke && KENTRY_RNF_ROOT(ke))
 			ke = NULL;
 	} else {
@@ -978,17 +978,16 @@ void
 pfr_clstats_kentries(struct pfr_kentryworkq *workq, time_t tzero, int negchange)
 {
 	struct pfr_kentry	*p;
-	int			 s;
 
 	SLIST_FOREACH(p, workq, pfrke_workq) {
-		s = splsoftnet();
+		crit_enter();
 		if (negchange)
 			p->pfrke_flags ^= PFRKE_FLAG_NOT;
 		if (p->pfrke_counters) {
 			pool_put(&pfr_kcounters_pl, p->pfrke_counters);
 			p->pfrke_counters = NULL;
 		}
-		splx(s);
+		crit_leave();
 		p->pfrke_tzero = tzero;
 	}
 }
@@ -1040,7 +1039,6 @@ pfr_route_kentry(struct pfr_ktable *kt, struct pfr_kentry *ke)
 	union sockaddr_union	 mask;
 	struct radix_node	*rn;
 	struct radix_node_head	*head;
-	int			 s;
 
 	bzero(ke->pfrke_node, sizeof(ke->pfrke_node));
 	if (ke->pfrke_af == AF_INET)
@@ -1048,13 +1046,13 @@ pfr_route_kentry(struct pfr_ktable *kt, struct pfr_kentry *ke)
 	else if (ke->pfrke_af == AF_INET6)
 		head = kt->pfrkt_ip6;
 
-	s = splsoftnet();
+	crit_enter();
 	if (KENTRY_NETWORK(ke)) {
 		pfr_prepare_network(&mask, ke->pfrke_af, ke->pfrke_net);
 		rn = rn_addroute(&ke->pfrke_sa, &mask, head, ke->pfrke_node, 0);
 	} else
 		rn = rn_addroute(&ke->pfrke_sa, NULL, head, ke->pfrke_node, 0);
-	splx(s);
+	crit_leave();
 
 	return (rn == NULL ? -1 : 0);
 }
@@ -1065,20 +1063,19 @@ pfr_unroute_kentry(struct pfr_ktable *kt, struct pfr_kentry *ke)
 	union sockaddr_union	 mask;
 	struct radix_node	*rn;
 	struct radix_node_head	*head;
-	int			 s;
 
 	if (ke->pfrke_af == AF_INET)
 		head = kt->pfrkt_ip4;
 	else if (ke->pfrke_af == AF_INET6)
 		head = kt->pfrkt_ip6;
 
-	s = splsoftnet();
+	crit_enter();
 	if (KENTRY_NETWORK(ke)) {
 		pfr_prepare_network(&mask, ke->pfrke_af, ke->pfrke_net);
 		rn = rn_delete(&ke->pfrke_sa, &mask, head, NULL);
 	} else
 		rn = rn_delete(&ke->pfrke_sa, NULL, head, NULL);
-	splx(s);
+	crit_leave();
 
 	if (rn == NULL) {
 		DPFPRINTF(LOG_ERR, "pfr_unroute_kentry: delete failed.\n");
@@ -1124,7 +1121,7 @@ pfr_walktree(struct radix_node *rn, void *arg, u_int id)
 {
 	struct pfr_kentry	*ke = (struct pfr_kentry *)rn;
 	struct pfr_walktree	*w = arg;
-	int			 s, flags = w->pfrw_flags;
+	int			 flags = w->pfrw_flags;
 
 	switch (w->pfrw_op) {
 	case PFRW_MARK:
@@ -1154,7 +1151,7 @@ pfr_walktree(struct radix_node *rn, void *arg, u_int id)
 
 			pfr_copyout_addr(&as.pfras_a, ke);
 
-			s = splsoftnet();
+			crit_enter();
 			if (ke->pfrke_counters) {
 				bcopy(ke->pfrke_counters->pfrkc_packets,
 				    as.pfras_packets, sizeof(as.pfras_packets));
@@ -1166,7 +1163,7 @@ pfr_walktree(struct radix_node *rn, void *arg, u_int id)
 				bzero(as.pfras_bytes, sizeof(as.pfras_bytes));
 				as.pfras_a.pfra_fback = PFR_FB_NOCOUNT;
 			}
-			splx(s);
+			crit_leave();
 			as.pfras_tzero = ke->pfrke_tzero;
 
 			if (COPYOUT(&as, w->pfrw_astats, sizeof(as), flags))
@@ -1394,7 +1391,7 @@ pfr_get_tstats(struct pfr_table *filter, struct pfr_tstats *tbl, int *size,
 {
 	struct pfr_ktable	*p;
 	struct pfr_ktableworkq	 workq;
-	int			 s, n, nn;
+	int			 n, nn;
 	time_t			 tzero = time_second;
 
 	/* XXX PFR_FLAG_CLSTATS disabled */
@@ -1414,12 +1411,12 @@ pfr_get_tstats(struct pfr_table *filter, struct pfr_tstats *tbl, int *size,
 			continue;
 		if (n-- <= 0)
 			continue;
-		s = splsoftnet();
+		crit_enter();
 		if (COPYOUT(&p->pfrkt_ts, tbl++, sizeof(*tbl), flags)) {
-			splx(s);
+			crit_leave();
 			return (EFAULT);
 		}
-		splx(s);
+		crit_leave();
 		SLIST_INSERT_HEAD(&workq, p, pfrkt_workq);
 	}
 	if (flags & PFR_FLAG_CLSTATS)
@@ -1938,17 +1935,16 @@ void
 pfr_clstats_ktable(struct pfr_ktable *kt, time_t tzero, int recurse)
 {
 	struct pfr_kentryworkq	 addrq;
-	int			 s;
 
 	if (recurse) {
 		pfr_enqueue_addrs(kt, &addrq, NULL, 0);
 		pfr_clstats_kentries(&addrq, tzero, 0);
 	}
-	s = splsoftnet();
+	crit_enter();
 	bzero(kt->pfrkt_packets, sizeof(kt->pfrkt_packets));
 	bzero(kt->pfrkt_bytes, sizeof(kt->pfrkt_bytes));
 	kt->pfrkt_match = kt->pfrkt_nomatch = 0;
-	splx(s);
+	crit_leave();
 	kt->pfrkt_tzero = tzero;
 }
 
@@ -2461,20 +2457,19 @@ void
 pfr_dynaddr_update(struct pfr_ktable *kt, struct pfi_dynaddr *dyn)
 {
 	struct pfr_walktree	w;
-	int			s;
 
 	bzero(&w, sizeof(w));
 	w.pfrw_op = PFRW_DYNADDR_UPDATE;
 	w.pfrw_dyn = dyn;
 
-	s = splsoftnet();
+	crit_enter();
 	dyn->pfid_acnt4 = 0;
 	dyn->pfid_acnt6 = 0;
 	if (!dyn->pfid_af || dyn->pfid_af == AF_INET)
 		rn_walktree(kt->pfrkt_ip4, pfr_walktree, &w);
 	if (!dyn->pfid_af || dyn->pfid_af == AF_INET6)
 		rn_walktree(kt->pfrkt_ip6, pfr_walktree, &w);
-	splx(s);
+	crit_leave();
 }
 
 void

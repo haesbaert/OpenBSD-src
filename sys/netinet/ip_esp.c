@@ -41,6 +41,7 @@
 #include <sys/systm.h>
 #include <sys/mbuf.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/bpf.h>
@@ -534,7 +535,7 @@ int
 esp_input_cb(void *op)
 {
 	u_int8_t lastthree[3], aalg[AH_HMAC_MAX_HASHLEN];
-	int s, hlen, roff, skip, protoff, error;
+	int hlen, roff, skip, protoff, error;
 	struct mbuf *m1, *mo, *m;
 	struct auth_hash *esph;
 	struct tdb_crypto *tc;
@@ -561,7 +562,7 @@ esp_input_cb(void *op)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	tdb = gettdb(tc->tc_rdomain, tc->tc_spi, &tc->tc_dst, tc->tc_proto);
 	if (tdb == NULL) {
@@ -580,7 +581,7 @@ esp_input_cb(void *op)
 			/* Reset the session ID */
 			if (tdb->tdb_cryptoid != 0)
 				tdb->tdb_cryptoid = crp->crp_sid;
-			splx(s);
+			crit_leave();
 			return crypto_dispatch(crp);
 		}
 		free(tc, M_XDATA);
@@ -672,7 +673,7 @@ esp_input_cb(void *op)
 	m1 = m_getptr(m, skip, &roff);
 	if (m1 == NULL)	{
 		espstat.esps_hdrops++;
-		splx(s);
+		crit_leave();
 		DPRINTF(("esp_input_cb(): bad mbuf chain, SA %s/%08x\n",
 		    ipsp_address(tdb->tdb_dst), ntohl(tdb->tdb_spi)));
 		m_freem(m);
@@ -728,7 +729,7 @@ esp_input_cb(void *op)
 	/* Verify pad length */
 	if (lastthree[1] + 2 > m->m_pkthdr.len - skip) {
 		espstat.esps_badilen++;
-		splx(s);
+		crit_leave();
 		DPRINTF(("esp_input_cb(): invalid padding length %d for packet in SA %s/%08x\n", lastthree[1], ipsp_address(tdb->tdb_dst), ntohl(tdb->tdb_spi)));
 		m_freem(m);
 		return EINVAL;
@@ -737,7 +738,7 @@ esp_input_cb(void *op)
 	/* Verify correct decryption by checking the last padding bytes */
 	if ((lastthree[1] != lastthree[0]) && (lastthree[1] != 0)) {
 		espstat.esps_badenc++;
-		splx(s);
+		crit_leave();
 		DPRINTF(("esp_input(): decryption failed for packet in SA %s/%08x\n", ipsp_address(tdb->tdb_dst), ntohl(tdb->tdb_spi)));
 		m_freem(m);
 		return EINVAL;
@@ -751,11 +752,11 @@ esp_input_cb(void *op)
 
 	/* Back to generic IPsec input processing */
 	error = ipsec_common_input_cb(m, tdb, skip, protoff, mtag);
-	splx(s);
+	crit_leave();
 	return (error);
 
  baddone:
-	splx(s);
+	crit_leave();
 
 	if (m != NULL)
 		m_freem(m);
@@ -1052,7 +1053,7 @@ esp_output_cb(void *op)
 	struct tdb_crypto *tc;
 	struct tdb *tdb;
 	struct mbuf *m;
-	int error, s;
+	int error;
 
 	tc = (struct tdb_crypto *) crp->crp_opaque;
 
@@ -1068,7 +1069,7 @@ esp_output_cb(void *op)
 	}
 
 
-	s = splsoftnet();
+	crit_enter();
 
 	tdb = gettdb(tc->tc_rdomain, tc->tc_spi, &tc->tc_dst, tc->tc_proto);
 	if (tdb == NULL) {
@@ -1085,7 +1086,7 @@ esp_output_cb(void *op)
 			/* Reset the session ID */
 			if (tdb->tdb_cryptoid != 0)
 				tdb->tdb_cryptoid = crp->crp_sid;
-			splx(s);
+			crit_leave();
 			return crypto_dispatch(crp);
 		}
 		free(tc, M_XDATA);
@@ -1102,11 +1103,11 @@ esp_output_cb(void *op)
 
 	/* Call the IPsec input callback. */
 	error = ipsp_process_done(m, tdb);
-	splx(s);
+	crit_leave();
 	return error;
 
  baddone:
-	splx(s);
+	crit_leave();
 
 	if (m != NULL)
 		m_freem(m);

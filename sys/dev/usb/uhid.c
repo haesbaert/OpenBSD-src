@@ -167,20 +167,19 @@ int
 uhid_detach(struct device *self, int flags)
 {
 	struct uhid_softc *sc = (struct uhid_softc *)self;
-	int s;
 	int maj, mn;
 
 	DPRINTF(("uhid_detach: sc=%p flags=%d\n", sc, flags));
 
 	if (sc->sc_hdev.sc_state & UHIDEV_OPEN) {
-		s = splusb();
+		crit_enter();
 		if (--sc->sc_refcnt >= 0) {
 			/* Wake everyone */
 			wakeup(&sc->sc_q);
 			/* Wait for processes to go away. */
 			usb_detach_wait(&sc->sc_hdev.sc_dev);
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	/* locate the major number */
@@ -275,7 +274,6 @@ uhidclose(dev_t dev, int flag, int mode, struct proc *p)
 int
 uhid_do_read(struct uhid_softc *sc, struct uio *uio, int flag)
 {
-	int s;
 	int error = 0;
 	int extra;
 	size_t length;
@@ -293,10 +291,10 @@ uhid_do_read(struct uhid_softc *sc, struct uio *uio, int flag)
 		return (uiomove(buffer+extra, sc->sc_hdev.sc_isize, uio));
 	}
 
-	s = splusb();
+	crit_enter();
 	while (sc->sc_q.c_cc == 0) {
 		if (flag & IO_NDELAY) {
-			splx(s);
+			crit_leave();
 			return (EWOULDBLOCK);
 		}
 		sc->sc_state |= UHID_ASLP;
@@ -310,7 +308,7 @@ uhid_do_read(struct uhid_softc *sc, struct uio *uio, int flag)
 			break;
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	/* Transfer as many chunks as possible. */
 	while (sc->sc_q.c_cc > 0 && uio->uio_resid > 0 && !error) {
@@ -486,14 +484,13 @@ uhidpoll(dev_t dev, int events, struct proc *p)
 {
 	struct uhid_softc *sc;
 	int revents = 0;
-	int s;
 
 	sc = uhid_cd.cd_devs[UHIDUNIT(dev)];
 
 	if (sc->sc_dying)
 		return (POLLERR);
 
-	s = splusb();
+	crit_enter();
 	if (events & (POLLOUT | POLLWRNORM))
 		revents |= events & (POLLOUT | POLLWRNORM);
 	if (events & (POLLIN | POLLRDNORM)) {
@@ -503,7 +500,7 @@ uhidpoll(dev_t dev, int events, struct proc *p)
 			selrecord(p, &sc->sc_rsel);
 	}
 
-	splx(s);
+	crit_leave();
 	return (revents);
 }
 
@@ -515,11 +512,10 @@ void
 filt_uhidrdetach(struct knote *kn)
 {
 	struct uhid_softc *sc = (void *)kn->kn_hook;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	SLIST_REMOVE(&sc->sc_rsel.si_note, kn, knote, kn_selnext);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -542,7 +538,6 @@ uhidkqfilter(dev_t dev, struct knote *kn)
 {
 	struct uhid_softc *sc;
 	struct klist *klist;
-	int s;
 
 	sc = uhid_cd.cd_devs[UHIDUNIT(dev)];
 
@@ -566,9 +561,9 @@ uhidkqfilter(dev_t dev, struct knote *kn)
 
 	kn->kn_hook = (void *)sc;
 
-	s = splusb();
+	crit_enter();
 	SLIST_INSERT_HEAD(klist, kn, kn_selnext);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

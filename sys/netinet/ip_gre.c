@@ -416,12 +416,11 @@ gre_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 	struct inpcb *inp = sotoinpcb(so);
 
 	if (inp != NULL && inp->inp_pipex && req == PRU_SEND) {
-		int s;
 		struct sockaddr_in *sin4;
 		struct in_addr *ina_dst;
 		struct pipex_session *session;
 
-		s = splsoftnet();
+		crit_enter();
 		ina_dst = NULL;
 		if ((so->so_state & SS_ISCONNECTED) != 0) {
 			inp = sotoinpcb(so);
@@ -437,7 +436,7 @@ gre_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 		    (session = pipex_pptp_userland_lookup_session_ipv4(m,
 			    *ina_dst)))
 			m = pipex_pptp_userland_output(m, session);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			return (ENOMEM);

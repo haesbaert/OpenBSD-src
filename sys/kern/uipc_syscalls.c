@@ -160,7 +160,7 @@ sys_accept(struct proc *p, void *v, register_t *retval)
 	struct file *fp, *headfp;
 	struct mbuf *nam;
 	socklen_t namelen;
-	int error, s, tmpfd;
+	int error, tmpfd;
 	struct socket *head, *so;
 	int nflag;
 
@@ -170,7 +170,7 @@ sys_accept(struct proc *p, void *v, register_t *retval)
 	if ((error = getsock(p->p_fd, SCARG(uap, s), &fp)) != 0)
 		return (error);
 	headfp = fp;
-	s = splsoftnet();
+	crit_enter();
 	head = fp->f_data;
 redo:
 	if ((head->so_options & SO_ACCEPTCONN) == 0) {
@@ -263,7 +263,7 @@ redo:
 	}
 	m_freem(nam);
 bad:
-	splx(s);
+	crit_leave();
 	FRELE(headfp, p);
 	return (error);
 }
@@ -280,7 +280,7 @@ sys_connect(struct proc *p, void *v, register_t *retval)
 	struct file *fp;
 	struct socket *so;
 	struct mbuf *nam = NULL;
-	int error, s;
+	int error;
 
 	if ((error = getsock(p->p_fd, SCARG(uap, s), &fp)) != 0)
 		return (error);
@@ -305,7 +305,7 @@ sys_connect(struct proc *p, void *v, register_t *retval)
 		m_freem(nam);
 		return (EINPROGRESS);
 	}
-	s = splsoftnet();
+	crit_enter();
 	while ((so->so_state & SS_ISCONNECTING) && so->so_error == 0) {
 		error = tsleep(&so->so_timeo, PSOCK | PCATCH, "netcon2", 0);
 		if (error)
@@ -315,7 +315,7 @@ sys_connect(struct proc *p, void *v, register_t *retval)
 		error = so->so_error;
 		so->so_error = 0;
 	}
-	splx(s);
+	crit_leave();
 bad:
 	so->so_state &= ~SS_ISCONNECTING;
 	FRELE(fp, p);

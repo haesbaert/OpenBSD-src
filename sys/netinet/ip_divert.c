@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/sysctl.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -279,7 +280,6 @@ divert_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 {
 	struct inpcb *inp = sotoinpcb(so);
 	int error = 0;
-	int s;
 
 	if (req == PRU_CONTROL) {
 		return (in_control(so, (u_long)m, (caddr_t)addr,
@@ -300,9 +300,9 @@ divert_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 			error = EACCES;
 			break;
 		}
-		s = splsoftnet();
+		crit_enter();
 		error = in_pcballoc(so, &divbtable);
-		splx(s);
+		crit_leave();
 		if (error)
 			break;
 
@@ -317,9 +317,9 @@ divert_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 		break;
 
 	case PRU_BIND:
-		s = splsoftnet();
+		crit_enter();
 		error = in_pcbbind(inp, addr, p);
-		splx(s);
+		crit_leave();
 		break;
 
 	case PRU_SHUTDOWN:
@@ -378,10 +378,9 @@ release:
 void
 divert_detach(struct inpcb *inp)
 {
-	int s = splsoftnet();
-
+	crit_enter();
 	in_pcbdetach(inp);
-	splx(s);
+	crit_leave();
 }
 
 /*

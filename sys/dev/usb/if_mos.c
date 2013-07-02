@@ -79,6 +79,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -753,7 +754,6 @@ mos_detach(struct device *self, int flags)
 {
 	struct mos_softc	*sc = (struct mos_softc *)self;
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			s;
 
 	DPRINTFN(2,("%s: %s: enter\n", sc->mos_dev.dv_xname, __func__));
 
@@ -773,7 +773,7 @@ mos_detach(struct device *self, int flags)
 	 */
 	usb_rem_task(sc->mos_udev, &sc->mos_tick_task);
 	usb_rem_task(sc->mos_udev, &sc->mos_stop_task);
-	s = splusb();
+	crit_enter();
 
 	if (--sc->mos_refcnt >= 0) {
 		/* Wait for processes to go away */
@@ -802,7 +802,7 @@ mos_detach(struct device *self, int flags)
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->mos_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1339,21 +1339,20 @@ mos_watchdog(struct ifnet *ifp)
 	struct mos_softc	*sc;
 	struct mos_chain	*c;
 	usbd_status		stat;
-	int			s;
 
 	sc = ifp->if_softc;
 
 	ifp->if_oerrors++;
 	printf("%s: watchdog timeout\n", sc->mos_dev.dv_xname);
 
-	s = splusb();
+	crit_enter();
 	c = &sc->mos_cdata.mos_tx_chain[0];
 	usbd_get_xfer_status(c->mos_xfer, NULL, NULL, NULL, &stat);
 	mos_txeof(c->mos_xfer, c, stat);
 
 	if (!IFQ_IS_EMPTY(&ifp->if_snd))
 		mos_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 

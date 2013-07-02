@@ -74,6 +74,7 @@
 #include <sys/socket.h>
 #include <sys/mbuf.h>
 #include <sys/socketvar.h>
+#include <sys/proc.h>
 #include <net/route.h>
 #include <netinet/ip_ipsp.h>
 #include <net/pfkeyv2.h>
@@ -139,7 +140,6 @@ int
 pfkey_sendup(struct socket *socket, struct mbuf *packet, int more)
 {
 	struct mbuf *packet2;
-	int s;
 
 	if (more) {
 		if (!(packet2 = m_copym2(packet, 0, M_COPYALL, M_DONTWAIT)))
@@ -147,13 +147,13 @@ pfkey_sendup(struct socket *socket, struct mbuf *packet, int more)
 	} else
 	  packet2 = packet;
 
-	s = splsoftnet();
+	crit_enter();
 	if (!sbappendaddr(&socket->so_rcv, &pfkey_addr, packet2, NULL)) {
 		m_freem(packet2);
-		splx(s);
+		crit_leave();
 		return (ENOBUFS);
 	}
-	splx(s);
+	crit_leave();
 
 	sorwakeup(socket);
 	return (0);
