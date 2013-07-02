@@ -711,6 +711,8 @@ struct pcb dumppcb;
 void
 boot(int howto)
 {
+	crit_enter();
+
 	if (howto & RB_POWERDOWN)
 		lid_suspend = 0;
 
