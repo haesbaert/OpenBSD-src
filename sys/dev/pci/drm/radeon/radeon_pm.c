@@ -349,14 +349,12 @@ static void radeon_pm_print_states(struct radeon_device *rdev)
 	}
 }
 
+#ifdef notyet
 ssize_t
 radeon_get_pm_profile(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#ifdef notyet
 	struct drm_device *ddev = pci_get_drvdata(to_pci_dev(dev));
 	struct radeon_device *rdev = ddev->dev_private;
 	int cp = rdev->pm.profile;
@@ -366,7 +364,6 @@ radeon_get_pm_profile(struct device *dev,
 			(cp == PM_PROFILE_LOW) ? "low" :
 			(cp == PM_PROFILE_MID) ? "mid" :
 			(cp == PM_PROFILE_HIGH) ? "high" : "default");
-#endif
 }
 
 ssize_t
@@ -375,9 +372,6 @@ radeon_set_pm_profile(struct device *dev,
 				     const char *buf,
 				     size_t count)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_device *ddev = pci_get_drvdata(to_pci_dev(dev));
 	struct radeon_device *rdev = ddev->dev_private;
 
@@ -406,7 +400,6 @@ fail:
 	rw_exit_write(&rdev->pm.rwlock);
 
 	return count;
-#endif
 }
 
 ssize_t
@@ -414,16 +407,12 @@ radeon_get_pm_method(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_device *ddev = pci_get_drvdata(to_pci_dev(dev));
 	struct radeon_device *rdev = ddev->dev_private;
 	int pm = rdev->pm.pm_method;
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			(pm == PM_METHOD_DYNPM) ? "dynpm" : "profile");
-#endif
 }
 
 ssize_t
@@ -432,9 +421,6 @@ radeon_set_pm_method(struct device *dev,
 				    const char *buf,
 				    size_t count)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	struct drm_device *ddev = pci_get_drvdata(to_pci_dev(dev));
 	struct radeon_device *rdev = ddev->dev_private;
 
@@ -460,13 +446,11 @@ radeon_set_pm_method(struct device *dev,
 	radeon_pm_compute_clocks(rdev);
 fail:
 	return count;
-#endif
 }
 
-#ifdef notyet
 static DEVICE_ATTR(power_profile, S_IRUGO | S_IWUSR, radeon_get_pm_profile, radeon_set_pm_profile);
 static DEVICE_ATTR(power_method, S_IRUGO | S_IWUSR, radeon_get_pm_method, radeon_set_pm_method);
-#endif
+#endif /* notyet */
 
 #ifdef notyet
 static ssize_t radeon_hwmon_show_temp(struct device *dev,
