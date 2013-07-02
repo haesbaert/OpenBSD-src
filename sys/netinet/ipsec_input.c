@@ -45,6 +45,7 @@
 #include <sys/sysctl.h>
 #include <sys/kernel.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/netisr.h>
@@ -129,7 +130,7 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 	struct ifnet *encif;
 	u_int32_t spi;
 	u_int16_t cpi;
-	int s, error;
+	int error;
 
 	IPSEC_ISTAT(espstat.esps_input, ahstat.ahs_input,
 	    ipcompstat.ipcomps_input);
@@ -234,11 +235,11 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 		return EPFNOSUPPORT;
 	}
 
-	s = splsoftnet();
+	crit_enter();
 	tdbp = gettdb(rtable_l2(m->m_pkthdr.rdomain),
 	    spi, &dst_address, sproto);
 	if (tdbp == NULL) {
-		splx(s);
+		crit_leave();
 		DPRINTF(("ipsec_common_input(): could not find SA for "
 		    "packet to %s, spi %08x\n",
 		    ipsp_address(dst_address), ntohl(spi)));
@@ -249,7 +250,7 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 	}
 
 	if (tdbp->tdb_flags & TDBF_INVALID) {
-		splx(s);
+		crit_leave();
 		DPRINTF(("ipsec_common_input(): attempted to use invalid SA %s/%08x/%u\n", ipsp_address(dst_address), ntohl(spi), tdbp->tdb_sproto));
 		m_freem(m);
 		IPSEC_ISTAT(espstat.esps_invalid, ahstat.ahs_invalid,
@@ -258,7 +259,7 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 	}
 
 	if (udpencap && !(tdbp->tdb_flags & TDBF_UDPENCAP)) {
-		splx(s);
+		crit_leave();
 		DPRINTF(("ipsec_common_input(): attempted to use non-udpencap SA %s/%08x/%u\n", ipsp_address(dst_address), ntohl(spi), tdbp->tdb_sproto));
 		m_freem(m);
 		espstat.esps_udpinval++;
@@ -266,7 +267,7 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 	}
 
 	if (tdbp->tdb_xform == NULL) {
-		splx(s);
+		crit_leave();
 		DPRINTF(("ipsec_common_input(): attempted to use uninitialized SA %s/%08x/%u\n", ipsp_address(dst_address), ntohl(spi), tdbp->tdb_sproto));
 		m_freem(m);
 		IPSEC_ISTAT(espstat.esps_noxform, ahstat.ahs_noxform,
@@ -277,7 +278,7 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 	if (sproto != IPPROTO_IPCOMP) {
 		if ((encif = enc_getif(tdbp->tdb_rdomain,
 		    tdbp->tdb_tap)) == NULL) {
-			splx(s);
+			crit_leave();
 			DPRINTF(("ipsec_common_input(): "
 			    "no enc%u interface for SA %s/%08x/%u\n",
 			    tdbp->tdb_tap, ipsp_address(dst_address),
@@ -314,7 +315,7 @@ ipsec_common_input(struct mbuf *m, int skip, int protoff, int af, int sproto,
 	 * everything else.
 	 */
 	error = (*(tdbp->tdb_xform->xf_input))(m, tdbp, skip, protoff);
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -959,7 +960,6 @@ ipsec_common_ctlinput(u_int rdomain, int cmd, struct sockaddr *sa,
     void *v, int proto)
 {
 	struct ip *ip = v;
-	int s;
 
 	if (cmd == PRC_MSGSIZE && ip && ip_mtudisc && ip->ip_v == 4) {
 		struct tdb *tdbp;
@@ -988,11 +988,11 @@ ipsec_common_ctlinput(u_int rdomain, int cmd, struct sockaddr *sa,
 
 		bcopy((caddr_t)ip + hlen, &spi, sizeof(u_int32_t));
 
-		s = splsoftnet();
+		crit_enter();
 		tdbp = gettdb(rdomain, spi, (union sockaddr_union *)&dst,
 		    proto);
 		if (tdbp == NULL || tdbp->tdb_flags & TDBF_INVALID) {
-			splx(s);
+			crit_leave();
 			return (NULL);
 		}
 
@@ -1000,7 +1000,7 @@ ipsec_common_ctlinput(u_int rdomain, int cmd, struct sockaddr *sa,
 		for (; tdbp; tdbp = tdbp->tdb_inext) {
 			if (tdbp->tdb_flags & TDBF_INVALID ||
 			    (adjust = ipsec_hdrsz(tdbp)) == -1) {
-				splx(s);
+				crit_leave();
 				return (NULL);
 			}
 
@@ -1015,7 +1015,7 @@ ipsec_common_ctlinput(u_int rdomain, int cmd, struct sockaddr *sa,
 			    ntohl(tdbp->tdb_spi), tdbp->tdb_mtu,
 			    adjust));
 		}
-		splx(s);
+		crit_leave();
 		return (NULL);
 	}
 	return (NULL);
@@ -1032,7 +1032,6 @@ udpencap_ctlinput(int cmd, struct sockaddr *sa, u_int rdomain, void *v)
 	ssize_t adjust;
 	struct sockaddr_in dst, src;
 	union sockaddr_union *su_dst, *su_src;
-	int s;
 
 	icp = (struct icmp *)((caddr_t) ip - offsetof(struct icmp, icmp_ip));
 	mtu = ntohs(icp->icmp_nextmtu);
@@ -1055,7 +1054,7 @@ udpencap_ctlinput(int cmd, struct sockaddr *sa, u_int rdomain, void *v)
 	src.sin_addr.s_addr = ip->ip_src.s_addr;
 	su_src = (union sockaddr_union *)&src;
 
-	s = splsoftnet();
+	crit_enter();
 	tdbp = gettdbbysrcdst(rdomain, 0, su_src, su_dst, IPPROTO_ESP);
 
 	for (; tdbp != NULL; tdbp = tdbp->tdb_snext) {
@@ -1076,7 +1075,7 @@ udpencap_ctlinput(int cmd, struct sockaddr *sa, u_int rdomain, void *v)
 			}
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (NULL);
 }
 

@@ -44,6 +44,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -94,7 +95,6 @@ ohci_pci_attach(struct device *parent, struct device *self, void *aux)
 	pci_chipset_tag_t pc = pa->pa_pc;
 	char const *intrstr;
 	pci_intr_handle_t ih;
-	int s;
 	const char *vendor;
 	char *devname = sc->sc.sc_bus.bdev.dv_xname;
 
@@ -121,12 +121,12 @@ ohci_pci_attach(struct device *parent, struct device *self, void *aux)
 	bus_space_write_4(sc->sc.iot, sc->sc.ioh,
 	    OHCI_INTERRUPT_DISABLE, OHCI_MIE);
 
-	s = splusb();
+	crit_enter();
 	/* Map and establish the interrupt. */
 	if (pci_intr_map(pa, &ih)) {
 		printf(": couldn't map interrupt\n");
 		bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -138,7 +138,7 @@ ohci_pci_attach(struct device *parent, struct device *self, void *aux)
 			printf(" at %s", intrstr);
 		printf("\n");
 		bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	printf(": %s", intrstr);
@@ -157,7 +157,7 @@ ohci_pci_attach(struct device *parent, struct device *self, void *aux)
 	    ohci_handover(&sc->sc) != USBD_NORMAL_COMPLETION) {
 		bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
 		pci_intr_disestablish(sc->sc_pc, sc->sc_ih);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -166,7 +166,7 @@ ohci_pci_attach(struct device *parent, struct device *self, void *aux)
 
 	config_defer(self, ohci_pci_attach_deferred);
 
-	splx(s);
+	crit_leave();
 
 	return;
 }
@@ -176,9 +176,8 @@ ohci_pci_attach_deferred(struct device *self)
 {
 	struct ohci_pci_softc *sc = (struct ohci_pci_softc *)self;
 	usbd_status r;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	sc->sc.sc_bus.dying = 0;
 	
@@ -188,10 +187,10 @@ ohci_pci_attach_deferred(struct device *self)
 		    sc->sc.sc_bus.bdev.dv_xname, r);
 		bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
 		pci_intr_disestablish(sc->sc_pc, sc->sc_ih);
-		splx(s);
+		crit_leave();
 		return;
 	}
-	splx(s);
+	crit_leave();
 
 	/* Attach usb device. */
 	sc->sc.sc_child = config_found((void *)sc, &sc->sc.sc_bus,

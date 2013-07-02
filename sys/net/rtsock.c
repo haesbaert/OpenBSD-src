@@ -139,10 +139,10 @@ route_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 {
 	struct rawcb	*rp;
 	struct routecb	*rop;
-	int		 s, af;
+	int		 af;
 	int		 error = 0;
 
-	s = splsoftnet();
+	crit_enter();
 	rp = sotorawcb(so);
 
 	switch (req) {
@@ -168,7 +168,7 @@ route_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 			error = raw_attach(so, (int)(long)nam);
 		if (error) {
 			free(rp, M_PCB);
-			splx(s);
+			crit_leave();
 			return (error);
 		}
 		rop->rtableid = curproc->p_p->ps_rtableid;
@@ -219,7 +219,7 @@ route_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 		error = raw_usrreq(so, req, m, nam, control, p);
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1378,7 +1378,7 @@ sysctl_rtable(int *name, u_int namelen, void *where, size_t *given, void *new,
     size_t newlen)
 {
 	struct radix_node_head	*rnh;
-	int			 i, s, error = EINVAL;
+	int			 i, error = EINVAL;
 	u_char  		 af;
 	struct walkarg		 w;
 	struct rt_tableinfo	 tableinfo;
@@ -1403,7 +1403,7 @@ sysctl_rtable(int *name, u_int namelen, void *where, size_t *given, void *new,
 	} else
 		tableid = curproc->p_p->ps_rtableid;
 
-	s = splsoftnet();
+	crit_enter();
 	switch (w.w_op) {
 
 	case NET_RT_DUMP:
@@ -1423,22 +1423,22 @@ sysctl_rtable(int *name, u_int namelen, void *where, size_t *given, void *new,
 	case NET_RT_STATS:
 		error = sysctl_rdstruct(where, given, new,
 		    &rtstat, sizeof(rtstat));
-		splx(s);
+		crit_leave();
 		return (error);
 	case NET_RT_TABLE:
 		tableid = w.w_arg;
 		if (!rtable_exists(tableid)) {
-			splx(s);
+			crit_leave();
 			return (ENOENT);
 		}
 		tableinfo.rti_tableid = tableid;
 		tableinfo.rti_domainid = rtable_l2(tableid);
 		error = sysctl_rdstruct(where, given, new,
 		    &tableinfo, sizeof(tableinfo));
-		splx(s);
+		crit_leave();
 		return (error);
 	}
-	splx(s);
+	crit_leave();
 	if (w.w_tmem)
 		free(w.w_tmem, M_RTABLE);
 	w.w_needed += w.w_given;

@@ -68,6 +68,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -1071,7 +1072,6 @@ smsc_detach(struct device *self, int flags)
 {
 	struct smsc_softc *sc = (struct smsc_softc *)self;
 	struct ifnet *ifp = &sc->sc_ac.ac_if;
-	int s;
 
 	if (timeout_initialized(&sc->sc_stat_ch))
 		timeout_del(&sc->sc_stat_ch);
@@ -1090,7 +1090,7 @@ smsc_detach(struct device *self, int flags)
 	usb_rem_task(sc->sc_udev, &sc->sc_tick_task);
 	usb_rem_task(sc->sc_udev, &sc->sc_stop_task);
 
-	s = splusb();
+	crit_enter();
 
 	if (--sc->sc_refcnt >= 0) {
 		/* Wait for processes to go away */
@@ -1119,7 +1119,7 @@ smsc_detach(struct device *self, int flags)
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->sc_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

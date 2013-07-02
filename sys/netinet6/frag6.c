@@ -41,6 +41,7 @@
 #include <sys/time.h>
 #include <sys/kernel.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -638,8 +639,9 @@ void
 frag6_slowtimo(void)
 {
 	struct ip6q *q6, *nq6;
-	int s = splsoftnet();
 	extern struct route_in6 ip6_forward_rt;
+
+	crit_enter();
 
 	IP6Q_LOCK();
 	TAILQ_FOREACH_SAFE(q6, &frag6_queue, ip6q_queue, nq6)
@@ -672,7 +674,7 @@ frag6_slowtimo(void)
 		ip6_forward_rt.ro_rt = 0;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /*

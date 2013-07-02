@@ -263,7 +263,7 @@ art_ifm_change(struct ifnet *ifp)
 	struct art_softc	*ac = (struct art_softc *)cc->cc_parent;
 	struct ifmedia		*ifm = &ac->art_ifm;
 	u_int64_t		baudrate;
-	int			rv, s;
+	int			rv;
 
 	ACCOOM_PRINTF(2, ("%s: art_ifm_change %08x\n", ifp->if_xname,
 	    ifm->ifm_media));
@@ -318,9 +318,9 @@ art_ifm_change(struct ifnet *ifp)
 	baudrate = ifmedia_baudrate(ac->art_media);
 	if (baudrate != ifp->if_baudrate) {
 		ifp->if_baudrate = baudrate;
-		s = splsoftnet();
+		crit_enter();
 		if_link_state_change(ifp);
-		splx(s);
+		crit_leave();
 	}
 
 	ac->art_media = ifm->ifm_media;
@@ -377,7 +377,7 @@ art_onesec(void *arg)
 	struct art_softc	*ac = arg;
 	struct ifnet		*ifp = ac->art_channel->cc_ifp;
 	struct sppp		*ppp = &ac->art_channel->cc_ppp;
-	int			 s, rv, link_state;
+	int			 rv, link_state;
 
 	rv = bt8370_link_status(ac);
 	switch (rv) {
@@ -400,12 +400,12 @@ art_onesec(void *arg)
 	}
 
 	if (link_state != ifp->if_link_state) {
-		s = splsoftnet();
+		crit_enter();
 		if (LINK_STATE_IS_UP(link_state))
 			ppp->pp_up(ppp);
 		else
 			ppp->pp_down(ppp);
-		splx(s);
+		crit_leave();
 	}
 
 	/*

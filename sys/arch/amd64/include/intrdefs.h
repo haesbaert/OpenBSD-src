@@ -18,7 +18,7 @@
  * The level numbers are picked to fit into APIC vector priorities.
  *
  */
-#define IPL_CRIT	IPL_SOFTCLOCK /* Last converted level */
+#define IPL_CRIT	IPL_SOFTNET /* Last converted level */
 #define	IPL_NONE	0x0	/* nothing */
 #define	IPL_SOFTCLOCK	0x4	/* timeouts */
 #define	IPL_SOFTNET	0x5	/* protocol stacks */

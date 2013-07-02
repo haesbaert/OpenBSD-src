@@ -252,7 +252,7 @@ ithread_softderegister(struct intrsource *is)
 void
 ithread_softmain(void *v_is)
 {
-	int s;
+	int s, c;
 	struct intrsource *is = v_is;
 	struct intrhand *ih;
 
@@ -262,6 +262,7 @@ ithread_softmain(void *v_is)
 	DPRINTF(1, "ithread soft %u started\n", curproc->p_pid);
 
 	for (; ;) {
+		c = crit_inside();
 		if (is->is_maxlevel <= IPL_CRIT)
 			crit_enter();
 		else
@@ -277,11 +278,14 @@ ithread_softmain(void *v_is)
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_UNLOCK();
 		}
-		if (is->is_maxlevel == IPL_CRIT)
+		if (is->is_maxlevel <= IPL_CRIT)
 			crit_leave();
 		else
 			splx(s);
 
+		if (c != crit_inside())
+			panic("crit_count doesn't match\n");
+		
 		/*
 		 * XXX Could use atomic_npoll() or something similar.
 		 */

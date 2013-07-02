@@ -39,6 +39,7 @@
 #include <sys/file.h>
 #include <sys/selinfo.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbdi.h>
@@ -294,16 +295,15 @@ umidi_open(void *addr,
 void
 umidi_close(void *addr)
 {
-	int s;
 	struct umidi_mididev *mididev = addr;
 
-	s = splusb();
+	crit_enter();
 	if ((mididev->flags & FWRITE) && mididev->out_jack)
 		close_out_jack(mididev->out_jack);
 	if ((mididev->flags & FREAD) && mididev->in_jack)
 		close_in_jack(mididev->in_jack);
 	mididev->opened = 0;
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -790,14 +790,12 @@ alloc_all_jacks(struct umidi_softc *sc)
 static void
 free_all_jacks(struct umidi_softc *sc)
 {
-	int s;
-
-	s = splusb();
+	crit_enter();
 	if (sc->sc_out_jacks) {
 		free(sc->sc_jacks, M_USBDEV);
 		sc->sc_jacks = sc->sc_in_jacks = sc->sc_out_jacks = NULL;
 	}
-	splx(s);
+	crit_leave();
 }
 
 static usbd_status
@@ -1159,25 +1157,24 @@ out_jack_output(struct umidi_jack *j, int d)
 {
 	struct umidi_endpoint *ep = j->endpoint;
 	struct umidi_softc *sc = ep->sc;
-	int s;
 
 	if (sc->sc_dying)
 		return 1;
 	if (!j->opened)
 		return 1;
-	s = splusb();
+	crit_enter();
 	if (ep->busy) {
 		if (!j->intr) {
 			SIMPLEQ_INSERT_TAIL(&ep->intrq, j, intrq_entry);
 			ep->pending++;
 			j->intr = 1;
 		}		
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 	if (!out_build_packet(j->cable_number, &j->packet, d,
 		ep->buffer + ep->used)) {
-		splx(s);
+		crit_leave();
 		return 1;
 	}
 	ep->used += UMIDI_PACKET_SIZE;
@@ -1185,7 +1182,7 @@ out_jack_output(struct umidi_jack *j, int d)
 		ep->busy = 1;
 		start_output_transfer(ep);
 	}
-	splx(s);
+	crit_leave();
 	return 1;
 }
 
@@ -1193,17 +1190,16 @@ static void
 out_jack_flush(struct umidi_jack *j)
 {
 	struct umidi_endpoint *ep = j->endpoint;
-	int s;
 
 	if (ep->sc->sc_dying || !j->opened)
 		return;
 		
-	s = splusb();	
+	crit_enter();
 	if (ep->used != 0 && !ep->busy) {
 		ep->busy = 1;
 		start_output_transfer(ep);
 	}
-	splx(s);
+	crit_leave();
 }
 
 

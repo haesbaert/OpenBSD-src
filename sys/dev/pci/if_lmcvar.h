@@ -499,7 +499,6 @@ extern struct cfdriver lmc_cd;
 #define	lmc_unit			lmc_dev.dv_unit
 #define	lmc_xname			lmc_if.if_xname
 #define	LMC_RAISESPL()		splnet()
-#define	LMC_RAISESOFTSPL()		splsoftnet()
 #define	LMC_RESTORESPL(s)		splx(s)
 /*	#define	lmc_enaddr			lmc_enaddr */
 #define	loudprintf			printf
@@ -531,9 +530,6 @@ extern struct cfdriver lmc_cd;
 
 #ifndef LMC_RAISESPL
 #define	LMC_RAISESPL()		splnet()
-#endif
-#ifndef LMC_RAISESOFTSPL
-#define	LMC_RAISESOFTSPL()		splnet()
 #endif
 #ifndef TULUP_RESTORESPL
 #define	LMC_RESTORESPL(s)		splx(s)

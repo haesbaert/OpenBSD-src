@@ -46,6 +46,7 @@
 #include <sys/vnode.h>
 #include <sys/device.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 
@@ -215,7 +216,6 @@ ucom_detach(struct device *self, int flags)
 	struct ucom_softc *sc = (struct ucom_softc *)self;
 	struct tty *tp = sc->sc_tty;
 	int maj, mn;
-	int s;
 
 	DPRINTF(("ucom_detach: sc=%p flags=%d tp=%p, pipe=%d,%d\n",
 		 sc, flags, tp, sc->sc_bulkin_no, sc->sc_bulkout_no));
@@ -242,7 +242,7 @@ ucom_detach(struct device *self, int flags)
 		sc->sc_oxfer = NULL;
 	}
 
-	s = splusb();
+	crit_enter();
 	if (--sc->sc_refcnt >= 0) {
 		/* Wake up anyone waiting */
 		if (tp != NULL) {
@@ -252,7 +252,7 @@ ucom_detach(struct device *self, int flags)
 		}
 		usb_detach_wait(&sc->sc_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	/* locate the major number */
 	for (maj = 0; maj < nchrdev; maj++)
@@ -348,7 +348,7 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 
 	/* open the pipes if this is the first open */
 	ucom_lock(sc);
-	s = splusb();
+	crit_enter();
 	if (sc->sc_open == 0) {
 		DPRINTF(("ucomopen: open pipes in=%d out=%d\n",
 		    sc->sc_bulkin_no, sc->sc_bulkout_no));
@@ -419,7 +419,7 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 			    sc->sc_portno);
 			if (error) {
 				ucom_cleanup(sc);
-				splx(s);
+				crit_leave();
 				ucom_unlock(sc);
 				return (error);
 			}
@@ -430,7 +430,7 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 		ucomstartread(sc);
 		sc->sc_open = 1;
 	}
-	splx(s);
+	crit_leave();
 	s = spltty();
 	ucom_unlock(sc);
 	tp = sc->sc_tty;

@@ -132,6 +132,7 @@
 #include <sys/device.h>
 #include <sys/malloc.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 #undef KASSERT
 #define KASSERT(cond, msg)
 #include <machine/bus.h>
@@ -622,7 +623,7 @@ umass_detach(struct device *self, int flags)
 {
 	struct umass_softc *sc = (struct umass_softc *)self;
 	struct umassbus_softc *scbus;
-	int rv = 0, i, s;
+	int rv = 0, i;
 
 	DPRINTF(UDMASS_USB, ("%s: detached\n", sc->sc_dev.dv_xname));
 
@@ -633,7 +634,7 @@ umass_detach(struct device *self, int flags)
 	}
 
 	/* Do we really need reference counting?  Perhaps in ioctl() */
-	s = splusb();
+	crit_enter();
 	if (--sc->sc_refcnt >= 0) {
 #ifdef DIAGNOSTIC
 		printf("%s: waiting for refcnt\n", sc->sc_dev.dv_xname);
@@ -650,7 +651,7 @@ umass_detach(struct device *self, int flags)
 				STATUS_WIRE_FAILED);
 		sc->transfer_priv = NULL;
 	}
-	splx(s);
+	crit_leave();
 
 	scbus = sc->bus;
 	if (scbus != NULL) {

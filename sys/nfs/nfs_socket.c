@@ -226,7 +226,7 @@ int
 nfs_connect(struct nfsmount *nmp, struct nfsreq *rep)
 {
 	struct socket *so;
-	int s, error, rcvreserve, sndreserve;
+	int error, rcvreserve, sndreserve;
 	struct sockaddr *saddr;
 	struct sockaddr_in *sin;
 	struct mbuf *m;
@@ -296,7 +296,7 @@ nfs_connect(struct nfsmount *nmp, struct nfsreq *rep)
 		 * connect system call but with the wait timing out so
 		 * that interruptible mounts don't hang here for a long time.
 		 */
-		s = splsoftnet();
+		crit_enter();
 		while ((so->so_state & SS_ISCONNECTING) && so->so_error == 0) {
 			(void) tsleep((caddr_t)&so->so_timeo, PSOCK,
 				"nfscon", 2 * hz);
@@ -304,17 +304,17 @@ nfs_connect(struct nfsmount *nmp, struct nfsreq *rep)
 			    so->so_error == 0 && rep &&
 			    (error = nfs_sigintr(nmp, rep, rep->r_procp)) != 0){
 				so->so_state &= ~SS_ISCONNECTING;
-				splx(s);
+				crit_leave();
 				goto bad;
 			}
 		}
 		if (so->so_error) {
 			error = so->so_error;
 			so->so_error = 0;
-			splx(s);
+			crit_leave();
 			goto bad;
 		}
-		splx(s);
+		crit_leave();
 	}
 	/*
 	 * Always set receive timeout to detect server crash and reconnect.
@@ -385,7 +385,7 @@ nfs_reconnect(struct nfsreq *rep)
 {
 	struct nfsreq *rp;
 	struct nfsmount *nmp = rep->r_nmp;
-	int s, error;
+	int error;
 
 	nfs_disconnect(nmp);
 	while ((error = nfs_connect(nmp, rep)) != 0) {
@@ -398,12 +398,12 @@ nfs_reconnect(struct nfsreq *rep)
 	 * Loop through outstanding request list and fix up all requests
 	 * on old socket.
 	 */
-	s = splsoftnet();
+	crit_enter();
 	TAILQ_FOREACH(rp, &nmp->nm_reqsq, r_chain) {
 		rp->r_flags |= R_MUSTRESEND;
 		rp->r_rexmit = 0;
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -729,7 +729,7 @@ nfs_reply(struct nfsreq *myrep)
 	struct mbuf *nam;
 	u_int32_t rxid, *tl, t1;
 	caddr_t cp2;
-	int s, error;
+	int error;
 
 	/*
 	 * Loop around until we get our own reply
@@ -783,7 +783,7 @@ nfsmout:
 		 * Loop through the request list to match up the reply
 		 * Iff no match, just drop the datagram
 		 */
-		s = splsoftnet();
+		crit_enter();
 		TAILQ_FOREACH(rep, &nmp->nm_reqsq, r_chain) {
 			if (rep->r_mrep == NULL && rxid == rep->r_xid) {
 				/* Found it.. */
@@ -813,7 +813,7 @@ nfsmout:
 				break;
 			}
 		}
-		splx(s);
+		crit_leave();
 		/*
 		 * If not matched to a request, drop it.
 		 * If it's mine, get out.
@@ -847,7 +847,7 @@ nfs_request(struct vnode *vp, int procnum, struct nfsm_info *infop)
 	struct nfsmount *nmp;
 	struct timeval tv;
 	caddr_t cp2;
-	int t1, i, s, error = 0;
+	int t1, i, error = 0;
 	int trylater_delay;
 	struct nfsreq *rep;
 	int  mrest_len;
@@ -904,7 +904,7 @@ tryagain:
 	 * Chain request into list of outstanding requests. Be sure
 	 * to put it LAST so timer finds oldest requests first.
 	 */
-	s = splsoftnet();
+	crit_enter();
 	if (TAILQ_EMPTY(&nmp->nm_reqsq))
 		timeout_add(&nmp->nm_rtimeout, nfs_ticks);
 	TAILQ_INSERT_TAIL(&nmp->nm_reqsq, rep, r_chain);
@@ -917,7 +917,7 @@ tryagain:
 	if (nmp->nm_so && (nmp->nm_sotype != SOCK_DGRAM ||
 		(nmp->nm_flag & NFSMNT_DUMBTIMR) ||
 		nmp->nm_sent < nmp->nm_cwnd)) {
-		splx(s);
+		crit_leave();
 		if (nmp->nm_soflags & PR_CONNREQUIRED)
 			error = nfs_sndlock(&nmp->nm_flag, rep);
 		if (!error) {
@@ -932,7 +932,7 @@ tryagain:
 			rep->r_flags |= R_SENT;
 		}
 	} else {
-		splx(s);
+		crit_leave();
 		rep->r_rtt = -1;
 	}
 
@@ -945,11 +945,11 @@ tryagain:
 	/*
 	 * RPC done, unlink the request.
 	 */
-	s = splsoftnet();
+	crit_enter();
 	TAILQ_REMOVE(&nmp->nm_reqsq, rep, r_chain);
 	if (TAILQ_EMPTY(&nmp->nm_reqsq))
 		timeout_del(&nmp->nm_rtimeout);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Decrement the outstanding request count.
@@ -1132,9 +1132,9 @@ nfs_timer(void *arg)
 	struct nfsreq *rep;
 	struct mbuf *m;
 	struct socket *so;
-	int timeo, s, error;
+	int timeo, error;
 
-	s = splsoftnet();
+	crit_enter();
 	TAILQ_FOREACH(rep, &nmp->nm_reqsq, r_chain) {
 		if (rep->r_mrep || (rep->r_flags & R_SOFTTERM))
 			continue;
@@ -1217,7 +1217,7 @@ nfs_timer(void *arg)
 			}
 		}
 	}
-	splx(s);
+	crit_leave();
 	timeout_add(&nmp->nm_rtimeout, nfs_ticks);
 }
 

@@ -251,9 +251,8 @@ struct usb_attach_arg {
 #define UMATCH_NONE					 0
 
 /* XXX Perhaps USB should have its own levels? */
-#define splusb splsoftnet
 #if 0
-#define	SPLUSBCHECK	splsoftassert(IPL_SOFTNET)
+#define	SPLUSBCHECK	crit_assert()
 #else
 #define	SPLUSBCHECK	do { /* nothing */ } while (0)
 #endif

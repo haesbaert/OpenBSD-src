@@ -42,6 +42,7 @@
 #include <sys/systm.h>
 #include <sys/mbuf.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/bpf.h>
@@ -752,7 +753,7 @@ ah_input(struct mbuf *m, struct tdb *tdb, int skip, int protoff)
 int
 ah_input_cb(void *op)
 {
-	int s, roff, rplen, error, skip, protoff;
+	int roff, rplen, error, skip, protoff;
 	unsigned char calc[AH_ALEN_MAX];
 	struct mbuf *m1, *m0, *m;
 	struct auth_hash *ahx;
@@ -782,7 +783,7 @@ ah_input_cb(void *op)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	tdb = gettdb(tc->tc_rdomain, tc->tc_spi, &tc->tc_dst, tc->tc_proto);
 	if (tdb == NULL) {
@@ -801,7 +802,7 @@ ah_input_cb(void *op)
 			/* Reset the session ID */
 			if (tdb->tdb_cryptoid != 0)
 				tdb->tdb_cryptoid = crp->crp_sid;
-			splx(s);
+			crit_leave();
 			return crypto_dispatch(crp);
 		}
 		free(tc, M_XDATA);
@@ -899,7 +900,7 @@ ah_input_cb(void *op)
 	m1 = m_getptr(m, skip, &roff);
 	if (m1 == NULL) {
 		ahstat.ahs_hdrops++;
-		splx(s);
+		crit_leave();
 		m_freem(m);
 
 		DPRINTF(("ah_input(): bad mbuf chain for packet in SA "
@@ -968,11 +969,11 @@ ah_input_cb(void *op)
 		}
 
 	error = ipsec_common_input_cb(m, tdb, skip, protoff, mtag);
-	splx(s);
+	crit_leave();
 	return (error);
 
  baddone:
-	splx(s);
+	crit_leave();
 
 	if (m != NULL)
 		m_freem(m);
@@ -1287,7 +1288,7 @@ ah_output_cb(void *op)
 	struct tdb *tdb;
 	struct mbuf *m;
 	caddr_t ptr;
-	int err, s;
+	int err;
 
 	crp = (struct cryptop *) op;
 	tc = (struct tdb_crypto *) crp->crp_opaque;
@@ -1305,7 +1306,7 @@ ah_output_cb(void *op)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	tdb = gettdb(tc->tc_rdomain, tc->tc_spi, &tc->tc_dst, tc->tc_proto);
 	if (tdb == NULL) {
@@ -1322,7 +1323,7 @@ ah_output_cb(void *op)
 			/* Reset the session ID */
 			if (tdb->tdb_cryptoid != 0)
 				tdb->tdb_cryptoid = crp->crp_sid;
-			splx(s);
+			crit_leave();
 			return crypto_dispatch(crp);
 		}
 		free(tc, M_XDATA);
@@ -1345,11 +1346,11 @@ ah_output_cb(void *op)
 	crypto_freereq(crp);
 
 	err =  ipsp_process_done(m, tdb);
-	splx(s);
+	crit_leave();
 	return err;
 
  baddone:
-	splx(s);
+	crit_leave();
 
 	if (m != NULL)
 		m_freem(m);

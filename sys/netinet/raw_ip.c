@@ -74,6 +74,7 @@
 #include <sys/socket.h>
 #include <sys/protosw.h>
 #include <sys/socketvar.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -398,7 +399,6 @@ rip_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 {
 	struct inpcb *inp = sotoinpcb(so);
 	int error = 0;
-	int s;
 
 	if (req == PRU_CONTROL)
 		return (in_control(so, (u_long)m, (caddr_t)nam,
@@ -422,13 +422,13 @@ rip_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 			error = EPROTONOSUPPORT;
 			break;
 		}
-		s = splsoftnet();
+		crit_enter();
 		if ((error = soreserve(so, rip_sendspace, rip_recvspace)) ||
 		    (error = in_pcballoc(so, &rawcbtable))) {
-			splx(s);
+			crit_leave();
 			break;
 		}
-		splx(s);
+		crit_leave();
 		inp = sotoinpcb(so);
 		inp->inp_ip.ip_p = (long)nam;
 		break;

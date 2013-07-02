@@ -37,6 +37,7 @@
 #include <sys/kernel.h>
 #include <sys/malloc.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbhid.h>
@@ -410,20 +411,20 @@ usbd_bulk_transfer(struct usbd_xfer *xfer, struct usbd_pipe *pipe,
     u_int16_t flags, u_int32_t timeout, void *buf, u_int32_t *size, char *lbl)
 {
 	usbd_status err;
-	int s, error, pri;
+	int error, pri;
 
 	usbd_setup_xfer(xfer, pipe, 0, buf, *size, flags, timeout,
 	    usbd_bulk_transfer_cb);
 	DPRINTFN(1, ("usbd_bulk_transfer: start transfer %d bytes\n", *size));
-	s = splusb();		/* don't want callback until tsleep() */
+	crit_enter();		/* don't want callback until tsleep() */
 	err = usbd_transfer(xfer);
 	if (err != USBD_IN_PROGRESS) {
-		splx(s);
+		crit_leave();
 		return (err);
 	}
 	pri = timeout == 0 ? (PZERO | PCATCH) : PZERO;
 	error = tsleep((caddr_t)xfer, pri, lbl, 0);
-	splx(s);
+	crit_leave();
 	if (error) {
 		DPRINTF(("usbd_bulk_transfer: tsleep=%d\n", error));
 		usbd_abort_pipe(pipe);
@@ -452,20 +453,20 @@ usbd_intr_transfer(struct usbd_xfer *xfer, struct usbd_pipe *pipe,
     u_int16_t flags, u_int32_t timeout, void *buf, u_int32_t *size, char *lbl)
 {
 	usbd_status err;
-	int s, error, pri;
+	int error, pri;
 
 	usbd_setup_xfer(xfer, pipe, 0, buf, *size, flags, timeout,
 	    usbd_intr_transfer_cb);
 	DPRINTFN(1, ("usbd_intr_transfer: start transfer %d bytes\n", *size));
-	s = splusb();		/* don't want callback until tsleep() */
+	crit_enter();		/* don't want callback until tsleep() */
 	err = usbd_transfer(xfer);
 	if (err != USBD_IN_PROGRESS) {
-		splx(s);
+		crit_leave();
 		return (err);
 	}
 	pri = timeout == 0 ? (PZERO | PCATCH) : PZERO;
 	error = tsleep(xfer, pri, lbl, 0);
-	splx(s);
+	crit_leave();
 	if (error) {
 		DPRINTF(("usbd_intr_transfer: tsleep=%d\n", error));
 		usbd_abort_pipe(pipe);

@@ -33,6 +33,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -355,9 +356,8 @@ ural_detach(struct device *self, int flags)
 {
 	struct ural_softc *sc = (struct ural_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->scan_to))
 		timeout_del(&sc->scan_to);
@@ -391,7 +391,7 @@ ural_detach(struct device *self, int flags)
 	ural_free_rx_list(sc);
 	ural_free_tx_list(sc);
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -2167,14 +2167,13 @@ ural_amrr_timeout(void *arg)
 {
 	struct ural_softc *sc = arg;
 	usb_device_request_t req;
-	int s;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splusb();
+	crit_enter();
 
 	/*
 	 * Asynchronously read statistic registers (cleared by read).
@@ -2190,7 +2189,7 @@ ural_amrr_timeout(void *arg)
 	    ural_amrr_update);
 	(void)usbd_transfer(sc->amrr_xfer);
 
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 }

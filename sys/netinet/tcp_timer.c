@@ -40,6 +40,7 @@
 #include <sys/protosw.h>
 #include <sys/kernel.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <net/route.h>
 
@@ -106,7 +107,6 @@ void
 tcp_delack(void *arg)
 {
 	struct tcpcb *tp = arg;
-	int s;
 
 	/*
 	 * If tcp_output() wasn't able to transmit the ACK
@@ -114,14 +114,14 @@ tcp_delack(void *arg)
 	 * ACK callout.
 	 */
 
-	s = splsoftnet();
+	crit_enter();
 	if (tp->t_flags & TF_DEAD) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	tp->t_flags |= TF_ACKNOW;
 	(void) tcp_output(tp);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -132,13 +132,11 @@ tcp_delack(void *arg)
 void
 tcp_slowtimo()
 {
-	int s;
-
-	s = splsoftnet();
+	crit_enter();
 	tcp_maxidle = TCPTV_KEEPCNT * tcp_keepintvl;
 	tcp_iss += TCP_ISSINCR2/PR_SLOWHZ;		/* increment iss */
 	tcp_now++;					/* for timestamps */
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -193,11 +191,10 @@ tcp_timer_rexmt(void *arg)
 {
 	struct tcpcb *tp = arg;
 	uint32_t rto;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	if (tp->t_flags & TF_DEAD) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -226,7 +223,7 @@ tcp_timer_rexmt(void *arg)
 		sin.sin_addr = tp->t_inpcb->inp_faddr;
 		in_pcbnotifyall(&tcbtable, sintosa(&sin),
 		    tp->t_inpcb->inp_rtableid, EMSGSIZE, tcp_mtudisc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -378,7 +375,7 @@ tcp_timer_rexmt(void *arg)
 	(void) tcp_output(tp);
 
  out:
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -386,12 +383,11 @@ tcp_timer_persist(void *arg)
 {
 	struct tcpcb *tp = arg;
 	uint32_t rto;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	if ((tp->t_flags & TF_DEAD) ||
             TCP_TIMER_ISARMED(tp, TCPT_REXMT)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	tcpstat.tcps_persisttimeo++;
@@ -417,18 +413,17 @@ tcp_timer_persist(void *arg)
 	(void) tcp_output(tp);
 	tp->t_force = 0;
  out:
-	splx(s);
+	crit_leave();
 }
 
 void
 tcp_timer_keep(void *arg)
 {
 	struct tcpcb *tp = arg;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	if (tp->t_flags & TF_DEAD) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -460,25 +455,24 @@ tcp_timer_keep(void *arg)
 	} else
 		TCP_TIMER_ARM(tp, TCPT_KEEP, tcp_keepidle);
 
-	splx(s);
+	crit_leave();
 	return;
 
  dropit:
 	tcpstat.tcps_keepdrops++;
 	tp = tcp_drop(tp, ETIMEDOUT);
 
-	splx(s);
+	crit_leave();
 }
 
 void
 tcp_timer_2msl(void *arg)
 {
 	struct tcpcb *tp = arg;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 	if (tp->t_flags & TF_DEAD) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -492,5 +486,5 @@ tcp_timer_2msl(void *arg)
 	else
 		tp = tcp_close(tp);
 
-	splx(s);
+	crit_leave();
 }

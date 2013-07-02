@@ -33,6 +33,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -452,9 +453,8 @@ rum_detach(struct device *self, int flags)
 {
 	struct rum_softc *sc = (struct rum_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->scan_to))
 		timeout_del(&sc->scan_to);
@@ -486,7 +486,7 @@ rum_detach(struct device *self, int flags)
 	rum_free_rx_list(sc);
 	rum_free_tx_list(sc);
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }

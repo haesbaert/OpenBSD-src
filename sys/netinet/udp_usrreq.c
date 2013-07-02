@@ -948,7 +948,7 @@ udp_output(struct mbuf *m, ...)
 	u_int32_t ipsecflowinfo = 0;
 	int len = m->m_pkthdr.len;
 	struct in_addr laddr;
-	int s = 0, error = 0;
+	int error = 0;
 	va_list ap;
 
 	va_start(ap, m);
@@ -980,10 +980,10 @@ udp_output(struct mbuf *m, ...)
 		/*
 		 * Must block input while temporarily connected.
 		 */
-		s = splsoftnet();
+		crit_enter();
 		error = in_pcbconnect(inp, addr);
 		if (error) {
-			splx(s);
+			crit_leave();
 			goto release;
 		}
 	} else {
@@ -1086,7 +1086,7 @@ bail:
 	if (addr) {
 		inp->inp_laddr = laddr;
 		in_pcbdisconnect(inp);
-		splx(s);
+		crit_leave();
 	}
 	if (control)
 		m_freem(control);
@@ -1106,7 +1106,6 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 {
 	struct inpcb *inp = sotoinpcb(so);
 	int error = 0;
-	int s;
 
 	if (req == PRU_CONTROL) {
 #ifdef INET6
@@ -1133,13 +1132,13 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 			error = EINVAL;
 			break;
 		}
-		s = splsoftnet();
+		crit_enter();
 		if ((error = soreserve(so, udp_sendspace, udp_recvspace)) ||
 		    (error = in_pcballoc(so, &udbtable))) {
-			splx(s);
+			crit_leave();
 			break;
 		}
-		splx(s);
+		crit_leave();
 #ifdef INET6
 		if (sotoinpcb(so)->inp_flags & INP_IPV6)
 			sotoinpcb(so)->inp_ipv6.ip6_hlim = ip6_defhlim;
@@ -1153,14 +1152,14 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 		break;
 
 	case PRU_BIND:
-		s = splsoftnet();
+		crit_enter();
 #ifdef INET6
 		if (inp->inp_flags & INP_IPV6)
 			error = in6_pcbbind(inp, addr, p);
 		else
 #endif
 			error = in_pcbbind(inp, addr, p);
-		splx(s);
+		crit_leave();
 		break;
 
 	case PRU_LISTEN:
@@ -1174,9 +1173,9 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 				error = EISCONN;
 				break;
 			}
-			s = splsoftnet();
+			crit_enter();
 			error = in6_pcbconnect(inp, addr);
-			splx(s);
+			crit_leave();
 		} else
 #endif /* INET6 */
 		{
@@ -1184,9 +1183,9 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 				error = EISCONN;
 				break;
 			}
-			s = splsoftnet();
+			crit_enter();
 			error = in_pcbconnect(inp, addr);
-			splx(s);
+			crit_leave();
 		}
 
 		if (error == 0)
@@ -1217,7 +1216,7 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 			}
 		}
 
-		s = splsoftnet();
+		crit_enter();
 #ifdef INET6
 		if (inp->inp_flags & INP_IPV6)
 			inp->inp_laddr6 = in6addr_any;
@@ -1226,7 +1225,7 @@ udp_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *addr,
 			inp->inp_laddr.s_addr = INADDR_ANY;
 		in_pcbdisconnect(inp);
 
-		splx(s);
+		crit_leave();
 		so->so_state &= ~SS_ISCONNECTED;		/* XXX */
 		break;
 
@@ -1333,10 +1332,9 @@ release:
 void
 udp_detach(struct inpcb *inp)
 {
-	int s = splsoftnet();
-
+	crit_enter();
 	in_pcbdetach(inp);
-	splx(s);
+	crit_leave();
 }
 
 /*

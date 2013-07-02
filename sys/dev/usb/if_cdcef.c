@@ -515,7 +515,6 @@ void
 cdcef_watchdog(struct ifnet *ifp)
 {
 	struct cdcef_softc	*sc = ifp->if_softc;
-	int s;
 
 #if 0
 	if (sc->sc_dying)
@@ -525,13 +524,13 @@ cdcef_watchdog(struct ifnet *ifp)
 	ifp->if_oerrors++;
 	printf("%s: watchdog timeout\n", DEVNAME(sc));
 
-	s = splusb();
+	crit_enter();
 	ifp->if_timer = 0;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
 	/* cancel receive pipe? */
 	usbf_abort_pipe(sc->sc_pipe_in); /* in is tx pipe */
-	splx(s);
+	crit_leave();
 }
 
 void

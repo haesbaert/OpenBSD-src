@@ -94,6 +94,7 @@
 #include <sys/ioctl.h>
 #include <sys/syslog.h>
 #include <sys/sysctl.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -332,12 +333,10 @@ int
 get_sg_cnt(struct sioc_sg_req6 *req)
 {
 	struct mf6c *rt;
-	int s;
 
-	s = splsoftnet();
-
+	crit_enter();
 	MF6CFIND(req->src.sin6_addr, req->grp.sin6_addr, rt);
-	splx(s);
+	crit_leave();
 	if (rt != NULL) {
 		req->pktcnt = rt->mf6c_pkt_cnt;
 		req->bytecnt = rt->mf6c_byte_cnt;
@@ -450,9 +449,8 @@ ip6_mrouter_done(void)
 	struct in6_ifreq ifr;
 	struct mf6c *rt;
 	struct rtdetq *rte;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 
 	/*
 	 * For each phyint in use, disable promiscuous reception of all IPv6
@@ -523,7 +521,7 @@ ip6_mrouter_done(void)
 	ip6_mrouter = NULL;
 	ip6_mrouter_ver = 0;
 
-	splx(s);
+	crit_leave();
 
 #ifdef MRT6DEBUG
 	if (mrt6debug)
@@ -573,7 +571,7 @@ add_m6if(struct mif6ctl *mifcp)
 	struct mif6 *mifp;
 	struct ifnet *ifp;
 	struct in6_ifreq ifr;
-	int error, s;
+	int error;
 #ifdef notyet
 	struct tbf *m_tbf = tbftable + mifcp->mif6c_mifi;
 #endif
@@ -605,7 +603,7 @@ add_m6if(struct mif6ctl *mifcp)
 		if ((ifp->if_flags & IFF_MULTICAST) == 0)
 			return EOPNOTSUPP;
 
-		s = splsoftnet();
+		crit_enter();
 
 		/*
 		 * Enable promiscuous reception of all IPv6 multicasts
@@ -615,12 +613,12 @@ add_m6if(struct mif6ctl *mifcp)
 		ifr.ifr_addr.sin6_addr = in6addr_any;
 		error = (*ifp->if_ioctl)(ifp, SIOCADDMULTI, (caddr_t)&ifr);
 
-		splx(s);
+		crit_leave();
 		if (error)
 			return error;
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	mifp->m6_flags     = mifcp->mif6c_flags;
 	mifp->m6_ifp       = ifp;
@@ -633,7 +631,7 @@ add_m6if(struct mif6ctl *mifcp)
 	mifp->m6_pkt_out   = 0;
 	mifp->m6_bytes_in  = 0;
 	mifp->m6_bytes_out = 0;
-	splx(s);
+	crit_leave();
 
 	/* Adjust nummifs up if the mifi is higher than nummifs */
 	if (nummifs <= mifcp->mif6c_mifi)
@@ -660,14 +658,13 @@ del_m6if(mifi_t *mifip)
 	mifi_t mifi;
 	struct ifnet *ifp;
 	struct in6_ifreq ifr;
-	int s;
 
 	if (*mifip >= nummifs)
 		return EINVAL;
 	if (mifp->m6_ifp == NULL)
 		return EINVAL;
 
-	s = splsoftnet();
+	crit_enter();
 
 	if (!(mifp->m6_flags & MIFF_REGISTER)) {
 		/*
@@ -693,7 +690,7 @@ del_m6if(mifi_t *mifip)
 			break;
 	nummifs = mifi;
 
-	splx(s);
+	crit_leave();
 
 #ifdef MRT6DEBUG
 	if (mrt6debug)
@@ -713,7 +710,6 @@ add_m6fc(struct mf6cctl *mfccp)
 	u_long hash;
 	struct rtdetq *rte;
 	u_short nstl;
-	int s;
 
 	MF6CFIND(mfccp->mf6cc_origin.sin6_addr,
 		 mfccp->mf6cc_mcastgrp.sin6_addr, rt);
@@ -728,18 +724,17 @@ add_m6fc(struct mf6cctl *mfccp)
 			    mfccp->mf6cc_parent);
 #endif
 
-		s = splsoftnet();
-
+		crit_enter();
 		rt->mf6c_parent = mfccp->mf6cc_parent;
 		rt->mf6c_ifset = mfccp->mf6cc_ifset;
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 
 	/*
 	 * Find the entry for which the upcall was made and update
 	 */
-	s = splsoftnet();
+	crit_enter();
 
 	hash = MF6CHASH(mfccp->mf6cc_origin.sin6_addr,
 			mfccp->mf6cc_mcastgrp.sin6_addr);
@@ -836,7 +831,7 @@ add_m6fc(struct mf6cctl *mfccp)
 			rt = (struct mf6c *)malloc(sizeof(*rt), M_MRTABLE,
 						  M_NOWAIT);
 			if (rt == NULL) {
-				splx(s);
+				crit_leave();
 				return ENOBUFS;
 			}
 	
@@ -857,7 +852,7 @@ add_m6fc(struct mf6cctl *mfccp)
 			mf6ctable[hash] = rt;
 		}
 	}
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -898,7 +893,6 @@ del_m6fc(struct mf6cctl *mfccp)
 	struct mf6c 		*rt;
 	struct mf6c	 	**nptr;
 	u_long 		hash;
-	int s;
 
 	origin = mfccp->mf6cc_origin;
 	mcastgrp = mfccp->mf6cc_mcastgrp;
@@ -911,7 +905,7 @@ del_m6fc(struct mf6cctl *mfccp)
 		    ip6_sprintf(&mcastgrp.sin6_addr));
 #endif
 
-	s = splsoftnet();
+	crit_enter();
 
 	nptr = &mf6ctable[hash];
 	while ((rt = *nptr) != NULL) {
@@ -925,14 +919,14 @@ del_m6fc(struct mf6cctl *mfccp)
 		nptr = &rt->mf6c_next;
 	}
 	if (rt == NULL) {
-		splx(s);
+		crit_leave();
 		return EADDRNOTAVAIL;
 	}
 
 	*nptr = rt->mf6c_next;
 	free(rt, M_MRTABLE);
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -967,7 +961,6 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 	struct mf6c *rt;
 	struct mif6 *mifp;
 	struct mbuf *mm;
-	int s;
 	mifi_t mifi;
 	struct sockaddr_in6 sin6;
 
@@ -1012,12 +1005,12 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 	/*
 	 * Determine forwarding mifs from the forwarding cache table
 	 */
-	s = splsoftnet();
+	crit_enter();
 	MF6CFIND(ip6->ip6_src, ip6->ip6_dst, rt);
 
 	/* Entry exists, so forward if necessary */
 	if (rt) {
-		splx(s);
+		crit_leave();
 		return (ip6_mdq(m, ifp, rt));
 	} else {
 		/*
@@ -1051,7 +1044,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 		rte = (struct rtdetq *)malloc(sizeof(*rte), M_MRTABLE,
 					      M_NOWAIT);
 		if (rte == NULL) {
-			splx(s);
+			crit_leave();
 			return ENOBUFS;
 		}
 		mb0 = m_copy(m, 0, M_COPYALL);
@@ -1064,7 +1057,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 			mb0 = m_pullup(mb0, sizeof(struct ip6_hdr));
 		if (mb0 == NULL) {
 			free(rte, M_MRTABLE);
-			splx(s);
+			crit_leave();
 			return ENOBUFS;
 		}
 	
@@ -1091,7 +1084,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 			if (rt == NULL) {
 				free(rte, M_MRTABLE);
 				m_freem(mb0);
-				splx(s);
+				crit_leave();
 				return ENOBUFS;
 			}
 			/*
@@ -1104,7 +1097,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 				free(rte, M_MRTABLE);
 				m_freem(mb0);
 				free(rt, M_MRTABLE);
-				splx(s);
+				crit_leave();
 				return ENOBUFS;
 			}
 
@@ -1137,7 +1130,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 				free(rte, M_MRTABLE);
 				m_freem(mb0);
 				free(rt, M_MRTABLE);
-				splx(s);
+				crit_leave();
 				return EINVAL;
 			}
 
@@ -1170,7 +1163,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 				free(rte, M_MRTABLE);
 				m_freem(mb0);
 				free(rt, M_MRTABLE);
-				splx(s);
+				crit_leave();
 				return ENOBUFS;
 			}
 
@@ -1203,7 +1196,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 					mrt6stat.mrt6s_upq_ovflw++;
 					free(rte, M_MRTABLE);
 					m_freem(mb0);
-					splx(s);
+					crit_leave();
 					return 0;
 				}
 
@@ -1218,7 +1211,7 @@ ip6_mforward(struct ip6_hdr *ip6, struct ifnet *ifp, struct mbuf *m)
 		rte->t = tp;
 #endif /* UPCALL_TIMING */
 
-		splx(s);
+		crit_leave();
 
 		return 0;
 	}
@@ -1234,9 +1227,8 @@ expire_upcalls(void *unused)
 	struct rtdetq *rte;
 	struct mf6c *mfc, **nptr;
 	int i;
-	int s;
 
-	s = splsoftnet();
+	crit_enter();
 
 	for (i = 0; i < MF6CTBLSIZ; i++) {
 		if (n6expire[i] == 0)
@@ -1278,7 +1270,7 @@ expire_upcalls(void *unused)
 			}
 		}
 	}
-	splx(s);
+	crit_leave();
 	timeout_set(&expire_upcalls_ch, expire_upcalls, NULL);
 	timeout_add(&expire_upcalls_ch, EXPIRE_TIMEOUT);
 }
@@ -1461,11 +1453,12 @@ phyint_send(struct ip6_hdr *ip6, struct mif6 *mifp, struct mbuf *m)
 	struct mbuf *mb_copy;
 	struct ifnet *ifp = mifp->m6_ifp;
 	int error = 0;
-	int s = splsoftnet();
 	static struct route_in6 ro;
 	struct	in6_multi *in6m;
 	struct sockaddr_in6 *dst6;
 	u_long linkmtu;
+
+	crit_enter();
 
 	/*
 	 * Make a new reference to the packet; make sure that
@@ -1477,7 +1470,7 @@ phyint_send(struct ip6_hdr *ip6, struct mif6 *mifp, struct mbuf *m)
 	    (M_READONLY(mb_copy) || mb_copy->m_len < sizeof(struct ip6_hdr)))
 		mb_copy = m_pullup(mb_copy, sizeof(struct ip6_hdr));
 	if (mb_copy == NULL) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	/* set MCAST flag to the outgoing packet */
@@ -1505,7 +1498,7 @@ phyint_send(struct ip6_hdr *ip6, struct mif6 *mifp, struct mbuf *m)
 			log(LOG_DEBUG, "phyint_send on mif %d err %d\n",
 			    mifp - mif6table, error);
 #endif
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1559,7 +1552,7 @@ phyint_send(struct ip6_hdr *ip6, struct mif6 *mifp, struct mbuf *m)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 int

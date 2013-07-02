@@ -86,6 +86,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -842,7 +843,6 @@ aue_detach(struct device *self, int flags)
 {
 	struct aue_softc	*sc = (struct aue_softc *)self;
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			s;
 
 	DPRINTFN(2,("%s: %s: enter\n", sc->aue_dev.dv_xname, __func__));
 
@@ -856,7 +856,7 @@ aue_detach(struct device *self, int flags)
 	usb_rem_task(sc->aue_udev, &sc->aue_tick_task);
 	usb_rem_task(sc->aue_udev, &sc->aue_stop_task);
 
-	s = splusb();
+	crit_enter();
 
 	if (ifp->if_flags & IFF_RUNNING)
 		aue_stop(sc);
@@ -880,7 +880,7 @@ aue_detach(struct device *self, int flags)
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->aue_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1567,21 +1567,20 @@ aue_watchdog(struct ifnet *ifp)
 	struct aue_softc	*sc = ifp->if_softc;
 	struct aue_chain	*c;
 	usbd_status		stat;
-	int			s;
 
 	DPRINTFN(5,("%s: %s: enter\n", sc->aue_dev.dv_xname, __func__));
 
 	ifp->if_oerrors++;
 	printf("%s: watchdog timeout\n", sc->aue_dev.dv_xname);
 
-	s = splusb();
+	crit_enter();
 	c = &sc->aue_cdata.aue_tx_chain[0];
 	usbd_get_xfer_status(c->aue_xfer, NULL, NULL, NULL, &stat);
 	aue_txeof(c->aue_xfer, c, stat);
 
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		aue_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 /*

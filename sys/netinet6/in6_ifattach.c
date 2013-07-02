@@ -37,6 +37,7 @@
 #include <sys/sockio.h>
 #include <sys/kernel.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <crypto/md5.h>
 
@@ -328,7 +329,7 @@ in6_ifattach_linklocal(struct ifnet *ifp, struct ifnet *altifp)
 	struct in6_ifaddr *ia;
 	struct in6_aliasreq ifra;
 	struct nd_prefix pr0;
-	int i, s, error;
+	int i, error;
 
 	/*
 	 * configure link-local address.
@@ -377,9 +378,9 @@ in6_ifattach_linklocal(struct ifnet *ifp, struct ifnet *altifp)
 	 * one has already been configured, so check if it's already there
 	 * with in6ifa_ifpforlinklocal() and clobber it if it exists.
 	 */
-	s = splsoftnet();
+	crit_enter();
 	error = in6_update_ifa(ifp, &ifra, in6ifa_ifpforlinklocal(ifp, 0));
-	splx(s);
+	crit_leave();
 
 	if (error != 0) {
 		/*

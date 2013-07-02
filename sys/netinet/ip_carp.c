@@ -48,6 +48,7 @@
 #include <sys/kernel.h>
 #include <sys/sysctl.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -404,11 +405,10 @@ void
 carp_setroute(struct carp_softc *sc, int cmd)
 {
 	struct ifaddr *ifa;
-	int s;
 
 	/* XXX this mess needs fixing */
 
-	s = splsoftnet();
+	crit_enter();
 	TAILQ_FOREACH(ifa, &sc->sc_if.if_addrlist, ifa_list) {
 		switch (ifa->ifa_addr->sa_family) {
 		case AF_INET: {
@@ -528,7 +528,7 @@ carp_setroute(struct carp_softc *sc, int cmd)
 			break;
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1098,7 +1098,7 @@ carp_send_ad(void *v)
 	struct carp_header *ch_ptr;
 
 	struct mbuf *m;
-	int error, len, advbase, advskew, s;
+	int error, len, advbase, advskew;
 	struct ifaddr *ifa;
 	struct sockaddr sa;
 
@@ -1107,7 +1107,7 @@ carp_send_ad(void *v)
 		return;
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	/* bow out if we've gone to backup (the carp interface is going down) */
 	if (sc->sc_bow_out) {
@@ -1309,7 +1309,7 @@ carp_send_ad(void *v)
 
 retry_later:
 	sc->cur_vhe = NULL;
-	splx(s);
+	crit_leave();
 	if (advbase != 255 || advskew != 255)
 		timeout_add(&vhe->ad_tmo, tvtohz(&tv));
 }
@@ -1324,7 +1324,8 @@ carp_send_arp(struct carp_softc *sc)
 {
 	struct ifaddr *ifa;
 	in_addr_t in;
-	int s = splsoftnet();
+
+	crit_enter();
 
 	TAILQ_FOREACH(ifa, &sc->sc_if.if_addrlist, ifa_list) {
 
@@ -1335,7 +1336,7 @@ carp_send_arp(struct carp_softc *sc)
 		arprequest(sc->sc_carpdev, &in, &in, sc->sc_ac.ac_enaddr);
 		DELAY(1000);	/* XXX */
 	}
-	splx(s);
+	crit_leave();
 }
 
 #ifdef INET6
@@ -1345,7 +1346,8 @@ carp_send_na(struct carp_softc *sc)
 	struct ifaddr *ifa;
 	struct in6_addr *in6;
 	static struct in6_addr mcast = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
-	int s = splsoftnet();
+
+	crit_enter();
 
 	TAILQ_FOREACH(ifa, &sc->sc_if.if_addrlist, ifa_list) {
 
@@ -1357,7 +1359,7 @@ carp_send_na(struct carp_softc *sc)
 		    ND_NA_FLAG_OVERRIDE, 1, NULL);
 		DELAY(1000);	/* XXX */
 	}
-	splx(s);
+	crit_leave();
 }
 #endif /* INET6 */
 

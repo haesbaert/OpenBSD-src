@@ -33,6 +33,7 @@
 #include <sys/systm.h>
 #include <sys/mbuf.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/bpf.h>
@@ -212,7 +213,7 @@ int
 ipcomp_input_cb(op)
 	void *op;
 {
-	int error, s, skip, protoff, roff, hlen = IPCOMP_HLENGTH, clen;
+	int error, skip, protoff, roff, hlen = IPCOMP_HLENGTH, clen;
 	u_int8_t nproto;
 	struct mbuf *m, *m1, *mo;
 	struct tdb_crypto *tc;
@@ -237,7 +238,7 @@ ipcomp_input_cb(op)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	tdb = gettdb(tc->tc_rdomain, tc->tc_spi, &tc->tc_dst, tc->tc_proto);
 	if (tdb == NULL) {
@@ -274,7 +275,7 @@ ipcomp_input_cb(op)
 			/* Reset the session ID */
 			if (tdb->tdb_cryptoid != 0)
 				tdb->tdb_cryptoid = crp->crp_sid;
-			splx(s);
+			crit_leave();
 			return crypto_dispatch(crp);
 		}
 		free(tc, M_XDATA);
@@ -355,11 +356,11 @@ ipcomp_input_cb(op)
 
 	/* Back to generic IPsec input processing */
 	error = ipsec_common_input_cb(m, tdb, skip, protoff, NULL);
-	splx(s);
+	crit_leave();
 	return error;
 
 baddone:
-	splx(s);
+	crit_leave();
 
 	if (m)
 		m_freem(m);
@@ -556,7 +557,7 @@ ipcomp_output_cb(cp)
 	struct tdb_crypto *tc;
 	struct tdb *tdb;
 	struct mbuf *m, *mo;
-	int error, s, skip, rlen;
+	int error, skip, rlen;
 	u_int16_t cpi;
 #ifdef INET
 	struct ip *ip;
@@ -581,7 +582,7 @@ ipcomp_output_cb(cp)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 
 	tdb = gettdb(tc->tc_rdomain, tc->tc_spi, &tc->tc_dst, tc->tc_proto);
 	if (tdb == NULL) {
@@ -598,7 +599,7 @@ ipcomp_output_cb(cp)
 			/* Reset the session ID */
 			if (tdb->tdb_cryptoid != 0)
 				tdb->tdb_cryptoid = crp->crp_sid;
-			splx(s);
+			crit_leave();
 			return crypto_dispatch(crp);
 		}
 		free(tc, M_XDATA);
@@ -615,7 +616,7 @@ ipcomp_output_cb(cp)
 		/* Compression was useless, we have lost time. */
 		crypto_freereq(crp);
 		error = ipsp_process_done(m, tdb);
-		splx(s);
+		crit_leave();
 		return error;
 	}
 
@@ -667,11 +668,11 @@ ipcomp_output_cb(cp)
 	crypto_freereq(crp);
 
 	error = ipsp_process_done(m, tdb);
-	splx(s);
+	crit_leave();
 	return error;
 
 baddone:
-	splx(s);
+	crit_leave();
 
 	if (m)
 		m_freem(m);

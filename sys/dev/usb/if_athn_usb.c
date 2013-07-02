@@ -31,6 +31,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -592,21 +593,20 @@ athn_usb_task(void *arg)
 	struct athn_usb_softc *usc = arg;
 	struct athn_usb_host_cmd_ring *ring = &usc->cmdq;
 	struct athn_usb_host_cmd *cmd;
-	int s;
 
 	/* Process host commands. */
-	s = splusb();
+	crit_enter();
 	while (ring->next != ring->cur) {
 		cmd = &ring->cmd[ring->next];
-		splx(s);
+		crit_leave();
 		/* Invoke callback. */
 		cmd->cb(usc, cmd->data);
-		s = splusb();
+		crit_enter();
 		ring->queued--;
 		ring->next = (ring->next + 1) % ATHN_USB_HOST_CMD_RING_COUNT;
 	}
 	wakeup(ring);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -615,11 +615,10 @@ athn_usb_do_async(struct athn_usb_softc *usc,
 {
 	struct athn_usb_host_cmd_ring *ring = &usc->cmdq;
 	struct athn_usb_host_cmd *cmd;
-	int s;
 
 	if (ring->queued)
 		return;	/* XXX */
-	s = splusb();
+	crit_enter();
 	cmd = &ring->cmd[ring->cur];
 	cmd->cb = cb;
 	KASSERT(len <= sizeof(cmd->data));
@@ -629,7 +628,7 @@ athn_usb_do_async(struct athn_usb_softc *usc,
 	/* If there is no pending command already, schedule a task. */
 	if (++ring->queued == 1)
 		usb_add_task(usc->sc_udev, &usc->sc_task);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -649,7 +648,7 @@ athn_usb_load_firmware(struct athn_usb_softc *usc)
 	u_char *fw, *ptr;
 	size_t size;
 	uint32_t addr;
-	int s, mlen, error;
+	int mlen, error;
 
 	/* Determine which firmware image to load. */
 	if (usc->flags & ATHN_USB_FLAG_AR7010) {
@@ -698,14 +697,14 @@ athn_usb_load_firmware(struct athn_usb_softc *usc)
 	USETW(req.wIndex, 0);
 	USETW(req.wValue, addr);
 	USETW(req.wLength, 0);
-	s = splusb();
+	crit_enter();
 	usc->wait_msg_id = AR_HTC_MSG_READY;
 	error = usbd_do_request(usc->sc_udev, &req, NULL);
 	/* Wait at most 1 second for firmware to boot. */
 	if (error == 0 && usc->wait_msg_id != 0)
 		error = tsleep(&usc->wait_msg_id, 0, "athnfw", hz);
 	usc->wait_msg_id = 0;
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -738,7 +737,7 @@ int
 athn_usb_htc_setup(struct athn_usb_softc *usc)
 {
 	struct ar_htc_msg_config_pipe cfg;
-	int s, error;
+	int error;
 
 	/*
 	 * Connect WMI services to USB pipes.
@@ -784,13 +783,13 @@ athn_usb_htc_setup(struct athn_usb_softc *usc)
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.pipe_id = UE_GET_ADDR(AR_PIPE_TX_DATA);
 	cfg.credits = (usc->flags & ATHN_USB_FLAG_AR7010) ? 45 : 33;
-	s = splusb();
+	crit_enter();
 	usc->wait_msg_id = AR_HTC_MSG_CONF_PIPE_RSP;
 	error = athn_usb_htc_msg(usc, AR_HTC_MSG_CONF_PIPE, &cfg, sizeof(cfg));
 	if (error == 0 && usc->wait_msg_id != 0)
 		error = tsleep(&usc->wait_msg_id, 0, "athnhtc", hz);
 	usc->wait_msg_id = 0;
-	splx(s);
+	crit_leave();
 	if (error != 0) {
 		printf("%s: could not configure pipe\n",
 		    usc->usb_dev.dv_xname);
@@ -812,13 +811,13 @@ athn_usb_htc_connect_svc(struct athn_usb_softc *usc, uint16_t svc_id,
 {
 	struct ar_htc_msg_conn_svc msg;
 	struct ar_htc_msg_conn_svc_rsp rsp;
-	int s, error;
+	int error;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.svc_id = htobe16(svc_id);
 	msg.dl_pipeid = UE_GET_ADDR(dl_pipe);
 	msg.ul_pipeid = UE_GET_ADDR(ul_pipe);
-	s = splusb();
+	crit_enter();
 	usc->msg_conn_svc_rsp = &rsp;
 	usc->wait_msg_id = AR_HTC_MSG_CONN_SVC_RSP;
 	error = athn_usb_htc_msg(usc, AR_HTC_MSG_CONN_SVC, &msg, sizeof(msg));
@@ -826,7 +825,7 @@ athn_usb_htc_connect_svc(struct athn_usb_softc *usc, uint16_t svc_id,
 	if (error == 0 && usc->wait_msg_id != 0)
 		error = tsleep(&usc->wait_msg_id, 0, "athnhtc", hz);
 	usc->wait_msg_id = 0;
-	splx(s);
+	crit_leave();
 	if (error != 0) {
 		printf("%s: error waiting for service %d connection\n",
 		    usc->usb_dev.dv_xname, svc_id);
@@ -865,7 +864,7 @@ athn_usb_wmi_xcmd(struct athn_usb_softc *usc, uint16_t cmd_id, void *ibuf,
 	struct athn_usb_tx_data *data = &usc->tx_cmd;
 	struct ar_htc_frame_hdr *htc;
 	struct ar_wmi_cmd_hdr *wmi;
-	int s, error;
+	int error;
 
 	htc = (struct ar_htc_frame_hdr *)data->buf;
 	memset(htc, 0, sizeof(*htc));
@@ -883,11 +882,11 @@ athn_usb_wmi_xcmd(struct athn_usb_softc *usc, uint16_t cmd_id, void *ibuf,
 	    sizeof(*htc) + sizeof(*wmi) + ilen,
 	    USBD_SHORT_XFER_OK | USBD_NO_COPY, ATHN_USB_CMD_TIMEOUT,
 	    athn_usb_wmieof);
-	s = splusb();
+	crit_enter();
 	usc->wmi_done = 0;
 	error = usbd_transfer(data->xfer);
 	if (__predict_false(error != USBD_IN_PROGRESS && error != 0)) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	usc->obuf = obuf;
@@ -898,7 +897,7 @@ athn_usb_wmi_xcmd(struct athn_usb_softc *usc, uint16_t cmd_id, void *ibuf,
 	/* Most of the time this would have complete already. */
 	while (__predict_false(!usc->wmi_done))
 		tsleep(&usc->wmi_done, 0, "athnwmi", 0);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2291,13 +2290,12 @@ athn_usb_stop(struct ifnet *ifp)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ar_htc_target_vif hvif;
 	uint8_t sta_index;
-	int s;
 
 	sc->sc_tx_timer = 0;
 	ifp->if_timer = 0;
 	ifp->if_flags &= ~(IFF_RUNNING | IFF_OACTIVE);
 
-	s = splusb();
+	crit_enter();
 	ieee80211_new_state(ic, IEEE80211_S_INIT, -1);
 
 	/* Wait for all async commands to complete. */
@@ -2335,7 +2333,7 @@ athn_usb_stop(struct ifnet *ifp)
 	/* Free Tx/Rx buffers. */
 	athn_usb_free_tx_list(usc);
 	athn_usb_free_rx_list(usc);
-	splx(s);
+	crit_leave();
 
 	/* Flush Rx stream. */
 	if (usc->rx_stream.m != NULL)

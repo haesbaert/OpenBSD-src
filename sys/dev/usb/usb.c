@@ -259,8 +259,6 @@ usb_create_task_threads(void *arg)
 void
 usb_add_task(struct usbd_device *dev, struct usb_task *task)
 {
-	int s;
-
 	DPRINTFN(2,("%s: task=%p state=%d type=%d\n", __func__, task,
 	    task->state, task->type));
 
@@ -268,7 +266,7 @@ usb_add_task(struct usbd_device *dev, struct usb_task *task)
 	if (usbd_is_dying(dev))
 		return;
 
-	s = splusb();
+	crit_enter();
 	if (!(task->state & USB_TASK_STATE_ONQ)) {
 		switch (task->type) {
 		case USB_TASK_TYPE_ABORT:
@@ -288,21 +286,19 @@ usb_add_task(struct usbd_device *dev, struct usb_task *task)
 		wakeup(&usb_run_abort_tasks);
 	else
 		wakeup(&usb_run_tasks);
-	splx(s);
+	crit_leave();
 }
 
 void
 usb_rem_task(struct usbd_device *dev, struct usb_task *task)
 {
-	int s;
-
 	DPRINTFN(2,("%s: task=%p state=%d type=%d\n", __func__, task,
 	    task->state, task->type));
 
 	if (!(task->state & USB_TASK_STATE_ONQ))
 		return;
 
-	s = splusb();
+	crit_enter();
 
 	switch (task->type) {
 	case USB_TASK_TYPE_ABORT:
@@ -319,26 +315,24 @@ usb_rem_task(struct usbd_device *dev, struct usb_task *task)
 	if (task->state == USB_TASK_STATE_NONE)
 		wakeup(task);
 
-	splx(s);
+	crit_leave();
 }
 
 void
 usb_wait_task(struct usbd_device *dev, struct usb_task *task)
 {
-	int s;
-
 	DPRINTFN(2,("%s: task=%p state=%d type=%d\n", __func__, task,
 	    task->state, task->type));
 
 	if (task->state == USB_TASK_STATE_NONE)
 		return;
 
-	s = splusb();
+	crit_enter();
 	while (task->state != USB_TASK_STATE_NONE) {
 		DPRINTF(("%s: waiting for task to complete\n", __func__));
 		tsleep(task, PWAIT, "endtask", 0);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -352,11 +346,10 @@ void
 usb_task_thread(void *arg)
 {
 	struct usb_task *task;
-	int s;
 
 	DPRINTF(("usb_task_thread: start\n"));
 
-	s = splusb();
+	crit_enter();
 	while (usb_run_tasks) {
 		if ((task = TAILQ_FIRST(&usb_explore_tasks)) != NULL)
 			TAILQ_REMOVE(&usb_explore_tasks, task, next);
@@ -376,15 +369,15 @@ usb_task_thread(void *arg)
 		task->state &= ~USB_TASK_STATE_ONQ;
 		/* Don't actually execute the task if dying. */
 		if (!usbd_is_dying(task->dev)) {
-			splx(s);
+			crit_leave();
 			task->fun(task->arg);
-			s = splusb();
+			crit_enter();
 		}
 		task->state &= ~USB_TASK_STATE_RUN;
 		if (task->state == USB_TASK_STATE_NONE)
 			wakeup(task);
 	}
-	splx(s);
+	crit_leave();
 
 	kthread_exit(0);
 }
@@ -398,11 +391,10 @@ void
 usb_abort_task_thread(void *arg)
 {
 	struct usb_task *task;
-	int s;
 
 	DPRINTF(("usb_xfer_abort_thread: start\n"));
 
-	s = splusb();
+	crit_enter();
 	while (usb_run_abort_tasks) {
 		if ((task = TAILQ_FIRST(&usb_abort_tasks)) != NULL)
 			TAILQ_REMOVE(&usb_abort_tasks, task, next);
@@ -420,15 +412,15 @@ usb_abort_task_thread(void *arg)
 		task->state &= ~USB_TASK_STATE_ONQ;
 		/* Don't actually execute the task if dying. */
 		if (!usbd_is_dying(task->dev)) {
-			splx(s);
+			crit_leave();
 			task->fun(task->arg);
-			s = splusb();
+			crit_enter();
 		}
 		task->state &= ~USB_TASK_STATE_RUN;
 		if (task->state == USB_TASK_STATE_NONE)
 			wakeup(task);
 	}
-	splx(s);
+	crit_leave();
 
 	kthread_exit(0);
 }

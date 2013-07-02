@@ -47,6 +47,7 @@
 #include <sys/syslog.h>
 #include <sys/types.h>
 #include <sys/malloc.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbdi.h>
@@ -375,7 +376,6 @@ int
 ulpt_detach(struct device *self, int flags)
 {
 	struct ulpt_softc *sc = (struct ulpt_softc *)self;
-	int s;
 	int maj, mn;
 
 	DPRINTF(("ulpt_detach: sc=%p\n", sc));
@@ -385,13 +385,13 @@ ulpt_detach(struct device *self, int flags)
 	if (sc->sc_in_pipe != NULL)
 		usbd_abort_pipe(sc->sc_in_pipe);
 
-	s = splusb();
+	crit_enter();
 	if (--sc->sc_refcnt >= 0) {
 		/* There is noone to wake, aborting the pipe is enough */
 		/* Wait for processes to go away. */
 		usb_detach_wait(&sc->sc_dev);
 	}
-	splx(s);
+	crit_leave();
 
 	/* locate the major number */
 	for (maj = 0; maj < nchrdev; maj++)

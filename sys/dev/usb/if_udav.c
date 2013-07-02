@@ -51,6 +51,7 @@
 #include <sys/mbuf.h>
 #include <sys/kernel.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <sys/device.h>
 
@@ -321,7 +322,6 @@ udav_detach(struct device *self, int flags)
 {
 	struct udav_softc *sc = (struct udav_softc *)self;
 	struct ifnet *ifp = GET_IFP(sc);
-	int s;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
@@ -333,7 +333,7 @@ udav_detach(struct device *self, int flags)
 	usb_rem_task(sc->sc_udev, &sc->sc_tick_task);
 	usb_rem_task(sc->sc_udev, &sc->sc_stop_task);
 
-	s = splusb();
+	crit_enter();
 
 	if (--sc->sc_refcnt >= 0) {
 		/* Wait for processes to go away */
@@ -360,7 +360,7 @@ udav_detach(struct device *self, int flags)
 		printf("%s: detach has active intr endpoint.\n",
 		       sc->sc_dev.dv_xname);
 #endif
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1231,21 +1231,20 @@ udav_watchdog(struct ifnet *ifp)
 	struct udav_softc *sc = ifp->if_softc;
 	struct udav_chain *c;
 	usbd_status stat;
-	int s;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
 	ifp->if_oerrors++;
 	printf("%s: watchdog timeout\n", sc->sc_dev.dv_xname);
 
-	s = splusb();
+	crit_enter();
 	c = &sc->sc_cdata.udav_tx_chain[0];
 	usbd_get_xfer_status(c->udav_xfer, NULL, NULL, NULL, &stat);
 	udav_txeof(c->udav_xfer, c, stat);
 
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		udav_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 void

@@ -1159,7 +1159,6 @@ btsco_intr(void *arg)
 	struct mbuf *m;
 	uint8_t *block;
 	int mlen, size;
-	int s;
 
 	DPRINTFN(10, "%s block %p size %d\n",
 	    sc->sc_name, sc->sc_tx_block, sc->sc_tx_size);
@@ -1167,7 +1166,7 @@ btsco_intr(void *arg)
 	if (sc->sc_sco == NULL)
 		return;		/* connection is lost */
 
-	s = splsoftnet();
+	crit_enter();
 
 	block = sc->sc_tx_block;
 	size = sc->sc_tx_size;
@@ -1203,7 +1202,7 @@ btsco_intr(void *arg)
 	}
 	mutex_exit(&bt_lock);
 
-	splx(s);
+	crit_exit();
 }
 
 /*

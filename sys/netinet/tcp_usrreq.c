@@ -132,7 +132,6 @@ tcp_usrreq(so, req, m, nam, control, p)
 	struct sockaddr_in *sin;
 	struct inpcb *inp;
 	struct tcpcb *tp = NULL;
-	int s;
 	int error = 0;
 	short ostate;
 
@@ -153,7 +152,7 @@ tcp_usrreq(so, req, m, nam, control, p)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 	inp = sotoinpcb(so);
 	/*
 	 * When a TCP is attached to a socket, then there will be
@@ -164,7 +163,7 @@ tcp_usrreq(so, req, m, nam, control, p)
 		error = so->so_error;
 		if (error == 0)
 			error = EINVAL;
-		splx(s);
+		crit_leave();
 		/*
 		 * The following corrects an mbuf leak under rare
 		 * circumstances
@@ -177,7 +176,7 @@ tcp_usrreq(so, req, m, nam, control, p)
 		tp = intotcpcb(inp);
 		/* tp might get 0 when using socket splicing */
 		if (tp == NULL) {
-			splx(s);
+			crit_leave();
 			return (0);
 		}
 #ifdef KPROF
@@ -408,7 +407,7 @@ tcp_usrreq(so, req, m, nam, control, p)
 
 	case PRU_SENSE:
 		((struct stat *) m)->st_blksize = so->so_snd.sb_hiwat;
-		splx(s);
+		crit_leave();
 		return (0);
 
 	case PRU_RCVOOB:
@@ -473,7 +472,7 @@ tcp_usrreq(so, req, m, nam, control, p)
 	}
 	if (tp && (so->so_options & SO_DEBUG))
 		tcp_trace(TA_USER, ostate, tp, (caddr_t)0, req, 0);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -484,16 +483,16 @@ tcp_ctloutput(op, so, level, optname, mp)
 	int level, optname;
 	struct mbuf **mp;
 {
-	int error = 0, s;
+	int error = 0;
 	struct inpcb *inp;
 	struct tcpcb *tp;
 	struct mbuf *m;
 	int i;
 
-	s = splsoftnet();
+	crit_enter();
 	inp = sotoinpcb(so);
 	if (inp == NULL) {
-		splx(s);
+		crit_leave();
 		if (op == PRCO_SETOPT && *mp)
 			(void) m_free(*mp);
 		return (ECONNRESET);
@@ -512,7 +511,7 @@ tcp_ctloutput(op, so, level, optname, mp)
 			error = EAFNOSUPPORT;	/*?*/
 			break;
 		}
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	tp = intotcpcb(inp);
@@ -639,7 +638,7 @@ tcp_ctloutput(op, so, level, optname, mp)
 		}
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -772,7 +771,7 @@ tcp_usrclosed(tp)
 int
 tcp_ident(void *oldp, size_t *oldlenp, void *newp, size_t newlen, int dodrop)
 {
-	int error = 0, s;
+	int error = 0;
 	struct tcp_ident_mapping tir;
 	struct inpcb *inp;
 	struct tcpcb *tp = NULL;
@@ -821,7 +820,7 @@ tcp_ident(void *oldp, size_t *oldlenp, void *newp, size_t newlen, int dodrop)
 		return (EINVAL);
 	}
 
-	s = splsoftnet();
+	crit_enter();
 	switch (tir.faddr.ss_family) {
 #ifdef INET6
 	case AF_INET6:
@@ -841,7 +840,7 @@ tcp_ident(void *oldp, size_t *oldlenp, void *newp, size_t newlen, int dodrop)
 			tp = tcp_drop(tp, ECONNABORTED);
 		else
 			error = ESRCH;
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 
@@ -868,7 +867,7 @@ tcp_ident(void *oldp, size_t *oldlenp, void *newp, size_t newlen, int dodrop)
 		tir.ruid = -1;
 		tir.euid = -1;
 	}
-	splx(s);
+	crit_leave();
 
 	*oldlenp = sizeof (tir);
 	error = copyout((void *)&tir, oldp, sizeof (tir));

@@ -113,6 +113,7 @@
 #include <sys/kernel.h>
 #include <sys/queue.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -229,7 +230,7 @@ rtable_add(u_int id)
 {
 	void	*p, *q;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	if (id > RT_TABLEID_MAX)
 		return (EINVAL);
@@ -273,7 +274,7 @@ rtable_l2(u_int id)
 void
 rtable_l2set(u_int id, u_int parent)
 {
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	if (!rtable_exists(id) || !rtable_exists(parent))
 		return;
@@ -323,8 +324,9 @@ rtalloc1(struct sockaddr *dst, int flags, u_int tableid)
 	struct radix_node	*rn;
 	struct rtentry		*newrt = 0;
 	struct rt_addrinfo	 info;
-	int			 s = splsoftnet(), err = 0, msgtype = RTM_MISS;
+	int			 err = 0, msgtype = RTM_MISS;
 
+	crit_enter();
 	bzero(&info, sizeof(info));
 	info.rti_info[RTAX_DST] = dst;
 
@@ -374,7 +376,7 @@ miss:
 			rt_missmsg(msgtype, &info, 0, NULL, err, tableid);
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (newrt);
 }
 
@@ -443,7 +445,7 @@ rtredirect(struct sockaddr *dst, struct sockaddr *gateway,
 	struct ifaddr		*ifa;
 	struct ifnet		*ifp = NULL;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	/* verify the gateway is directly reachable */
 	if ((ifa = ifa_ifwithnet(gateway, rdomain)) == NULL) {
@@ -712,7 +714,7 @@ int
 rtrequest1(int req, struct rt_addrinfo *info, u_int8_t prio,
     struct rtentry **ret_nrt, u_int tableid)
 {
-	int			 s = splsoftnet(); int error = 0;
+	int 			error = 0;
 	struct rtentry		*rt, *crt;
 	struct radix_node	*rn;
 	struct radix_node_head	*rnh;
@@ -723,6 +725,8 @@ rtrequest1(int req, struct rt_addrinfo *info, u_int8_t prio,
 	struct sockaddr_mpls	*sa_mpls;
 #endif
 #define senderr(x) { error = x ; goto bad; }
+
+	crit_enter();
 
 	if ((rnh = rt_gettable(info->rti_info[RTAX_DST]->sa_family, tableid)) ==
 	    NULL)
@@ -995,7 +999,7 @@ rtrequest1(int req, struct rt_addrinfo *info, u_int8_t prio,
 		break;
 	}
 bad:
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1338,11 +1342,10 @@ rt_timer_timer(void *arg)
 	struct rttimer_queue	*rtq;
 	struct rttimer		*r;
 	long			 current_time;
-	int			 s;
 
 	current_time = time_uptime;
 
-	s = splsoftnet();
+	crit_enter();
 	for (rtq = LIST_FIRST(&rttimer_queue_head); rtq != NULL;
 	     rtq = LIST_NEXT(rtq, rtq_link)) {
 		while ((r = TAILQ_FIRST(&rtq->rtq_head)) != NULL &&
@@ -1357,7 +1360,7 @@ rt_timer_timer(void *arg)
 				printf("rt_timer_timer: rtq_count reached 0\n");
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(to, 1);
 }

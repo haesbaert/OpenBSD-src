@@ -80,6 +80,7 @@
 #include <sys/kernel.h>
 #include <sys/socket.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -548,13 +549,12 @@ kue_detach(struct device *self, int flags)
 {
 	struct kue_softc	*sc = (struct kue_softc *)self;
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			s;
 
 	/* Detached before attached finished, so just bail out. */
 	if (!sc->kue_attached)
 		return (0);
 
-	s = splusb();		/* XXX why? */
+	crit_enter();		/* XXX why ? */
 
 	if (sc->kue_mcfilters != NULL) {
 		free(sc->kue_mcfilters, M_USBDEV);
@@ -578,7 +578,7 @@ kue_detach(struct device *self, int flags)
 #endif
 
 	sc->kue_attached = 0;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1116,7 +1116,6 @@ kue_watchdog(struct ifnet *ifp)
 	struct kue_softc	*sc = ifp->if_softc;
 	struct kue_chain	*c;
 	usbd_status		stat;
-	int			s;
 
 	DPRINTFN(5,("%s: %s: enter\n", sc->kue_dev.dv_xname,__func__));
 
@@ -1126,14 +1125,14 @@ kue_watchdog(struct ifnet *ifp)
 	ifp->if_oerrors++;
 	printf("%s: watchdog timeout\n", sc->kue_dev.dv_xname);
 
-	s = splusb();
+	crit_enter();
 	c = &sc->kue_cdata.kue_tx_chain[0];
 	usbd_get_xfer_status(c->kue_xfer, NULL, NULL, NULL, &stat);
 	kue_txeof(c->kue_xfer, c, stat);
 
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		kue_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 /*

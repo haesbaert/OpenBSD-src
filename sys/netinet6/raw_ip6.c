@@ -72,6 +72,7 @@
 #include <sys/errno.h>
 #include <sys/systm.h>
 #include <sys/sysctl.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -608,7 +609,6 @@ rip6_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 {
 	struct in6pcb *in6p = sotoin6pcb(so);
 	int error = 0;
-	int s;
 	int priv;
 
 	priv = 0;
@@ -631,13 +631,13 @@ rip6_usrreq(struct socket *so, int req, struct mbuf *m, struct mbuf *nam,
 			error = EPROTONOSUPPORT;
 			break;
 		}
-		s = splsoftnet();
+		crit_enter();
 		if ((error = soreserve(so, rip6_sendspace, rip6_recvspace)) ||
 		    (error = in_pcballoc(so, &rawin6pcbtable))) {
-			splx(s);
+			crit_leave();
 			break;
 		}
-		splx(s);
+		crit_leave();
 		in6p = sotoin6pcb(so);
 		in6p->in6p_ip6.ip6_nxt = (long)nam;
 		in6p->in6p_cksum = -1;

@@ -45,6 +45,7 @@
 #include <sys/syslog.h>
 #include <sys/sysctl.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -973,8 +974,8 @@ void
 ip_slowtimo(void)
 {
 	struct ipq *fp, *nfp;
-	int s = splsoftnet();
 
+	crit_enter();
 	for (fp = LIST_FIRST(&ipq); fp != NULL; fp = nfp) {
 		nfp = LIST_NEXT(fp, ipq_q);
 		if (--fp->ipq_ttl == 0) {
@@ -986,7 +987,7 @@ ip_slowtimo(void)
 		RTFREE(ipforward_rt.ro_rt);
 		ipforward_rt.ro_rt = 0;
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1608,7 +1609,7 @@ int
 ip_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
     size_t newlen) 
 {
-	int s, error;
+	int error;
 #ifdef MROUTING
 	extern int ip_mrtproto;
 	extern struct mrtstat mrtstat;
@@ -1638,20 +1639,20 @@ ip_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 			ip_mtudisc_timeout_q =
 			    rt_timer_queue_create(ip_mtudisc_timeout);
 		} else if (ip_mtudisc == 0 && ip_mtudisc_timeout_q != NULL) {
-			s = splsoftnet();
+			crit_enter();
 			rt_timer_queue_destroy(ip_mtudisc_timeout_q, TRUE);
 			ip_mtudisc_timeout_q = NULL;
-			splx(s);
+			crit_leave();
 		}
 		return error;
 	case IPCTL_MTUDISCTIMEOUT:
 		error = sysctl_int(oldp, oldlenp, newp, newlen,
 		   &ip_mtudisc_timeout);
 		if (ip_mtudisc_timeout_q != NULL) {
-			s = splsoftnet();
+			crit_enter();
 			rt_timer_queue_change(ip_mtudisc_timeout_q,
 					      ip_mtudisc_timeout);
-			splx(s);
+			crit_leave();
 		}
 		return (error);
 	case IPCTL_IPSEC_ENC_ALGORITHM:

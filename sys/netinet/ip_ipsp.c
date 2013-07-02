@@ -192,7 +192,7 @@ reserve_spi(u_int rdomain, u_int32_t sspi, u_int32_t tspi,
 {
 	struct tdb *tdbp, *exists;
 	u_int32_t spi;
-	int nums, s;
+	int nums;
 
 	/* Don't accept ranges only encompassing reserved SPIs. */
 	if (sproto != IPPROTO_IPCOMP &&
@@ -245,9 +245,9 @@ reserve_spi(u_int rdomain, u_int32_t sspi, u_int32_t tspi,
 			spi = htonl(spi);
 
 		/* Check whether we're using this SPI already. */
-		s = splsoftnet();
+		crit_enter();
 		exists = gettdb(rdomain, spi, dst, sproto);
-		splx(s);
+		crit_leave();
 
 		if (exists)
 			continue;
@@ -656,7 +656,8 @@ void
 puttdb(struct tdb *tdbp)
 {
 	u_int32_t hashval;
-	int s = splsoftnet();
+
+	crit_enter();
 
 	if (tdbh == NULL) {
 		tdbh = malloc(sizeof(struct tdb *) * (tdb_hashmask + 1), M_TDB,
@@ -702,7 +703,7 @@ puttdb(struct tdb *tdbp)
 
 	ipsec_last_added = time_second;
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -713,7 +714,6 @@ tdb_delete(struct tdb *tdbp)
 {
 	struct tdb *tdbpp;
 	u_int32_t hashval;
-	int s;
 
 	if (tdbh == NULL)
 		return;
@@ -721,7 +721,7 @@ tdb_delete(struct tdb *tdbp)
 	hashval = tdb_hash(tdbp->tdb_rdomain, tdbp->tdb_spi,
 	    &tdbp->tdb_dst, tdbp->tdb_sproto);
 
-	s = splsoftnet();
+	crit_enter();
 	if (tdbh[hashval] == tdbp) {
 		tdbh[hashval] = tdbp->tdb_hnext;
 	} else {
@@ -771,7 +771,7 @@ tdb_delete(struct tdb *tdbp)
 	tdb_free(tdbp);
 	tdb_count--;
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1064,14 +1064,15 @@ void
 ipsp_skipcrypto_mark(struct tdb_ident *tdbi)
 {
 	struct tdb *tdb;
-	int s = splsoftnet();
+
+	crit_enter();
 
 	tdb = gettdb(tdbi->rdomain, tdbi->spi, &tdbi->dst, tdbi->proto);
 	if (tdb != NULL) {
 		tdb->tdb_flags |= TDBF_SKIPCRYPTO;
 		tdb->tdb_last_marked = time_second;
 	}
-	splx(s);
+	crit_leave();
 }
 
 /* Unmark a TDB as TDBF_SKIPCRYPTO. */
@@ -1079,14 +1080,14 @@ void
 ipsp_skipcrypto_unmark(struct tdb_ident *tdbi)
 {
 	struct tdb *tdb;
-	int s = splsoftnet();
 
+	crit_enter();
 	tdb = gettdb(tdbi->rdomain, tdbi->spi, &tdbi->dst, tdbi->proto);
 	if (tdb != NULL) {
 		tdb->tdb_flags &= ~TDBF_SKIPCRYPTO;
 		tdb->tdb_last_marked = time_second;
 	}
-	splx(s);
+	crit_leave();
 }
 
 /* Return true if the two structures match. */
@@ -1110,7 +1111,7 @@ ipsp_ref_match(struct ipsec_ref *ref1, struct ipsec_ref *ref2)
 struct m_tag *
 ipsp_parse_headers(struct mbuf *m, int off, u_int8_t proto)
 {
-	int ipv4sa = 0, s, esphlen = 0, trail = 0, i;
+	int ipv4sa = 0, esphlen = 0, trail = 0, i;
 	SLIST_HEAD(packet_tags, m_tag) tags;
 	unsigned char lasteight[8];
 	struct tdb_ident *tdbi;
@@ -1214,7 +1215,7 @@ ipsp_parse_headers(struct mbuf *m, int off, u_int8_t proto)
 			m_copydata(m, off, sizeof(u_int32_t), (caddr_t) &spi);
 			bzero(&su, sizeof(union sockaddr_union));
 
-			s = splsoftnet();
+			crit_enter();
 
 #ifdef INET
 			if (ipv4sa) {
@@ -1234,7 +1235,7 @@ ipsp_parse_headers(struct mbuf *m, int off, u_int8_t proto)
 
 			tdb = gettdb(spi, &su, IPPROTO_ESP);
 			if (tdb == NULL) {
-				splx(s);
+				crit_leave();
 				return SLIST_FIRST(&tags);
 			}
 
@@ -1245,7 +1246,7 @@ ipsp_parse_headers(struct mbuf *m, int off, u_int8_t proto)
 			if (tdb->tdb_authalgxform)
 				trail += tdb->tdb_authalgxform->authsize;
 
-			splx(s);
+			crit_leave();
 
 			/* Copy the last 10 bytes. */
 			m_copydata(m, m->m_pkthdr.len - trail - 8, 8,

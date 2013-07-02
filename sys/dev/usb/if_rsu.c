@@ -31,6 +31,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -338,9 +339,8 @@ rsu_detach(struct device *self, int flags)
 {
 	struct rsu_softc *sc = (struct rsu_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	if (timeout_initialized(&sc->calib_to))
 		timeout_del(&sc->calib_to);
@@ -361,7 +361,7 @@ rsu_detach(struct device *self, int flags)
 	/* Free Tx/Rx buffers. */
 	rsu_free_tx_list(sc);
 	rsu_free_rx_list(sc);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -525,20 +525,19 @@ rsu_task(void *arg)
 	struct rsu_softc *sc = arg;
 	struct rsu_host_cmd_ring *ring = &sc->cmdq;
 	struct rsu_host_cmd *cmd;
-	int s;
 
 	/* Process host commands. */
-	s = splusb();
+	crit_enter();
 	while (ring->next != ring->cur) {
 		cmd = &ring->cmd[ring->next];
-		splx(s);
+		crit_leave();
 		/* Invoke callback. */
 		cmd->cb(sc, cmd->data);
-		s = splusb();
+		crit_enter();
 		ring->queued--;
 		ring->next = (ring->next + 1) % RSU_HOST_CMD_RING_COUNT;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -547,9 +546,8 @@ rsu_do_async(struct rsu_softc *sc,
 {
 	struct rsu_host_cmd_ring *ring = &sc->cmdq;
 	struct rsu_host_cmd *cmd;
-	int s;
 
-	s = splusb();
+	crit_enter();
 	cmd = &ring->cmd[ring->cur];
 	cmd->cb = cb;
 	KASSERT(len <= sizeof(cmd->data));
@@ -559,7 +557,7 @@ rsu_do_async(struct rsu_softc *sc,
 	/* If there is no pending command already, schedule a task. */
 	if (++ring->queued == 1)
 		usb_add_task(sc->sc_udev, &sc->sc_task);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2342,7 +2340,7 @@ rsu_stop(struct ifnet *ifp)
 {
 	struct rsu_softc *sc = ifp->if_softc;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int i, s;
+	int i;
 
 	sc->sc_tx_timer = 0;
 	ifp->if_timer = 0;
@@ -2351,11 +2349,11 @@ rsu_stop(struct ifnet *ifp)
 	/* In case we were scanning, release the scan "lock". */
 	ic->ic_scan_lock = IEEE80211_SCAN_UNLOCKED;
 
-	s = splusb();
+	crit_enter();
 	ieee80211_new_state(ic, IEEE80211_S_INIT, -1);
 	/* Wait for all async commands to complete. */
 	rsu_wait_async(sc);
-	splx(s);
+	crit_leave();
 
 	timeout_del(&sc->calib_to);
 

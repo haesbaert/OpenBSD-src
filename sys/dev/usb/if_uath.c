@@ -37,6 +37,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -955,7 +956,7 @@ uath_cmd(struct uath_softc *sc, uint32_t code, const void *idata, int ilen,
 	struct uath_cmd_hdr *hdr;
 	struct uath_tx_cmd *cmd;
 	uint16_t xferflags;
-	int s, xferlen, error;
+	int xferlen, error;
 
 	/* grab a xfer */
 	cmd = &sc->tx_cmd[sc->cmd_idx];
@@ -983,7 +984,7 @@ uath_cmd(struct uath_softc *sc, uint32_t code, const void *idata, int ilen,
 		if (!(flags & UATH_CMD_FLAG_ASYNC))
 			xferflags |= USBD_SYNCHRONOUS;
 	} else
-		s = splusb();
+		crit_enter();
 
 	cmd->odata = odata;
 
@@ -992,7 +993,7 @@ uath_cmd(struct uath_softc *sc, uint32_t code, const void *idata, int ilen,
 	error = usbd_transfer(cmd->xfer);
 	if (error != USBD_IN_PROGRESS && error != 0) {
 		if (flags & UATH_CMD_FLAG_READ)
-			splx(s);
+			crit_leave();
 		printf("%s: could not send command 0x%x (error=%s)\n",
 		    sc->sc_dev.dv_xname, code, usbd_errstr(error));
 		return error;
@@ -1005,7 +1006,7 @@ uath_cmd(struct uath_softc *sc, uint32_t code, const void *idata, int ilen,
 	/* wait at most two seconds for command reply */
 	error = tsleep(cmd, PCATCH, "uathcmd", 2 * hz);
 	cmd->odata = NULL;	/* in case answer is received too late */
-	splx(s);
+	crit_leave();
 	if (error != 0) {
 		printf("%s: timeout waiting for command reply\n",
 		    sc->sc_dev.dv_xname);
@@ -1646,20 +1647,20 @@ uath_reset(struct uath_softc *sc)
 {
 	struct uath_cmd_setup setup;
 	uint32_t reg, val;
-	int s, error;
+	int error;
 
 	/* init device with some voodoo incantations.. */
 	setup.magic1 = htobe32(1);
 	setup.magic2 = htobe32(5);
 	setup.magic3 = htobe32(200);
 	setup.magic4 = htobe32(27);
-	s = splusb();
+	crit_enter();
 	error = uath_cmd_write(sc, UATH_CMD_SETUP, &setup, sizeof setup,
 	    UATH_CMD_FLAG_ASYNC);
 	/* ..and wait until firmware notifies us that it is ready */
 	if (error == 0)
 		error = tsleep(UATH_COND_INIT(sc), PCATCH, "uathinit", 5 * hz);
-	splx(s);
+	crit_leave();
 	if (error != 0)
 		return error;
 
@@ -1979,9 +1980,8 @@ uath_stop(struct ifnet *ifp, int disable)
 	struct uath_softc *sc = ifp->if_softc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	uint32_t val;
-	int s;
 
-	s = splusb();
+	crit_enter();
 
 	sc->sc_tx_timer = 0;
 	ifp->if_timer = 0;
@@ -2006,7 +2006,7 @@ uath_stop(struct ifnet *ifp, int disable)
 	usbd_abort_pipe(sc->data_rx_pipe);
 	usbd_abort_pipe(sc->cmd_tx_pipe);
 
-	splx(s);
+	crit_leave();
 }
 
 /*

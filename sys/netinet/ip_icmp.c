@@ -866,13 +866,13 @@ int
 icmp_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
     size_t newlen)
 {
-	int s, error;
+	int error;
 
 	/* All sysctl names at this level are terminal. */
 	if (namelen != 1)
 		return (ENOTDIR);
 
-	s = splsoftnet();
+	crit_enter();
 	switch (name[0]) {
 	case ICMPCTL_REDIRTIMEOUT:
 
@@ -910,7 +910,7 @@ icmp_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 		error = ENOPROTOOPT;
 		break;
 	}
-	splx(s);
+	crit_leave();
 
 	return (error);
 }

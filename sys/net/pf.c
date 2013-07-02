@@ -919,7 +919,7 @@ int
 pf_state_insert(struct pfi_kif *kif, struct pf_state_key **skw,
     struct pf_state_key **sks, struct pf_state *s)
 {
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	s->kif = kif;
 	if (*skw == *sks) {
@@ -1159,12 +1159,12 @@ pf_state_export(struct pfsync_state *sp, struct pf_state *st)
 void
 pf_purge_thread(void *v)
 {
-	int nloops = 0, s;
+	int nloops = 0;
 
 	for (;;) {
 		tsleep(pf_purge_thread, PWAIT, "pftm", 1 * hz);
 
-		s = splsoftnet();
+		crit_enter();
 
 		/* process a fraction of the state table every second */
 		pf_purge_expired_states(1 + (pf_status.states
@@ -1177,7 +1177,7 @@ pf_purge_thread(void *v)
 			nloops = 0;
 		}
 
-		splx(s);
+		crit_leave();
 	}
 }
 
@@ -1268,7 +1268,7 @@ pf_src_tree_remove_state(struct pf_state *s)
 void
 pf_unlink_state(struct pf_state *cur)
 {
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 	/* handle load balancing related tasks */
 	pf_postprocess_addr(cur);
@@ -1303,7 +1303,7 @@ pf_free_state(struct pf_state *cur)
 {
 	struct pf_rule_item *ri;
 
-	splsoftassert(IPL_SOFTNET);
+	crit_assert();
 
 #if NPFSYNC > 0
 	if (pfsync_state_in_use(cur))
