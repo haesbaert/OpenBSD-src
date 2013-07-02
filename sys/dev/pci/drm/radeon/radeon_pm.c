@@ -88,10 +88,17 @@ void radeon_pm_acpi_event_handler(struct radeon_device *rdev)
 	}
 }
 
+int	power_supply_is_system_supplied(void);
+
+int
+power_supply_is_system_supplied(void)
+{
+	/* XXX return 0 if on battery */
+	return (1);
+}
+
 static void radeon_pm_update_profile(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	switch (rdev->pm.profile) {
 	case PM_PROFILE_DEFAULT:
 		rdev->pm.profile_index = PM_PROFILE_DEFAULT_IDX;
@@ -140,7 +147,6 @@ static void radeon_pm_update_profile(struct radeon_device *rdev)
 		rdev->pm.requested_clock_mode_index =
 			rdev->pm.profiles[rdev->pm.profile_index].dpms_on_cm_idx;
 	}
-#endif
 }
 
 static void radeon_unmap_vram_bos(struct radeon_device *rdev)
