@@ -32,6 +32,7 @@
 #define	IPL_SCHED	IPL_CLOCK
 #define	IPL_STATCLOCK	IPL_CLOCK
 #define	IPL_HIGH	0xd	/* everything */
+#define	IPL_IPI		0xe	/* inter-processor interrupts */
 #define	NIPL		16
 
 #define	IPL_MPSAFE	0x100
@@ -48,6 +49,7 @@
  * Local APIC masks. Must not conflict with SIR_* above, and must
  * be >= NUM_LEGACY_IRQs. Note that LIR_IPI must be first.
  */
+#define LIR_IPI		63
 #define LIR_TIMER	62
 
 /*

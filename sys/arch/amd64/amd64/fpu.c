@@ -199,13 +199,15 @@ fpudna(struct cpu_info *ci)
 {
 	struct savefpu *sfp;
 	struct proc *p;
+	int s;
 
 	if (ci->ci_fpsaving) {
 		printf("recursive fpu trap; cr0=%x\n", rcr0());
 		return;
 	}
 
-	crit_enter();
+	s = splipi();
+
 #ifdef MULTIPROCESSOR
 	p = ci->ci_curproc;
 #else
@@ -220,7 +222,7 @@ fpudna(struct cpu_info *ci)
 		fpusave_cpu(ci, ci->ci_fpcurproc != &proc0);
 		uvmexp.fpswtch++;
 	}
-	crit_leave();
+	splx(s);
 
 	if (p == NULL) {
 		clts();
@@ -238,10 +240,10 @@ fpudna(struct cpu_info *ci)
 	p->p_addr->u_pcb.pcb_cr0 &= ~CR0_TS;
 	clts();
 
-	crit_enter();
+	s = splipi();
 	ci->ci_fpcurproc = p;
 	p->p_addr->u_pcb.pcb_fpcpu = ci;
-	crit_leave();
+	splx(s);
 
 	sfp = &p->p_addr->u_pcb.pcb_savefpu;
 
@@ -270,6 +272,7 @@ void
 fpusave_cpu(struct cpu_info *ci, int save)
 {
 	struct proc *p;
+	int s;
 
 	KDASSERT(ci == curcpu());
 
@@ -296,10 +299,10 @@ fpusave_cpu(struct cpu_info *ci, int save)
 	stts();
 	p->p_addr->u_pcb.pcb_cr0 |= CR0_TS;
 
-	crit_enter();
+	s = splipi();
 	p->p_addr->u_pcb.pcb_fpcpu = NULL;
 	ci->ci_fpcurproc = NULL;
-	crit_leave();
+	splx(s);
 }
 
 /*
@@ -319,9 +322,9 @@ fpusave_proc(struct proc *p, int save)
 
 #if defined(MULTIPROCESSOR)
 	if (oci == ci) {
-		crit_enter();
+		int s = splipi();
 		fpusave_cpu(ci, save);
-		crit_leave();
+		splx(s);
 	} else {
 		oci->ci_fpsaveproc = p;
 		x86_send_ipi(oci,
@@ -340,6 +343,7 @@ fpu_kernel_enter(void)
 {
 	struct cpu_info	*ci = curcpu();
 	uint32_t	 cw;
+	int		 s;
 
 	/*
 	 * Fast path.  If the kernel was using the FPU before, there
@@ -350,7 +354,7 @@ fpu_kernel_enter(void)
 		return;
 	}
 
-	crit_enter();
+	s = splipi();
 
 	if (ci->ci_fpcurproc != NULL) {
 		fpusave_cpu(ci, 1);
@@ -360,7 +364,7 @@ fpu_kernel_enter(void)
 	/* Claim the FPU */
 	ci->ci_fpcurproc = &proc0;
 
-	crit_leave();
+	splx(s);
 
 	/* Disable DNA exceptions */
 	clts();
