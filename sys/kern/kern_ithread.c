@@ -83,7 +83,7 @@ ithread(void *v_is)
 		 * the tsleep call is atomic.
 		 */
 		if (!is->is_scheduled) {
-			tsleep(is->is_proc, PVM, "interrupt", 0);
+			ithread_sleep(is);
 			DPRINTF(20, "ithread %u woke up\n", curproc->p_pid);
 		}
 		splx(s);
@@ -290,7 +290,7 @@ ithread_softmain(void *v_is)
 		 * XXX Could use atomic_npoll() or something similar.
 		 */
 		if (!is->is_scheduled) { /* optimistic test */
-			ithread_softsleep(is);
+			ithread_sleep(is);
 			DPRINTF(20, "ithread soft %u woke up\n", curproc->p_pid);
 		}
 	}
@@ -302,7 +302,7 @@ ithread_softmain(void *v_is)
 extern TAILQ_HEAD(slpque,proc) slpque[TABLESIZE];
 
 void
-ithread_softsleep(struct intrsource *is)
+ithread_sleep(struct intrsource *is)
 {
 	struct proc *p = is->is_proc;
 	int s;
