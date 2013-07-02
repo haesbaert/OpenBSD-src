@@ -164,15 +164,11 @@ static void radeon_unmap_vram_bos(struct radeon_device *rdev)
 
 static void radeon_sync_with_vblank(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
 	if (rdev->pm.active_crtcs) {
 		rdev->pm.vblank_sync = false;
-		wait_event_timeout(
-			rdev->irq.vblank_queue, rdev->pm.vblank_sync,
+		tsleep(&rdev->irq.vblank_queue, PZERO, "rdnsvb",
 			msecs_to_jiffies(RADEON_WAIT_VBLANK_TIMEOUT));
 	}
-#endif
 }
 
 static void radeon_set_power_state(struct radeon_device *rdev)
