@@ -31,9 +31,10 @@
 #include "radeon.h"
 #include "atom.h"
 
+#if defined(__amd64__) || defined(__i386__)
 #include <dev/isa/isareg.h>
 #include <dev/isa/isavar.h>
-
+#endif
 
 /*
  * BIOS.
