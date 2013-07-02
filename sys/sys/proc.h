@@ -277,6 +277,7 @@ struct proc {
 	int	p_sigwait;	/* signal handled by sigwait() */
 
 	/* scheduling */
+	int	p_crit;		 /* Critical depth */
 	u_int	p_estcpu;	 /* Time averaged value of p_cpticks. */
 	int	p_cpticks;	 /* Ticks of cpu time. */
 	fixpt_t	p_pctcpu;	 /* %cpu for this thread during p_swtime */
@@ -304,6 +305,7 @@ struct proc {
 					/* NULL. Malloc type M_EMULDATA */
 
 	sigset_t p_sigdivert;		/* Signals to be diverted to thread. */
+	
 
 /* End area that is zeroed on creation. */
 #define	p_endzero	p_startcopy
@@ -315,7 +317,6 @@ struct proc {
 
 	u_char	p_priority;	/* Process priority. */
 	u_char	p_usrpri;	/* User-priority based on p_cpu and ps_nice. */
-	int	p_crit;		/* Critical depth */
 	char	p_comm[MAXCOMLEN+1];
 
 #ifndef	__HAVE_MD_TCB
