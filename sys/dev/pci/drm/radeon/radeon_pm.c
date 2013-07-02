@@ -509,9 +509,6 @@ static const struct attribute_group hwmon_attrgroup = {
 
 static int radeon_hwmon_init(struct radeon_device *rdev)
 {
-	printf("%s stub\n", __func__);
-	return -ENOSYS;
-#ifdef notyet
 	int err = 0;
 
 	rdev->pm.int_hwmon_dev = NULL;
@@ -526,6 +523,9 @@ static int radeon_hwmon_init(struct radeon_device *rdev)
 		/* No support for TN yet */
 		if (rdev->family == CHIP_ARUBA)
 			return err;
+		printf("%s partial stub\n", __func__);
+		return (0);
+#ifdef notyet
 		rdev->pm.int_hwmon_dev = hwmon_device_register(rdev->dev);
 		if (IS_ERR(rdev->pm.int_hwmon_dev)) {
 			err = PTR_ERR(rdev->pm.int_hwmon_dev);
@@ -542,12 +542,12 @@ static int radeon_hwmon_init(struct radeon_device *rdev)
 			hwmon_device_unregister(rdev->dev);
 		}
 		break;
+#endif
 	default:
 		break;
 	}
 
 	return err;
-#endif
 }
 
 static void radeon_hwmon_fini(struct radeon_device *rdev)
