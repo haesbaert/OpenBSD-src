@@ -838,12 +838,10 @@ void radeon_combios_fini(struct radeon_device *rdev)
  * Enable/disable vga decode (all asics).
  * Returns VGA resource flags.
  */
+#ifdef notyet
 unsigned int
 radeon_vga_set_decode(void *cookie, bool state)
 {
-	printf("%s stub\n", __func__);
-	return -1;
-#ifdef notyet
 	struct radeon_device *rdev = cookie;
 	radeon_vga_set_state(rdev, state);
 	if (state)
@@ -851,8 +849,8 @@ radeon_vga_set_decode(void *cookie, bool state)
 		       VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
 	else
 		return VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
-#endif
 }
+#endif
 
 /**
  * radeon_check_pot_argument - check that argument is a power of two
