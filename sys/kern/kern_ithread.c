@@ -42,7 +42,7 @@ ithread(void *v_is)
 	struct intrsource *is = v_is;
 	struct pic *pic = is->is_pic;
 	struct intrhand *ih;
-	int rc, s;
+	int rc, s, c;
 
 	sched_peg_curproc(&cpu_info_primary);
 	KERNEL_UNLOCK();
@@ -53,7 +53,13 @@ ithread(void *v_is)
 	for (; ;) {
 		rc = 0;
 
-		s = splraise(is->is_maxlevel);
+		/* XXX */
+		c = crit_inside();
+		if (is->is_maxlevel <= IPL_CRIT)
+			crit_enter();
+		else
+			s = splraise(is->is_maxlevel);
+
 		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
 			is->is_scheduled = 0; /* protected by is->is_maxlevel */
 
@@ -66,14 +72,21 @@ ithread(void *v_is)
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_UNLOCK();
 		}
-		splx(s);
+
+		/* XXX */
+		if (is->is_maxlevel <= IPL_CRIT)
+			crit_leave();
+		else
+			splx(s);
+
+		if (c != crit_inside())
+			panic("crit_count doesn't match\n");
 
 		if (!rc)
 			printf("stray interrupt pin %d ?\n", is->is_pin);
 
 		pic->pic_hwunmask(pic, is->is_pin);
 
-		s = splraise(is->is_maxlevel);
 		/*
 		 * Since we do splx, we might have just run the handler which
 		 * wakes us up, therefore, is_scheduled might be set now, in the
@@ -182,7 +195,7 @@ ithread_forkall(void)
 		DPRINTF(1, "ithread forking intrsource pin %d\n", is->is_pin);
 
 		if (is->is_pic == &softintr_pic) {
-			if (kthread_create(ithread_softmain, is, &is->is_proc,
+			if (kthread_create(ithread, is, &is->is_proc,
 			    "ithread soft %d", softs++))
 				panic("ithread_forkall");
 		} else {
@@ -247,53 +260,6 @@ ithread_softderegister(struct intrsource *is)
 
 	ithread_deregister(is);
 	free(is, M_DEVBUF);
-}
-
-void
-ithread_softmain(void *v_is)
-{
-	int s, c;
-	struct intrsource *is = v_is;
-	struct intrhand *ih;
-
-	sched_peg_curproc(&cpu_info_primary);
-	KERNEL_UNLOCK();
-
-	DPRINTF(1, "ithread soft %u started\n", curproc->p_pid);
-
-	for (; ;) {
-		c = crit_inside();
-		if (is->is_maxlevel <= IPL_CRIT)
-			crit_enter();
-		else
-			s = splraise(is->is_maxlevel);
-		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
-			is->is_scheduled = 0; /* protected by is->is_maxlevel */
-
-			if ((ih->ih_flags & IPL_MPSAFE) == 0)
-				KERNEL_LOCK();
-
-			KASSERT(ih->ih_level <= is->is_maxlevel);
-			(*ih->ih_fun)(ih->ih_arg);
-			if ((ih->ih_flags & IPL_MPSAFE) == 0)
-				KERNEL_UNLOCK();
-		}
-		if (is->is_maxlevel <= IPL_CRIT)
-			crit_leave();
-		else
-			splx(s);
-
-		if (c != crit_inside())
-			panic("crit_count doesn't match\n");
-		
-		/*
-		 * XXX Could use atomic_npoll() or something similar.
-		 */
-		if (!is->is_scheduled) { /* optimistic test */
-			ithread_sleep(is);
-			DPRINTF(20, "ithread soft %u woke up\n", curproc->p_pid);
-		}
-	}
 }
 
 /* XXX kern_synch.c, temporary */

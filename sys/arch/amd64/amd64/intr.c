@@ -66,14 +66,24 @@
 #include <machine/i82489var.h>
 #endif
 
+static void
+softintr_hwmask(struct pic *pic, int pin)
+{
+}
+
+static void
+softintr_hwunmask(struct pic *pic, int pin)
+{
+}
+
 struct pic softintr_pic = {
         {0, {NULL}, NULL, 0, "softintr_fakepic", NULL, 0, 0},
         PIC_SOFT,
 #ifdef MULTIPROCESSOR
 	{},
 #endif
-	NULL,
-	NULL,
+	softintr_hwmask,
+	softintr_hwunmask,
 	NULL,
 	NULL,
 	NULL,
