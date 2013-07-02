@@ -1439,7 +1439,7 @@ ohci_softintr(void *v)
 	sc->sc_bus.intr_context--;
 	DPRINTFN(10,("ohci_softintr: done:\n"));
 
-	return (0);
+	return (1);
 }
 
 void

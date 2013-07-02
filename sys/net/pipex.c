@@ -693,7 +693,7 @@ pipex_softintr_handler(void *dummy)
 	/* called at splsoftnet() */
 	pipex_ppp_dequeue();
 
-	return (0);
+	return (1);
 }
 
 Static void
