@@ -98,7 +98,7 @@ ithread(void *v_is)
  * XXX intr_shared_edge is not being used, and we're being pessimistic.
  */
 int
-ithread_handler(struct intrsource *is)
+ithread_run(struct intrsource *is)
 {
 #ifdef ITHREAD_DEBUG
 	struct cpu_info *ci = curcpu();
@@ -295,38 +295,6 @@ ithread_softmain(void *v_is)
 		}
 	}
 }
-
-void
-ithread_softsched(struct intrsource *is)
-{
-	int s;
-	struct proc *p;
-
-	if (is == NULL || is->is_proc == NULL)
-		return;
-
-	p = is->is_proc;
-
-	SCHED_LOCK(s);
-	is->is_scheduled = 1;
-
-	switch (p->p_stat) {
-	case SRUN:
-	case SONPROC:
-		break;
-	case SSLEEP:
-		unsleep(p);
-		p->p_stat = SRUN;
-		p->p_slptime = 0;
-		setrunqueue(p);
-		break;
-	default:
-		SCHED_UNLOCK(s);
-		panic("ithread_softsched: unexpected thread state %d\n", p->p_stat);
-	}
-	SCHED_UNLOCK(s);
-}
-
 
 /* XXX kern_synch.c, temporary */
 #define TABLESIZE	128
