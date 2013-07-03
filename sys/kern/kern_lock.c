@@ -158,12 +158,12 @@ mtx_enter_try(struct mutex *mtx)
 #endif
 	crit_enter();
 
-	if (mtx->mtx_wantipl != IPL_NONE)
+	if (mtx->mtx_wantipl > IPL_CRIT)
 		s = splraise(mtx->mtx_wantipl);
 
 #ifdef MULTIPROCESSOR
 	if (atomic_cmpset_ptr(&mtx->mtx_owner, NULL, ci) == 0) {
-		if (mtx->mtx_wantipl != IPL_NONE)
+		if (mtx->mtx_wantipl > IPL_CRIT)
 			splx(s);
 		crit_leave();
 		return (0);
@@ -176,7 +176,7 @@ mtx_enter_try(struct mutex *mtx)
 	ci->ci_mutex_level++;
 #endif
 
-	if (mtx->mtx_wantipl != IPL_NONE)
+	if (mtx->mtx_wantipl > IPL_CRIT)
 		mtx->mtx_oldipl = s;
 
 	crit_leave();
