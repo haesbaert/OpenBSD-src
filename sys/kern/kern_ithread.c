@@ -42,7 +42,7 @@ ithread(void *v_is)
 	struct intrsource *is = v_is;
 	struct pic *pic = is->is_pic;
 	struct intrhand *ih;
-	int rc, s, c;
+	int rc, s;
 
 	KASSERT(curproc == is->is_proc);
 	sched_peg_curproc(&cpu_info_primary);
@@ -55,10 +55,10 @@ ithread(void *v_is)
 		rc = 0;
 
 		/* XXX */
-		c = CRIT_DEPTH;
-		if (is->is_maxlevel <= IPL_CRIT)
-			crit_enter();
-		else
+		KASSERT(CRIT_DEPTH == 0);
+		crit_enter();
+		
+		if (is->is_maxlevel > IPL_CRIT)
 			s = splraise(is->is_maxlevel);
 
 		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
@@ -75,13 +75,11 @@ ithread(void *v_is)
 		}
 
 		/* XXX */
-		if (is->is_maxlevel <= IPL_CRIT)
-			crit_leave();
-		else
+		if (is->is_maxlevel > IPL_CRIT)
 			splx(s);
-
-		if (c != CRIT_DEPTH)
-			panic("critical depth doesn't match\n");
+			
+		crit_leave();
+		KASSERT(CRIT_DEPTH == 0);
 
 		if (!rc)
 			printf("stray interrupt pin %d ?\n", is->is_pin);
@@ -120,10 +118,12 @@ ithread_run(struct intrsource *is)
 	struct proc *p = is->is_proc;
 	int s;
 
+	crit_enter();
 	if (p == NULL) {
 		is->is_scheduled = 1;
 		DPRINTF(1, "received interrupt pin %d before ithread is ready",
 		    is->is_pin);
+		crit_leave();
 		return (0);
 	}
 
@@ -158,6 +158,7 @@ ithread_run(struct intrsource *is)
 		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
 	}
 	SCHED_UNLOCK(s);
+	crit_leave();
 
 	return (0);
 }
