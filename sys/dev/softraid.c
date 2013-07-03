@@ -613,15 +613,14 @@ void
 sr_meta_save_callback(void *arg1, void *arg2)
 {
 	struct sr_discipline	*sd = arg1;
-	int			s;
 
-	s = splbio();
+	crit_enter();
 
 	if (sr_meta_save(arg1, SR_META_DIRTY))
 		printf("%s: save metadata failed\n", DEVNAME(sd->sd_sc));
 
 	sd->sd_must_flush = 0;
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1972,9 +1971,8 @@ struct sr_ccb *
 sr_ccb_get(struct sr_discipline *sd)
 {
 	struct sr_ccb		*ccb;
-	int			s;
 
-	s = splbio();
+	crit_enter();
 
 	ccb = TAILQ_FIRST(&sd->sd_ccb_freeq);
 	if (ccb) {
@@ -1982,7 +1980,7 @@ sr_ccb_get(struct sr_discipline *sd)
 		ccb->ccb_state = SR_CCB_INPROGRESS;
 	}
 
-	splx(s);
+	crit_leave();
 
 	DNPRINTF(SR_D_CCB, "%s: sr_ccb_get: %p\n", DEVNAME(sd->sd_sc),
 	    ccb);
@@ -1994,12 +1992,11 @@ void
 sr_ccb_put(struct sr_ccb *ccb)
 {
 	struct sr_discipline	*sd = ccb->ccb_dis;
-	int			s;
 
 	DNPRINTF(SR_D_CCB, "%s: sr_ccb_put: %p\n", DEVNAME(sd->sd_sc),
 	    ccb);
 
-	s = splbio();
+	crit_enter();
 
 	ccb->ccb_wu = NULL;
 	ccb->ccb_state = SR_CCB_FREE;
@@ -2008,7 +2005,7 @@ sr_ccb_put(struct sr_ccb *ccb)
 
 	TAILQ_INSERT_TAIL(&sd->sd_ccb_freeq, ccb, ccb_link);
 
-	splx(s);
+	crit_leave();
 }
 
 struct sr_ccb *
@@ -2188,12 +2185,10 @@ sr_wu_put(void *xsd, void *xwu)
 void
 sr_wu_init(struct sr_discipline *sd, struct sr_workunit *wu)
 {
-	int			s;
-
-	s = splbio();
+	crit_enter();
 	if (wu->swu_cb_active == 1)
 		panic("%s: sr_wu_init got active wu", DEVNAME(sd->sd_sc));
-	splx(s);
+	crit_leave();
 
 	bzero(wu, sizeof(*wu));
 	TAILQ_INIT(&wu->swu_ccb);
@@ -2204,16 +2199,15 @@ void
 sr_wu_enqueue_ccb(struct sr_workunit *wu, struct sr_ccb *ccb)
 {
 	struct sr_discipline	*sd = wu->swu_dis;
-	int			s;
 
-	s = splbio();
+	crit_enter();
 	if (wu->swu_cb_active == 1)
 		panic("%s: sr_wu_enqueue_ccb got active wu",
 		    DEVNAME(sd->sd_sc));
 	ccb->ccb_wu = wu;
 	wu->swu_io_count++;
 	TAILQ_INSERT_TAIL(&wu->swu_ccb, ccb, ccb_link);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2256,7 +2250,6 @@ sr_wu_done_callback(void *arg1, void *arg2)
 	struct sr_workunit	*wu = (struct sr_workunit *)arg2;
 	struct scsi_xfer	*xs = wu->swu_xs;
 	struct sr_workunit	*wup;
-	int			s;
 
 	/*
 	 * The SR_WUF_DISCIPLINE or SR_WUF_REBUILD flag must be set if
@@ -2265,7 +2258,7 @@ sr_wu_done_callback(void *arg1, void *arg2)
 	KASSERT(xs != NULL ||
 	    (wu->swu_flags & (SR_WUF_DISCIPLINE|SR_WUF_REBUILD)));
 
-	s = splbio();
+	crit_enter();
 
 	if (xs != NULL) {
 		if (wu->swu_ios_failed)
@@ -2312,7 +2305,7 @@ sr_wu_done_callback(void *arg1, void *arg2)
 		sr_scsi_done(sd, xs);
 
 done:
-	splx(s);
+	crit_leave();
 }
 
 struct sr_workunit *
@@ -2993,7 +2986,7 @@ sr_hotspare_rebuild(struct sr_discipline *sd)
 	struct sr_chunk		*hotspare, *chunk = NULL;
 	struct sr_workunit	*wu;
 	struct sr_ccb		*ccb;
-	int			i, s, chunk_no, busy;
+	int			i, chunk_no, busy;
 
 	/*
 	 * Attempt to locate a hotspare and initiate rebuild.
@@ -3035,7 +3028,7 @@ sr_hotspare_rebuild(struct sr_discipline *sd)
 		do {
 			busy = 0;
 
-			s = splbio();
+			crit_enter();
 			TAILQ_FOREACH(wu, &sd->sd_wu_pendq, swu_link) {
 				TAILQ_FOREACH(ccb, &wu->swu_ccb, ccb_link) {
 					if (ccb->ccb_target == chunk_no)
@@ -3048,7 +3041,7 @@ sr_hotspare_rebuild(struct sr_discipline *sd)
 						busy = 1;
 				}
 			}
-			splx(s);
+			crit_leave();
 
 			if (busy) {
 				tsleep(sd, PRIBIO, "sr_hotspare", hz);
@@ -3068,7 +3061,7 @@ sr_hotspare_rebuild(struct sr_discipline *sd)
 			goto done;
 		}
 
-		s = splbio();
+		crit_enter();
 		rw_enter_write(&sc->sc_lock);
 		bio_status_init(&sc->sc_status, &sc->sc_dev);
 		if (sr_rebuild_init(sd, hotspare->src_dev_mm, 1) == 0) {
@@ -3080,7 +3073,7 @@ sr_hotspare_rebuild(struct sr_discipline *sd)
 
 		}
 		rw_exit_write(&sc->sc_lock);
-		splx(s);
+		crit_leave();
 	}
 done:
 	rw_exit_write(&sc->sc_hs_lock);
@@ -3851,7 +3844,6 @@ void
 sr_discipline_shutdown(struct sr_discipline *sd, int meta_save)
 {
 	struct sr_softc		*sc;
-	int			s;
 
 	if (!sd)
 		return;
@@ -3870,7 +3862,7 @@ sr_discipline_shutdown(struct sr_discipline *sd, int meta_save)
 	if (meta_save)
 		sr_meta_save(sd, 0);
 
-	s = splbio();
+	crit_enter();
 
 	sd->sd_ready = 0;
 
@@ -3895,7 +3887,7 @@ sr_discipline_shutdown(struct sr_discipline *sd, int meta_save)
 
 	sr_discipline_free(sd);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -4102,14 +4094,14 @@ int
 sr_raid_sync(struct sr_workunit *wu)
 {
 	struct sr_discipline	*sd = wu->swu_dis;
-	int			s, rv = 0, ios;
+	int			rv = 0, ios;
 
 	DNPRINTF(SR_D_DIS, "%s: sr_raid_sync\n", DEVNAME(sd->sd_sc));
 
 	/* when doing a fake sync don't count the wu */
 	ios = wu->swu_fake ? 0 : 1;
 
-	s = splbio();
+	crit_enter();
 	sd->sd_sync = 1;
 	while (sd->sd_wu_pending > ios) {
 		if (tsleep(sd, PRIBIO, "sr_sync", 15 * hz) == EWOULDBLOCK) {
@@ -4120,7 +4112,7 @@ sr_raid_sync(struct sr_workunit *wu)
 		}
 	}
 	sd->sd_sync = 0;
-	splx(s);
+	crit_leave();
 
 	wakeup(&sd->sd_sync);
 
@@ -4136,15 +4128,14 @@ sr_raid_intr(struct buf *bp)
 	struct sr_discipline	*sd = wu->swu_dis;
 	struct scsi_xfer	*xs = wu->swu_xs;
 #endif
-	int			s;
 
 	DNPRINTF(SR_D_INTR, "%s: %s %s intr bp %p xs %p\n",
 	    DEVNAME(sd->sd_sc), sd->sd_meta->ssd_devname, sd->sd_name, bp, xs);
 
-	s = splbio();
+	crit_enter();
 	sr_ccb_done(ccb);
 	sr_wu_done(wu);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -4152,12 +4143,11 @@ sr_schedule_wu(struct sr_workunit *wu)
 {
 	struct sr_discipline	*sd = wu->swu_dis;
 	struct sr_workunit	*wup;
-	int			s;
 
 	DNPRINTF(SR_D_WU, "sr_schedule_wu: schedule wu %p state %i "
 	    "flags 0x%x\n", wu, wu->swu_state, wu->swu_flags);
 
-	s = splbio();
+	crit_enter();
 
 	/* Construct the work unit, do not schedule it. */
 	if (wu->swu_state == SR_WU_CONSTRUCT)
@@ -4197,7 +4187,7 @@ start:
 	sr_raid_startwu(wu);
 
 queued:
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -4276,14 +4266,14 @@ sr_free_resources(struct sr_discipline *sd)
 void
 sr_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 {
-	int			old_state, s;
+	int			old_state;
 
 	DNPRINTF(SR_D_STATE, "%s: %s: %s: sr_set_chunk_state %d -> %d\n",
 	    DEVNAME(sd->sd_sc), sd->sd_meta->ssd_devname,
 	    sd->sd_vol.sv_chunks[c]->src_meta.scmi.scm_devname, c, new_state);
 
 	/* ok to go to splbio since this only happens in error path */
-	s = splbio();
+	crit_enter();
 	old_state = sd->sd_vol.sv_chunks[c]->src_meta.scm_status;
 
 	/* multiple IOs to the same chunk that fail will come through here */
@@ -4303,7 +4293,7 @@ sr_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 
 	default:
 die:
-		splx(s); /* XXX */
+		crit_leave();	/* XXX */
 		panic("%s: %s: %s: invalid chunk state transition "
 		    "%d -> %d\n", DEVNAME(sd->sd_sc),
 		    sd->sd_meta->ssd_devname,
@@ -4318,7 +4308,7 @@ die:
 	sd->sd_must_flush = 1;
 	workq_add_task(NULL, 0, sr_meta_save_callback, sd, NULL);
 done:
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -4582,7 +4572,7 @@ sr_rebuild_thread(void *arg)
 	struct sr_workunit	*wu_r, *wu_w;
 	struct scsi_xfer	xs_r, xs_w;
 	struct scsi_rw_16	*cr, *cw;
-	int			c, s, slept, percent = 0, old_percent = -1;
+	int			c, slept, percent = 0, old_percent = -1;
 	u_int8_t		*buf;
 
 	whole_blk = sd->sd_meta->ssdi.ssd_size / SR_REBUILD_IO_SIZE;
@@ -4679,9 +4669,9 @@ sr_rebuild_thread(void *arg)
 		 */
 		wu_w->swu_state = SR_WU_DEFERRED;
 		wu_r->swu_collider = wu_w;
-		s = splbio();
+		crit_enter();
 		TAILQ_INSERT_TAIL(&sd->sd_wu_defq, wu_w, swu_link);
-		splx(s);
+		crit_leave();
 
 		wu_r->swu_state = SR_WU_INPROGRESS;
 		sr_schedule_wu(wu_r);

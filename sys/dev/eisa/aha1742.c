@@ -359,7 +359,6 @@ ahb_poll(sc, xs, count)
 {				/* in msec  */
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
 	while (count) {
 		/*
@@ -367,9 +366,9 @@ ahb_poll(sc, xs, count)
 		 * have got an interrupt?
 		 */
 		if (bus_space_read_1(iot, ioh, G2STAT) & G2STAT_INT_PEND) {
-			s = splbio();
+			crit_enter();
 			ahbintr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if (xs->flags & ITSDONE)
 			return 0;
@@ -885,7 +884,6 @@ ahb_scsi_cmd(xs)
 	int seg;		/* scatter gather seg being worked on */
 	u_long thiskv, thisphys, nextphys;
 	int bytes_this_seg, bytes_this_page, datalen, flags;
-	int s;
 
 	SC_DEBUG(sc_link, SDEV_DB2, ("ahb_scsi_cmd\n"));
 	/*
@@ -914,7 +912,7 @@ ahb_scsi_cmd(xs)
 		}
 		sc->immed_ecb = ecb;
 
-		s = splbio();
+		crit_enter();
 
 		ahb_send_immed(sc, sc_link->target, AHB_TARG_RESET);
 
@@ -924,7 +922,7 @@ ahb_scsi_cmd(xs)
 			return;
 		}
 
-		splx(s);
+		crit_leave();
 
 		/*
 		 * If we can't use interrupts, poll on completion
@@ -1027,7 +1025,7 @@ ahb_scsi_cmd(xs)
 	if ((flags & SCSI_RESET) == 0)
 		bcopy(xs->cmd, &ecb->scsi_cmd, ecb->scsi_cmd_length);
 
-	s = splbio();
+	crit_enter();
 
 	ahb_send_mbox(sc, OP_START_ECB, ecb);
 
@@ -1035,12 +1033,12 @@ ahb_scsi_cmd(xs)
 	 * Usually return SUCCESSFULLY QUEUED
 	 */
 	if ((flags & SCSI_POLL) == 0) {
-		splx(s);
+		crit_leave();
 		timeout_add_msec(&ecb->xs->stimeout, xs->timeout);
 		return;
 	}
 
-	splx(s);
+	crit_leave();
 
 	/*
 	 * If we can't use interrupts, poll on completion
@@ -1060,19 +1058,18 @@ ahb_timeout(arg)
 	struct scsi_xfer *xs = ecb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	struct ahb_softc *sc = sc_link->adapter_softc;
-	int s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 	if (ecb->flags & ECB_IMMED) {
 		printf("\n");
 		ecb->xs->retries = 0;	/* I MEAN IT ! */
 		ecb->flags |= ECB_IMMED_FAIL;
 		ahb_done(sc, ecb);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1097,7 +1094,7 @@ ahb_timeout(arg)
 			timeout_add_sec(&ecb->xs->stimeout, 2);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 #ifdef	AHBDEBUG

@@ -252,9 +252,7 @@ trm_srb_alloc(void *xsc)
 void
 trm_RewaitSRB(struct trm_softc *sc, struct trm_scsi_req_q *pSRB)
 {
-	int intflag;
-
-	intflag = splbio();
+	crit_enter();
 
 	if ((pSRB->SRBFlag & TRM_ON_WAITING_SRB) != 0) {
 		pSRB->SRBFlag &= ~TRM_ON_WAITING_SRB;
@@ -273,7 +271,7 @@ trm_RewaitSRB(struct trm_softc *sc, struct trm_scsi_req_q *pSRB)
 	pSRB->SRBFlag |= TRM_ON_WAITING_SRB;
 	TAILQ_INSERT_HEAD(&sc->waitingSRB, pSRB, link);
 
-	splx(intflag);
+	crit_leave();
 }
 
 /*
@@ -289,9 +287,8 @@ void
 trm_StartWaitingSRB(struct trm_softc *sc)
 {
 	struct trm_scsi_req_q *pSRB, *next;
-	int intflag;
 
-	intflag = splbio();
+	crit_enter();
 
 	if ((sc->pActiveDCB != NULL) ||
 	    (TAILQ_EMPTY(&sc->waitingSRB)) ||
@@ -310,7 +307,7 @@ trm_StartWaitingSRB(struct trm_softc *sc)
 	}
 
 out:
-	splx(intflag);
+	crit_leave();
 }
 
 /*
@@ -330,7 +327,7 @@ trm_scsi_cmd(struct scsi_xfer *xs)
 	bus_space_tag_t	iot;
 	struct trm_dcb *pDCB;
 	u_int8_t target, lun;
-	int i, error, intflag, timeout, xferflags;
+	int i, error, timeout, xferflags;
 
 	target = xs->sc_link->target;
 	lun    = xs->sc_link->lun;
@@ -389,7 +386,7 @@ trm_scsi_cmd(struct scsi_xfer *xs)
 	xs->status = SCSI_OK;
 	xs->resid  = 0;
 
-	intflag = splbio();
+	crit_enter();
 
 	/* 
 	 * BuildSRB(pSRB,pDCB);
@@ -413,7 +410,7 @@ trm_scsi_cmd(struct scsi_xfer *xs)
 			printf("DMA transfer map unable to load, error = %d\n",
 			    error);
 			xs->error = XS_DRIVER_STUFFUP;
-			splx(intflag);
+			crit_leave();
 			scsi_done(xs);
 			return;
 		}
@@ -447,15 +444,15 @@ trm_scsi_cmd(struct scsi_xfer *xs)
 
 	if ((xferflags & SCSI_POLL) == 0) {
 		timeout_add_msec(&xs->stimeout, xs->timeout);
-		splx(intflag);
+		crit_leave();
 		return;
 	}
 
-	splx(intflag);
+	crit_leave();
 	for (timeout = xs->timeout; timeout > 0; timeout--) {
-		intflag = splbio();
+		crit_enter();
 		trm_Interrupt(sc);
-		splx(intflag);
+		crit_leave();
 		if (ISSET(xs->flags, ITSDONE))
 			break;
 		DELAY(1000);
@@ -553,6 +550,7 @@ trm_RecoverSRB(struct trm_softc *sc)
 	struct trm_scsi_req_q *pSRB;
 
 	/* ASSUME we are inside splbio()/splx() */
+	CRIT_ASSERT();
 
 	while ((pSRB = TAILQ_FIRST(&sc->goingSRB)) != NULL) {
 		pSRB->SRBFlag &= ~TRM_ON_GOING_SRB;
@@ -574,9 +572,9 @@ trm_reset (struct trm_softc *sc)
 {
 	const bus_space_handle_t ioh = sc->sc_iohandle;
 	const bus_space_tag_t iot = sc->sc_iotag;
-	int i, intflag;
+	int i;
 
-	intflag = splbio();
+	crit_enter();
 
 	bus_space_write_1(iot, ioh, TRM_S1040_DMA_INTEN,  0);
 	bus_space_write_1(iot, ioh, TRM_S1040_SCSI_INTEN, 0);
@@ -615,7 +613,7 @@ trm_reset (struct trm_softc *sc)
 	sc->sc_Flag = 0;
 	trm_StartWaitingSRB(sc);
 
-	splx(intflag);
+	crit_leave();
 }
 
 /*
@@ -1915,7 +1913,7 @@ trm_FinishSRB(struct trm_softc *sc, struct trm_scsi_req_q *pSRB)
 	struct scsi_sense_data *s1, *s2;
 	struct scsi_xfer *xs = pSRB->xs;
 	struct trm_dcb *pDCB = pSRB->pSRBDCB;
-	int target, lun, intflag;
+	int target, lun;
 
 #ifdef TRM_DEBUG0
 	printf("%s: trm_FinishSRB. sc = %p, pSRB = %p\n",
@@ -1923,7 +1921,7 @@ trm_FinishSRB(struct trm_softc *sc, struct trm_scsi_req_q *pSRB)
 #endif
 	pDCB->DCBFlag &= ~TRM_QUEUE_FULL;
 
-	intflag = splbio();
+	crit_enter();
 	if (pSRB->TagNumber != TRM_NO_TAG) {
 		pSRB->pSRBDCB->TagMask &= ~(1 << pSRB->TagNumber);
 		pSRB->TagNumber = TRM_NO_TAG;
@@ -1937,7 +1935,7 @@ trm_FinishSRB(struct trm_softc *sc, struct trm_scsi_req_q *pSRB)
 		pSRB->SRBFlag &= ~TRM_ON_GOING_SRB;
 		TAILQ_REMOVE(&sc->goingSRB, pSRB, link);
 	}
-	splx(intflag);
+	crit_leave();
 
 	if (xs == NULL) {
 		return;
@@ -2154,6 +2152,7 @@ trm_GoingSRB_Done(struct trm_softc *sc, struct trm_dcb *pDCB)
 	struct trm_scsi_req_q *pSRB, *pNextSRB;
 
 	/* ASSUME we are inside a splbio()/splx() pair */
+	CRIT_ASSERT();
 
 	pSRB = TAILQ_FIRST(&sc->goingSRB);
 	while (pSRB != NULL) {
@@ -2185,9 +2184,8 @@ trm_ResetSCSIBus(struct trm_softc *sc)
 {
 	const bus_space_handle_t ioh = sc->sc_iohandle;
 	const bus_space_tag_t iot = sc->sc_iotag;
-	int intflag;
 
-	intflag = splbio();
+	crit_enter();
 
 	sc->sc_Flag |= RESET_DEV;
 
@@ -2195,7 +2193,7 @@ trm_ResetSCSIBus(struct trm_softc *sc)
 	while ((bus_space_read_2(iot, ioh,
 	    TRM_S1040_SCSI_INTSTATUS) & INT_SCSIRESET) == 0);
 
-	splx(intflag);
+	crit_leave();
 }
 
 /*
@@ -2307,9 +2305,9 @@ void
 trm_linkSRB(struct trm_softc *sc)
 {
 	struct trm_scsi_req_q *pSRB;
-	int i, intflag;
+	int i;
 
-	intflag = splbio();
+	crit_enter();
 
 	for (i = 0; i < TRM_MAX_SRB_CNT; i++) {
 		pSRB = &sc->SRB[i];
@@ -2334,7 +2332,7 @@ trm_linkSRB(struct trm_softc *sc)
 		    &pSRB->dmamapxfer) != 0) {
 			printf("%s: unable to create DMA transfer map\n",
 			    sc->sc_device.dv_xname);
-			splx(intflag);
+			crit_leave();
 			return;
 		}
 
@@ -2348,7 +2346,7 @@ trm_linkSRB(struct trm_softc *sc)
 #ifdef TRM_DEBUG0
 	printf("\n ");
 #endif
-	splx(intflag);
+	crit_leave();
 }
 
 /*

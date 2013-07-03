@@ -110,7 +110,6 @@ ehci_pci_attach(struct device *parent, struct device *self, void *aux)
 	const char *vendor;
 	char *devname = sc->sc.sc_bus.bdev.dv_xname;
 	usbd_status r;
-	int s;
 
 	/* Map I/O registers */
 	if (pci_mapreg_map(pa, PCI_CBMEM, PCI_MAPREG_TYPE_MEM, 0,
@@ -124,7 +123,7 @@ ehci_pci_attach(struct device *parent, struct device *self, void *aux)
 	sc->sc.sc_bus.dmatag = pa->pa_dmat;
 
 	/* Disable interrupts, so we don't get any spurious ones. */
-	s = splhardusb();
+	crit_enter();
 	sc->sc.sc_offs = EREAD1(&sc->sc, EHCI_CAPLENGTH);
 	DPRINTF(("%s: offs=%d\n", devname, sc->sc.sc_offs));
 	EOWRITE2(&sc->sc, EHCI_USBINTR, 0);
@@ -216,7 +215,7 @@ ehci_pci_attach(struct device *parent, struct device *self, void *aux)
 		goto disestablish_ret;
 	}
 
-	splx(s);
+	crit_leave();
 
 	/* Attach usb device. */
 	sc->sc.sc_child = config_found((void *)sc, &sc->sc.sc_bus,
@@ -228,7 +227,7 @@ disestablish_ret:
 	pci_intr_disestablish(sc->sc_pc, sc->sc_ih);
 unmap_ret:
 	bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
-	splx(s);
+	crit_leave();
 }
 
 int

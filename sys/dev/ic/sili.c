@@ -1170,7 +1170,6 @@ sili_pmp_op_timeout(void *cookie)
 {
 	struct sili_ccb *ccb = cookie;
 	struct sili_port *sp = ccb->ccb_port;
-	int s;
 
 	switch (ccb->ccb_xa.state) {
 	case ATA_S_PENDING:
@@ -1179,9 +1178,9 @@ sili_pmp_op_timeout(void *cookie)
 		break;
 	case ATA_S_ONCHIP:
 		KASSERT(sp->sp_active == (1 << ccb->ccb_xa.tag));
-		s = splbio();
+		crit_enter();
 		sili_port_intr(sp, ccb->ccb_xa.tag);
-		splx(s);
+		crit_leave();
 		break;
 	case ATA_S_ERROR:
 		/* don't do anything? */
@@ -1424,7 +1423,6 @@ sili_ata_cmd(struct ata_xfer *xa)
 	struct sili_prb_packet		*atapi;
 	struct sili_sge			*sgl;
 	int				sgllen;
-	int				s;
 
 	KASSERT(xa->state == ATA_S_SETUP || xa->state == ATA_S_TIMEOUT);
 
@@ -1460,19 +1458,19 @@ sili_ata_cmd(struct ata_xfer *xa)
 	if (xa->flags & ATA_F_POLL)
 		sili_poll(ccb, xa->timeout, sili_ata_cmd_timeout);
 	else {
-		s = splbio();
+		crit_enter();
 		timeout_add_msec(&xa->stimeout, xa->timeout);
 		sili_start(sp, ccb);
-		splx(s);
+		crit_leave();
 	}
 
 	return;
 
 failcmd:
-	s = splbio();
+	crit_enter();
 	xa->state = ATA_S_ERROR;
 	ata_complete(xa);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1522,11 +1520,10 @@ sili_ata_cmd_timeout(void *xccb)
 {
 	struct sili_ccb			*ccb = xccb;
 	struct sili_port		*sp = ccb->ccb_port;
-	int				s;
 
-	s = splbio();
+	crit_enter();
 	sili_port_intr(sp, ccb->ccb_xa.tag);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1617,13 +1614,12 @@ int
 sili_poll(struct sili_ccb *ccb, int timeout, void (*timeout_fn)(void *))
 {
 	struct sili_port		*sp = ccb->ccb_port;
-	int				s;
 
-	s = splbio();
+	crit_enter();
 	sili_start(sp, ccb);
 	do {
 		if (sili_port_intr(sp, -1) & (1 << ccb->ccb_xa.tag)) {
-			splx(s);
+			crit_leave();
 			return (ccb->ccb_xa.state != ATA_S_COMPLETE);
 		}
 
@@ -1634,7 +1630,7 @@ sili_poll(struct sili_ccb *ccb, int timeout, void (*timeout_fn)(void *))
 	if (timeout_fn != NULL)
 		timeout_fn(ccb);
 
-	splx(s);
+	crit_leave();
 
 	return (1);
 }

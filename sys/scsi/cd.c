@@ -445,7 +445,6 @@ void
 cdstrategy(struct buf *bp)
 {
 	struct cd_softc *sc;
-	int s;
 
 	sc = cdlookup(DISKUNIT(bp->b_dev));
 	if (sc == NULL) {
@@ -488,9 +487,9 @@ cdstrategy(struct buf *bp)
 	bp->b_flags |= B_ERROR;
 	bp->b_resid = bp->b_bcount;
  done:
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	if (sc != NULL)
 		device_unref(&sc->sc_dev);
 }
@@ -613,7 +612,7 @@ cd_buf_done(struct scsi_xfer *xs)
 {
 	struct cd_softc *sc = xs->sc_link->device_softc;
 	struct buf *bp = xs->cookie;
-	int error, s;
+	int error;
 
 	switch (xs->error) {
 	case XS_NOERROR:
@@ -671,9 +670,9 @@ retry:
 	disk_unbusy(&sc->sc_dk, bp->b_bcount - xs->resid,
 	    bp->b_flags & B_READ);
 
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	scsi_xs_put(xs);
 }
 

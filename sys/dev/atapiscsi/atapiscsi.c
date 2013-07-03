@@ -328,7 +328,6 @@ wdc_atapi_send_cmd(struct scsi_xfer *sc_xfer)
  	struct channel_softc *chp = as->chp;
 	struct ata_drive_datas *drvp = &chp->ch_drive[as->drive];
 	struct wdc_xfer *xfer;
-	int s;
 	int idx;
 
 	WDCDEBUG_PRINT(("wdc_atapi_send_cmd %s:%d:%d start\n",
@@ -370,7 +369,7 @@ wdc_atapi_send_cmd(struct scsi_xfer *sc_xfer)
 	}
 	WDCDEBUG_PRINT(("\n"), DEBUG_XFERS | DEBUG_ERRORS);
 
-	s = splbio();
+	crit_enter();
 
 	if (drvp->atapi_cap & ACAP_DSC) {
 		WDCDEBUG_PRINT(("about to send cmd 0x%x ",
@@ -426,7 +425,7 @@ wdc_atapi_send_cmd(struct scsi_xfer *sc_xfer)
 	}
 
 	wdc_exec_xfer(chp, xfer);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -534,20 +533,19 @@ wdc_atapi_timer_handler(void *arg)
 {
 	struct channel_softc *chp = arg;
 	struct wdc_xfer *xfer;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	xfer = TAILQ_FIRST(&chp->ch_queue->sc_xfer);
 	if (xfer == NULL ||
 	    !timeout_triggered(&xfer->atapi_poll_to)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	xfer->c_flags &= ~C_POLL_MACHINE;
 	timeout_del(&xfer->atapi_poll_to);
 	chp->ch_flags &= ~WDCF_IRQ_WAIT;
 	wdc_atapi_the_machine(chp, xfer, ctxt_timer);
-	splx(s);
+	crit_leave();
 }
 
 

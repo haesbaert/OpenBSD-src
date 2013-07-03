@@ -714,7 +714,6 @@ cd9660_strategy(void *v)
 	struct vnode *vp = bp->b_vp;
 	struct iso_node *ip;
 	int error;
-	int s;
 
 	ip = VTOI(vp);
 	if (vp->v_type == VBLK || vp->v_type == VCHR)
@@ -724,18 +723,18 @@ cd9660_strategy(void *v)
 		if (error) {
 			bp->b_error = error;
 			bp->b_flags |= B_ERROR;
-			s = splbio();
+			crit_enter();
 			biodone(bp);
-			splx(s);
+			crit_leave();
 			return (error);
 		}
 		if ((long)bp->b_blkno == -1)
 			clrbuf(bp);
 	}
 	if ((long)bp->b_blkno == -1) {
-		s = splbio();
+		crit_enter();
 		biodone(bp);
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	vp = ip->i_devvp;

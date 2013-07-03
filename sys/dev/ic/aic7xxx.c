@@ -6693,7 +6693,6 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 	struct	   ahc_tmode_lstate *lstate;
 	struct	   ccb_en_lun *cel;
 	cam_status status;
-	u_long	   s;
 	u_int	   target;
 	u_int	   lun;
 	u_int	   target_mask;
@@ -6775,14 +6774,13 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 	 */
 	if ((ahc->flags & AHC_TARGETROLE) == 0
 	 && ccb->ccb_h.target_id != CAM_TARGET_WILDCARD) {
-		u_long	 s;
 		ahc_flag saved_flags;
 
 		printf("Configuring Target Mode\n");
-		s = splbio();
+		crit_enter();
 		if (LIST_FIRST(&ahc->pending_scbs) != NULL) {
 			ccb->ccb_h.status = CAM_BUSY;
-			splx(s);
+			crit_leave();
 			return;
 		}
 		saved_flags = ahc->flags;
@@ -6803,12 +6801,12 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 			ahc->flags = saved_flags;
 			(void)ahc_loadseq(ahc);
 			ahc_restart(ahc);
-			splx(s);
+			crit_leave();
 			ccb->ccb_h.status = CAM_FUNC_NOTAVAIL;
 			return;
 		}
 		ahc_restart(ahc);
-		splx(s);
+		crit_leave();
 	}
 	cel = &ccb->cel;
 	target = ccb->ccb_h.target_id;
@@ -6873,7 +6871,7 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 		}
 		SLIST_INIT(&lstate->accept_tios);
 		SLIST_INIT(&lstate->immed_notifies);
-		s = splbio();
+		crit_enter()
 		ahc_pause(ahc);
 		if (target != CAM_TARGET_WILDCARD) {
 			tstate->enabled_luns[lun] = lstate;
@@ -6939,7 +6937,7 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 			ahc_outb(ahc, SCSISEQ, scsiseq);
 		}
 		ahc_unpause(ahc);
-		splx(s);
+		crit_leave();
 		ccb->ccb_h.status = CAM_REQ_CMP;
 		xpt_print_path(ccb->ccb_h.path);
 		printf("Lun now enabled for target mode\n");
@@ -6952,7 +6950,7 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 			return;
 		}
 
-		s = splbio();
+		crit_enter();
 
 		ccb->ccb_h.status = CAM_REQ_CMP;
 		LIST_FOREACH(scb, &ahc->pending_scbs, pending_links) {
@@ -6963,7 +6961,7 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 			 && !xpt_path_comp(ccbh->path, ccb->ccb_h.path)){
 				printf("CTIO pending\n");
 				ccb->ccb_h.status = CAM_REQ_INVALID;
-				splx(s);
+				crit_leave();
 				return;
 			}
 		}
@@ -6979,7 +6977,7 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 		}
 
 		if (ccb->ccb_h.status != CAM_REQ_CMP) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 
@@ -7054,7 +7052,7 @@ ahc_handle_en_lun(struct ahc_softc *ahc, struct cam_sim *sim, union ccb *ccb)
 			}
 		}
 		ahc_unpause(ahc);
-		splx(s);
+		crit_leave();
 	}
 }
 

@@ -813,7 +813,7 @@ done:
 int
 qli_mgmt(struct qli_softc *sc, int len, u_int32_t *mbox)
 {
-	int			rv = 1, s, i;
+	int			rv = 1, i;
 	u_int32_t		x;
 
 	DNPRINTF(QLI_D_MBOX, "%s: qli_mgmt: cold: %d\n", DEVNAME(sc), cold);
@@ -821,7 +821,7 @@ qli_mgmt(struct qli_softc *sc, int len, u_int32_t *mbox)
 	if (!mbox)
 		goto done;
 
-	s = splbio();
+	crit_enter();
 	rw_enter_write(&sc->sc_mbox_lock);
 
 	if (qli_read(sc, &sc->sc_reg->qlr_ctrl_status) &
@@ -877,7 +877,7 @@ qli_mgmt(struct qli_softc *sc, int len, u_int32_t *mbox)
 	}
 
 	rw_exit_write(&sc->sc_mbox_lock);
-	splx(s);
+	crit_leave();
 done:
 	return (rv);
 }

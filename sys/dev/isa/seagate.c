@@ -536,7 +536,6 @@ sea_scsi_cmd(struct scsi_xfer *xs)
 	struct sea_softc *sea = sc_link->adapter_softc;
 	struct sea_scb *scb;
 	int flags;
-	int s;
 
 	SC_DEBUG(sc_link, SDEV_DB2, ("sea_scsi_cmd\n"));
 
@@ -567,7 +566,7 @@ sea_scsi_cmd(struct scsi_xfer *xs)
 	sea_queue_length(sea);
 #endif
 
-	s = splbio();
+	crit_enter();
 
 	sea_send_scb(sea, scb);
 
@@ -576,11 +575,11 @@ sea_scsi_cmd(struct scsi_xfer *xs)
 	 */
 	if ((flags & SCSI_POLL) == 0) {
 		timeout_add_msec(&scb->xs->stimeout, xs->timeout);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
-	splx(s);
+	crit_leave();
 
 	/*
 	 * If we can't use interrupts, poll on completion
@@ -641,7 +640,6 @@ sea_main(void)
 	struct sea_scb *scb;
 	int done;
 	int unit;
-	int s;
 
 	main_running = 1;
 
@@ -655,7 +653,7 @@ loop:
 		sea = sea_cd.cd_devs[unit];
 		if (!sea)
 			continue;
-		s = splbio();
+		crit_enter();
 		if (!sea->nexus) {
 			/*
 			 * Search through the ready_list for a command
@@ -668,7 +666,7 @@ loop:
 					    chain);
 
 					/* Re-enable interrupts. */
-					splx(s);
+					crit_leave();
 
 					/*
 					 * Attempt to establish an I_T_L nexus.
@@ -699,10 +697,10 @@ loop:
 						break;
 					}
 					if (sea_select(sea, scb)) {
-						s = splbio();
+						crit_enter();
 						TAILQ_INSERT_HEAD(&sea->ready_list,
 						    scb, chain);
-						splx(s);
+						crit_leave();
 					} else
 						break;
 				} /* if target/lun is not busy */
@@ -716,7 +714,7 @@ loop:
 			}
 		} /* if (!sea->nexus) */
 
-		splx(s);
+		crit_leave();
 		if (sea->nexus) {	/* we are connected. Do the task */
 			sea_information_transfer(sea);
 			done = 0;
@@ -750,12 +748,11 @@ sea_timeout(void *arg)
 	struct scsi_xfer *xs = scb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	struct sea_softc *sea = sc_link->adapter_softc;
-	int s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 	/*
 	 * If it has been through before, then
@@ -778,7 +775,7 @@ sea_timeout(void *arg)
 			timeout_add_sec(&scb->xs->stimeout, 2);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1136,14 +1133,12 @@ sea_done(struct sea_softc *sea, struct sea_scb *scb)
 int
 sea_poll(struct sea_softc *sea, struct scsi_xfer *xs, int count)
 {
-	int s;
-
 	while (count) {
 		/* try to do something */
-		s = splbio();
+		crit_enter();
 		if (!main_running)
 			sea_main();
-		splx(s);
+		crit_leave();
 		if (xs->flags & ITSDONE)
 			return 0;
 		delay(1000);
@@ -1162,7 +1157,6 @@ sea_information_transfer(struct sea_softc *sea)
 	int timeout;
 	u_char msgout = MSG_NOOP;
 	int len;
-	int s;
 	u_char *data;
 	u_char phase, tmp, old_phase = PH_INVALID;
 	struct sea_scb *scb = sea->nexus;
@@ -1180,10 +1174,10 @@ sea_information_transfer(struct sea_softc *sea)
 			if (!(tmp & STAT_BSY)) {
 				printf("%s: !STAT_BSY unit in data transfer!\n",
 				    sea->sc_dev.dv_xname);
-				s = splbio();
+				crit_enter();
 				sea->nexus = NULL;
 				scb->flags = SCB_ERROR;
-				splx(s);
+				crit_leave();
 				sea_done(sea, scb);
 				return;
 			}
@@ -1295,9 +1289,9 @@ sea_information_transfer(struct sea_softc *sea)
 				sea_done(sea, scb);
 				return;
 			case MSG_CMDCOMPLETE:
-				s = splbio();
+				crit_enter();
 				sea->nexus = NULL;
-				splx(s);
+				crit_leave();
 				sea->busy[scb->xs->sc_link->target] &=
 				    ~(1 << scb->xs->sc_link->lun);
 				CONTROL = BASE_CMD;
@@ -1308,12 +1302,12 @@ sea_information_transfer(struct sea_softc *sea)
 				    sea->sc_dev.dv_xname);
 				break;
 			case MSG_DISCONNECT:
-				s = splbio();
+				crit_enter();
 				TAILQ_INSERT_TAIL(&sea->nexus_list,
 				    scb, chain);
 				sea->nexus = NULL;
 				CONTROL = BASE_CMD;
-				splx(s);
+				crit_leave();
 				return;
 			case MSG_SAVEDATAPOINTER:
 			case MSG_RESTOREPOINTERS:
@@ -1339,12 +1333,12 @@ sea_information_transfer(struct sea_softc *sea)
 			if (msgout == MSG_ABORT) {
 				printf("%s: sent message abort to target\n",
 				    sea->sc_dev.dv_xname);
-				s = splbio();
+				crit_enter();
 				sea->busy[scb->xs->sc_link->target] &=
 				    ~(1 << scb->xs->sc_link->lun);
 				sea->nexus = NULL;
 				scb->flags = SCB_ABORTED;
-				splx(s);
+				crit_leave();
 				/* enable interrupt from scsi */
 				sea_done(sea, scb);
 				return;

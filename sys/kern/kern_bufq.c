@@ -242,14 +242,13 @@ void
 bufq_drain(struct bufq *bq)
 {
 	struct buf	*bp;
-	int		 s;
 
 	while ((bp = bufq_dequeue(bq)) != NULL) {
 		bp->b_error = ENXIO;
 		bp->b_flags |= B_ERROR;
-		s = splbio();
+		crit_enter();
 		biodone(bp);
-		splx(s);
+		crit_leave();
 	}
 }
 

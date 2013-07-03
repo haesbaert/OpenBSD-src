@@ -303,7 +303,7 @@ uvm_pageout(void *arg)
 void
 uvm_aiodone_daemon(void *arg)
 {
-	int s, free;
+	int free;
 	struct buf *bp, *nbp;
 
 	uvm.aiodoned_proc = curproc;
@@ -332,9 +332,9 @@ uvm_aiodone_daemon(void *arg)
 				uvmexp.paging -= bp->b_bufsize >> PAGE_SHIFT;
 			}
 			nbp = TAILQ_NEXT(bp, b_freelist);
-			s = splbio();	/* b_iodone must by called at splbio */
+			crit_enter();	/* b_iodone must by called at splbio */
 			(*bp->b_iodone)(bp);
-			splx(s);
+			crit_leave();
 			bp = nbp;
 		}
 		uvm_lock_fpageq();

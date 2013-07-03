@@ -59,10 +59,10 @@ struct ciss_softc {
 };
 
 /* XXX These have to become spinlocks in case of fine SMP */
-#define	CISS_LOCK(sc) splbio()
-#define	CISS_UNLOCK(sc, lock) splx(lock)
-#define	CISS_LOCK_SCRATCH(sc) splbio()
-#define	CISS_UNLOCK_SCRATCH(sc, lock) splx(lock)
+#define	CISS_LOCK(sc) crit_enter()
+#define	CISS_UNLOCK(sc) crit_leave()
+#define	CISS_LOCK_SCRATCH(sc) crit_enter()
+#define	CISS_UNLOCK_SCRATCH(sc) crit_leave()
 typedef	int ciss_lock_t;
 
 int	ciss_attach(struct ciss_softc *sc);

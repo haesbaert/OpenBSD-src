@@ -111,7 +111,6 @@ uhci_pci_attach(struct device *parent, struct device *self, void *aux)
 	pci_intr_handle_t ih;
 	const char *vendor;
 	char *devname = sc->sc.sc_bus.bdev.dv_xname;
-	int s;
 
 	/* Map I/O registers */
 	if (pci_mapreg_map(pa, PCI_CBIO, PCI_MAPREG_TYPE_IO, 0,
@@ -122,7 +121,7 @@ uhci_pci_attach(struct device *parent, struct device *self, void *aux)
 
 
 	/* Disable interrupts, so we don't get any spurious ones. */
-	s = splhardusb();
+	crit_enter();
 	bus_space_write_2(sc->sc.iot, sc->sc.ioh, UHCI_INTR, 0);
 
 	sc->sc_pc = pc;
@@ -184,13 +183,13 @@ uhci_pci_attach(struct device *parent, struct device *self, void *aux)
 	/* Ignore interrupts for now */
 	sc->sc.sc_bus.dying = 1;
 
-	splx(s);
+	crit_leave();
 
 	return;
 
 unmap_ret:
 	bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -199,9 +198,8 @@ uhci_pci_attach_deferred(struct device *self)
 	struct uhci_pci_softc *sc = (struct uhci_pci_softc *)self;
 	char *devname = sc->sc.sc_bus.bdev.dv_xname;
 	usbd_status r;
-	int s;
 
-	s = splhardusb();
+	crit_enter();
 	
 	sc->sc.sc_bus.dying = 0;
 	r = uhci_init(&sc->sc);
@@ -209,7 +207,7 @@ uhci_pci_attach_deferred(struct device *self)
 		printf("%s: init failed, error=%d\n", devname, r);
 		goto unmap_ret;
 	}
-	splx(s);
+	crit_leave();
 
 	/* Attach usb device. */
 	sc->sc.sc_child = config_found((void *)sc, &sc->sc.sc_bus,

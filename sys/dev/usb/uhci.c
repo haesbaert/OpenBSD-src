@@ -1486,11 +1486,11 @@ uhci_reset(struct uhci_softc *sc)
 usbd_status
 uhci_run(struct uhci_softc *sc, int run)
 {
-	int s, n, running;
+	int n, running;
 	u_int16_t cmd;
 
 	run = run != 0;
-	s = splhardusb();
+	crit_enter();
 	DPRINTF(("uhci_run: setting run=%d\n", run));
 	cmd = UREAD2(sc, UHCI_CMD);
 	if (run)
@@ -1502,14 +1502,14 @@ uhci_run(struct uhci_softc *sc, int run)
 		running = !(UREAD2(sc, UHCI_STS) & UHCI_STS_HCH);
 		/* return when we've entered the state we want */
 		if (run == running) {
-			splx(s);
+			crit_leave();
 			DPRINTF(("uhci_run: done cmd=0x%x sts=0x%x\n",
 				 UREAD2(sc, UHCI_CMD), UREAD2(sc, UHCI_STS)));
 			return (USBD_NORMAL_COMPLETION);
 		}
 		usb_delay_ms(&sc->sc_bus, 1);
 	}
-	splx(s);
+	crit_leave();
 	printf("%s: cannot %s\n", sc->sc_bus.bdev.dv_xname,
 	       run ? "start" : "stop");
 	return (USBD_IOERROR);

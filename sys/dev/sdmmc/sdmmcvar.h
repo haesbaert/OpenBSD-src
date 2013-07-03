@@ -201,7 +201,6 @@ struct sdmmc_attach_args {
 };
 
 #define IPL_SDMMC	IPL_BIO
-#define splsdmmc()	splbio()
 
 #define	SDMMC_ASSERT_LOCKED(sc) \
 	rw_assert_wrlock(&(sc)->sc_lock)

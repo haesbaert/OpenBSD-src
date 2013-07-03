@@ -568,7 +568,7 @@ nfssvc_iod(void *arg)
 	struct buf *bp, *nbp;
 	int i, myiod;
 	struct vnode *vp;
-	int error = 0, s, bufcount;
+	int error = 0, bufcount;
 
 	bufcount = MIN(256, bcstats.kvaslots / 8);
 	bufcount = MIN(bufcount, bcstats.numbufs / 8);
@@ -621,7 +621,7 @@ nfssvc_iod(void *arg)
 		     * we are doing the write rpc.
 		     */
 		    vp = bp->b_vp;
-		    s = splbio();
+		    crit_enter();
 		    LIST_FOREACH(nbp, &vp->v_dirtyblkhd, b_vnbufs) {
 			if ((nbp->b_flags &
 			    (B_BUSY|B_DELWRI|B_NEEDCOMMIT|B_NOCACHE))!=B_DELWRI)
@@ -640,7 +640,7 @@ nfssvc_iod(void *arg)
 			buf_undirty(nbp);
 			nbp->b_vp->v_numoutput++;
 		    }
-		    splx(s);
+		    crit_leave();
 
 		    (void) nfs_doio(bp, NULL);
 		} while ((bp = nbp) != NULL);

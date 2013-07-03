@@ -469,7 +469,7 @@ dpt_poll(sc, ccb)
         struct dpt_softc *sc;
         struct dpt_ccb *ccb;
 {
-	int i, s;
+	int i;
 
 #ifdef DEBUG
 	if ((ccb->ccb_flg & CCB_PRIVATE) == 0)
@@ -481,9 +481,9 @@ dpt_poll(sc, ccb)
 
         for (i = ccb->ccb_timeout * 20; i; i--) {
                 if ((dpt_inb(sc, HA_AUX_STATUS) & HA_AUX_INTR) != 0) {
-			s = splbio();
+			crit_enter();
                 	dpt_intr(sc);
-			splx(s);
+			crit_leave();
 		}
                 if ((ccb->ccb_flg & CCB_INTR) != 0)
                 	return (0);
@@ -790,7 +790,7 @@ dpt_done_ccb(sc, ccb)
 void
 dpt_scsi_cmd(struct scsi_xfer *xs)
 {
-	int error, i, flags, s;
+	int error, i, flags;
 	struct scsi_link *sc_link;
 	struct dpt_channel *ch;
 	struct dpt_softc *sc;
@@ -935,9 +935,9 @@ dpt_scsi_cmd(struct scsi_xfer *xs)
 			dpt_timeout(ccb);
 	} 
 	
-	s = splbio();
+	crit_enter();
 	dpt_done_ccb(sc, ccb);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -952,7 +952,6 @@ dpt_timeout(arg)
 	struct dpt_channel *ch;
 	struct dpt_softc *sc;
  	struct dpt_ccb *ccb;
-	int s;
 	
 	ccb = arg;
 	xs = ccb->ccb_xs;
@@ -964,7 +963,7 @@ dpt_timeout(arg)
 	printf("timed out (status:%02x aux status:%02x)", 
 	    dpt_inb(sc, HA_STATUS), dpt_inb(sc, HA_AUX_STATUS));
 
-	s = splbio();
+	crit_enter();
 
 	if ((ccb->ccb_flg & CCB_ABORT) != 0) {
 		/* Abort timed out, reset the HBA */
@@ -983,7 +982,7 @@ dpt_timeout(arg)
 		    printf("%s: dpt_cmd failed\n", sc->sc_dv.dv_xname);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 #ifdef DEBUG

@@ -207,7 +207,6 @@ rdstrategy(struct buf *bp)
 	struct partition *p;
 	size_t off, xfer;
 	caddr_t addr;
-	int s;
 
 	sc = rdlookup(DISKUNIT(bp->b_dev));
 	if (sc == NULL) {
@@ -242,9 +241,9 @@ rdstrategy(struct buf *bp)
 	bp->b_flags |= B_ERROR;
 	bp->b_resid = bp->b_bcount;
  done:
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	if (sc != NULL)
 		device_unref(&sc->sc_dev);
 }

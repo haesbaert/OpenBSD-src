@@ -289,7 +289,7 @@ oosiop_alloc_cb(struct oosiop_softc *sc, int ncb)
 	struct oosiop_xfer *xfer;
 	bus_size_t xfersize;
 	bus_dma_segment_t seg;
-	int i, s, err, nseg;
+	int i, err, nseg;
 
 	/*
 	 * Allocate oosiop_cb.
@@ -351,9 +351,9 @@ oosiop_alloc_cb(struct oosiop_softc *sc, int ncb)
 
 		cb->xfer = xfer;
 
-		s = splbio();
+		crit_enter();
 		TAILQ_INSERT_TAIL(&sc->sc_free_cb, cb, chain);
-		splx(s);
+		crit_leave();
 
 		cb++;
 		xfer++;
@@ -742,12 +742,12 @@ oosiop_scsicmd(struct scsi_xfer *xs)
 	struct oosiop_softc *sc;
 	struct oosiop_cb *cb;
 	struct oosiop_xfer *xfer;
-	int s, err;
+	int err;
 	int dopoll;
 
 	sc = (struct oosiop_softc *)xs->sc_link->adapter_softc;
 
-	s = splbio();
+	crit_enter();
 
 	cb = xs->io;
 
@@ -768,7 +768,7 @@ oosiop_scsicmd(struct scsi_xfer *xs)
 	if (err) {
 		printf("%s: unable to load cmd DMA map: %d",
 		    sc->sc_dev.dv_xname, err);
-		splx(s);
+		crit_leave();
 		xs->error = XS_DRIVER_STUFFUP;
 		scsi_done(xs);
 		return;
@@ -790,7 +790,7 @@ oosiop_scsicmd(struct scsi_xfer *xs)
 			printf("%s: unable to load data DMA map: %d",
 			    sc->sc_dev.dv_xname, err);
 			bus_dmamap_unload(sc->sc_dmat, cb->cmddma);
-			splx(s);
+			crit_leave();
 			xs->error = XS_DRIVER_STUFFUP;
 			scsi_done(xs);
 			return;
@@ -816,7 +816,7 @@ oosiop_scsicmd(struct scsi_xfer *xs)
 		timeout_add_msec(&xs->stimeout, xs->timeout);
 	}
 
-	splx(s);
+	crit_leave();
 
 	oosiop_setup(sc, cb);
 
@@ -834,10 +834,10 @@ void
 oosiop_poll(struct oosiop_softc *sc, struct oosiop_cb *cb)
 {
 	struct scsi_xfer *xs = cb->xs;
-	int i, s, to;
+	int i, to;
 	u_int8_t istat;
 
-	s = splbio();
+	crit_enter();
 	to = xs->timeout / 1000;
 	for (;;) {
 		i = 1000;
@@ -848,7 +848,7 @@ oosiop_poll(struct oosiop_softc *sc, struct oosiop_cb *cb)
 				to--;
 				if (to <= 0) {
 					oosiop_reset(sc, TRUE);
-					splx(s);
+					crit_leave();
 					return;
 				}
 			}
@@ -861,7 +861,7 @@ oosiop_poll(struct oosiop_softc *sc, struct oosiop_cb *cb)
 			break;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1031,27 +1031,26 @@ oosiop_timeout(void *arg)
 	struct oosiop_cb *cb = arg;
 	struct scsi_xfer *xs = cb->xs;
 	struct oosiop_softc *sc = xs->sc_link->adapter_softc;
-	int s;
 
 	sc_print_addr(xs->sc_link);
 	printf("command 0x%02x timeout on xs %p\n", xs->cmd->opcode, xs);
 
-	s = splbio();
+	crit_enter();
 
 	oosiop_reset_bus(sc);
 
 	cb->flags |= CBF_TIMEOUT;
 	oosiop_done(sc, cb);
 
-	splx(s);
+	crit_leave();
 }
 
 void
 oosiop_reset(struct oosiop_softc *sc, int allflags)
 {
-	int i, s;
+	int i;
 
-	s = splbio();
+	crit_enter();
 
 	/* Stop SCRIPTS processor */
 	oosiop_write_1(sc, OOSIOP_ISTAT, OOSIOP_ISTAT_ABRT);
@@ -1097,15 +1096,15 @@ oosiop_reset(struct oosiop_softc *sc, int allflags)
 		sc->sc_tgt[i].sxfer = 0;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
 oosiop_reset_bus(struct oosiop_softc *sc)
 {
-	int s, i;
+	int i;
 
-	s = splbio();
+	crit_enter();
 
 	/* Assert SCSI RST */
 	oosiop_write_1(sc, OOSIOP_SCNTL1, OOSIOP_SCNTL1_RST);
@@ -1125,7 +1124,7 @@ oosiop_reset_bus(struct oosiop_softc *sc)
 
 	delay(250000);	/* Reset to selection (250ms) */
 
-	splx(s);
+	crit_leave();
 }
 
 /*

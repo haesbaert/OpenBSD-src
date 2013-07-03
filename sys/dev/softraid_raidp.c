@@ -144,14 +144,14 @@ sr_raidp_openings(struct sr_discipline *sd)
 void
 sr_raidp_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 {
-	int			old_state, s;
+	int			old_state;
 
 	DNPRINTF(SR_D_STATE, "%s: %s: %s: sr_raid_set_chunk_state %d -> %d\n",
 	    DEVNAME(sd->sd_sc), sd->sd_meta->ssd_devname,
 	    sd->sd_vol.sv_chunks[c]->src_meta.scmi.scm_devname, c, new_state);
 
 	/* ok to go to splbio since this only happens in error path */
-	s = splbio();
+	crit_enter();
 	old_state = sd->sd_vol.sv_chunks[c]->src_meta.scm_status;
 
 	/* multiple IOs to the same chunk that fail will come through here */
@@ -198,7 +198,7 @@ sr_raidp_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 
 	default:
 die:
-		splx(s); /* XXX */
+		crit_leave(); /* XXX */
 		panic("%s: %s: %s: invalid chunk state transition "
 		    "%d -> %d", DEVNAME(sd->sd_sc),
 		    sd->sd_meta->ssd_devname,
@@ -213,7 +213,7 @@ die:
 	sd->sd_must_flush = 1;
 	workq_add_task(NULL, 0, sr_meta_save_callback, sd, NULL);
 done:
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -336,7 +336,7 @@ sr_raidp_rw(struct sr_workunit *wu)
 	struct sr_discipline	*sd = wu->swu_dis;
 	struct scsi_xfer	*xs = wu->swu_xs;
 	struct sr_chunk		*scp;
-	int			s, i;
+	int			i;
 	daddr_t			blk, lbaoffs, strip_no, chunk, row_size;
 	daddr_t			strip_size, no_chunk, lba, chunk_offs, phys_offs;
 	daddr_t			strip_bits, length, parity, strip_offs, datalen;
@@ -475,7 +475,7 @@ sr_raidp_rw(struct sr_workunit *wu)
 		data += length;
 	}
 
-	s = splbio();
+	crit_enter();
 	if (wu_r) {
 		/* collide write request with reads */
 		wu_r->swu_blk_start = wu->swu_blk_start;
@@ -487,7 +487,7 @@ sr_raidp_rw(struct sr_workunit *wu)
 
 		wu = wu_r;
 	}
-	splx(s);
+	crit_leave();
 
 	sr_schedule_wu(wu);
 
@@ -507,12 +507,11 @@ sr_raidp_intr(struct buf *bp)
 	struct sr_ccb		*ccb = (struct sr_ccb *)bp;
 	struct sr_workunit	*wu = ccb->ccb_wu;
 	struct sr_discipline	*sd = wu->swu_dis;
-	int			s;
 
 	DNPRINTF(SR_D_INTR, "%s: sr_raidp_intr bp %p xs %p\n",
 	    DEVNAME(sd->sd_sc), bp, wu->swu_xs);
 
-	s = splbio();
+	crit_enter();
 	sr_ccb_done(ccb);
 
 	/* XXX - Should this be done via the workq? */
@@ -529,7 +528,7 @@ sr_raidp_intr(struct buf *bp)
 	}
 
 	sr_wu_done(wu);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -634,7 +633,7 @@ sr_raidp_scrub(struct sr_discipline *sd)
 	daddr_t strip_no, strip_size, no_chunk, parity, max_strip, strip_bits;
 	daddr_t i;
 	struct sr_workunit *wu_r, *wu_w;
-	int s, slept;
+	int slept;
 	void *xorbuf;
 
 	wu_w = sr_scsi_wu_get(sd, 0);
@@ -668,9 +667,9 @@ sr_raidp_scrub(struct sr_discipline *sd)
 		wu_w->swu_flags |= SR_WUF_REBUILD | SR_WUF_WAKEUP;
 		wu_r->swu_collider = wu_w;
 
-		s = splbio();
+		crit_enter();
 		TAILQ_INSERT_TAIL(&sd->sd_wu_defq, wu_w, swu_link);
-		splx(s);
+		crit_leave();
 
 		wu_r->swu_state = SR_WU_INPROGRESS;
 		sr_schedule_wu(wu_r);

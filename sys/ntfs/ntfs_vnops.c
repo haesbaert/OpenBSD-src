@@ -257,7 +257,7 @@ ntfs_strategy(void *v)
 	struct fnode *fp = VTOF(vp);
 	struct ntnode *ip = FTONT(fp);
 	struct ntfsmount *ntmp = ip->i_mp;
-	int error, s;
+	int error;
 
 	dprintf(("ntfs_strategy: blkno: %d, lblkno: %d\n",
 		(u_int32_t)bp->b_blkno,
@@ -315,9 +315,9 @@ ntfs_strategy(void *v)
 			}
 		}
 	}
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

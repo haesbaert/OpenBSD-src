@@ -1264,7 +1264,7 @@ cb_pcmcia_poll(void *arg)
 		s = splnet();
 		break;
 	case IPL_BIO:
-		s = splbio();
+		crit_enter();
 		break;
 	case IPL_TTY:		       /* fallthrough */
 	default:
@@ -1290,7 +1290,10 @@ cb_pcmcia_poll(void *arg)
 #endif
 		}
 	}
-	splx(s);
+	if (poll->level == IPL_BIO)
+		crit_leave();
+	else
+		splx(s);
 }
 #endif /* defined CB_PCMCIA_POLL */
 
@@ -2411,7 +2414,7 @@ pccbb_pcmcia_poll(void *arg)
 		s = splnet();
 		break;
 	case IPL_BIO:
-		s = splbio();
+		crit_enter();
 		break;
 	case IPL_TTY:		       /* fallthrough */
 	default:
@@ -2438,7 +2441,10 @@ pccbb_pcmcia_poll(void *arg)
 #endif
 		}
 	}
-	splx(s);
+	if (poll->level == IPL_BIO)
+		crit_leave();
+	else
+		splx(s);
 }
 #endif /* defined CB_PCMCIA_POLL */
 

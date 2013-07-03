@@ -1007,21 +1007,13 @@ isp_mbox_acquire(ispsoftc_t *isp)
 void
 isp_lock(struct ispsoftc *isp)
 {
-	int s = splbio();
-	if (isp->isp_osinfo.islocked++ == 0) {
-		isp->isp_osinfo.splsaved = s;
-	} else {
-		splx(s);
-	}
+	crit_enter();
 }
 
 void
 isp_unlock(struct ispsoftc *isp)
 {
-	if (isp->isp_osinfo.islocked-- <= 1) {
-		isp->isp_osinfo.islocked = 0;
-		splx(isp->isp_osinfo.splsaved);
-	}
+	crit_leave();
 }
 
 /*

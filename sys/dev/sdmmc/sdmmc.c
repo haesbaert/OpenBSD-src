@@ -186,12 +186,11 @@ sdmmc_task_thread(void *arg)
 {
 	struct sdmmc_softc *sc = arg;
 	struct sdmmc_task *task;
-	int s;
 
 restart:
 	sdmmc_needs_discover(&sc->sc_dev);
 
-	s = splsdmmc();
+	crit_enter();
 	while (!sc->sc_dying) {
 		for (task = TAILQ_FIRST(&sc->sc_tskq); task != NULL;
 		     task = TAILQ_FIRST(&sc->sc_tskq)) {
@@ -202,7 +201,7 @@ restart:
 		}
 		tsleep(&sc->sc_tskq, PWAIT, "mmctsk", 0);
 	}
-	splx(s);
+	crit_leave();
 
 	if (ISSET(sc->sc_flags, SMF_CARD_PRESENT)) {
 		rw_enter_write(&sc->sc_lock);
@@ -227,30 +226,27 @@ restart:
 void
 sdmmc_add_task(struct sdmmc_softc *sc, struct sdmmc_task *task)
 {
-	int s;
-
-	s = splsdmmc();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&sc->sc_tskq, task, next);
 	task->onqueue = 1;
 	task->sc = sc;
 	wakeup(&sc->sc_tskq);
-	splx(s);
+	crit_leave();
 }
 
 void
 sdmmc_del_task(struct sdmmc_task *task)
 {
 	struct sdmmc_softc *sc = task->sc;
-	int s;
 
 	if (sc == NULL)
 		return;
 
-	s = splsdmmc();
+	crit_enter();
 	task->sc = NULL;
 	task->onqueue = 0;
 	TAILQ_REMOVE(&sc->sc_tskq, task, next);
-	splx(s);
+	crit_leave();
 }
 
 void

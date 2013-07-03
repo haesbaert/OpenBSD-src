@@ -252,7 +252,6 @@ u24_poll(sc, xs, count)
 {
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
 	while (count) {
 		/*
@@ -260,9 +259,9 @@ u24_poll(sc, xs, count)
 		 * have got an interrupt?
 		 */
 		if (bus_space_read_1(iot, ioh, U24_SINT) & U24_SDIP) {
-			s = splbio();
+			crit_enter();
 			u24_intr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if (xs->flags & ITSDONE)
 			return (0);

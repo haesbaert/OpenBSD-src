@@ -433,7 +433,6 @@ wb_sdmmc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	int blklen;
 	int error;
 	int i, retry;
-	int s;
 
 	REPORT(wb, "TRACE: sdmmc/exec_command(wb, cmd) "
 	    "opcode %d flags 0x%x data %p datalen %d\n",
@@ -490,14 +489,14 @@ wb_sdmmc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 		}
 	}
 
-	s = splsdmmc();
+	crit_enter();
 	wb->wb_sdmmc_intsts = 0;
 	wb_write(wb, WB_SD_COMMAND, cmd->c_opcode);
 	wb_write(wb, WB_SD_COMMAND, (cmd->c_arg >> 24) & 0xff);
 	wb_write(wb, WB_SD_COMMAND, (cmd->c_arg >> 16) & 0xff);
 	wb_write(wb, WB_SD_COMMAND, (cmd->c_arg >> 8) & 0xff);
 	wb_write(wb, WB_SD_COMMAND, (cmd->c_arg >> 0) & 0xff);
-	splx(s);
+	crit_leave();
 
 	retry = 100000;
 	while (wb_idx_read(wb, WB_INDEX_STATUS) & WB_STATUS_CARD_TRAFFIC) {

@@ -250,7 +250,6 @@ bha_attach(sc, bpd)
 	struct bha_probe_data *bpd;
 {
 	struct scsibus_attach_args saa;
-	int s;
 
 	TAILQ_INIT(&sc->sc_free_ccb);
 	TAILQ_INIT(&sc->sc_waiting_ccb);
@@ -273,7 +272,7 @@ bha_attach(sc, bpd)
 	sc->sc_link.openings = 4;
 	sc->sc_link.pool = &sc->sc_iopool;
 
-	s = splbio();
+	crit_enter();
 	bha_inquire_setup_information(sc);
 
 	printf("%s: model BT-%s, firmware %s\n", sc->sc_dev.dv_xname,
@@ -281,11 +280,11 @@ bha_attach(sc, bpd)
 
 	if (bha_init(sc) != 0) {
 		/* Error during initialization! */
-		splx(s);
+		crit_leave();
 		return;
 	}
 
-	splx(s);
+	crit_leave();
 
 	bzero(&saa, sizeof(saa));
 	saa.saa_sc_link = &sc->sc_link;
@@ -1244,7 +1243,7 @@ bha_scsi_cmd(xs)
 	struct bha_softc *sc = sc_link->adapter_softc;
 	bus_dma_tag_t dmat = sc->sc_dmat;
 	struct bha_ccb *ccb;
-	int error, seg, flags, s;
+	int error, seg, flags;
 
 	SC_DEBUG(sc_link, SDEV_DB2, ("bha_scsi_cmd\n"));
 
@@ -1341,9 +1340,9 @@ bha_scsi_cmd(xs)
 	    0, sc->sc_dmamap_control->dm_mapsize,
 	    BUS_DMASYNC_PREREAD|BUS_DMASYNC_PREWRITE);
 
-	s = splbio();
+	crit_enter();
 	bha_queue_ccb(sc, ccb);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Usually return SUCCESSFULLY QUEUED
@@ -1378,7 +1377,6 @@ bha_poll(sc, xs, count)
 {
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
 	/* timeouts are in msec, so we loop in 1000 usec cycles */
 	while (count) {
@@ -1388,9 +1386,9 @@ bha_poll(sc, xs, count)
 		 */
 		if (bus_space_read_1(iot, ioh, BHA_INTR_PORT) &
 		    BHA_INTR_ANYINTR) {
-			s = splbio();
+			crit_enter();
 			bha_intr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if (xs->flags & ITSDONE)
 			return (0);
@@ -1408,12 +1406,11 @@ bha_timeout(arg)
 	struct scsi_xfer *xs = ccb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	struct bha_softc *sc = sc_link->adapter_softc;
-	int s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 #ifdef BHADIAG
 	/*
@@ -1442,5 +1439,5 @@ bha_timeout(arg)
 		bha_queue_ccb(sc, ccb);
 	}
 
-	splx(s);
+	crit_leave();
 }

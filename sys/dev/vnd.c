@@ -273,7 +273,6 @@ vndstrategy(struct buf *bp)
 	struct partition *p;
 	off_t off;
 	long origbcount;
-	int s;
 
 	DNPRINTF(VDB_FOLLOW, "vndstrategy(%p): unit %d\n", bp, unit);
 
@@ -350,9 +349,9 @@ vndstrategy(struct buf *bp)
 	bp->b_flags |= B_ERROR;
 	bp->b_resid = bp->b_bcount;
  done:
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 }
 
 /* ARGSUSED */

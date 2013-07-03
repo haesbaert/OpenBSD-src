@@ -1069,7 +1069,6 @@ aac_bio_complete(struct aac_command *cm)
 	struct aac_blockwrite_response *bwr;
 	struct scsi_xfer *xs = (struct scsi_xfer *)cm->cm_private;
 	AAC_FSAStatus status;
-	int s;
 
 	AAC_DPRINTF(AAC_D_CMD,
 		    ("%s: bio complete\n", cm->cm_sc->aac_dev.dv_xname));
@@ -1083,13 +1082,13 @@ aac_bio_complete(struct aac_command *cm)
 		status = bwr->Status;
 	}
 
-	s = splbio();
+	crit_enter();
 	aac_release_command(cm);
 
 	xs->error = status == ST_OK? XS_NOERROR : XS_DRIVER_STUFFUP;
 	xs->resid = 0;
 	scsi_done(xs);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -2072,9 +2071,9 @@ aac_command_timeout(struct aac_command *cm)
 
 	if (cm->cm_flags & AAC_ON_AACQ_BIO) {
 		struct scsi_xfer *xs = cm->cm_private;
-		int s = splbio();
+		crit_enter();
 		xs->error = XS_DRIVER_STUFFUP;
-		splx(s);
+		crit_leave();
 		scsi_done(xs);
 
 		aac_remove_bio(cm);
@@ -2484,9 +2483,8 @@ aac_scsi_cmd(struct scsi_xfer *xs)
 	u_int32_t blockno, blockcnt;
 	struct scsi_rw *rw;
 	struct scsi_rw_big *rwb;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	xs->error = XS_NOERROR;
 
@@ -2496,7 +2494,7 @@ aac_scsi_cmd(struct scsi_xfer *xs)
 		 * XXX Should be XS_SENSE but that would require setting up a
 		 * faked sense too.
 		 */
-		splx(s);
+		crit_leave();
 		xs->error = XS_DRIVER_STUFFUP;
 		scsi_done(xs);
 		return;
@@ -2589,7 +2587,7 @@ aac_scsi_cmd(struct scsi_xfer *xs)
 			 */
 			xs->error = XS_NO_CCB;
 			scsi_done(xs);
-			splx(s);
+			crit_leave();
 			return;
 		}
 
@@ -2615,7 +2613,7 @@ aac_scsi_cmd(struct scsi_xfer *xs)
 				       sc->aac_dev.dv_xname);
 				xs->error = XS_NO_CCB;
 				scsi_done(xs);
-				splx(s);
+				crit_leave();
 				return;
 			}
 			scsi_done(xs);
@@ -2623,7 +2621,7 @@ aac_scsi_cmd(struct scsi_xfer *xs)
 	}
 
  ready:
-	splx(s);
+	crit_leave();
 	AAC_DPRINTF(AAC_D_CMD, ("%s: scsi_cmd complete\n",
 				sc->aac_dev.dv_xname));
 }

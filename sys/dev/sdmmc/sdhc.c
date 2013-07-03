@@ -314,9 +314,8 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	struct sdhc_host *hp = sch;
 	u_int16_t imask;
 	int error;
-	int s;
 
-	s = splsdmmc();
+	crit_enter();
 
 	/* Disable all interrupts. */
 	HWRITE2(hp, SDHC_NINTR_SIGNAL_EN, 0);
@@ -326,7 +325,7 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	 * the controller to clear the reset bit.
 	 */
 	if ((error = sdhc_soft_reset(hp, SDHC_RESET_ALL)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}	
 
@@ -344,7 +343,7 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	HWRITE2(hp, SDHC_NINTR_SIGNAL_EN, imask);
 	HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, SDHC_EINTR_SIGNAL_MASK);
 
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -382,9 +381,8 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 {
 	struct sdhc_host *hp = sch;
 	u_int8_t vdd;
-	int s;
 
-	s = splsdmmc();
+	crit_enter();
 
 	/*
 	 * Disable bus power before voltage change.
@@ -394,7 +392,7 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 
 	/* If power is disabled, reset the host and return now. */
 	if (ocr == 0) {
-		splx(s);
+		crit_leave();
 		(void)sdhc_host_reset(hp);
 		return 0;
 	}
@@ -411,7 +409,7 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 		vdd = SDHC_VOLTAGE_1_8V;
 	else {
 		/* Unsupported voltage level requested. */
-		splx(s);
+		crit_leave();
 		return EINVAL;
 	}
 
@@ -429,11 +427,11 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 	 * bus power bit.
 	 */
 	if (!ISSET(HREAD1(hp, SDHC_POWER_CTL), SDHC_BUS_POWER)) {
-		splx(s);
+		crit_leave();
 		return ENXIO;
 	}
 
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -461,12 +459,11 @@ int
 sdhc_bus_clock(sdmmc_chipset_handle_t sch, int freq)
 {
 	struct sdhc_host *hp = sch;
-	int s;
 	int div;
 	int timo;
 	int error = 0;
 
-	s = splsdmmc();
+	crit_enter();
 
 #ifdef DIAGNOSTIC
 	/* Must not stop the clock if commands are in progress. */
@@ -512,7 +509,7 @@ sdhc_bus_clock(sdmmc_chipset_handle_t sch, int freq)
 	HSET2(hp, SDHC_CLOCK_CTL, SDHC_SDCLK_ENABLE);
 
 ret:
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -621,7 +618,6 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	u_int16_t mode;
 	u_int16_t command;
 	int error;
-	int s;
 	
 	DPRINTF(1,("%s: start cmd %u arg=%#x data=%#x dlen=%d flags=%#x "
 	    "proc=\"%s\"\n", DEVNAME(hp->sc), cmd->c_opcode, cmd->c_arg,
@@ -694,7 +690,7 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	if ((error = sdhc_wait_state(hp, SDHC_CMD_INHIBIT_MASK, 0)) != 0)
 		return error;
 
-	s = splsdmmc();
+	crit_enter();
 
 	/* Alert the user not to remove the card. */
 	HSET1(hp, SDHC_HOST_CTL, SDHC_LED_ON);
@@ -715,7 +711,7 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	HWRITE4(hp, SDHC_ARGUMENT, cmd->c_arg);
 	HWRITE2(hp, SDHC_COMMAND, command);
 
-	splx(s);
+	crit_leave();
 	return 0;
 }
 

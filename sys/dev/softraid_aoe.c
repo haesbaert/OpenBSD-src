@@ -284,7 +284,6 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 {
 	struct sr_discipline	*sd = wu->swu_dis;
 	struct scsi_xfer	*xs = wu->swu_xs;
-	int			s;
 	daddr_t			fragblk;
 	struct mbuf		*m;
 	struct ether_header	*eh;
@@ -295,7 +294,9 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 	int			tag, rv;
 	int			fragsize;
 	const int		aoe_frags = 2;
+	int			s;
 
+	crit_enter();
 	fragblk = blk + aoe_frags * i;
 	fragsize = aoe_frags * 512;
 	if (fragblk + aoe_frags - 1 > wu->swu_blk_end) {
@@ -305,7 +306,8 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 	ah = sd->mds.mdd_aoe.sra_ah;
 	ar = malloc(sizeof(*ar), M_DEVBUF, M_NOWAIT);
 	if (!ar) {
-		splx(s);
+		/* XXX there was a bug here  */
+		crit_leave();
 		return ENOMEM;
 	}
 	ar->v = wu;
@@ -313,7 +315,7 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 	ar->len = fragsize;
 	timeout_set(&ar->to, sr_aoe_timeout, ar);
 	TAILQ_INSERT_TAIL(&ah->reqs, ar, next);
-	splx(s);
+	crit_leave();
 
 	ifp = ah->ifp;
 	MGETHDR(m, M_DONTWAIT, MT_HEADER);
@@ -325,9 +327,9 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 		}
 	}
 	if (!m) {
-		s = splbio();
+		crit_enter();
 		TAILQ_REMOVE(&ah->reqs, ar, next);
-		splx(s);
+		crit_leave();
 		free(ar, M_DEVBUF);
 		return ENOMEM;
 	}
@@ -367,9 +369,9 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 	splx(s);
 
 	if (rv) {
-		s = splbio();
+		crit_enter();
 		TAILQ_REMOVE(&ah->reqs, ar, next);
-		splx(s);
+		crit_leave();
 		free(ar, M_DEVBUF);
 	}
 
@@ -383,7 +385,7 @@ sr_aoe_rw(struct sr_workunit *wu)
 	struct scsi_xfer	*xs = wu->swu_xs;
 	struct sr_chunk		*scp;
 	daddr_t			blk;
-	int			s, ios, rt;
+	int			ios, rt;
 	int			rv, i;
 	const int		aoe_frags = 2;
 
@@ -403,7 +405,7 @@ sr_aoe_rw(struct sr_workunit *wu)
 	if (xs->flags & SCSI_POLL)
 		panic("can't AOE poll");
 
-	s = splbio();
+	crit_enter();
 	for (i = 0; i < ios; i++) {
 		if (xs->flags & SCSI_DATA_IN) {
 			rt = 0;
@@ -448,13 +450,16 @@ ragain:
 		rv = sr_send_aoe_chunk(wu, blk, i);
 
 		if (rv) {
+			crit_leave();
 			return rv;
 		}
 	}
+	crit_leave();
 
 	return (0);
 bad:
 	/* wu is unwound by sr_wu_put */
+	crit_leave();
 	return (1);
 }
 
@@ -465,7 +470,7 @@ sr_aoe_request_done(struct aoe_req *ar, struct aoe_packet *ap)
 	struct scsi_xfer	*xs;
 	struct sr_workunit	*wu;
 	daddr_t			blk, offset;
-	int			len, s;
+	int			len;
 
 	wu = ar->v;
 	sd = wu->swu_dis;
@@ -486,7 +491,7 @@ sr_aoe_request_done(struct aoe_req *ar, struct aoe_packet *ap)
 
 	wu->swu_ios_complete++;
 
-	s = splbio();
+	crit_enter();
 	if (wu->swu_ios_complete == wu->swu_io_count) {
 		if (wu->swu_ios_failed == wu->swu_ios_complete)
 			xs->error = XS_DRIVER_STUFFUP;
@@ -495,7 +500,7 @@ sr_aoe_request_done(struct aoe_req *ar, struct aoe_packet *ap)
 
 		sr_scsi_done(sd, xs);
 	}
-	splx(s);
+	crit_leave();
 
 	free(ar, M_DEVBUF);
 }
@@ -755,10 +760,10 @@ resleep:
 				buf.b_vp->v_numoutput++;
 			LIST_INIT(&buf.b_dep);
 
-			s = splbio();
+			crit_enter();
 			VOP_STRATEGY(&buf);
 			biowait(&buf);
-			splx(s);
+			crit_leave();
 
 			ap->vers = 1;
 			ap->flags = AOE_F_RESP;
@@ -822,10 +827,10 @@ resleep:
 				buf.b_vp->v_numoutput++;
 			LIST_INIT(&buf.b_dep);
 
-			s = splbio();
+			crit_enter();
 			VOP_STRATEGY(&buf);
 			biowait(&buf);
-			splx(s);
+			crit_leave();
 
 			ap->vers = 1;
 			ap->flags = AOE_F_RESP;

@@ -1173,18 +1173,17 @@ void
 ohci_rhsc_enable(void *v_sc)
 {
 	struct ohci_softc *sc = v_sc;
-	int s;
 
 	if (sc->sc_bus.dying)
 		return;
 
-	s = splhardusb();
+	crit_enter();
 	ohci_rhsc(sc, sc->sc_intrxfer);
 	DPRINTFN(2, ("%s: rhsc interrupt enabled\n",
 		     sc->sc_bus.bdev.dv_xname));
 
 	ohci_rhsc_able(sc, 1);
-	splx(s);
+	crit_leave();
 }
 
 #ifdef OHCI_DEBUG
@@ -1254,7 +1253,7 @@ ohci_softintr(void *v)
 	struct usbd_xfer *xfer;
 	struct ohci_pipe *opipe;
 	int len, cc;
-	int s, i, j, actlen, iframes, uedir;
+	int i, j, actlen, iframes, uedir;
 
 	DPRINTFN(10,("ohci_softintr: enter\n"));
 
@@ -1263,12 +1262,12 @@ ohci_softintr(void *v)
 
 	sc->sc_bus.intr_context++;
 
-	s = splhardusb();
+	crit_enter();
 	sdone = sc->sc_sdone;
 	sc->sc_sdone = NULL;
 	sidone = sc->sc_sidone;
 	sc->sc_sidone = NULL;
-	splx(s);
+	crit_leave();
 
 	DPRINTFN(10,("ohci_softintr: sdone=%p sidone=%p\n", sdone, sidone));
 

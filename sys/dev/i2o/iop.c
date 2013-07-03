@@ -1384,7 +1384,6 @@ void
 iop_initiator_register(struct iop_softc *sc, struct iop_initiator *ii)
 {
 	static int ictxgen;
-	int s;
 
 	/* 0 is reserved (by us) for system messages. */
 	ii->ii_ictx = ++ictxgen;
@@ -1400,9 +1399,9 @@ iop_initiator_register(struct iop_softc *sc, struct iop_initiator *ii)
 	} else
 		sc->sc_nuii++;
 
-	s = splbio();
+	crit_enter();
 	LIST_INSERT_HEAD(IOP_ICTXHASH(ii->ii_ictx), ii, ii_hash);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1412,17 +1411,15 @@ iop_initiator_register(struct iop_softc *sc, struct iop_initiator *ii)
 void
 iop_initiator_unregister(struct iop_softc *sc, struct iop_initiator *ii)
 {
-	int s;
-
 	if ((ii->ii_flags & II_UTILITY) == 0) {
 		LIST_REMOVE(ii, ii_list);
 		sc->sc_nii--;
 	} else
 		sc->sc_nuii--;
 
-	s = splbio();
+	crit_enter();
 	LIST_REMOVE(ii, ii_hash);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1609,21 +1606,21 @@ iop_msg_alloc(struct iop_softc *sc, struct iop_initiator *ii, int flags)
 {
 	struct iop_msg *im;
 	static u_int tctxgen;
-	int s, i;
+	int i;
 
 #ifdef I2ODEBUG
 	if ((flags & IM_SYSMASK) != 0)
 		panic("iop_msg_alloc: system flags specified");
 #endif
 
-	s = splbio();	/* XXX */
+	crit_enter();	/* XXX */
 	im = SLIST_FIRST(&sc->sc_im_freelist);
 #if defined(DIAGNOSTIC) || defined(I2ODEBUG)
 	if (im == NULL)
 		panic("iop_msg_alloc: no free wrappers");
 #endif
 	SLIST_REMOVE_HEAD(&sc->sc_im_freelist, im_chain);
-	splx(s);
+	crit_leave();
 
 	if (ii != NULL && (ii->ii_flags & II_DISCARD) != 0)
 		flags |= IM_DISCARD;
@@ -1646,17 +1643,15 @@ iop_msg_alloc(struct iop_softc *sc, struct iop_initiator *ii, int flags)
 void
 iop_msg_free(struct iop_softc *sc, struct iop_msg *im)
 {
-	int s;
-
 #ifdef I2ODEBUG
 	if ((im->im_flags & IM_ALLOCED) == 0)
 		panic("iop_msg_free: wrapper not allocated");
 #endif
 
 	im->im_flags = 0;
-	s = splbio();
+	crit_enter();
 	SLIST_INSERT_HEAD(&sc->sc_im_freelist, im, im_chain);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1893,7 +1888,6 @@ int
 iop_post(struct iop_softc *sc, u_int32_t *mb)
 {
 	u_int32_t mfa;
-	int s;
 	size_t size = mb[0] >> 14 & ~3;
 
 	/* ZZZ */
@@ -1910,12 +1904,12 @@ iop_post(struct iop_softc *sc, u_int32_t *mb)
 	}
 #endif
 
-	s = splbio();	/* XXX */
+	crit_enter();	/* XXX */
 
 	/* Allocate a slot with the IOP. */
 	if ((mfa = iop_inl(sc, IOP_REG_IFIFO)) == IOP_MFA_EMPTY)
 		if ((mfa = iop_inl(sc, IOP_REG_IFIFO)) == IOP_MFA_EMPTY) {
-			splx(s);
+			crit_leave();
 			printf("%s: mfa not forthcoming\n",
 			    sc->sc_dv.dv_xname);
 			return (EAGAIN);
@@ -1934,7 +1928,7 @@ iop_post(struct iop_softc *sc, u_int32_t *mb)
 	/* Post the MFA back to the IOP. */
 	iop_outl(sc, IOP_REG_IFIFO, mfa);
 
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -1945,7 +1939,7 @@ int
 iop_msg_post(struct iop_softc *sc, struct iop_msg *im, void *xmb, int timo)
 {
 	u_int32_t *mb = xmb;
-	int rv, s;
+	int rv;
 	size_t size = mb[0] >> 14 & 3;
 
 	/* Terminate the scatter/gather list chain. */
@@ -1971,7 +1965,7 @@ iop_msg_post(struct iop_softc *sc, struct iop_msg *im, void *xmb, int timo)
 		else
 			iop_msg_wait(sc, im, timo);
 
-		s = splbio();
+		crit_enter()
 		if ((im->im_flags & IM_REPLIED) != 0) {
 			if ((im->im_flags & IM_NOSTATUS) != 0)
 				rv = 0;
@@ -1983,7 +1977,7 @@ iop_msg_post(struct iop_softc *sc, struct iop_msg *im, void *xmb, int timo)
 				rv = 0;
 		} else
 			rv = EBUSY;
-		splx(s);
+		crit_leave();
 	} else
 		rv = 0;
 
@@ -1997,9 +1991,9 @@ void
 iop_msg_poll(struct iop_softc *sc, struct iop_msg *im, int timo)
 {
 	u_int32_t rmfa;
-	int s, status;
+	int status;
 
-	s = splbio();	/* XXX */
+	crit_enter();	/* XXX */
 
 	/* Wait for completion. */
 	for (timo *= 10; timo != 0; timo--) {
@@ -2034,7 +2028,7 @@ iop_msg_poll(struct iop_softc *sc, struct iop_msg *im, int timo)
 #endif
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -2043,11 +2037,11 @@ iop_msg_poll(struct iop_softc *sc, struct iop_msg *im, int timo)
 void
 iop_msg_wait(struct iop_softc *sc, struct iop_msg *im, int timo)
 {
-	int s, rv;
+	int rv;
 
-	s = splbio();
+	crit_enter();
 	if ((im->im_flags & IM_REPLIED) != 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	rv = tsleep(im, PRIBIO, "iopmsg", timo * hz / 1000);

@@ -892,9 +892,9 @@ bad:
 done:
 	/* Set b_resid to indicate no xfer was done. */
 	bp->b_resid = bp->b_bcount;
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	if (st)
 		device_unref(&st->sc_dev);
 }
@@ -906,7 +906,6 @@ ststart(struct scsi_xfer *xs)
 	struct st_softc *st = sc_link->device_softc;
 	struct buf *bp;
 	struct scsi_rw_tape *cmd;
-	int s;
 
 	SC_DEBUG(sc_link, SDEV_DB2, ("ststart\n"));
 
@@ -956,9 +955,9 @@ ststart(struct scsi_xfer *xs)
 						bp->b_flags |= B_ERROR;
 						bp->b_resid = bp->b_bcount;
 						bp->b_error = EIO;
-						s = splbio();
+						crit_enter();
 						biodone(bp);
-						splx(s);
+						crit_leave();
 						continue;
 					}
 				} else {
@@ -966,9 +965,9 @@ ststart(struct scsi_xfer *xs)
 					bp->b_error = 0;
 					bp->b_flags &= ~B_ERROR;
 					st->flags &= ~ST_AT_FILEMARK;
-					s = splbio();
+					crit_enter();
 					biodone(bp);
-					splx(s);
+					crit_leave();
 					continue;	/* seek more work */
 				}
 			}
@@ -1053,7 +1052,7 @@ st_buf_done(struct scsi_xfer *xs)
 {
 	struct st_softc *st = xs->sc_link->device_softc;
 	struct buf *bp = xs->cookie;
-	int error, s;
+	int error;
 
 	switch (xs->error) {
 	case XS_NOERROR:
@@ -1106,9 +1105,9 @@ retry:
 		break;
 	}
 
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	scsi_xs_put(xs);
 }
 

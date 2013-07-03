@@ -107,14 +107,14 @@ sr_raid1_init(struct sr_discipline *sd)
 void
 sr_raid1_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 {
-	int			old_state, s;
+	int			old_state;
 
 	DNPRINTF(SR_D_STATE, "%s: %s: %s: sr_raid_set_chunk_state %d -> %d\n",
 	    DEVNAME(sd->sd_sc), sd->sd_meta->ssd_devname,
 	    sd->sd_vol.sv_chunks[c]->src_meta.scmi.scm_devname, c, new_state);
 
 	/* ok to go to splbio since this only happens in error path */
-	s = splbio();
+	crit_enter();
 	old_state = sd->sd_vol.sv_chunks[c]->src_meta.scm_status;
 
 	/* multiple IOs to the same chunk that fail will come through here */
@@ -174,7 +174,7 @@ sr_raid1_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 
 	default:
 die:
-		splx(s); /* XXX */
+		crit_leave();	/* XXX */
 		panic("%s: %s: %s: invalid chunk state transition "
 		    "%d -> %d\n", DEVNAME(sd->sd_sc),
 		    sd->sd_meta->ssd_devname,
@@ -189,7 +189,7 @@ die:
 	sd->sd_must_flush = 1;
 	workq_add_task(NULL, 0, sr_meta_save_callback, sd, NULL);
 done:
-	splx(s);
+	crit_leave();
 }
 
 void

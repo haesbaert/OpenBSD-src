@@ -769,7 +769,6 @@ void
 flashstrategy(struct buf *bp)
 {
 	struct flash_softc *sc;
-	int s;
 
 	sc = flashlookup(flashunit(bp->b_dev));
 	if (sc == NULL) {
@@ -795,10 +794,10 @@ flashstrategy(struct buf *bp)
 		goto done;
 
 	/* Queue the transfer. */
-	s = splbio();
+	crit_enter();
 	disksort(&sc->sc_q, bp);
 	flashstart(sc);
-	splx(s);
+	crit_leave();
 	device_unref(&sc->sc_dev);
 	return;
 
@@ -806,9 +805,9 @@ flashstrategy(struct buf *bp)
 	bp->b_flags |= B_ERROR;
 	bp->b_resid = bp->b_bcount;
  done:
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	if (sc != NULL)
 		device_unref(&sc->sc_dev);
 }

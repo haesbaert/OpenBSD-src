@@ -404,7 +404,7 @@ cac_cmd(struct cac_softc *sc, int command, void *data, int datasize,
 }
 
 /*
- * Wait for the specified CCB to complete.  Must be called at splbio.
+ * Wait for the specified CCB to complete.  Must be called at critical section.
  */
 int
 cac_ccb_poll(struct cac_softc *sc, struct cac_ccb *wantccb, int timo)
@@ -600,7 +600,7 @@ cac_scsi_cmd(xs)
 	u_int32_t blockno, blockcnt, size;
 	struct scsi_rw *rw;
 	struct scsi_rw_big *rwb;
-	int op, flags, s, error;
+	int op, flags, error;
 	const char *p;
 
 	if (target >= sc->sc_nunits || link->lun != 0) {
@@ -609,7 +609,7 @@ cac_scsi_cmd(xs)
 		return;
 	}
 
-	s = splbio();
+	crit_enter();
 	xs->error = XS_NOERROR;
 	dinfo = &sc->sc_dinfos[target];
 
@@ -718,7 +718,7 @@ cac_scsi_cmd(xs)
 
 		if ((error = cac_cmd(sc, op, xs->data, blockcnt * DEV_BSIZE,
 		    target, blockno, flags, xs))) {
-			splx(s);
+			crit_leave();
 			if (error == EBUSY)
 				xs->error = XS_BUSY;
 			else
@@ -727,7 +727,7 @@ cac_scsi_cmd(xs)
 			return;
 		}
 
-		splx(s);
+		crit_leave();
 		return;
 
 	default:
@@ -736,7 +736,7 @@ cac_scsi_cmd(xs)
 		xs->error = XS_DRIVER_STUFFUP;
 	}
 
-	splx(s);
+	crit_leave();
 	scsi_done(xs);
 }
 
@@ -818,10 +818,9 @@ cac_ioctl(struct device *dev, u_long cmd, caddr_t addr)
 	struct cac_softc *sc = (struct cac_softc *)dev;
 	struct bioc_inq *bi;
 	struct bioc_disk *bd;
-	cac_lock_t lock;
 	int error = 0;
 
-	lock = CAC_LOCK(sc);
+	CAC_LOCK(sc);
 	switch (cmd) {
 	case BIOCINQ:
 		bi = (struct bioc_inq *)addr;
@@ -849,7 +848,7 @@ cac_ioctl(struct device *dev, u_long cmd, caddr_t addr)
 	default:
 		error = ENOTTY;
 	}
-	CAC_UNLOCK(sc, lock);
+	CAC_UNLOCK(sc);
 
 	return (error);
 }
@@ -953,17 +952,17 @@ cac_sensor_refresh(void *arg)
 {
 	struct cac_softc *sc = arg;
 	struct bioc_vol bv;
-	int i, s;
+	int i;
 
 	for (i = 0; i < sc->sc_nunits; i++) {
 		bzero(&bv, sizeof(bv));
 		bv.bv_volid = i;
-		s = splbio();
+		crit_enter();
 		if (cac_ioctl_vol(sc, &bv)) {
-			splx(s);
+			crit_leave();
 			return;
 		}
-		splx(s);
+		crit_leave();
 
 		switch (bv.bv_status) {
 		case BIOC_SVOFFLINE:

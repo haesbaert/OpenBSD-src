@@ -116,8 +116,8 @@ struct cac_softc {
 };
 
 /* XXX These have to become spinlocks in case of fine SMP */
-#define	CAC_LOCK(sc) splbio()
-#define	CAC_UNLOCK(sc, lock) splx(lock)
+#define	CAC_LOCK(sc) crit_enter()
+#define	CAC_UNLOCK(sc, lock) crit_leave();
 typedef	int cac_lock_t;
 
 int	cac_init(struct cac_softc *, int);

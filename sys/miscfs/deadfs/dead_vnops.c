@@ -174,13 +174,12 @@ int
 dead_strategy(void *v)
 {
 	struct vop_strategy_args *ap = v;
-	int s;
 
 	if (ap->a_bp->b_vp == NULL || !chkvnlock(ap->a_bp->b_vp)) {
 		ap->a_bp->b_flags |= B_ERROR;
-		s = splbio();
+		crit_enter();
 		biodone(ap->a_bp);
-		splx(s);
+		crit_leave();
 		return (EIO);
 	}
 	return (VOP_STRATEGY(ap->a_bp));
