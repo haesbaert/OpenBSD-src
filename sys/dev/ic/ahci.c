@@ -27,6 +27,7 @@
 #include <sys/queue.h>
 #include <sys/mutex.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 

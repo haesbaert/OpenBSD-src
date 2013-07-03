@@ -163,11 +163,13 @@ void softintr(int);
 void splassert_fail(int, int, const char *);
 extern int splassert_ctl;
 void splassert_check(int, const char *);
-#define splassert(__wantipl) do {			\
-	if (splassert_ctl > 0) {			\
-		splassert_check(__wantipl, __func__);	\
-	}						\
-} while (0)
+#define splassert(__wantipl) do {					\
+		if (__wantipl <= IPL_CRIT && __wantipl > IPL_NONE) {	\
+			CRIT_ASSERT();					\
+		} else if (splassert_ctl > 0) {				\
+			splassert_check(__wantipl, __func__);		\
+		}							\
+	} while (0)
 #else
 #define splassert(wantipl)	do { /* nada */ } while (0)
 #endif

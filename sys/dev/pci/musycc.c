@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include <machine/cpu.h>
 #include <machine/bus.h>

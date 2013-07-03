@@ -44,6 +44,7 @@
 #include <sys/selinfo.h>
 #include <sys/timeout.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>

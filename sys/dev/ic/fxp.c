@@ -48,6 +48,7 @@
 #include <sys/syslog.h>
 #include <sys/timeout.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>

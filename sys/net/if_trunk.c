@@ -29,6 +29,7 @@
 #include <sys/systm.h>
 #include <sys/timeout.h>
 #include <sys/hash.h>
+#include <sys/proc.h>
 
 #include <dev/rndvar.h>
 

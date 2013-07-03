@@ -40,6 +40,7 @@
 #include <sys/systm.h>
 #include <sys/device.h>
 #include <sys/conf.h>
+#include <sys/proc.h>
 
 
 /*
