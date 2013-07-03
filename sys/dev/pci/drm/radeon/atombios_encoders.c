@@ -2219,7 +2219,9 @@ radeon_atom_dac_detect(struct drm_encoder *encoder, struct drm_connector *connec
 {
 	struct drm_device *dev = encoder->dev;
 	struct radeon_device *rdev = dev->dev_private;
+#ifdef DRMDEBUG
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
+#endif
 	struct radeon_connector *radeon_connector = to_radeon_connector(connector);
 	uint32_t bios_0_scratch;
 
@@ -2260,7 +2262,9 @@ radeon_atom_dig_detect(struct drm_encoder *encoder, struct drm_connector *connec
 {
 	struct drm_device *dev = encoder->dev;
 	struct radeon_device *rdev = dev->dev_private;
+#ifdef DRMDEBUG
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
+#endif
 	struct radeon_connector *radeon_connector = to_radeon_connector(connector);
 	struct drm_encoder *ext_encoder = radeon_get_external_encoder(encoder);
 	u32 bios_0_scratch;

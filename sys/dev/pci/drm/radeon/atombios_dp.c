@@ -36,12 +36,14 @@
 #define DP_LINK_CONFIGURATION_SIZE 9
 #define DP_DPCD_SIZE DP_RECEIVER_CAP_SIZE
 
+#ifdef DRMDEBUG
 static char *voltage_names[] = {
         "0.4V", "0.6V", "0.8V", "1.2V"
 };
 static char *pre_emph_names[] = {
         "0dB", "3.5dB", "6dB", "9.5dB"
 };
+#endif
 
 /***** radeon AUX functions *****/
 union aux_channel_transaction {

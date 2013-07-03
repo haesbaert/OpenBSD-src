@@ -89,7 +89,9 @@ radeon_benchmark_log_results(int n, unsigned size,
 					 unsigned sdomain, unsigned ddomain,
 					 char *kind)
 {
+#ifdef DRMDEBUG
 	unsigned int throughput = (n * (size >> 10)) / time;
+#endif
 	DRM_DEBUG("radeon: %s %u bo moves of %u kB from"
 		 " %d to %d in %u ms, throughput: %u Mb/s or %u MB/s\n",
 		 kind, n, size >> 10, sdomain, ddomain, time,

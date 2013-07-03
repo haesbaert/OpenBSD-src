@@ -29,6 +29,7 @@
 #define RADEON_RECLOCK_DELAY_MS 200
 #define RADEON_WAIT_VBLANK_TIMEOUT 200
 
+#ifdef DRMDEBUG
 static const char *radeon_pm_state_type_name[5] = {
 	"",
 	"Powersave",
@@ -36,6 +37,7 @@ static const char *radeon_pm_state_type_name[5] = {
 	"Balanced",
 	"Performance",
 };
+#endif
 
 #ifdef notyet
 static void radeon_dynpm_idle_work_handler(struct work_struct *work);
@@ -797,7 +799,9 @@ static bool radeon_pm_in_vbl(struct radeon_device *rdev)
 
 static bool radeon_pm_debug_check_in_vbl(struct radeon_device *rdev, bool finish)
 {
+#ifdef DRMDEBUG
 	u32 stat_crtc = 0;
+#endif
 	bool in_vbl = radeon_pm_in_vbl(rdev);
 
 	if (in_vbl == false)
