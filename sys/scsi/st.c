@@ -827,7 +827,6 @@ ststrategy(struct buf *bp)
 {
 	struct scsi_link *sc_link;
 	struct st_softc *st;
-	int s;
 
 	st = stlookup(STUNIT(bp->b_dev));
 	if (st == NULL) {
@@ -984,9 +983,9 @@ ststart(struct scsi_xfer *xs)
 				bp->b_flags |= B_ERROR;
 			}
 			st->flags &= ~(ST_EOM_PENDING | ST_EIO_PENDING);
-			s = splbio();
+			crit_enter();
 			biodone(bp);
-			splx(s);
+			crit_leave();
 			continue;	/* seek more work */
 		}
 		break;

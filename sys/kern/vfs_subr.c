@@ -1854,7 +1854,7 @@ loop:
 				error = tsleep(bp, slpflag | (PRIBIO + 1),
 				    "vinvalbuf", slptimeo);
 				if (error) {
-					splx(s);
+					crit_leave();
 					return (error);
 				}
 				break;
@@ -1887,7 +1887,6 @@ void
 vflushbuf(struct vnode *vp, int sync)
 {
 	struct buf *bp, *nbp;
-	int s;
 
 loop:
 	crit_enter();

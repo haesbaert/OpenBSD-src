@@ -28,6 +28,7 @@
 #include <sys/buf.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+#include <sys/proc.h>
 #include <uvm/uvm.h>
 #include <uvm/uvm_swap.h>
 #include <machine/hibernate.h>
@@ -1187,7 +1188,7 @@ hibernate_resume(void)
 	 * this means we should do a resume from hibernate.
 	 */
 	if (hibernate_compare_signature(&hiber_info, &disk_hiber_info)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1225,7 +1226,7 @@ hibernate_resume(void)
 	hibernate_unpack_image(&disk_hiber_info);
 
 fail:
-	splx(s);
+	crit_leave();
 	printf("Unable to resume hibernated image\n");
 }
 

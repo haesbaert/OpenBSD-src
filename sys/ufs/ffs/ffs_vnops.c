@@ -500,7 +500,7 @@ loop:
 		 * Ensure that any filesystem metadata associated
 		 * with the vnode has been written.
 		 */
-		crti_leave();
+		crit_leave();
 		if ((error = softdep_sync_metadata(ap)) != 0)
 			return (error);
 		crit_enter();

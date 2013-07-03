@@ -450,7 +450,7 @@ ciss_cmd(struct ciss_ccb *ccb, int flags, int wait)
 	u_int32_t id;
 	int i, tohz, error = 0;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	if (ccb->ccb_state != CISS_CCB_READY) {
 		printf("%s: ccb %d not ready state=%b\n", sc->sc_dev.dv_xname,

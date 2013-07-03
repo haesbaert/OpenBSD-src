@@ -25,6 +25,7 @@
 #include <sys/buf.h>
 #include <sys/errno.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <sys/disklabel.h>
 

@@ -1965,7 +1965,7 @@ iop_msg_post(struct iop_softc *sc, struct iop_msg *im, void *xmb, int timo)
 		else
 			iop_msg_wait(sc, im, timo);
 
-		crit_enter()
+		crit_enter();
 		if ((im->im_flags & IM_REPLIED) != 0) {
 			if ((im->im_flags & IM_NOSTATUS) != 0)
 				rv = 0;
@@ -2045,7 +2045,7 @@ iop_msg_wait(struct iop_softc *sc, struct iop_msg *im, int timo)
 		return;
 	}
 	rv = tsleep(im, PRIBIO, "iopmsg", timo * hz / 1000);
-	splx(s);
+	crit_leave();
 
 #ifdef I2ODEBUG
 	if (rv != 0) {

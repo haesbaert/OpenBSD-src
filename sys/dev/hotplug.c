@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/poll.h>
 #include <sys/vnode.h>
+#include <sys/proc.h>
 
 #define HOTPLUG_MAXEVENTS	64
 

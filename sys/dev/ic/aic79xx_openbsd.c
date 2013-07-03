@@ -157,7 +157,6 @@ void
 ahd_done(struct ahd_softc *ahd, struct scb *scb)
 {
 	struct scsi_xfer *xs = scb->xs;
-	int s;
 
 	/* XXX in ahc there is some bus_dmamap_sync(PREREAD|PREWRITE); */
 
@@ -356,7 +355,6 @@ ahd_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 	struct	ahd_initiator_tinfo *tinfo;
 	struct	ahd_tmode_tstate *tstate;
 	u_int	mask;
-	int	s;
 
 	scb = (struct scb *)arg;
 	xs = scb->xs;

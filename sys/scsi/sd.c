@@ -711,7 +711,7 @@ sd_buf_done(struct scsi_xfer *xs)
 {
 	struct sd_softc *sc = xs->sc_link->device_softc;
 	struct buf *bp = xs->cookie;
-	int error, s;
+	int error;
 
 	switch (xs->error) {
 	case XS_NOERROR:

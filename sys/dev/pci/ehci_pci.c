@@ -37,6 +37,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 

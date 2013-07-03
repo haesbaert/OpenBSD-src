@@ -374,7 +374,7 @@ twe_attach(sc)
 
 		TWE_LOCK(sc);
 		twe_cmd(ccb, BUS_DMA_NOWAIT, 1);
-		TWE_UNLOCK(sc, lock);
+		TWE_UNLOCK(sc);
 		scsi_io_put(&sc->sc_iopool, ccb);
 		if (error) {
 			printf("%s: error fetching capacity for unit %d\n",

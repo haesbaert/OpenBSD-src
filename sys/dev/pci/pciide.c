@@ -89,6 +89,7 @@ int wdcdebug_pciide_mask = WDCDEBUG_PCIIDE_MASK;
 #include <sys/systm.h>
 #include <sys/device.h>
 #include <sys/malloc.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>

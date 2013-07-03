@@ -32,6 +32,7 @@
 #include <sys/device.h>
 #include <sys/workq.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 #include <uvm/uvm.h>
 #include <dev/pci/pcidevs.h>
 #include <dev/pci/pcivar.h>
@@ -235,9 +236,8 @@ void
 viomb_worker(void *arg1, void *arg2)
 {
 	struct viomb_softc *sc = (struct viomb_softc *)arg1;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	sc->sc_workq_queued = 0;
 	viomb_read_config(sc);
 	if (sc->sc_npages > sc->sc_actual){
@@ -250,7 +250,7 @@ viomb_worker(void *arg1, void *arg2)
 		VIOMBDEBUG(sc, "deflating balloon from %u to %u.\n",
 			   sc->sc_actual, sc->sc_npages);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void

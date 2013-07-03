@@ -36,6 +36,7 @@
 #include <sys/kernel.h>
 #include <sys/malloc.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
