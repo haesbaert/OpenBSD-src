@@ -757,7 +757,7 @@ uvm_aio_aiodone(struct buf *bp)
 	boolean_t write, swap;
 
 	KASSERT(npages <= MAXPHYS >> PAGE_SHIFT);
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	error = (bp->b_flags & B_ERROR) ? (bp->b_error ? bp->b_error : EIO) : 0;
 	write = (bp->b_flags & B_READ) == 0;

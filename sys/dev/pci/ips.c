@@ -1422,7 +1422,7 @@ ips_poll(struct ips_softc *sc, struct ips_ccb *ccb)
 	struct timeval tv;
 	int error, timo;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	if (ccb->c_flags & SCSI_NOSLEEP) {
 		/* busy-wait */
@@ -1465,7 +1465,7 @@ ips_poll(struct ips_softc *sc, struct ips_ccb *ccb)
 void
 ips_done(struct ips_softc *sc, struct ips_ccb *ccb)
 {
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	DPRINTF(IPS_D_XFER, ("%s: ips_done: id 0x%02x, flags 0x%x, xs %p\n",
 	    sc->sc_dev.dv_xname, ccb->c_id, ccb->c_flags, ccb->c_xfer));

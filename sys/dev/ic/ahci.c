@@ -2355,7 +2355,7 @@ ahci_get_err_ccb(struct ahci_port *ap)
 	struct ahci_ccb *err_ccb;
 	u_int32_t sact;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	/* No commands may be active on the chip. */
 	sact = ahci_pread(ap, AHCI_PREG_SACT);
@@ -2396,7 +2396,7 @@ ahci_put_err_ccb(struct ahci_ccb *ccb)
 	struct ahci_port *ap = ccb->ccb_port;
 	u_int32_t sact;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 #ifdef DIAGNOSTIC
 	KASSERT(ap->ap_err_busy);
@@ -2434,7 +2434,7 @@ ahci_get_pmp_ccb(struct ahci_port *ap)
 	 *
 	 * ensure the chip is idle and ccb 1 is available.
 	 */
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	sact = ahci_pread(ap, AHCI_PREG_SACT);
 	if (sact != 0)

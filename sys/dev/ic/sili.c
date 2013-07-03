@@ -1480,7 +1480,7 @@ sili_ata_cmd_done(struct sili_ccb *ccb, int defer_completion)
 	struct sili_softc		*sc = sp->sp_sc;
 	struct ata_xfer			*xa = &ccb->ccb_xa;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	timeout_del(&xa->stimeout);
 
@@ -1640,7 +1640,7 @@ sili_start(struct sili_port *sp, struct sili_ccb *ccb)
 {
 	int				slot = ccb->ccb_xa.tag;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 	KASSERT(ccb->ccb_xa.state == ATA_S_PENDING);
 	KASSERT(sp->sp_pmp_error_recovery == 0);
 

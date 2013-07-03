@@ -2068,7 +2068,7 @@ sr_ccb_done(struct sr_ccb *ccb)
 	    ccb->ccb_buf.b_bcount, ccb->ccb_buf.b_resid, ccb->ccb_buf.b_flags,
 	    ccb->ccb_buf.b_blkno, ccb->ccb_target);
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	if (ccb->ccb_target == -1)
 		panic("%s: invalid target on wu: %p", DEVNAME(sc), wu);
@@ -4198,7 +4198,7 @@ sr_raid_startwu(struct sr_workunit *wu)
 
 	DNPRINTF(SR_D_WU, "sr_raid_startwu: start wu %p\n", wu);
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	if (wu->swu_state == SR_WU_DEFERRED) {
 		TAILQ_REMOVE(&sd->sd_wu_defq, wu, swu_link);

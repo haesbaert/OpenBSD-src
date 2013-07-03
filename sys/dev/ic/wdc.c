@@ -861,7 +861,7 @@ wdcstart(struct channel_softc *chp)
 {
 	struct wdc_xfer *xfer;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	/* is there a xfer ? */
 	if ((xfer = TAILQ_FIRST(&chp->ch_queue->sc_xfer)) == NULL) {

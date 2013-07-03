@@ -722,7 +722,7 @@ ami_quartz_poll(struct ami_softc *sc, struct ami_iocmd *cmd)
 	u_int32_t i;
 	u_int8_t status;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	if (sc->sc_dis_poll)
 		return (-1); /* fail */
@@ -875,7 +875,7 @@ ami_schwartz_poll(struct ami_softc *sc, struct ami_iocmd *mbox)
 	u_int32_t i;
 	int rv;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	if (sc->sc_dis_poll)
 		return (-1); /* fail */
