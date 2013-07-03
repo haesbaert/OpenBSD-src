@@ -204,6 +204,7 @@ main(void *framep)
 	curproc = p = &proc0;
 	p->p_cpu = curcpu();
 
+	crit_enter();
 	/*
 	 * Initialize timeouts.
 	 */
@@ -396,13 +397,11 @@ main(void *framep)
 	 * Initialize protocols.  Block reception of incoming packets
 	 * until everything is ready.
 	 */
-	crit_enter();		/* XXX */
 	s = splnet();
 	netisr_init();
 	domaininit();
 	if_attachdomain();
 	splx(s);
-	crit_leave();		/* XXX */
 
 #ifdef GPROF
 	/* Initialize kernel profiling. */
