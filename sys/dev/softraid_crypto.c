@@ -1283,7 +1283,7 @@ sr_crypto_finish_io(struct sr_workunit *wu)
 	struct sr_softc		*sc = sd->sd_sc;
 #endif /* SR_DEBUG */
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	DNPRINTF(SR_D_INTR, "%s: sr_crypto_finish_io: wu %x xs: %x\n",
 	    DEVNAME(sc), wu, xs);

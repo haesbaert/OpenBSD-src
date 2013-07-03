@@ -461,7 +461,7 @@ fdfinish(struct fd_softc *fd, struct buf *bp)
 {
 	struct fdc_softc *fdc = (void *)fd->sc_dev.dv_parent;
 
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	/*
 	 * Move this drive to the end of the queue to give others a `fair'
