@@ -762,8 +762,12 @@ pool_do_put(struct pool *pp, void *v)
 #endif
 
 #ifdef DIAGNOSTIC
-	if (pp->pr_ipl != -1)
-		splassert(pp->pr_ipl);
+	if (pp->pr_ipl != -1) {
+		if (pp->pr_ipl <= IPL_CRIT) {
+			CRIT_ASSERT();
+		} else
+			splassert(pp->pr_ipl);
+	}
 
 	if (pp->pr_nout == 0) {
 		printf("pool %s: putting with none out\n",
