@@ -172,7 +172,7 @@ in_pcballoc(struct socket *so, struct inpcbtable *table)
 	struct inpcb *inp;
 	int s;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (inpcb_pool_initialized == 0) {
 		pool_init(&inpcb_pool, sizeof(struct inpcb), 0, 0, 0,
@@ -463,7 +463,7 @@ in_pcbdetach(struct inpcb *inp)
 	struct socket *so = inp->inp_socket;
 	int s;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	so->so_pcb = 0;
 	sofree(so);
@@ -559,7 +559,7 @@ in_pcbnotifyall(struct inpcbtable *table, struct sockaddr *dst, u_int rdomain,
 	struct inpcb *inp, *oinp;
 	struct in_addr faddr;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 #ifdef INET6
 	/*

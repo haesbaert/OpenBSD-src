@@ -365,7 +365,7 @@ pppoeintr(void)
 	struct mbuf *m;
 	int s;
 
-	crit_assert();
+	CRIT_ASSERT();
 	
 	for (;;) {
 		s = splnet();

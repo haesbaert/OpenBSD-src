@@ -44,6 +44,7 @@ ithread(void *v_is)
 	struct intrhand *ih;
 	int rc, s, c;
 
+	KASSERT(curproc == is->is_proc);
 	sched_peg_curproc(&cpu_info_primary);
 	KERNEL_UNLOCK();
 
@@ -54,7 +55,7 @@ ithread(void *v_is)
 		rc = 0;
 
 		/* XXX */
-		c = crit_inside();
+		c = CRIT_DEPTH;
 		if (is->is_maxlevel <= IPL_CRIT)
 			crit_enter();
 		else
@@ -79,8 +80,8 @@ ithread(void *v_is)
 		else
 			splx(s);
 
-		if (c != crit_inside())
-			panic("crit_count doesn't match\n");
+		if (c != CRIT_DEPTH)
+			panic("critical depth doesn't match\n");
 
 		if (!rc)
 			printf("stray interrupt pin %d ?\n", is->is_pin);
