@@ -1663,7 +1663,7 @@ radeondrm_attachhook(void *xsc)
 
 	drm_fb_helper_restore();
 
-	ri->ri_flg = RI_CENTER | RI_VCONS;
+	ri->ri_flg = RI_CENTER | RI_VCONS | RI_WRONLY;
 	rasops_init(ri, 160, 160);
 
 	ri->ri_hw = rdev;
