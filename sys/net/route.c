@@ -229,7 +229,7 @@ rtable_add(u_int id)
 {
 	void	*p, *q;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (id > RT_TABLEID_MAX)
 		return (EINVAL);
@@ -273,7 +273,7 @@ rtable_l2(u_int id)
 void
 rtable_l2set(u_int id, u_int parent)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (!rtable_exists(id) || !rtable_exists(parent))
 		return;
@@ -444,7 +444,7 @@ rtredirect(struct sockaddr *dst, struct sockaddr *gateway,
 	struct ifaddr		*ifa;
 	struct ifnet		*ifp = NULL;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	/* verify the gateway is directly reachable */
 	if ((ifa = ifa_ifwithnet(gateway, rdomain)) == NULL) {

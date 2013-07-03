@@ -186,7 +186,7 @@ solisten(struct socket *so, int backlog)
 void
 sofree(struct socket *so)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (so->so_pcb || (so->so_state & SS_NOFDREF) == 0)
 		return;
@@ -276,7 +276,7 @@ discard:
 int
 soabort(struct socket *so)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	return (*so->so_proto->pr_usrreq)(so, PRU_ABORT, NULL, NULL, NULL,
 	   curproc);
@@ -1141,7 +1141,7 @@ sosplice(struct socket *so, int fd, off_t max, struct timeval *tv)
 void
 sounsplice(struct socket *so, struct socket *sosp, int wakeup)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	timeout_del(&so->so_idleto);
 	sosp->so_snd.sb_flagsintr &= ~SB_SPLICE;
@@ -1180,7 +1180,7 @@ somove(struct socket *so, int wait)
 	int		 error = 0, maxreached = 0;
 	short		 state;
 
-	crit_assert();
+	CRIT_ASSERT();
 
  nextpkt:
 	if (so->so_error) {

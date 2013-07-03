@@ -753,7 +753,7 @@ in6_update_ifa(struct ifnet *ifp, struct in6_aliasreq *ifra,
 	struct in6_multi_mship *imm;
 	struct rtentry *rt;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	/* Validate parameters */
 	if (ifp == NULL || ifra == NULL) /* this maybe redundant */

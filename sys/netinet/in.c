@@ -654,7 +654,7 @@ in_ifinit(struct ifnet *ifp, struct in_ifaddr *ia, struct sockaddr_in *sin,
 	 * Is the "ifp" even in a consistent state?
 	 * Be safe for now.
 	 */
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (ia->ia_netmask == 0) {
 		if (IN_CLASSA(i))

@@ -252,7 +252,7 @@ struct usb_attach_arg {
 
 /* XXX Perhaps USB should have its own levels? */
 #if 0
-#define	SPLUSBCHECK	crit_assert()
+#define	SPLUSBCHECK	CRIT_ASSERT()
 #else
 #define	SPLUSBCHECK	do { /* nothing */ } while (0)
 #endif

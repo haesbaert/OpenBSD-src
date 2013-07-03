@@ -42,23 +42,3 @@ crit_leave(void)
 	curproc->p_crit--;
 	KASSERT(curproc->p_crit >= 0);
 }
-
-int
-crit_inside(void)
-{
-	if (curproc == NULL) {
-		crit_escaped++;
-		return (0);
-	}
-	KASSERT(curproc);
-	return (curproc->p_crit);
-}
-
-void
-crit_assert(void)
-{
-#ifdef DIAGNOSTIC
-	if (__predict_false(curproc->p_crit <= 0))
-		panic("not in critical section");
-#endif
-}

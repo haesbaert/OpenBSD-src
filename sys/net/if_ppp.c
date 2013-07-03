@@ -328,7 +328,7 @@ pppdealloc(struct ppp_softc *sc)
 {
     struct mbuf *m;
 
-    crit_assert();
+    CRIT_ASSERT();
 
     if_down(&sc->sc_if);
     sc->sc_if.if_flags &= ~(IFF_UP|IFF_RUNNING);
@@ -870,7 +870,7 @@ ppp_requeue(struct ppp_softc *sc)
     enum NPmode mode;
     int error;
 
-    crit_assert();
+    CRIT_ASSERT();
 
     for (mpp = &sc->sc_npqueue; (m = *mpp) != NULL; ) {
 	switch (PPP_PROTOCOL(mtod(m, u_char *))) {

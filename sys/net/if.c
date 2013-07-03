@@ -1048,7 +1048,7 @@ if_down(struct ifnet *ifp)
 {
 	struct ifaddr *ifa;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	ifp->if_flags &= ~IFF_UP;
 	microtime(&ifp->if_lastchange);
@@ -1082,7 +1082,7 @@ if_up(struct ifnet *ifp)
 	struct ifaddr *ifa;
 #endif
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	ifp->if_flags |= IFF_UP;
 	microtime(&ifp->if_lastchange);

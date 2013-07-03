@@ -922,7 +922,7 @@ int
 pf_state_insert(struct pfi_kif *kif, struct pf_state_key **skw,
     struct pf_state_key **sks, struct pf_state *s)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	s->kif = kif;
 	if (*skw == *sks) {
@@ -1271,7 +1271,7 @@ pf_src_tree_remove_state(struct pf_state *s)
 void
 pf_unlink_state(struct pf_state *cur)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	/* handle load balancing related tasks */
 	pf_postprocess_addr(cur);
@@ -1306,7 +1306,7 @@ pf_free_state(struct pf_state *cur)
 {
 	struct pf_rule_item *ri;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 #if NPFSYNC > 0
 	if (pfsync_state_in_use(cur))

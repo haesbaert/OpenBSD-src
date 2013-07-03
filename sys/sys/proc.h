@@ -517,8 +517,16 @@ int	fork1(struct proc *, int, int, void *, pid_t *, void (*)(void *),
 int	groupmember(gid_t, struct ucred *);
 void	crit_enter(void);
 void	crit_leave(void);
-int	crit_inside(void);
-void	crit_assert(void);
+#define CRIT_DEPTH	(curproc->p_crit)
+#ifdef DIAGNOSTIC
+#define CRIT_ASSERT() do {						\
+		if (__predict_false(curproc->p_crit <= 0))		\
+			panic("%s:%d not in a critical section\n",	\
+			    __func__, __LINE__);			\
+	} while (0)
+#else
+#define CRIT_ASSERT()
+#endif
 
 enum single_thread_mode {
 	SINGLE_SUSPEND,		/* other threads to stop wherever they are */

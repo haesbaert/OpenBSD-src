@@ -149,7 +149,7 @@ sonewconn(struct socket *head, int connstatus)
 	struct socket *so;
 	int soqueue = connstatus ? 1 : 0;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (mclpools[0].pr_nout > mclpools[0].pr_hardlimit * 95 / 100)
 		return (NULL);
@@ -275,7 +275,7 @@ socantrcvmore(struct socket *so)
 int
 sbwait(struct sockbuf *sb)
 {
-	crit_assert();
+	CRIT_ASSERT();
 
 	sb->sb_flagsintr |= SB_WAIT;
 	return (tsleep(&sb->sb_cc,

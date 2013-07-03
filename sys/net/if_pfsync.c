@@ -1696,7 +1696,7 @@ pfsync_insert_state(struct pf_state *st)
 {
 	struct pfsync_softc *sc = pfsyncif;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (ISSET(st->rule.ptr->rule_flag, PFRULE_NOSYNC) ||
 	    st->key[PF_SK_WIRE]->proto == IPPROTO_PFSYNC) {
@@ -1726,7 +1726,7 @@ pfsync_defer(struct pf_state *st, struct mbuf *m)
 	struct pfsync_softc *sc = pfsyncif;
 	struct pfsync_deferral *pd;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (!sc->sc_defer ||
 	    ISSET(st->state_flags, PFSTATE_NOSYNC) ||
@@ -1765,7 +1765,7 @@ pfsync_undefer(struct pfsync_deferral *pd, int drop)
 {
 	struct pfsync_softc *sc = pfsyncif;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	TAILQ_REMOVE(&sc->sc_deferrals, pd, pd_entry);
 	sc->sc_deferred--;
@@ -1826,7 +1826,7 @@ pfsync_deferred(struct pf_state *st, int drop)
 	struct pfsync_softc *sc = pfsyncif;
 	struct pfsync_deferral *pd;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	TAILQ_FOREACH(pd, &sc->sc_deferrals, pd_entry) {
 		 if (pd->pd_st == st) {
@@ -1845,7 +1845,7 @@ pfsync_update_state(struct pf_state *st)
 	struct pfsync_softc *sc = pfsyncif;
 	int sync = 0;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (sc == NULL || !ISSET(sc->sc_if.if_flags, IFF_RUNNING))
 		return;
@@ -2014,7 +2014,7 @@ pfsync_delete_state(struct pf_state *st)
 {
 	struct pfsync_softc *sc = pfsyncif;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (sc == NULL || !ISSET(sc->sc_if.if_flags, IFF_RUNNING))
 		return;
@@ -2061,7 +2061,7 @@ pfsync_clear_states(u_int32_t creatorid, const char *ifname)
 		struct pfsync_clr clr;
 	} __packed r;
 
-	crit_assert();
+	CRIT_ASSERT();
 
 	if (sc == NULL || !ISSET(sc->sc_if.if_flags, IFF_RUNNING))
 		return;
