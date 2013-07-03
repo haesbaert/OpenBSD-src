@@ -1960,17 +1960,15 @@ AdwISR(ADW_SOFTC *sc)
 	u_int32_t	irq_next_pa;
 	ADW_SCSI_REQ_Q	*scsiq;
 	ADW_CCB		*ccb;
-	int		s;
 
-
-	s = splbio();
+	crit_enter();
 
 	/* Reading the register clears the interrupt. */
 	int_stat = ADW_READ_BYTE_REGISTER(iot, ioh, IOPB_INTR_STATUS_REG);
 
 	if ((int_stat & (ADW_INTR_STATUS_INTRA | ADW_INTR_STATUS_INTRB |
 	     ADW_INTR_STATUS_INTRC)) == 0) {
-		splx(s);
+		crit_leave();
 		return ADW_FALSE;
 	}
 
@@ -2087,7 +2085,7 @@ AdwISR(ADW_SOFTC *sc)
 		 */
 	}
 
-	splx(s);
+	crit_leave();
 
 	return ADW_TRUE;
 }
@@ -2113,9 +2111,9 @@ AdwSendIdleCmd(ADW_SOFTC *sc, u_int16_t idle_cmd, u_int32_t idle_cmd_parameter)
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
 	u_int16_t	result;
-	u_int32_t	i, j, s;
+	u_int32_t	i, j;
 
-	s = splbio();
+	crit_enter();
 
 	/*
 	 * Clear the idle command status which is set by the microcode
@@ -2153,14 +2151,14 @@ AdwSendIdleCmd(ADW_SOFTC *sc, u_int16_t idle_cmd, u_int32_t idle_cmd_parameter)
 			ADW_READ_WORD_LRAM(iot, ioh, ADW_MC_IDLE_CMD_STATUS,
 									result);
 			if (result != 0) {
-				splx(s);
+				crit_leave();
 				return result;
 			}
 			AdwDelayMicroSecond(1);
 		}
 	}
 
-	splx(s);
+	crit_leave();
 	return ADW_ERROR;
 }
 

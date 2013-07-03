@@ -1148,7 +1148,6 @@ void
 hibernate_resume(void)
 {
 	union hibernate_info hiber_info;
-	int s;
 
 	/* Get current running machine's hibernate info */
 	bzero(&hiber_info, sizeof(hiber_info));
@@ -1156,7 +1155,7 @@ hibernate_resume(void)
 		return;
 
 	/* Read hibernate info from disk */
-	s = splbio();
+	crit_enter();
 
 #ifdef HIBERNATE_DEBUG
 	printf("reading hibernate signature block location: %lld\n",
@@ -1170,7 +1169,7 @@ hibernate_resume(void)
 
 	/* Check magic number */
 	if (disk_hiber_info.magic != HIBERNATE_MAGIC) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1179,7 +1178,7 @@ hibernate_resume(void)
 	 * to prevent accidental resume or endless resume cycles later.
 	 */
 	if (hibernate_clear_signature()) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 

@@ -103,16 +103,14 @@ hotplug_put_event(struct hotplug_event *he)
 int
 hotplug_get_event(struct hotplug_event *he)
 {
-	int s;
-
 	if (evqueue_count == 0)
 		return (1);
 
-	s = splbio();
+	crit_enter();
 	*he = evqueue[evqueue_tail];
 	evqueue_tail = EVQUEUE_NEXT(evqueue_tail);
 	evqueue_count--;
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -196,7 +194,6 @@ int
 hotplugkqfilter(dev_t dev, struct knote *kn)
 {
 	struct klist *klist;
-	int s;
 
 	switch (kn->kn_filter) {
 	case EVFILT_READ:
@@ -207,20 +204,18 @@ hotplugkqfilter(dev_t dev, struct knote *kn)
 		return (EINVAL);
 	}
 
-	s = splbio();
+	crit_enter();
 	SLIST_INSERT_HEAD(klist, kn, kn_selnext);
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
 void
 filt_hotplugrdetach(struct knote *kn)
 {
-	int s;
-
-	s = splbio();
+	crit_enter();
 	SLIST_REMOVE(&hotplug_sel.si_note, kn, knote, kn_selnext);
-	splx(s);
+	crit_leave();
 }
 
 int

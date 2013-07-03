@@ -344,10 +344,9 @@ sbt_intr(void *arg)
 	struct mbuf *m = NULL;
 	u_int8_t status;
 	size_t len;
-	int s;
 
 	/* Block further SDIO interrupts; XXX not really needed? */
-	s = splsdmmc();
+	crit_enter();
 
 	rw_enter_write(&sc->sc_sf->sc->sc_lock);
 	status = CSR_READ_1(sc, SBT_REG_ISTAT);
@@ -408,7 +407,7 @@ eoi:
 	} else
 		sc->sc_stats.err_rx++;
 
-	splx(s);
+	crit_leave();
 
 	/* Claim this interrupt. */
 	return 1;
@@ -435,12 +434,11 @@ void
 sbt_disable(struct device *self)
 {
 	struct sbt_softc *sc = (struct sbt_softc *)self;
-	int s;
 
 	if (!sc->sc_enabled)
 		return;
 
-	s = splsdmmc();
+	crit_enter();
 #ifdef notyet			/* XXX */
 	if (sc->sc_rxp) {
 		m_freem(sc->sc_rxp);
@@ -453,31 +451,30 @@ sbt_disable(struct device *self)
 	}
 #endif
 	sc->sc_enabled = 0;
-	splx(s);
+	crit_leave();
 }
 
 void
 sbt_start(struct sbt_softc *sc, struct mbuf *m, struct ifqueue *q, int xmit)
 {
-	int s;
 	int len;
 #ifdef SBT_DEBUG
 	const char *what;
 #endif
 
-	s = splsdmmc();
+	crit_enter();
 	if (m != NULL)
 		IF_ENQUEUE(q, m);
 
 	if (sc->sc_dying || IF_IS_EMPTY(q)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (curproc == NULL || sc->sc_busy) {
 		(void)workq_add_task(sc->sc_workq, 0, sbt_start_task,
 		    sc, (void *)(long)xmit);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -520,7 +517,7 @@ sbt_start(struct sbt_softc *sc, struct mbuf *m, struct ifqueue *q, int xmit)
 	if (sc->sc_dying)
 		wakeup(&sc->sc_busy);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -570,13 +567,12 @@ void
 sbt_stats(struct device *self, struct bt_stats *dest, int flush)
 {
 	struct sbt_softc *sc = (struct sbt_softc *)self;
-	int s;
 
-	s = splsdmmc();
+	crit_enter();
 	memcpy(dest, &sc->sc_stats, sizeof(struct bt_stats));
 
 	if (flush)
 		memset(&sc->sc_stats, 0, sizeof(struct bt_stats));
 
-	splx(s);
+	crit_leave();
 }

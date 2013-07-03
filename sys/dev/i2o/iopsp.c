@@ -230,7 +230,7 @@ iopsp_reconfig(struct device *dv)
 		struct	i2o_param_read_results prr;
 		struct	i2o_param_scsi_device_info sdi;
 	} __packed param;
-	u_int tid, nent, i, targ, lun, size, s, rv, bptid;
+	u_int tid, nent, i, targ, lun, size, rv, bptid;
 	u_short *tidmap;
 #ifdef I2OVERBOSE
 	struct iopsp_target *it;
@@ -344,11 +344,11 @@ iopsp_reconfig(struct device *dv)
 #endif
 
 	/* Swap in the new map and return. */
-	s = splbio();
+	crit_enter();
 	if (sc->sc_tidmap != NULL)
 		free(sc->sc_tidmap, M_DEVBUF);
 	sc->sc_tidmap = tidmap;
-	splx(s);
+	crit_leave();
 	sc->sc_chgind = iop->sc_chgind;
 	return (0);
 }
@@ -408,7 +408,7 @@ iopsp_scsi_cmd(xs)
 	struct iop_softc *iop = (struct iop_softc *)sc->sc_dv.dv_parent;
 	struct iop_msg *im;
 	struct i2o_scsi_scb_exec *mf;
-	int error, tid, s;
+	int error, tid;
 	u_int32_t mb[IOP_MAX_MSG_SIZE / sizeof(u_int32_t)];
 
 	tid = IOPSP_TIDMAP(sc->sc_tidmap, link->target, link->lun);
@@ -486,14 +486,14 @@ iopsp_scsi_cmd(xs)
 			mf->flags |= I2O_SCB_FLAG_XFER_FROM_DEVICE;
 	}
 
-	s = splbio();
+	crit_enter();
 	sc->sc_curqd++;
-	splx(s);
+	crit_leave();
 
 	if (iop_msg_post(iop, im, mb, xs->timeout)) {
-		s = splbio();
+		crit_enter();
 		sc->sc_curqd--;
-		splx(s);
+		crit_leave();
 		if (xs->datalen != 0)
 			iop_msg_unmap(iop, im);
 		iop_msg_free(iop, im);
@@ -512,7 +512,7 @@ iopsp_scsi_abort(struct iopsp_softc *sc, int atid, struct iop_msg *aim)
 	struct iop_msg *im;
 	struct i2o_scsi_scb_abort mf;
 	struct iop_softc *iop;
-	int rv, s;
+	int rv;
 
 	iop = (struct iop_softc *)sc->sc_dv.dv_parent;
 	im = iop_msg_alloc(iop, &sc->sc_ii, IM_POLL);
@@ -523,9 +523,9 @@ iopsp_scsi_abort(struct iopsp_softc *sc, int atid, struct iop_msg *aim)
 	mf.msgtctx = im->im_tctx;
 	mf.tctxabort = aim->im_tctx;
 
-	s = splbio();
+	crit_enter();
 	rv = iop_msg_post(iop, im, &mf, 30000);
-	splx(s);
+	crit_leave();
 	iop_msg_free(iop, im);
 	return (rv);
 }
@@ -619,11 +619,10 @@ void
 iopsp_adjqparam(struct device *dv, int mpi)
 {
 	struct iopsp_softc *sc = (struct iopsp_softc *)dv;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	sc->sc_link.openings = mpi;
 	if (mpi < sc->sc_curqd)
 		tsleep(&sc->sc_curqd, PWAIT, "iopspdrn", 0);
-	splx(s);
+	crit_leave();
 }

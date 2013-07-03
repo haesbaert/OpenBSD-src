@@ -815,7 +815,7 @@ udf_strategy(void *v)
 	struct buf *bp;
 	struct vnode *vp;
 	struct unode *up;
-	int maxsize, s, error;
+	int maxsize, error;
 
 	bp = ap->a_bp;
 	vp = bp->b_vp;
@@ -837,9 +837,9 @@ udf_strategy(void *v)
 		if (error) {
 			bp->b_error = error;
 			bp->b_flags |= B_ERROR;
-			s = splbio();
+			crit_enter();
 			biodone(bp);
-			splx(s);
+			crit_leave();
 			return (error);
 		}
 
@@ -848,9 +848,9 @@ udf_strategy(void *v)
 	}
 
 	if ((long)bp->b_blkno == -1) {
-		s = splbio();
+		crit_enter();
 		biodone(bp);
-		splx(s);
+		crit_leave();
 	} else {
 		bp->b_dev = vp->v_rdev;
 		(up->u_devvp->v_op->vop_strategy)(ap);

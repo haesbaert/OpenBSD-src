@@ -217,11 +217,10 @@ wdc_get_log(unsigned int * size, unsigned int *left)
 	int  log_size;
 	char *retbuf = NULL;
 	int  nb, tocopy;
-	int  s;
 	unsigned int head = wdc_head;
 	unsigned int tail = wdc_tail;
 
-	s = splbio();
+	crit_enter();
 
 	log_size = (head - tail);
 	if (left != NULL)
@@ -280,7 +279,7 @@ wdc_get_log(unsigned int * size, unsigned int *left)
 	*left = log_size - nb;
 
  out:
-	splx(s);
+	crit_leave();
 	return (retbuf);
 }
 #endif /* WDCDEBUG */
@@ -593,9 +592,9 @@ wdcprobe(struct channel_softc *chp)
 #endif
 
 	if (chp->_vtbl == 0) {
-		int s = splbio();
+		crit_enter();
 		chp->_vtbl = &wdc_default_vtbl;
-		splx(s);
+		crit_leave();
 	}
 
 #ifdef WDCDEBUG
@@ -893,16 +892,16 @@ wdcstart(struct channel_softc *chp)
 int
 wdcdetach(struct channel_softc *chp, int flags)
 {
-	int s, rv;
+	int rv;
 
-	s = splbio();
+	crit_enter();
 	chp->dying = 1;
 
 	wdc_kill_pending(chp);
 	timeout_del(&chp->ch_timo);
 
 	rv = config_detach_children((struct device *)chp->wdc, flags);
-	splx(s);
+	crit_leave();
 
 	return (rv);
 }
@@ -1161,17 +1160,16 @@ wdctimeout(void *arg)
 {
 	struct channel_softc *chp = (struct channel_softc *)arg;
 	struct wdc_xfer *xfer;
-	int s;
 
 	WDCDEBUG_PRINT(("wdctimeout\n"), DEBUG_FUNCS);
 
-	s = splbio();
+	crit_enter();
 	xfer = TAILQ_FIRST(&chp->ch_queue->sc_xfer);
 
 	/* Did we lose a race with the interrupt? */
 	if (xfer == NULL ||
 	    !timeout_triggered(&chp->ch_timo)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if ((chp->ch_flags & WDCF_IRQ_WAIT) != 0) {
@@ -1196,7 +1194,7 @@ wdctimeout(void *arg)
 		xfer->c_intr(chp, xfer, 1);
 	} else
 		__wdcerror(chp, "missing untimeout");
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1598,7 +1596,7 @@ wdc_exec_command(struct ata_drive_datas *drvp, struct wdc_command *wdc_c)
 {
 	struct channel_softc *chp = drvp->chnl_softc;
 	struct wdc_xfer *xfer;
-	int s, ret;
+	int ret;
 
 	WDCDEBUG_PRINT(("wdc_exec_command %s:%d:%d\n",
 	    chp->wdc->sc_dev.dv_xname, chp->channel, drvp->drive),
@@ -1621,7 +1619,7 @@ wdc_exec_command(struct ata_drive_datas *drvp, struct wdc_command *wdc_c)
 	xfer->c_intr = __wdccommand_intr;
 	xfer->c_kill_xfer = __wdccommand_done;
 
-	s = splbio();
+	crit_enter();x
 	wdc_exec_xfer(chp, xfer);
 #ifdef DIAGNOSTIC
 	if ((wdc_c->flags & AT_POLL) != 0 &&
@@ -1643,7 +1641,7 @@ wdc_exec_command(struct ata_drive_datas *drvp, struct wdc_command *wdc_c)
 			ret = WDC_QUEUED;
 		}
 	}
-	splx(s);
+	crit_leave();
 	return ret;
 }
 
@@ -1917,12 +1915,11 @@ struct wdc_xfer *
 wdc_get_xfer(int flags)
 {
 	struct wdc_xfer *xfer;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	xfer = pool_get(&wdc_xfer_pool,
 	    ((flags & WDC_NOSLEEP) != 0 ? PR_NOWAIT : PR_WAITOK));
-	splx(s);
+	crit_leave();
 	if (xfer != NULL)
 		memset(xfer, 0, sizeof(struct wdc_xfer));
 	return xfer;
@@ -1931,19 +1928,17 @@ wdc_get_xfer(int flags)
 void
 wdc_free_xfer(struct channel_softc *chp, struct wdc_xfer *xfer)
 {
-	int s;
-
 	if (xfer->c_flags & C_PRIVATEXFER) {
 		chp->ch_flags &= ~WDCF_ACTIVE;
 		TAILQ_REMOVE(&chp->ch_queue->sc_xfer, xfer, c_xferchain);
 		return;
 	}
 
-	s = splbio();
+	crit_enter();
 	chp->ch_flags &= ~WDCF_ACTIVE;
 	TAILQ_REMOVE(&chp->ch_queue->sc_xfer, xfer, c_xferchain);
 	pool_put(&wdc_xfer_pool, xfer);
-	splx(s);
+	crit_leave();
 }
 
 

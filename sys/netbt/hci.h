@@ -2572,7 +2572,6 @@ void hci_intr(void *);
 /* XXX mimic NetBSD for now, although we don't have these interfaces */
 #define M_GETCTX(m, t)	((t)(m)->m_pkthdr.rcvif)
 #define M_SETCTX(m, c)	((m)->m_pkthdr.rcvif = (void *)(c))
-#define splraiseipl(ipl) splbio() /* XXX */
 #define ENOLINK ENOENT		/* XXX */
 #define EPASSTHROUGH ENOTTY	/* XXX */
 #define device_xname(dv)	(dv)->dv_xname

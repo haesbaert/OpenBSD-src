@@ -305,12 +305,10 @@ fdcstatus(struct device *dv, int n, char *s)
 void
 fdcpseudointr(void *arg)
 {
-	int s;
-
 	/* Just ensure it has the right spl. */
-	s = splbio();
+	crit_enter();
 	(void) fdcintr(arg);
-	splx(s);
+	crit_leave();
 }
 
 int

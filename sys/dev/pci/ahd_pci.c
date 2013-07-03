@@ -344,7 +344,7 @@ ahd_pci_attach(struct device *parent, struct device *self, void *aux)
 	const char *intrstr;
 	pcireg_t devconfig, memtype, subid;
 	uint16_t device, subvendor; 
-	int error, ioh_valid, ioh2_valid, l, memh_valid;
+	int error, ioh_valid, ioh2_valid, memh_valid;
 
 	ahd->dev_softc = pa;
 	ahd->parent_dmat = pa->pa_dmat;
@@ -531,12 +531,12 @@ ahd_pci_attach(struct device *parent, struct device *self, void *aux)
 	if (error != 0)
 		return;
 
-	ahd_list_lock(&l);
+	ahd_list_lock();
 	/*
 	 * Link this softc in with all other ahd instances.
 	 */
 	ahd_softc_insert(ahd);
-	ahd_list_unlock(&l);
+	ahd_list_unlock();
 
 	/* complete the attach */
 	ahd_attach(ahd);

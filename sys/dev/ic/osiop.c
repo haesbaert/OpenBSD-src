@@ -395,7 +395,7 @@ osiop_scsicmd(xs)
 	struct scsi_link *periph = xs->sc_link;
 	struct osiop_acb *acb;
 	struct osiop_softc *sc = periph->adapter_softc;
-	int err, s;
+	int err;
 	int dopoll;
 
 	/* XXXX ?? */
@@ -445,7 +445,7 @@ osiop_scsicmd(xs)
 	 */
 	timeout_set(&xs->stimeout, osiop_timeout, acb);
 
-	s = splbio();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&sc->ready_list, acb, chain);
 
 	if ((acb->xsflags & SCSI_POLL) || (sc->sc_flags & OSIOP_NODMA))
@@ -458,7 +458,7 @@ osiop_scsicmd(xs)
 
 	osiop_sched(sc);
 
-	splx(s);
+	crit_leave();
 
 	if (dopoll)
 		osiop_poll(sc, acb);
@@ -470,10 +470,10 @@ osiop_poll(sc, acb)
 	struct osiop_acb *acb;
 {
 	struct scsi_xfer *xs = acb->xs;
-	int status, i, s, to;
+	int status, i, to;
 	u_int8_t istat, dstat, sstat0;
 
-	s = splbio();
+	crit_enter();
 	to = xs->timeout / 1000;
 	if (!TAILQ_EMPTY(&sc->nexus_list))
 		printf("%s: osiop_poll called with disconnected device\n",
@@ -500,7 +500,7 @@ osiop_poll(sc, acb)
 				to--;
 				if (to <= 0) {
 					osiop_reset(sc);
-					splx(s);
+					crit_leave();
 					return;
 				}
 			}
@@ -526,7 +526,7 @@ osiop_poll(sc, acb)
 			break;
 	}
 
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -844,7 +844,7 @@ osiop_reset(sc)
 	struct osiop_softc *sc;
 {
 	struct osiop_acb *acb;
-	int i, s;
+	int i;
 	u_int8_t stat;
 
 #ifdef OSIOP_DEBUG
@@ -853,7 +853,7 @@ osiop_reset(sc)
 	if (sc->sc_flags & OSIOP_ALIVE)
 		osiop_abort(sc, "reset");
 
-	s = splbio();
+	crit_enter();
 
 	/*
 	 * Reset the chip
@@ -906,11 +906,11 @@ osiop_reset(sc)
 		osiop_read_1(sc, OSIOP_DSTAT);
 	}
 
-	splx(s);
+	crit_leave();
 
 	delay(osiop_reset_delay * 1000);
 
-	s = splbio();
+	crit_enter();
 	if (sc->sc_nexus != NULL) {
 		sc->sc_nexus->xs->error =
 		    (sc->sc_nexus->flags & ACB_F_TIMEOUT) ?
@@ -924,7 +924,7 @@ osiop_reset(sc)
 		acb->status = ACB_S_DONE;
 		osiop_scsidone(acb, SCSI_OSIOP_NOCHECK);
 	}
-	splx(s);
+	crit_leave();
 
 	sc->sc_flags &= ~(OSIOP_INTDEFER | OSIOP_INTSOFF);
 	/* enable SCSI and DMA interrupts */
@@ -1747,14 +1747,14 @@ void
 osiop_intr(sc)
 	struct osiop_softc *sc;
 {
-	int status, s;
+	int status;
 	u_int8_t istat, dstat, sstat0;
 
-	s = splbio();
+	crit_enter();
 
 	istat = sc->sc_istat;
 	if ((istat & (OSIOP_ISTAT_SIP | OSIOP_ISTAT_DIP)) == 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1818,7 +1818,7 @@ osiop_intr(sc)
 			osiop_scsidone(sc->sc_nexus, status);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1948,18 +1948,17 @@ osiop_timeout(arg)
 	struct osiop_acb *acb = arg;
 	struct scsi_xfer *xs = acb->xs;
 	struct osiop_softc *sc = acb->sc;
-	int s;
 
 	sc_print_addr(xs->sc_link);
 	printf("command 0x%02x timeout on xs %p\n", xs->cmd->opcode, xs);
 
-	s = splbio();
+	crit_enter();
 	/* reset the scsi bus */
 	osiop_resetbus(sc);
 
 	acb->flags |= ACB_F_TIMEOUT;
 	osiop_reset(sc);
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -2014,9 +2013,9 @@ osiop_dump(sc)
 	struct osiop_softc *sc;
 {
 	struct osiop_acb *acb;
-	int i, s;
+	int i;
 
-	s = splbio();
+	crit_enter();
 #if OSIOP_TRACE_SIZE
 	osiop_dump_trace();
 #endif
@@ -2057,6 +2056,6 @@ osiop_dump(sc)
 			    sc->sc_tinfo[i].lubusy);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 #endif

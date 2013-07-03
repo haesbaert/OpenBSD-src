@@ -360,7 +360,6 @@ void
 ioprbs_unconfig(struct ioprbs_softc *sc, int evreg)
 {
 	struct iop_softc *iop;
-	int s;
 
 	iop = (struct iop_softc *)sc->sc_dv.dv_parent;
 
@@ -377,10 +376,10 @@ ioprbs_unconfig(struct ioprbs_softc *sc, int evreg)
 		sc->sc_flags &= ~IOPRBS_NEW_EVTMASK;
 		iop_util_eventreg(iop, &sc->sc_eventii,
 		    I2O_EVENT_GEN_EVENT_MASK_MODIFIED);
-		s = splbio();
+		crit_enter();
 		if ((sc->sc_flags & IOPRBS_NEW_EVTMASK) == 0)
 			tsleep(&sc->sc_eventii, PRIBIO, "ioprbsevt", hz * 5);
-		splx(s);
+		crit_leave();
 #ifdef I2ODEBUG
 		if ((sc->sc_flags & IOPRBS_NEW_EVTMASK) == 0)
 			printf("%s: didn't reply to event unregister",
@@ -400,7 +399,6 @@ ioprbs_scsi_cmd(struct scsi_xfer *xs)
 	struct ioprbs_ccb *ccb = xs->io;
 	u_int64_t blockno;
 	u_int32_t blockcnt;
-	int s;
 
 	xs->error = XS_NOERROR;
 
@@ -466,9 +464,9 @@ ioprbs_scsi_cmd(struct scsi_xfer *xs)
 		ccb->ic_xs = xs;
 		ccb->ic_timeout = xs->timeout;
 
-		s = splbio();
+		crit_enter();
 		ioprbs_enqueue_ccb(sc, ccb);
-		splx(s);
+		crit_leave();
 
 		if (xs->flags & SCSI_POLL) {
 			/* XXX Should actually poll... */
@@ -824,7 +822,6 @@ ioprbs_timeout(arg)
 	struct ioprbs_ccb *ccb = arg;
 	struct scsi_link *link = ccb->ic_xs->sc_link;
 	struct ioprbs_softc *sc = link->adapter_softc;
-	int s;
 
 	sc_print_addr(link);
 	printf("timed out\n");
@@ -832,9 +829,9 @@ ioprbs_timeout(arg)
 	/* XXX Test for multiple timeouts */
 
 	ccb->ic_xs->error = XS_TIMEOUT;
-	s = splbio();
+	crit_enter();
 	ioprbs_enqueue_ccb(sc, ccb);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -844,10 +841,9 @@ ioprbs_watchdog(arg)
 	struct ioprbs_ccb *ccb = arg;
 	struct scsi_link *link = ccb->ic_xs->sc_link;
 	struct ioprbs_softc *sc = link->adapter_softc;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	ccb->ic_flags &= ~IOPRBS_ICF_WATCHDOG;
 	ioprbs_start_ccbs(sc);
-	splx(s);
+	crit_leave();
 }

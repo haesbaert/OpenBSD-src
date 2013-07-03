@@ -341,12 +341,11 @@ static uint32_t
 ba5_read_4_ind(struct pciide_softc *sc, pcireg_t reg)
 {
 	uint32_t rv;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	pci_conf_write(sc->sc_pc, sc->sc_tag, SII3112_BA5_IND_ADDR, reg);
 	rv = pci_conf_read(sc->sc_pc, sc->sc_tag, SII3112_BA5_IND_DATA);
-	splx(s);
+	crit_leave();
 
 	return (rv);
 }
@@ -368,12 +367,10 @@ ba5_read_4(struct pciide_softc *sc, bus_size_t reg)
 static void
 ba5_write_4_ind(struct pciide_softc *sc, pcireg_t reg, uint32_t val)
 {
-	int s;
-
-	s = splbio();
+	crit_enter();
 	pci_conf_write(sc->sc_pc, sc->sc_tag, SII3112_BA5_IND_ADDR, reg);
 	pci_conf_write(sc->sc_pc, sc->sc_tag, SII3112_BA5_IND_DATA, val);
-	splx(s);
+	crit_leave();
 }
 
 static void

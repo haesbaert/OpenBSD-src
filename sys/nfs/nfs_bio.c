@@ -534,7 +534,7 @@ nfs_doio(struct buf *bp, struct proc *p)
 	struct vnode *vp;
 	struct nfsnode *np;
 	struct nfsmount *nmp;
-	int s, error = 0, diff, len, iomode, must_commit = 0;
+	int error = 0, diff, len, iomode, must_commit = 0;
 	struct uio uio;
 	struct iovec io;
 
@@ -664,9 +664,9 @@ nfs_doio(struct buf *bp, struct proc *p)
 	     * B_DELWRI and B_NEEDCOMMIT flags.
 	     */
 	    if (error == EINTR || (!error && (bp->b_flags & B_NEEDCOMMIT))) {
-		    s = splbio();
+		    crit_enter();
 		    buf_dirty(bp);
-		    splx(s);
+		    crit_leave();
 
 		    if (!(bp->b_flags & B_ASYNC) && error)
 			    bp->b_flags |= B_EINTR;
@@ -682,8 +682,8 @@ nfs_doio(struct buf *bp, struct proc *p)
 	bp->b_resid = uiop->uio_resid;
 	if (must_commit)
 		nfs_clearcommit(vp->v_mount);
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	return (error);
 }

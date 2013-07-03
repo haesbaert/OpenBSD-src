@@ -493,7 +493,7 @@ aic_scsi_cmd(struct scsi_xfer *xs)
 	struct scsi_link *sc_link = xs->sc_link;
 	struct aic_softc *sc = sc_link->adapter_softc;
 	struct aic_acb *acb;
-	int s, flags;
+	int flags;
 
 	AIC_TRACE(("aic_scsi_cmd  "));
 	AIC_CMDS(("[0x%x, %d]->%d ", (int)xs->cmd->opcode, xs->cmdlen,
@@ -519,13 +519,13 @@ aic_scsi_cmd(struct scsi_xfer *xs)
 	}
 	acb->target_stat = 0;
 
-	s = splbio();
+	crit_enter();
 
 	TAILQ_INSERT_TAIL(&sc->ready_list, acb, chain);
 	if (sc->sc_state == AIC_IDLE)
 		aic_sched(sc);
 
-	splx(s);
+	crit_leave();
 
 	if ((flags & SCSI_POLL) == 0)
 		return;
@@ -561,7 +561,6 @@ aic_poll(struct aic_softc *sc, struct scsi_xfer *xs, int count)
 {
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
 	AIC_TRACE(("aic_poll  "));
 	while (count) {
@@ -570,9 +569,9 @@ aic_poll(struct aic_softc *sc, struct scsi_xfer *xs, int count)
 		 * have got an interrupt?
 		 */
 		if ((bus_space_read_1(iot, ioh, DMASTAT) & INTSTAT) != 0) {
-			s = splbio();
+			crit_enter();
 			aicintr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if ((xs->flags & ITSDONE) != 0)
 			return 0;
@@ -2000,12 +1999,11 @@ aic_timeout(void *arg)
 	struct scsi_xfer *xs = acb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	struct aic_softc *sc = sc_link->adapter_softc;
-	int s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 	if (acb->flags & ACB_ABORT) {
 		/* abort timed out */
@@ -2018,7 +2016,7 @@ aic_timeout(void *arg)
 		aic_abort(sc, acb);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 #ifdef AIC_DEBUG

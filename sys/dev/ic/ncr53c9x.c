@@ -747,12 +747,10 @@ ncr53c9x_free_ecb(sc, ecb, flags)
 	struct ncr53c9x_ecb *ecb;
 	int flags;
 {
-	int s;
-
-	s = splbio();
+	crit_enter();
 	ecb->flags = 0;
 	pool_put(&ecb_pool, (void *)ecb);
-	splx(s);
+	crit_leave();
 }
 
 struct ncr53c9x_ecb *
@@ -761,14 +759,14 @@ ncr53c9x_get_ecb(sc, flags)
 	int flags;
 {
 	struct ncr53c9x_ecb *ecb;
-	int s, wait = PR_NOWAIT;
+	int wait = PR_NOWAIT;
 
 	if ((curproc != NULL) && ((flags & SCSI_NOSLEEP) == 0))
 		wait = PR_WAITOK;
 
-	s = splbio();
+	crit_enter();
 	ecb = (struct ncr53c9x_ecb *)pool_get(&ecb_pool, wait);
-	splx(s);
+	crit_leave();
 	if (ecb == NULL)
 		return (NULL);
 	bzero(ecb, sizeof(*ecb));
@@ -796,7 +794,7 @@ ncr53c9x_scsi_cmd(xs)
 	struct ncr53c9x_tinfo *ti;
 	struct ncr53c9x_linfo *li;
 	int64_t lun = sc_link->lun;
-	int s, flags;
+	int flags;
 
 	NCR_TRACE(("[ncr53c9x_scsi_cmd] "));
 	NCR_CMDS(("[0x%x, %d]->%d ", (int)xs->cmd->opcode, xs->cmdlen,
@@ -830,11 +828,11 @@ ncr53c9x_scsi_cmd(xs)
 		}
 		li->last_used = time_second;
 		li->lun = lun;
-		s = splbio();
+		crit_enter();
 		LIST_INSERT_HEAD(&ti->luns, li, link);
 		if (lun < NCR_NLUN)
 			ti->lun[lun] = li;
-		splx(s);
+		crit_leave();
 	}
 
 	if ((ecb = ncr53c9x_get_ecb(sc, flags)) == NULL) {
@@ -859,14 +857,14 @@ ncr53c9x_scsi_cmd(xs)
 	}
 	ecb->stat = 0;
 
-	s = splbio();
+	crit_enter();
 
 	TAILQ_INSERT_TAIL(&sc->ready_list, ecb, chain);
 	ecb->flags |= ECB_READY;
 	if (sc->sc_state == NCR_IDLE)
 		ncr53c9x_sched(sc);
 
-	splx(s);
+	crit_leave();
 
 	if ((flags & SCSI_POLL) == 0)
 		return;
@@ -888,30 +886,28 @@ ncr53c9x_poll(sc, xs, count)
 	struct scsi_xfer *xs;
 	int count;
 {
-	int s;
-
 	NCR_TRACE(("[ncr53c9x_poll] "));
 	while (count) {
 		if (NCRDMA_ISINTR(sc)) {
-			s = splbio();
+			crit_enter();
 			ncr53c9x_intr(sc);
-			splx(s);
+			crit_leave();
 		}
 #if alternatively
 		if (NCR_READ_REG(sc, NCR_STAT) & NCRSTAT_INT) {
-			s = splbio();
+			crit_enter();
 			ncr53c9x_intr(sc);
-			splx(s);
+			crit_leave();
 		}
 #endif
 		if ((xs->flags & ITSDONE) != 0)
 			return (0);
-		s = splbio();
+		crit_enter();
 		if (sc->sc_state == NCR_IDLE) {
 			NCR_TRACE(("[ncr53c9x_poll: rescheduling] "));
 			ncr53c9x_sched(sc);
 		}
-		splx(s);
+		crit_leave();
 		DELAY(1000);
 		count--;
 	}
@@ -938,7 +934,7 @@ ncr53c9x_sched(sc)
 	struct ncr53c9x_tinfo *ti;
 	int lun;
 	struct ncr53c9x_linfo *li;
-	int s, tag;
+	int tag;
 
 	NCR_TRACE(("[ncr53c9x_sched] "));
 	if (sc->sc_state != NCR_IDLE)
@@ -967,13 +963,13 @@ ncr53c9x_sched(sc)
 		if (ecb->xs->flags & SCSI_POLL)
 			tag = 0;
 #endif
-		s = splbio();
+		crit_enter();
 		li = TINFO_LUN(ti, lun);
 		if (!li) {
 			/* Initialize LUN info and add to list. */
 			if ((li = malloc(sizeof(*li), M_DEVBUF,
 			    M_NOWAIT | M_ZERO)) == NULL) {
-				splx(s);
+				crit_leave();
 				continue;
 			}
 			li->lun = lun;
@@ -997,7 +993,7 @@ ncr53c9x_sched(sc)
 			}
 			else {
 				/* Not ready yet */
-				splx(s);
+				crit_leave();
 				continue;
 			}
 		}
@@ -1008,7 +1004,7 @@ ncr53c9x_sched(sc)
 			/* Allocate a tag */
 			if (li->used == 255) {
 				/* no free tags */
-				splx(s);
+				crit_leave();
 				continue;
 			}
 			/* Start from the last used location */
@@ -1035,7 +1031,7 @@ ncr53c9x_sched(sc)
 			li->queued[i] = ecb;
 			ecb->tag[1] = i;
 		}
-		splx(s);
+		crit_leave();
 		if (li->untagged && (li->busy != 1)) {
 			li->busy = 1;
 			TAILQ_REMOVE(&sc->ready_list, ecb, chain);
@@ -2784,7 +2780,6 @@ ncr53c9x_timeout(arg)
 	struct scsi_link *sc_link = xs->sc_link;
 	struct ncr53c9x_softc *sc = sc_link->adapter_softc;
 	struct ncr53c9x_tinfo *ti = &sc->sc_tinfo[sc_link->target];
-	int s;
 
 	sc_print_addr(sc_link);
 	printf("timed out [ecb %p (flags 0x%x, dleft %x, stat %x)], "
@@ -2800,7 +2795,7 @@ ncr53c9x_timeout(arg)
 	printf("TRACE: %s.", ecb->trace);
 #endif
 
-	s = splbio();
+	crit_enter();
 
 	if (ecb->flags & ECB_ABORT) {
 		/* abort timed out */
@@ -2823,7 +2818,7 @@ ncr53c9x_timeout(arg)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2833,11 +2828,11 @@ ncr53c9x_watch(arg)
 	struct ncr53c9x_softc *sc = (struct ncr53c9x_softc *)arg;
 	struct ncr53c9x_tinfo *ti;
 	struct ncr53c9x_linfo *li;
-	int t, s;
+	int t;
 	/* Delete any structures that have not been used in 10min. */
 	time_t old = time_second - (10*60);
 
-	s = splbio();
+	crit_enter();
 	for (t = 0; t < sc->sc_ntarg; t++) {
 		ti = &sc->sc_tinfo[t];
 		for (li = LIST_FIRST(&ti->luns); li != LIST_END(&ti->luns); ) {
@@ -2853,6 +2848,6 @@ ncr53c9x_watch(arg)
 			li = LIST_NEXT(li, link);
 		}
 	}
-	splx(s);
+	crit_leave();
 	timeout_add_sec(&sc->sc_watchdog, 60);
 }

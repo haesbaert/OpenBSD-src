@@ -83,8 +83,8 @@ struct twe_softc {
 };
 
 /* XXX These have to become spinlocks in case of SMP */
-#define TWE_LOCK(sc) splbio()
-#define TWE_UNLOCK(sc, lock) splx(lock)
+#define TWE_LOCK(sc) crit_enter()
+#define TWE_UNLOCK(sc, lock) crit_leave()
 typedef int twe_lock_t;
 
 void	tweminphys(struct buf *bp, struct scsi_link *sl);

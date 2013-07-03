@@ -203,9 +203,9 @@ struct pool vndxfer_pool;
 struct pool vndbuf_pool;
 
 #define	getvndxfer(vnx)	do {						\
-	int s = splbio();						\
+	crit_enter();							\
 	vnx = pool_get(&vndxfer_pool, PR_WAITOK);			\
-	splx(s);							\
+	crit_leave();							\
 } while (0)
 
 #define putvndxfer(vnx) {						\
@@ -213,9 +213,9 @@ struct pool vndbuf_pool;
 }
 
 #define	getvndbuf(vbp)	do {						\
-	int s = splbio();						\
+	crit_enter();							\
 	vbp = pool_get(&vndbuf_pool, PR_WAITOK);			\
-	splx(s);							\
+	crit_leave();							\
 } while (0)
 
 #define putvndbuf(vbp) {						\
@@ -1090,7 +1090,7 @@ void
 swstrategy(struct buf *bp)
 {
 	struct swapdev *sdp;
-	int s, pageno, bn;
+	int pageno, bn;
 
 	/*
 	 * convert block number to swapdev.   note that swapdev can't
@@ -1102,9 +1102,9 @@ swstrategy(struct buf *bp)
 	if (sdp == NULL) {
 		bp->b_error = EINVAL;
 		bp->b_flags |= B_ERROR;
-		s = splbio();
+		crit_enter();
 		biodone(bp);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1131,11 +1131,11 @@ swstrategy(struct buf *bp)
 		 * must convert "bp" from an I/O on /dev/drum to an I/O
 		 * on the swapdev (sdp).
 		 */
-		s = splbio();
+		crit_enter();
 		buf_replacevnode(bp, sdp->swd_vp);
 
 		bp->b_blkno = bn;
-      		splx(s);
+      		crit_leave();
 		VOP_STRATEGY(bp);
 		return;
 
@@ -1160,7 +1160,7 @@ sw_reg_strategy(struct swapdev *sdp, struct buf *bp, int bn)
 	daddr_t	nbn;
 	caddr_t		addr;
 	off_t		byteoff;
-	int		s, off, nra, error, sz, resid;
+	int		off, nra, error, sz, resid;
 
 	/*
 	 * allocate a vndxfer head for this transfer and point it to
@@ -1219,7 +1219,7 @@ sw_reg_strategy(struct swapdev *sdp, struct buf *bp, int bn)
 		 * a hassle (in the write case).
 		 */
 		if (error) {
-			s = splbio();
+			crit_enter();
 			vnx->vx_error = error;	/* pass error up */
 			goto out;
 		}
@@ -1282,7 +1282,7 @@ sw_reg_strategy(struct swapdev *sdp, struct buf *bp, int bn)
 		/* XXX: In case the underlying bufq is disksort: */
 		nbp->vb_buf.b_cylinder = nbp->vb_buf.b_blkno;
 
-		s = splbio();
+		crit_enter();
 		if (vnx->vx_error != 0) {
 			putvndbuf(nbp);
 			goto out;
@@ -1295,7 +1295,7 @@ sw_reg_strategy(struct swapdev *sdp, struct buf *bp, int bn)
 		/* start I/O if we are not over our limit */
 		bufq_queue(&sdp->swd_bufq, &nbp->vb_buf);
 		sw_reg_start(sdp);
-		splx(s);
+		crit_leave();
 
 		/*
 		 * advance to the next I/O
@@ -1304,7 +1304,7 @@ sw_reg_strategy(struct swapdev *sdp, struct buf *bp, int bn)
 		addr += sz;
 	}
 
-	s = splbio();
+	crit_enter();
 
 out: /* Arrive here at splbio */
 	vnx->vx_flags &= ~VX_BUSY;
@@ -1316,7 +1316,7 @@ out: /* Arrive here at splbio */
 		putvndxfer(vnx);
 		biodone(bp);
 	}
-	splx(s);
+	crit_leave();
 }
 
 /* sw_reg_start: start an I/O request on the requested swapdev. */
@@ -1374,9 +1374,9 @@ sw_reg_iodone_internal(void *arg0, void *unused)
 	struct vndxfer *vnx = vbp->vb_xfer;
 	struct buf *pbp = vnx->vx_bp;		/* parent buffer */
 	struct swapdev	*sdp = vnx->vx_sdp;
-	int resid, s;
+	int resid;
 
-	s = splbio();
+	crit_enter();
 
 	resid = vbp->vb_buf.b_bcount - vbp->vb_buf.b_resid;
 	pbp->b_resid -= resid;
@@ -1423,7 +1423,7 @@ sw_reg_iodone_internal(void *arg0, void *unused)
 	 */
 	sdp->swd_active--;
 	sw_reg_start(sdp);
-	splx(s);
+	crit_leave();
 }
 
 
@@ -1635,7 +1635,7 @@ uvm_swap_io(struct vm_page **pps, int startslot, int npages, int flags)
 	daddr_t startblk;
 	struct	buf *bp;
 	vaddr_t kva;
-	int	result, s, mapinflags, pflag, bounce = 0, i;
+	int	result, mapinflags, pflag, bounce = 0, i;
 	boolean_t write, async;
 	vaddr_t bouncekva;
 	struct vm_page *tpps[MAXBSIZE >> PAGE_SHIFT];
@@ -1777,11 +1777,11 @@ uvm_swap_io(struct vm_page **pps, int startslot, int npages, int flags)
 	 * now allocate a buf for the i/o.
 	 * [make sure we don't put the pagedaemon to sleep...]
 	 */
-	s = splbio();
+	crit_enter();
 	pflag = (async || curproc == uvm.pagedaemon_proc) ? PR_NOWAIT :
 	    PR_WAITOK;
 	bp = pool_get(&bufpool, pflag);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * if we failed to get a swapbuf, return "try again"
@@ -1829,10 +1829,10 @@ uvm_swap_io(struct vm_page **pps, int startslot, int npages, int flags)
 	bp->b_bq = NULL;
 	bp->b_blkno = startblk;
 	LIST_INIT(&bp->b_dep);
-	s = splbio();
+	crit_enter();
 	bp->b_vp = NULL;
 	buf_replacevnode(bp, swapdev_vp);
-	splx(s);
+	crit_leave();
 	bp->b_bufsize = bp->b_bcount = npages << PAGE_SHIFT;
 
 	/*
@@ -1847,9 +1847,9 @@ uvm_swap_io(struct vm_page **pps, int startslot, int npages, int flags)
 		if (swap_encrypt_initialized)
 			uvm_swap_markdecrypt(sdp, startslot, npages, encrypt);
 #endif
-		s = splbio();
+		crit_enter();
 		swapdev_vp->v_numoutput++;
-		splx(s);
+		crit_leave();
 	}
 
 	/*
@@ -1927,14 +1927,14 @@ uvm_swap_io(struct vm_page **pps, int startslot, int npages, int flags)
 	/*
 	 * now dispose of the buf
 	 */
-	s = splbio();
+	crit_enter();
 	if (bp->b_vp)
 		brelvp(bp);
 
 	if (write && bp->b_vp)
 		vwakeup(bp->b_vp);
 	pool_put(&bufpool, bp);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * finally return.

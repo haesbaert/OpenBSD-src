@@ -1395,7 +1395,7 @@ int
 ips_cmd(struct ips_softc *sc, struct ips_ccb *ccb)
 {
 	struct ips_cmd *cmd = ccb->c_cmdbva;
-	int s, error = 0;
+	int error = 0;
 
 	DPRINTF(IPS_D_XFER, ("%s: ips_cmd: id 0x%02x, flags 0x%x, xs %p, "
 	    "code 0x%02x, drive %d, sgcnt %d, lba %d, sgaddr 0x%08x, "
@@ -1406,12 +1406,12 @@ ips_cmd(struct ips_softc *sc, struct ips_ccb *ccb)
 	cmd->id = ccb->c_id;
 
 	/* Post command to controller and optionally wait for completion */
-	s = splbio();
+	crit_enter();
 	ips_exec(sc, ccb);
 	ccb->c_state = IPS_CCB_QUEUED;
 	if (ccb->c_flags & SCSI_POLL)
 		error = ips_poll(sc, ccb);
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -1706,9 +1706,8 @@ ips_timeout(void *arg)
 	struct ips_ccb *ccb = arg;
 	struct ips_softc *sc = ccb->c_sc;
 	struct scsi_xfer *xs = ccb->c_xfer;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	if (xs)
 		sc_print_addr(xs->sc_link);
 	else
@@ -1722,7 +1721,7 @@ ips_timeout(void *arg)
 	 */
 	ccb->c_stat = IPS_STAT_TIMO;
 	ips_done(sc, ccb);
-	splx(s);
+	crit_leave();
 }
 
 int

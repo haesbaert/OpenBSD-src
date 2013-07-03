@@ -1055,9 +1055,9 @@ ami_complete(struct ami_softc *sc, struct ami_ccb *ccb, int timeout)
 	timeout = MAX(30000, timeout); /* timeout */
 
 	while (ccb->ccb_state == AMI_CCB_QUEUED) {
-		s = splbio(); /* interrupt handlers are called at their IPL */
+		crit_enter(); /* interrupt handlers are called at their IPL */
 		ready = ami_intr(sc);
-		splx(s);
+		crit_leave();
 		
 		if (ready == 0) {
 			if (timeout-- == 0) {

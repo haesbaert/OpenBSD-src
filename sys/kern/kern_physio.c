@@ -66,7 +66,7 @@ physio(void (*strategy)(struct buf *), dev_t dev, int flags,
 {
 	struct iovec *iovp;
 	struct proc *p = curproc;
-	int error, done, i, s, todo;
+	int error, done, i, todo;
 	struct buf *bp;
 
 	if ((uio->uio_offset % DEV_BSIZE) != 0)
@@ -76,7 +76,7 @@ physio(void (*strategy)(struct buf *), dev_t dev, int flags,
 	flags &= B_READ | B_WRITE;
 
 	/* Create a buffer. */
-	s = splbio();
+	crit_enter();
 	bp = pool_get(&bufpool, PR_WAITOK | PR_ZERO);
 
 	/* [set up the fixed part of the buffer for a transfer] */
@@ -86,7 +86,7 @@ physio(void (*strategy)(struct buf *), dev_t dev, int flags,
 	bp->b_proc = p;
 	bp->b_flags = B_BUSY;
 	LIST_INIT(&bp->b_dep);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * [while there are data to transfer and no I/O error]
@@ -165,7 +165,7 @@ physio(void (*strategy)(struct buf *), dev_t dev, int flags,
 			 *
 			 * [raise the priority level to splbio]
 			 */
-			s = splbio();
+			crit_enter();
 
 			/* [wait for the transfer to complete] */
 			while ((bp->b_flags & B_DONE) == 0)
@@ -175,7 +175,7 @@ physio(void (*strategy)(struct buf *), dev_t dev, int flags,
 			bp->b_flags |= B_BUSY;
 
 			/* [lower the priority level] */
-			splx(s);
+			crit_leave();
 
 			/*
 			 * [unlock the part of the address space previously
@@ -218,11 +218,11 @@ done:
 	/*
 	 * [clean up the state of the buffer]
 	 */
-	s = splbio();
+	crit_enter();
 	/* XXXCDC: is this necessary? */
 	if (bp->b_vp)
 		brelvp(bp);
-	splx(s);
+	crit_leave();
 	pool_put(&bufpool, bp);
 
 	return (error);

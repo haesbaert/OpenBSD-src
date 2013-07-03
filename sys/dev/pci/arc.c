@@ -720,7 +720,6 @@ arc_scsi_cmd(struct scsi_xfer *xs)
 	struct arc_ccb			*ccb;
 	struct arc_msg_scsicmd		*cmd;
 	u_int32_t			reg;
-	int				s;
 
 	if (xs->cmdlen > ARC_MSG_CDBLEN) {
 		bzero(&xs->sense, sizeof(xs->sense));
@@ -768,7 +767,7 @@ arc_scsi_cmd(struct scsi_xfer *xs)
 	    ccb->ccb_offset, ARC_MAX_IOCMDLEN,
 	    BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
 
-	s = splbio();
+	crit_enter();
 	arc_push(sc, reg);
 	if (xs->flags & SCSI_POLL) {
 		if (arc_complete(sc, ccb, xs->timeout) != 0) {
@@ -776,7 +775,7 @@ arc_scsi_cmd(struct scsi_xfer *xs)
 			scsi_done(xs);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1611,39 +1610,33 @@ out:
 void
 arc_lock(struct arc_softc *sc)
 {
-	int				s;
-
 	rw_enter_write(&sc->sc_lock);
-	s = splbio();
+	crit_enter();
 	arc_write(sc, ARC_RA_INTRMASK, ~ARC_RA_INTRMASK_POSTQUEUE);
 	sc->sc_talking = 1;
-	splx(s);
+	crit_leave();
 }
 
 void
 arc_unlock(struct arc_softc *sc)
 {
-	int				s;
-
-	s = splbio();
+	crit_enter();
 	sc->sc_talking = 0;
 	arc_write(sc, ARC_RA_INTRMASK,
 	    ~(ARC_RA_INTRMASK_POSTQUEUE|ARC_RA_INTRMASK_DOORBELL));
-	splx(s);
+	crit_leave();
 	rw_exit_write(&sc->sc_lock);
 }
 
 void
 arc_wait(struct arc_softc *sc)
 {
-	int				s;
-
-	s = splbio();
+	crit_enter();
 	arc_write(sc, ARC_RA_INTRMASK,
 	    ~(ARC_RA_INTRMASK_POSTQUEUE|ARC_RA_INTRMASK_DOORBELL));
 	if (tsleep(sc, PWAIT, "arcdb", hz) == EWOULDBLOCK)
 		arc_write(sc, ARC_RA_INTRMASK, ~ARC_RA_INTRMASK_POSTQUEUE);
-	splx(s);
+	crit_leave();
 }
 
 #ifndef SMALL_KERNEL

@@ -374,7 +374,6 @@ fdstrategy(struct buf *bp)
 {
 	struct fd_softc *fd = fd_cd.cd_devs[FDUNIT(bp->b_dev)];
 	int sz;
- 	int s;
 	int fd_bsize = FD_BSIZE(fd);
 	int bf = fd_bsize / DEV_BSIZE;
 
@@ -415,7 +414,7 @@ fdstrategy(struct buf *bp)
 #endif
 
 	/* Queue transfer on drive, activate drive and controller if idle. */
-	s = splbio();
+	crit_enter();
 	disksort(&fd->sc_q, bp);
 	timeout_del(&fd->fd_motor_off_to); /* a good idea */
 	if (!fd->sc_q.b_active)
@@ -429,7 +428,7 @@ fdstrategy(struct buf *bp)
 		}
 	}
 #endif
-	splx(s);
+	crit_leave();
 	return;
 
 bad:
@@ -437,9 +436,9 @@ bad:
 done:
 	/* Toss transfer; we're done early. */
 	bp->b_resid = bp->b_bcount;
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -525,12 +524,11 @@ void
 fd_motor_off(void *arg)
 {
 	struct fd_softc *fd = arg;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	fd->sc_flags &= ~(FD_MOTOR | FD_MOTOR_WAIT);
 	fd_set_motor((struct fdc_softc *)fd->sc_dev.dv_parent, 0);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -538,14 +536,13 @@ fd_motor_on(void *arg)
 {
 	struct fd_softc *fd = arg;
 	struct fdc_softc *fdc = (void *)fd->sc_dev.dv_parent;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	fd->sc_flags &= ~FD_MOTOR_WAIT;
 	if ((TAILQ_FIRST(&fdc->sc_link.fdlink.sc_drives) == fd)
 	    && (fdc->sc_state == MOTORWAIT))
 		(void) fdintr(fdc);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -919,9 +916,8 @@ fdtimeout(void *arg)
 {
 	struct fd_softc *fd = arg;
 	struct fdc_softc *fdc = (void *)fd->sc_dev.dv_parent;
-	int s;
 
-	s = splbio();
+	crit_enter();
 #ifdef DEBUG
 	log(LOG_ERR,"fdtimeout: state %d\n", fdc->sc_state);
 #endif
@@ -933,7 +929,7 @@ fdtimeout(void *arg)
 		fdc->sc_state = DEVIDLE;
 
 	(void) fdintr(fdc);
-	splx(s);
+	crit_leave();
 }
 
 void

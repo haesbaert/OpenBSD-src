@@ -390,7 +390,6 @@ void
 wdstrategy(struct buf *bp)
 {
 	struct wd_softc *wd;
-	int s;
 
 	wd = wdlookup(DISKUNIT(bp->b_dev));
 	if (wd == NULL) {
@@ -419,9 +418,9 @@ wdstrategy(struct buf *bp)
 
 	/* Queue transfer on drive, activate drive and controller if idle. */
 	bufq_queue(&wd->sc_bufq, bp);
-	s = splbio();
+	crit_enter();
 	wdstart(wd);
-	splx(s);
+	crit_leave();
 	device_unref(&wd->sc_dev);
 	return;
 
@@ -429,9 +428,9 @@ wdstrategy(struct buf *bp)
 	bp->b_flags |= B_ERROR;
 	bp->b_resid = bp->b_bcount;
  done:
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	if (wd != NULL)
 		device_unref(&wd->sc_dev);
 }
@@ -581,7 +580,7 @@ wdrestart(void *v)
 	struct wd_softc *wd = v;
 	struct buf *bp = wd->sc_bp;
 	struct channel_softc *chnl;
-	int s;
+
 	WDCDEBUG_PRINT(("wdrestart %s\n", wd->sc_dev.dv_xname),
 	    DEBUG_XFERS);
 
@@ -589,10 +588,10 @@ wdrestart(void *v)
 	if (chnl->dying)
 		return;
 
-	s = splbio();
+	crit_enter();
 	disk_unbusy(&wd->sc_dk, 0, (bp->b_flags & B_READ));
 	__wdstart(v, bp);
-	splx(s);
+	crit_leave();
 }
 
 int

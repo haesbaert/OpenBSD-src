@@ -457,9 +457,7 @@ wds_free_buf(sc, buf)
 	struct wds_softc *sc;
 	struct wds_buf *buf;
 {
-	int s;
-
-	s = splbio();
+	crit_enter();
 
 	buf->busy = 0;
 	TAILQ_INSERT_HEAD(&wds_free_buffer, buf, chain);
@@ -471,7 +469,7 @@ wds_free_buf(sc, buf)
 	if (TAILQ_NEXT(buf, chain) == NULL)
 		wakeup(&wds_free_buffer);
 
-	splx(s);
+	crit_leave();
 }
 
 integrate void
@@ -520,9 +518,8 @@ wds_get_buf(sc, flags)
 	int flags;
 {
 	struct wds_buf *buf;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	for (;;) {
 		buf = TAILQ_FIRST(&wds_free_buffer);
@@ -538,7 +535,7 @@ wds_get_buf(sc, flags)
 	buf->busy = 1;
 
 out:
-	splx(s);
+	crit_leave();
 	return (buf);
 }
 
@@ -874,7 +871,6 @@ wds_inquire_setup_information(sc)
 {
 	struct wds_scb *scb;
 	u_char *j;
-	int s;
 
 	scb = scsi_io_get(&sc->sc_iopool, SCSI_NOSLEEP);
 	if (scb == NULL) {
@@ -893,9 +889,9 @@ wds_inquire_setup_information(sc)
 	bus_space_write_1(sc->sc_iot, sc->sc_ioh, WDS_HCR, WDSH_DRQEN);
 	scb->flags |= SCB_POLLED;
 
-	s = splbio();
+	crit_enter();
 	wds_queue_scb(sc, scb);
-	splx(s);
+	crit_leave();
 
 	if (wds_ipoll(sc, scb, scb->timeout))
 		goto out;
@@ -939,7 +935,6 @@ wds_scsi_cmd(xs)
 	int seg;
 	u_long thiskv, thisphys, nextphys;
 	int bytes_this_seg, bytes_this_page, datalen, flags;
-	int s;
 
 	if (xs->flags & SCSI_RESET) {
 		/* XXX Fix me! */
@@ -1073,10 +1068,10 @@ wds_scsi_cmd(xs)
 		bus_space_write_1(iot, ioh, WDS_HCR, WDSH_IRQEN | WDSH_DRQEN);
 	}
 
-	s = splbio();
+	crit_enter();
 	wds_queue_scb(sc, scb);
 
-	splx(s);
+	crit_leave();
 
 	if ((flags & SCSI_POLL) == 0)
 		return;
@@ -1102,7 +1097,6 @@ wds_sense(sc, scb)
 {
 	struct scsi_xfer *xs = scb->xs;
 	struct scsi_sense *ss = (void *)&scb->sense.scb;
-	int s;
 
 	/* XXXXX */
 
@@ -1129,9 +1123,9 @@ wds_sense(sc, scb)
 	ltophys(KVTOPHYS(&scb->sense_data), scb->sense.data);
 	ltophys(sizeof(struct scsi_sense_data), scb->sense.len);
 
-	s = splbio();
+	crit_enter();
 	wds_queue_scb(sc, scb);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * There's no reason for us to poll here.  There are two cases:
@@ -1153,7 +1147,6 @@ wds_poll(sc, xs, count)
 {
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
 	/* timeouts are in msec, so we loop in 1000 usec cycles */
 	while (count) {
@@ -1162,9 +1155,9 @@ wds_poll(sc, xs, count)
 		 * have got an interrupt?
 		 */
 		if (bus_space_read_1(iot, ioh, WDS_STAT) & WDSS_IRQ) {
-			s = splbio();
+			crit_enter();
 			wdsintr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if (xs->flags & ITSDONE)
 			return 0;
@@ -1185,7 +1178,6 @@ wds_ipoll(sc, scb, count)
 {
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
 	/* timeouts are in msec, so we loop in 1000 usec cycles */
 	while (count) {
@@ -1194,9 +1186,9 @@ wds_ipoll(sc, scb, count)
 		 * have got an interrupt?
 		 */
 		if (bus_space_read_1(iot, ioh, WDS_STAT) & WDSS_IRQ) {
-			s = splbio();
+			crit_enter();
 			wdsintr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if (scb->flags & SCB_DONE)
 			return 0;
@@ -1214,9 +1206,8 @@ wds_timeout(arg)
 	struct scsi_xfer *xs;
 	struct scsi_link *sc_link;
 	struct wds_softc *sc;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	xs = scb->xs;
 	sc_link = xs->sc_link;
 	sc = sc_link->adapter_softc;
@@ -1251,5 +1242,5 @@ wds_timeout(arg)
 		wds_queue_scb(sc, scb);
 	}
 
-	splx(s);
+	crit_leave();
 }

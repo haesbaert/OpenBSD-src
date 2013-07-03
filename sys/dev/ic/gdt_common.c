@@ -554,12 +554,11 @@ gdt_scsi_cmd(struct scsi_xfer *xs)
 	struct scsi_rw_big *rwb;
 	bus_dmamap_t xfer;
 	int error;
-	int s;
 	int polled;
 
 	GDT_DPRINTF(GDT_D_CMD, ("gdt_scsi_cmd "));
 
-	s = splbio();
+	crit_enter();
 
 	xs->error = XS_NOERROR;
 
@@ -571,7 +570,7 @@ gdt_scsi_cmd(struct scsi_xfer *xs)
 		 */
 		xs->error = XS_DRIVER_STUFFUP;
 		scsi_done(xs);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -716,7 +715,7 @@ gdt_scsi_cmd(struct scsi_xfer *xs)
 					    ccb->gc_cmd_index);
 					xs->error = XS_TIMEOUT;
 					scsi_done(xs);
-					splx(s);
+					crit_leave();
 					return;
 				}
 			}
@@ -731,7 +730,7 @@ gdt_scsi_cmd(struct scsi_xfer *xs)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /* XXX Currently only for cacheservice, returns 0 if busy */
@@ -1111,16 +1110,16 @@ gdtminphys(struct buf *bp, struct scsi_link *sl)
 int
 gdt_wait(struct gdt_softc *sc, struct gdt_ccb *ccb, int timeout)
 {
-	int s, rslt, rv = 0;
+	int rslt, rv = 0;
 
 	GDT_DPRINTF(GDT_D_MISC,
 	    ("gdt_wait(%p, %p, %d) ", sc, ccb, timeout));
 
 	gdt_from_wait = 1;
 	do {
-		s = splbio();
+		crit_enter();
 		rslt = gdt_intr(sc);
-		splx(s);
+		crit_leave();
 		if (rslt && sc == gdt_wait_gdt &&
 		    ccb->gc_cmd_index == gdt_wait_index) {
 			rv = 1;
@@ -1309,7 +1308,6 @@ gdt_timeout(void *arg)
 	struct gdt_ccb *ccb = arg;
 	struct scsi_link *link = ccb->gc_xs->sc_link;
 	struct gdt_softc *sc = link->adapter_softc;
-	int s;
 
 	sc_print_addr(link);
 	printf("timed out\n");
@@ -1317,9 +1315,9 @@ gdt_timeout(void *arg)
 	/* XXX Test for multiple timeouts */
 
 	ccb->gc_xs->error = XS_TIMEOUT;
-	s = splbio();
+	crit_enter();
 	gdt_enqueue_ccb(sc, ccb);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1328,12 +1326,11 @@ gdt_watchdog(void *arg)
 	struct gdt_ccb *ccb = arg;
 	struct scsi_link *link = ccb->gc_xs->sc_link;
 	struct gdt_softc *sc = link->adapter_softc;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	ccb->gc_flags &= ~GDT_GCF_WATCHDOG;
 	gdt_start_ccbs(sc);
-	splx(s);
+	crit_leave();
 }
 
 #if NBIO > 0

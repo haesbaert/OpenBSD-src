@@ -313,7 +313,6 @@ getnewvnode(enum vtagtype tag, struct mount *mp, struct vops *vops,
 	struct freelst *listhd;
 	static int toggle;
 	struct vnode *vp;
-	int s;
 
 	/*
 	 * allow maxvnodes to increase if the buffer cache itself
@@ -341,11 +340,11 @@ getnewvnode(enum vtagtype tag, struct mount *mp, struct vops *vops,
 	if (numvnodes / 2 > maxvnodes)
 		toggle = 0;
 
-	s = splbio();
+	crit_enter();
 	if ((numvnodes < maxvnodes) ||
 	    ((TAILQ_FIRST(listhd = &vnode_free_list) == NULL) &&
 	    ((TAILQ_FIRST(listhd = &vnode_hold_list) == NULL) || toggle))) {
-		splx(s);
+		crit_leave();
 		vp = pool_get(&vnode_pool, PR_WAITOK | PR_ZERO);
 		RB_INIT(&vp->v_bufs_tree);
 		RB_INIT(&vp->v_nc_tree);
@@ -363,7 +362,7 @@ getnewvnode(enum vtagtype tag, struct mount *mp, struct vops *vops,
 		 * locked, so this is close enough to being empty.
 		 */
 		if (vp == NULL) {
-			splx(s);
+			crit_leave();
 			tablefull("vnode");
 			*vpp = 0;
 			return (ENFILE);
@@ -378,7 +377,7 @@ getnewvnode(enum vtagtype tag, struct mount *mp, struct vops *vops,
 
 		TAILQ_REMOVE(listhd, vp, v_freelist);
 		vp->v_bioflag &= ~VBIOONFREELIST;
-		splx(s);
+		crit_leave();
 
 		if (vp->v_type != VBAD)
 			vgonel(vp, p);
@@ -387,10 +386,10 @@ getnewvnode(enum vtagtype tag, struct mount *mp, struct vops *vops,
 			vprint("cleaned vnode", vp);
 			panic("cleaned vnode isn't");
 		}
-		s = splbio();
+		crit_enter();
 		if (vp->v_numoutput)
 			panic("Clean vnode has pending I/O's");
-		splx(s);
+		crit_leave();
 #endif
 		vp->v_flag = 0;
 		vp->v_socket = 0;
@@ -567,7 +566,7 @@ loop:
 int
 vget(struct vnode *vp, int flags, struct proc *p)
 {
-	int error, s, onfreelist;
+	int error, onfreelist;
 
 	/*
 	 * If the vnode is in the process of being cleaned out for
@@ -588,13 +587,13 @@ vget(struct vnode *vp, int flags, struct proc *p)
 
 	onfreelist = vp->v_bioflag & VBIOONFREELIST;
 	if (vp->v_usecount == 0 && onfreelist) {
-		s = splbio();
+		crit_enter();
 		if (vp->v_holdcnt > 0)
 			TAILQ_REMOVE(&vnode_hold_list, vp, v_freelist);
 		else
 			TAILQ_REMOVE(&vnode_free_list, vp, v_freelist);
 		vp->v_bioflag &= ~VBIOONFREELIST;
-		splx(s);
+		crit_leave();
 	}
 
  	vp->v_usecount++;
@@ -627,10 +626,9 @@ vref(struct vnode *vp)
 void
 vputonfreelist(struct vnode *vp)
 {
-	int s;
 	struct freelst *lst;
 
-	s = splbio();
+	crit_enter();
 #ifdef DIAGNOSTIC
 	if (vp->v_usecount != 0)
 		panic("Use count is not zero!");
@@ -653,7 +651,7 @@ vputonfreelist(struct vnode *vp)
 	else
 		TAILQ_INSERT_TAIL(lst, vp, v_freelist);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1078,9 +1076,7 @@ vgonel(struct vnode *vp, struct proc *p)
 	 */
 	if (vp->v_usecount == 0 &&
 	    (vp->v_bioflag & VBIOONFREELIST)) {
-		int s;
-
-		s = splbio();
+		crit_enter();
 
 		if (vp->v_holdcnt > 0)
 			panic("vgonel: not clean");
@@ -1089,7 +1085,7 @@ vgonel(struct vnode *vp, struct proc *p)
 			TAILQ_REMOVE(&vnode_free_list, vp, v_freelist);
 			TAILQ_INSERT_HEAD(&vnode_free_list, vp, v_freelist);
 		}
-		splx(s);
+		crit_leave();
 	}
 }
 
@@ -1672,7 +1668,7 @@ int
 vfs_syncwait(int verbose)
 {
 	struct buf *bp;
-	int iter, nbusy, dcount, s;
+	int iter, nbusy, dcount;
 	struct proc *p;
 
 	p = curproc? curproc : &proc0;
@@ -1691,10 +1687,10 @@ vfs_syncwait(int verbose)
 			 * buffers are written.
 			 */
 			if (bp->b_flags & B_DELWRI) {
-				s = splbio();
+				crit_enter();
 				bremfree(bp);
 				buf_acquire(bp);
-				splx(s);
+				crit_leave();
 				nbusy++;
 				bawrite(bp);
 				if (dcount-- <= 0) {
@@ -1813,7 +1809,7 @@ vinvalbuf(struct vnode *vp, int flags, struct ucred *cred, struct proc *p,
 {
 	struct buf *bp;
 	struct buf *nbp, *blist;
-	int s, error;
+	int error;
 
 #ifdef VFSLCKDEBUG
 	if ((vp->v_flag & VLOCKSWORK) && !VOP_ISLOCKED(vp))
@@ -1821,21 +1817,21 @@ vinvalbuf(struct vnode *vp, int flags, struct ucred *cred, struct proc *p,
 #endif
 
 	if (flags & V_SAVE) {
-		s = splbio();
+		crit_enter();
 		vwaitforio(vp, 0, "vinvalbuf", 0);
 		if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
-			splx(s);
+			crit_leave();
 			if ((error = VOP_FSYNC(vp, cred, MNT_WAIT, p)) != 0)
 				return (error);
-			s = splbio();
+			crit_enter();
 			if (vp->v_numoutput > 0 ||
 			    !LIST_EMPTY(&vp->v_dirtyblkhd))
 				panic("vinvalbuf: dirty bufs");
 		}
-		splx(s);
+		crit_leave();
 	}
 loop:
-	s = splbio();
+	crit_enter();
 	for (;;) {
 		if ((blist = LIST_FIRST(&vp->v_cleanblkhd)) &&
 		    (flags & V_SAVEMETA))
@@ -1883,7 +1879,7 @@ loop:
 	if (!(flags & V_SAVEMETA) &&
 	    (!LIST_EMPTY(&vp->v_dirtyblkhd) || !LIST_EMPTY(&vp->v_cleanblkhd)))
 		panic("vinvalbuf: flush failed");
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -1894,7 +1890,7 @@ vflushbuf(struct vnode *vp, int sync)
 	int s;
 
 loop:
-	s = splbio();
+	crit_enter();
 	for (bp = LIST_FIRST(&vp->v_dirtyblkhd);
 	    bp != LIST_END(&vp->v_dirtyblkhd); bp = nbp) {
 		nbp = LIST_NEXT(bp, b_vnbufs);
@@ -1904,7 +1900,7 @@ loop:
 			panic("vflushbuf: not dirty");
 		bremfree(bp);
 		buf_acquire(bp);
-		splx(s);
+		crit_leave();
 		/*
 		 * Wait for I/O associated with indirect blocks to complete,
 		 * since there is no way to quickly wait for them below.
@@ -1916,18 +1912,18 @@ loop:
 		goto loop;
 	}
 	if (sync == 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	vwaitforio(vp, 0, "vflushbuf", 0);
 	if (!LIST_EMPTY(&vp->v_dirtyblkhd)) {
-		splx(s);
+		crit_leave();
 #ifdef DIAGNOSTIC
 		vprint("vflushbuf: dirty", vp);
 #endif
 		goto loop;
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*

@@ -174,7 +174,6 @@ iha_intr(void *arg)
 	bus_space_handle_t ioh;
 	struct iha_softc *sc;
 	bus_space_tag_t iot;
-	int s;
 
 	sc  = (struct iha_softc *)arg;
 	iot = sc->sc_iot;
@@ -183,7 +182,7 @@ iha_intr(void *arg)
 	if ((bus_space_read_1(iot, ioh, TUL_STAT0) & INTPD) == 0)
 		return (0);
 
-	s = splbio(); /* XXX - Or are interrupts off when ISR's are called? */
+	crit_enter(); /* XXX - Or are interrupts off when ISR's are called? */
 
 	if (sc->HCS_Semaph != SEMAPH_IN_MAIN) {
 		/* XXX - need these inside a splbio()/splx()? */
@@ -196,7 +195,7 @@ iha_intr(void *arg)
 		bus_space_write_1(iot, ioh, TUL_IMSK, (MASK_ALL & ~MSCMP));
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (1);
 }
@@ -508,12 +507,11 @@ iha_scb_free(void *xsc, void *xscb)
 {
 	struct iha_softc *sc = xsc;
 	struct iha_scb *pScb = xscb;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	if (pScb == sc->HCS_ActScb)
 		sc->HCS_ActScb = NULL;
-	splx(s);
+	crit_leave();
 
 	pScb->SCB_Status = STATUS_QUEUED;
 	pScb->SCB_HaStat = HOST_OK;
@@ -548,6 +546,7 @@ void
 iha_append_pend_scb(struct iha_softc *sc, struct iha_scb *pScb)
 {
 	/* ASSUMPTION: only called within a splbio()/splx() pair */
+	CRIT_ASSERT();
 
 	if (pScb == sc->HCS_ActScb)
 		sc->HCS_ActScb = NULL;
@@ -560,9 +559,7 @@ iha_append_pend_scb(struct iha_softc *sc, struct iha_scb *pScb)
 void
 iha_push_pend_scb(struct iha_softc *sc, struct iha_scb *pScb)
 {
-	int s;
-
-	s = splbio();
+	crit_enter();
 
 	if (pScb == sc->HCS_ActScb)
 		sc->HCS_ActScb = NULL;
@@ -571,7 +568,7 @@ iha_push_pend_scb(struct iha_softc *sc, struct iha_scb *pScb)
 
 	TAILQ_INSERT_HEAD(&sc->HCS_PendScb, pScb, SCB_ScbList);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -585,9 +582,8 @@ iha_find_pend_scb(struct iha_softc *sc)
 {
 	struct iha_scb *pScb;
 	struct tcs *pTcs;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	if (sc->HCS_ActScb != NULL)
 		pScb = NULL;
@@ -629,7 +625,7 @@ iha_find_pend_scb(struct iha_softc *sc)
 			}
 		}
 
-	splx(s);
+	crit_leave();
 
 	return (pScb);
 }
@@ -637,9 +633,7 @@ iha_find_pend_scb(struct iha_softc *sc)
 void
 iha_mark_busy_scb(struct iha_scb *pScb)
 {
-	int  s;
-
-	s = splbio();
+	crit_enter();
 
 	pScb->SCB_Status = STATUS_BUSY;
 
@@ -648,16 +642,15 @@ iha_mark_busy_scb(struct iha_scb *pScb)
 	else
 		pScb->SCB_Tcs->TCS_TagCnt++;
 
-	splx(s);
+	crit_leave();
 }
 
 void
 iha_append_done_scb(struct iha_softc *sc, struct iha_scb *pScb, u_int8_t hastat)
 {
 	struct tcs *pTcs;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	if (pScb->SCB_Xs != NULL)
 		timeout_del(&pScb->SCB_Xs->stimeout);
@@ -678,16 +671,15 @@ iha_append_done_scb(struct iha_softc *sc, struct iha_scb *pScb, u_int8_t hastat)
 
 	TAILQ_INSERT_TAIL(&sc->HCS_DoneScb, pScb, SCB_ScbList);
 
-	splx(s);
+	crit_leave();
 }
 
 struct iha_scb *
 iha_pop_done_scb(struct iha_softc *sc)
 {
 	struct iha_scb *pScb;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	pScb = TAILQ_FIRST(&sc->HCS_DoneScb);
 
@@ -696,7 +688,7 @@ iha_pop_done_scb(struct iha_softc *sc)
 		TAILQ_REMOVE(&sc->HCS_DoneScb, pScb, SCB_ScbList);
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (pScb);
 }
@@ -710,9 +702,9 @@ void
 iha_abort_xs(struct iha_softc *sc, struct scsi_xfer *xs, u_int8_t hastat)
 {
 	struct iha_scb *pScb, *next;
-	int i, s;
+	int i;
 
-	s = splbio();
+	crit_enter();
 
 	/* Check the pending queue for the SCB pointing to xs */
 
@@ -721,7 +713,7 @@ iha_abort_xs(struct iha_softc *sc, struct scsi_xfer *xs, u_int8_t hastat)
 		if (pScb->SCB_Xs == xs) {
 			TAILQ_REMOVE(&sc->HCS_PendScb, pScb, SCB_ScbList);
 			iha_append_done_scb(sc, pScb, hastat);
-			splx(s);
+			crit_leave();
 			return;
 		}
 	}
@@ -737,7 +729,7 @@ iha_abort_xs(struct iha_softc *sc, struct scsi_xfer *xs, u_int8_t hastat)
 		case STATUS_SELECT:
 			if (pScb->SCB_Xs == xs) {
 				iha_append_done_scb(sc, pScb, hastat);
-				splx(s);
+				crit_leave();
 				return;
 			}
 			break;
@@ -745,7 +737,7 @@ iha_abort_xs(struct iha_softc *sc, struct scsi_xfer *xs, u_int8_t hastat)
 			break;
 		}
 	
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1724,9 +1716,9 @@ iha_reset_scsi_bus(struct iha_softc *sc)
 {
 	struct iha_scb *pScb;
 	struct tcs *pTcs;
-	int i, s;
+	int i;
 
-	s = splbio();
+	crit_enter();
 
 	iha_reset_dma(sc->sc_iot, sc->sc_ioh);
 
@@ -1747,7 +1739,7 @@ iha_reset_scsi_bus(struct iha_softc *sc)
 	for (i = 0, pTcs = sc->HCS_Tcs; i < IHA_MAX_TARGETS; i++, pTcs++)
 		iha_reset_tcs(pTcs, sc->HCS_SConf1);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -2221,8 +2213,6 @@ void
 iha_select(struct iha_softc *sc, bus_space_tag_t iot, bus_space_handle_t ioh,
     struct iha_scb *pScb, u_int8_t select_type)
 {
-	int s;
-
 	switch (select_type) {
 	case SEL_ATN:
 		bus_space_write_1(iot, ioh, TUL_SFIFO, pScb->SCB_Ident);
@@ -2256,9 +2246,9 @@ iha_select(struct iha_softc *sc, bus_space_tag_t iot, bus_space_handle_t ioh,
 		return;
 	}
 
-	s = splbio();
+	crit_enter();
 	TAILQ_REMOVE(&sc->HCS_PendScb, pScb, SCB_ScbList);
-	splx(s);
+	crit_leave();
 
 	pScb->SCB_Status = STATUS_SELECT;
 
@@ -2445,9 +2435,8 @@ iha_exec_scb(struct iha_softc *sc, struct iha_scb *pScb)
 	struct scsi_xfer *xs = pScb->SCB_Xs;
 	bus_space_handle_t ioh;
 	bus_space_tag_t iot;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	if ((pScb->SCB_Flags & SCSI_POLL) == 0)
 		timeout_add_msec(&xs->stimeout, xs->timeout);
@@ -2469,15 +2458,15 @@ iha_exec_scb(struct iha_softc *sc, struct iha_scb *pScb)
 		bus_space_write_1(iot, ioh, TUL_IMSK, MASK_ALL);
 		sc->HCS_Semaph = SEMAPH_IN_MAIN;
 
-		splx(s);
+		crit_leave();
 		iha_main(sc, iot, ioh);
-		s = splbio();
+		crit_enter();
 
 		sc->HCS_Semaph = ~SEMAPH_IN_MAIN;
 		bus_space_write_1(iot, ioh, TUL_IMSK, (MASK_ALL & ~MSCMP));
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 

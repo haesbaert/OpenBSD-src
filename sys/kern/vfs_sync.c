@@ -114,19 +114,19 @@ vn_initialize_syncerd(void)
 void
 vn_syncer_add_to_worklist(struct vnode *vp, int delay)
 {
-	int s, slot;
+	int slot;
 
 	if (delay > syncer_maxdelay - 2)
 		delay = syncer_maxdelay - 2;
 	slot = (syncer_delayno + delay) & syncer_mask;
 
-	s = splbio();
+	crit_enter();
 	if (vp->v_bioflag & VBIOONSYNCLIST)
 		LIST_REMOVE(vp, v_synclist);
 
 	vp->v_bioflag |= VBIOONSYNCLIST;
 	LIST_INSERT_HEAD(&syncer_workitem_pending[slot], vp, v_synclist);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -138,7 +138,6 @@ sched_sync(struct proc *p)
 	struct synclist *slp;
 	struct vnode *vp;
 	time_t starttime;
-	int s;
 
 	syncerproc = curproc;
 
@@ -148,7 +147,7 @@ sched_sync(struct proc *p)
 		/*
 		 * Push files whose dirty time has expired.
 		 */
-		s = splbio();
+		crit_enter();
 		slp = &syncer_workitem_pending[syncer_delayno];
 
 		syncer_delayno += 1;
@@ -165,10 +164,10 @@ sched_sync(struct proc *p)
 				vn_syncer_add_to_worklist(vp, 1);
 				continue;
 			}
-			splx(s);
+			crit_leave();
 			(void) VOP_FSYNC(vp, p->p_ucred, MNT_LAZY, p);
 			vput(vp);
-			s = splbio();
+			crit_enter();
 			if (LIST_FIRST(slp) == vp) {
 				/*
 				 * Note: disk vps can remain on the
@@ -196,7 +195,7 @@ sched_sync(struct proc *p)
 			}
 		}
 
-		splx(s);
+		crit_leave();
 
 #ifdef FFS_SOFTUPDATES
 		/*
@@ -355,7 +354,6 @@ sync_inactive(void *v)
 	struct vop_inactive_args *ap = v;
 
 	struct vnode *vp = ap->a_vp;
-	int s;
 
 	if (vp->v_usecount == 0) {
 		VOP_UNLOCK(vp, 0, ap->a_p);
@@ -364,12 +362,12 @@ sync_inactive(void *v)
 
 	vp->v_mount->mnt_syncer = NULL;
 
-	s = splbio();
+	crit_enter();
 
 	LIST_REMOVE(vp, v_synclist);
 	vp->v_bioflag &= ~VBIOONSYNCLIST;
 
-	splx(s);
+	crit_leave();
 
 	vp->v_writecount = 0;
 	vput(vp);

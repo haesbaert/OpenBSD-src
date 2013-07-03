@@ -545,7 +545,7 @@ adw_scsi_cmd(struct scsi_xfer *xs)
 	struct scsi_link *sc_link = xs->sc_link;
 	ADW_SOFTC      *sc = sc_link->adapter_softc;
 	ADW_CCB        *ccb;
-	int             s, nowait = 0, retry = 0;
+	int             nowait = 0, retry = 0;
 	int		flags;
 
 	/*
@@ -564,9 +564,9 @@ adw_scsi_cmd(struct scsi_xfer *xs)
 
 	if (adw_build_req(xs, ccb, flags)) {
 retryagain:
-		s = splbio();
+		crit_enter();
 		retry = adw_queue_ccb(sc, ccb, retry);
-		splx(s);
+		crit_leave();
 
 		switch(retry) {
 		case ADW_BUSY:
@@ -764,13 +764,11 @@ adw_intr(void *arg)
 int
 adw_poll(ADW_SOFTC *sc, struct scsi_xfer *xs, int count)
 {
-	int s;
-
 	/* timeouts are in msec, so we loop in 1000 usec cycles */
 	while (count > 0) {
-		s = splbio();
+		crit_enter();
 		adw_intr(sc);
-		splx(s);
+		crit_leave();
 		if (xs->flags & ITSDONE) {
 			if ((xs->cmd->opcode == INQUIRY)
 			    && (xs->sc_link->lun == 0)
@@ -792,12 +790,11 @@ adw_timeout(void *arg)
 	struct scsi_xfer *xs = ccb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	ADW_SOFTC      *sc = sc_link->adapter_softc;
-	int             s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 	if (ccb->flags & CCB_ABORTED) {
 	/*
@@ -809,7 +806,7 @@ adw_timeout(void *arg)
 		timeout_del(&xs->stimeout);
 		printf(" AGAIN. Resetting SCSI Bus\n");
 		adw_reset_bus(sc);
-		splx(s);
+		crit_leave();
 		return;
 	} else if (ccb->flags & CCB_ABORTING) {
 	/*
@@ -877,7 +874,7 @@ adw_timeout(void *arg)
 		timeout_add_msec(&xs->stimeout, ccb->timeout);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 
@@ -885,9 +882,8 @@ void
 adw_reset_bus(ADW_SOFTC *sc) 
 {
 	ADW_CCB	*ccb;
-	int	 s;
 
-	s = splbio();
+	crit_enter();
 	AdwResetSCSIBus(sc); /* XXX - should check return value? */
 	while((ccb = TAILQ_LAST(&sc->sc_pending_ccb,
 			adw_pending_ccb)) != NULL) {
@@ -899,7 +895,7 @@ adw_reset_bus(ADW_SOFTC *sc)
 	bzero(sc->sc_freeze_dev, sizeof(sc->sc_freeze_dev));
 	adw_queue_ccb(sc, TAILQ_FIRST(&sc->sc_waiting_ccb), 1);
 
-	splx(s);
+	crit_leave();
 }
 
 

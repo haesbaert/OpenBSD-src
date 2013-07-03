@@ -567,10 +567,10 @@ aha_ccb_free(xsc, xccb)
 {
 	struct aha_softc *sc = xsc;
 	struct aha_ccb *ccb = xccb;
-	int s, hashnum;
+	int hashnum;
 	struct aha_ccb **hashccb;
 
-	s = splbio();
+	crit_enter();
 
 	if (ccb->ccb_dmam->dm_segs[0].ds_addr != 0)
 		bus_dmamap_unload(sc->sc_dmat, ccb->ccb_dmam);
@@ -595,7 +595,7 @@ aha_ccb_free(xsc, xccb)
 	TAILQ_INSERT_HEAD(&sc->sc_free_ccb, ccb, chain);
 	mtx_leave(&sc->sc_ccb_mtx);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -643,9 +643,9 @@ aha_ccb_alloc(xsc)
 {
 	struct aha_softc *sc = xsc;
 	struct aha_ccb *ccb;
-	int hashnum, s;
+	int hashnum;
 
-	s = splbio();
+	crit_enter();
 
 	mtx_enter(&sc->sc_ccb_mtx);
 	ccb = TAILQ_FIRST(&sc->sc_free_ccb);
@@ -656,7 +656,7 @@ aha_ccb_alloc(xsc)
 		    NULL, BUS_DMA_NOWAIT) != 0) {
 			mtx_leave(&sc->sc_ccb_mtx);
 			aha_ccb_free(sc, ccb);
-			splx(s);
+			crit_leave();
 			return (NULL);
 		} else {
 			hashnum = CCB_HASH(ccb->ccb_dmam->dm_segs[0].ds_addr);
@@ -666,7 +666,7 @@ aha_ccb_alloc(xsc)
 	}
 	mtx_leave(&sc->sc_ccb_mtx);
 
-	splx(s);
+	crit_leave();
 	return (ccb);
 }
 
@@ -1216,7 +1216,6 @@ aha_scsi_cmd(xs)
 	struct aha_ccb *ccb;
 	struct aha_scat_gath *sg;
 	int seg, flags;
-	int s;
 
 	SC_DEBUG(sc_link, SDEV_DB2, ("aha_scsi_cmd\n"));
 	/*
@@ -1289,7 +1288,7 @@ aha_scsi_cmd(xs)
 	ccb->link_id = 0;
 	ltophys(0, ccb->link_addr);
 
-	s = splbio();
+	crit_enter();
 	aha_queue_ccb(sc, ccb);
 
 	/*
@@ -1313,10 +1312,10 @@ aha_scsi_cmd(xs)
 			bus_dmamap_unload(sc->sc_dmat, ccb->dmam);
 		}
 		scsi_done(xs);
-		splx(s);
+		crit_leave();
 		return;
 	}
-	splx(s);
+	crit_leave();
 
 	if ((flags & SCSI_POLL) == 0)
 		return;
@@ -1341,7 +1340,6 @@ aha_poll(sc, xs, count)
 	int count;
 {
 	int iobase = sc->sc_iobase;
-	int s;
 
 	/* timeouts are in msec, so we loop in 1000 usec cycles */
 	while (count) {
@@ -1350,9 +1348,9 @@ aha_poll(sc, xs, count)
 		 * have got an interrupt?
 		 */
 		if (inb(iobase + AHA_INTR_PORT) & AHA_INTR_ANYINTR) {
-			s = splbio();
+			crit_enter();
 			ahaintr(sc);
-			splx(s);
+			crit_leave();
 		}
 		if (xs->flags & ITSDONE)
 			return (0);
@@ -1370,9 +1368,8 @@ aha_timeout(arg)
 	struct scsi_xfer *xs;
 	struct scsi_link *sc_link;
 	struct aha_softc *sc;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	xs = ccb->xs;
 	sc_link = xs->sc_link;
 	sc = sc_link->adapter_softc;
@@ -1409,6 +1406,6 @@ aha_timeout(arg)
 		aha_queue_ccb(sc, ccb);
 	}
 
-	splx(s);
+	crit_leave();
 }
 

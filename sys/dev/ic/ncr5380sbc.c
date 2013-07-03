@@ -525,9 +525,8 @@ ncr5380_cmd_timeout(arg)
 	struct scsi_xfer *xs;
 	struct scsi_link *sc_link;
 	struct ncr5380_softc *sc;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	/* Get all our variables... */
 	xs = sr->sr_xs;
@@ -576,7 +575,7 @@ ncr5380_cmd_timeout(arg)
 	}
 
 out:
-	splx(s);
+	crit_leave();
 }
 
 
@@ -598,7 +597,7 @@ ncr5380_scsi_cmd(xs)
 {
 	struct	ncr5380_softc *sc;
 	struct sci_req	*sr;
-	int s, i, flags;
+	int i, flags;
 
 	sc = xs->sc_link->adapter_softc;
 	flags = xs->flags;
@@ -606,7 +605,7 @@ ncr5380_scsi_cmd(xs)
 	if (sc->sc_flags & NCR5380_FORCE_POLLING)
 		flags |= SCSI_POLL;
 
-	s = splbio();
+	crit_enter();
 
 	if (flags & SCSI_POLL) {
 		/* Terminate any current command. */
@@ -675,7 +674,7 @@ new:
 	}
 
 out:
-	splx(s);
+	crit_leave();
 }
 
 
@@ -2475,9 +2474,8 @@ ncr5380_trace(msg, val)
 	long  val;
 {
 	register struct trace_ent *tr;
-	register int s;
 
-	s = splbio();
+	crit_enter();
 
 	tr = &ncr5380_tracebuf[ncr5380_traceidx];
 
@@ -2488,7 +2486,7 @@ ncr5380_trace(msg, val)
 	tr->msg = msg;
 	tr->val = val;
 
-	splx(s);
+	crit_leave();
 }
 
 #ifdef	DDB

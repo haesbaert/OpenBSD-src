@@ -3062,11 +3062,10 @@ AscRiscHaltedAbortCCB(sc, ccb)
 	ASC_QDONE_INFO  scsiq_buf;
 	ASC_QDONE_INFO *scsiq;
 	ASC_ISR_CALLBACK asc_isr_callback;
-	int             last_int_level;
 
 
 	asc_isr_callback = (ASC_ISR_CALLBACK) sc->isr_callback;
-	last_int_level = DvcEnterCritical();
+	crit_enter();
 	scsiq = (ASC_QDONE_INFO *) & scsiq_buf;
 
 	for (q_no = ASC_MIN_ACTIVE_QNO; q_no <= sc->max_total_qng; q_no++) {
@@ -3084,13 +3083,13 @@ AscRiscHaltedAbortCCB(sc, ccb)
 				AscWriteLramByte(iot, ioh, q_addr + ASC_SCSIQ_B_STATUS,
 						 scsiq->q_status);
 				(*asc_isr_callback) (sc, scsiq);
-				DvcLeaveCritical(last_int_level);
+				crit_leave();
 				return (1);
 			}
 		}
 	}
 
-	DvcLeaveCritical(last_int_level);
+	crit_leave();
 	return (0);
 }
 
@@ -3107,11 +3106,10 @@ AscRiscHaltedAbortTIX(sc, target_ix)
 	ASC_QDONE_INFO  scsiq_buf;
 	ASC_QDONE_INFO *scsiq;
 	ASC_ISR_CALLBACK asc_isr_callback;
-	int             last_int_level;
 
 
 	asc_isr_callback = (ASC_ISR_CALLBACK) sc->isr_callback;
-	last_int_level = DvcEnterCritical();
+	crit_enter();
 	scsiq = (ASC_QDONE_INFO *) & scsiq_buf;
 	for (q_no = ASC_MIN_ACTIVE_QNO; q_no <= sc->max_total_qng; q_no++) {
 		q_addr = ASC_QNO_TO_QADDR(q_no);
@@ -3129,7 +3127,7 @@ AscRiscHaltedAbortTIX(sc, target_ix)
 			}
 		}
 	}
-	DvcLeaveCritical(last_int_level);
+	crit_leave();
 	return (1);
 }
 
@@ -3413,25 +3411,6 @@ AscCompareString(str1, str2, len)
 /******************************************************************************/
 /*                            Device oriented routines                        */
 /******************************************************************************/
-
-
-static int
-DvcEnterCritical(void)
-{
-	int             s;
-
-	s = splbio();
-	return (s);
-}
-
-
-static void
-DvcLeaveCritical(s)
-	int             s;
-{
-
-	splx(s);
-}
 
 
 static void

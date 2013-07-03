@@ -701,13 +701,11 @@ adv_poll(sc, xs, count)
 	struct scsi_xfer *xs;
 	int             count;
 {
-	int s;
-
 	/* timeouts are in msec, so we loop in 1000 usec cycles */
 	while (count) {
-		s = splbio();
+		crit_enter();
 		adv_intr(sc);
-		splx(s);
+		crit_leave();
 		if (xs->flags & ITSDONE)
 			return (0);
 		delay(1000);	/* only happens in boot so ok */
@@ -725,12 +723,11 @@ adv_timeout(arg)
 	struct scsi_xfer *xs = ccb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	ASC_SOFTC      *sc = sc_link->adapter_softc;
-	int             s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 	/*
          * If it has been through before, then a previous abort has failed,
@@ -754,7 +751,7 @@ adv_timeout(arg)
 		adv_queue_ccb(sc, ccb);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 
@@ -766,14 +763,13 @@ adv_watchdog(arg)
 	struct scsi_xfer *xs = ccb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	ASC_SOFTC      *sc = sc_link->adapter_softc;
-	int             s;
 
-	s = splbio();
+	crit_enter();
 
 	ccb->flags &= ~CCB_WATCHDOG;
 	adv_start_ccbs(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 

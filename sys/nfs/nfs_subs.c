@@ -1513,9 +1513,8 @@ nfs_clearcommit(struct mount *mp)
 {
 	struct vnode *vp, *nvp;
 	struct buf *bp, *nbp;
-	int s;
 
-	s = splbio();
+	crit_enter();
 loop:
 	for (vp = LIST_FIRST(&mp->mnt_vnodelist); vp != NULL; vp = nvp) {
 		if (vp->v_mount != mp)	/* Paranoia */
@@ -1528,7 +1527,7 @@ loop:
 				bp->b_flags &= ~B_NEEDCOMMIT;
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 void

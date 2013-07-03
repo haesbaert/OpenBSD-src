@@ -76,9 +76,8 @@ int
 ahc_attach(struct ahc_softc *ahc)
 {
 	struct scsibus_attach_args saa;
-	int s;
 
-        s = splbio();
+	crit_enter();
 
 	/*
 	 * fill in the prototype scsi_links.
@@ -132,7 +131,7 @@ ahc_attach(struct ahc_softc *ahc)
 		    &saa, scsiprint);
 	}
 
-	splx(s);
+	crit_leave();
 	return (1);
 }
 
@@ -160,7 +159,6 @@ void
 ahc_done(struct ahc_softc *ahc, struct scb *scb)
 {
 	struct scsi_xfer *xs = scb->xs;
-	int s;
 
 	bus_dmamap_sync(ahc->parent_dmat, ahc->scb_data->hscb_dmamap,
 	    0, ahc->scb_data->hscb_dmamap->dm_mapsize,
@@ -258,10 +256,10 @@ ahc_done(struct ahc_softc *ahc, struct scb *scb)
 		xs->error = XS_SENSE;
 	}
 
-        s = splbio();       
+	crit_enter();
 	ahc_free_scb(ahc, scb);
 	scsi_done(xs);
-        splx(s);       
+	crit_leave();
 }
 
 void
@@ -288,7 +286,6 @@ ahc_action(struct scsi_xfer *xs)
 	struct hardware_scb *hscb;
 	u_int target_id;
 	u_int our_id;
-	int s;
 
 	SC_DEBUG(xs->sc_link, SDEV_DB3, ("ahc_action\n"));
 	ahc = (struct ahc_softc *)xs->sc_link->adapter_softc;
@@ -299,9 +296,9 @@ ahc_action(struct scsi_xfer *xs)
 	/*
 	 * get an scb to use.
 	 */
-	s = splbio();
+	crit_enter();
 	scb = ahc_get_scb(ahc);
-	splx(s);
+	crit_leave();
 	if (scb == NULL) {
 		xs->error = XS_NO_CCB;
 		scsi_done(xs);
@@ -341,7 +338,6 @@ ahc_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 	struct	ahc_tmode_tstate *tstate;
 
 	u_int	mask;
-	int	s;
 
 	scb = (struct scb *)arg;
 	xs = scb->xs;
@@ -403,7 +399,7 @@ ahc_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 
 	scb->sg_count = nsegments;
 
-	s = splbio();
+	crit_enter();
 
 	tinfo = ahc_fetch_transinfo(ahc, SCSIID_CHANNEL(ahc, scb->hscb->scsiid),
 				    SCSIID_OUR_ID(scb->hscb->scsiid),
@@ -460,7 +456,7 @@ ahc_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 			if (xs->flags & SCSI_POLL)
 				goto poll;
 			else {		
-				splx(s);
+				crit_leave();
 				return;
 			}
 		}
@@ -490,7 +486,7 @@ ahc_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 
 			ahc->inited_target[xs->sc_link->target] = 1;
 		}
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -509,7 +505,7 @@ poll:
 		}
 	} while (!(xs->flags & ITSDONE));
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -535,7 +531,6 @@ ahc_setup_data(struct ahc_softc *ahc, struct scsi_xfer *xs,
 	       struct scb *scb)
 {
 	struct hardware_scb *hscb;
-	int s;
 
 	hscb = scb->hscb;
 	xs->resid = xs->status = 0;
@@ -543,9 +538,9 @@ ahc_setup_data(struct ahc_softc *ahc, struct scsi_xfer *xs,
 
 	hscb->cdb_len = xs->cmdlen;
 	if (hscb->cdb_len > sizeof(hscb->cdb32)) {
-		s = splbio();
+		crit_enter();
 		ahc_free_scb(ahc, scb);
-		splx(s);
+		crit_leave();
 		xs->error = XS_DRIVER_STUFFUP;
 		scsi_done(xs);
 		return;
@@ -573,9 +568,9 @@ ahc_setup_data(struct ahc_softc *ahc, struct scsi_xfer *xs,
 			       "= %d\n",
 			       ahc_name(ahc), error);
 #endif
-			s = splbio();
+			crit_enter();
 			ahc_free_scb(ahc, scb);
-			splx(s);
+			crit_leave();
 			xs->error = XS_DRIVER_STUFFUP;
 			scsi_done(xs);
 			return;
@@ -592,14 +587,13 @@ ahc_timeout(void *arg)
 {
 	struct	scb *scb, *list_scb;
 	struct	ahc_softc *ahc;
-	int	s;
 	int	found;
 	char	channel;
 
 	scb = (struct scb *)arg;
 	ahc = (struct ahc_softc *)scb->xs->sc_link->adapter_softc;
 
-	s = splbio();
+	crit_enter();
 
 #ifdef AHC_DEBUG
 	printf("%s: SCB %d timed out\n", ahc_name(ahc), scb->hscb->tag);
@@ -628,7 +622,7 @@ ahc_timeout(void *arg)
 	}
 
 	ahc_unpause(ahc);
-	splx(s);
+	crit_leave();
 }
 
 
@@ -696,9 +690,8 @@ ahc_adapter_req_set_xfer_mode(struct ahc_softc *ahc, struct scb *scb)
 	struct ahc_devinfo devinfo;
 	u_int16_t quirks;
 	u_int width, ppr_options, period, offset;
-	int s;
 
-	s = splbio();
+	crit_enter();
 
 	ahc_scb_devinfo(ahc, &devinfo, scb);
 	quirks = scb->xs->sc_link->quirks;
@@ -758,5 +751,5 @@ ahc_adapter_req_set_xfer_mode(struct ahc_softc *ahc, struct scb *scb)
 	ahc_set_syncrate(ahc, &devinfo, syncrate, period, offset, ppr_options,
 	    AHC_TRANS_GOAL, FALSE);
 
-	splx(s);
+	crit_leave();
 }

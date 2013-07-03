@@ -98,11 +98,10 @@ ahd_attach(struct ahd_softc *ahd)
 {
 	struct scsibus_attach_args saa;
 	char   ahd_info[256];
-	int	s;
 
 	ahd_controller_info(ahd, ahd_info, sizeof ahd_info);
 	printf("%s\n", ahd_info);
-	ahd_lock(ahd, &s);
+	ahd_lock(ahd);
 
 	/*
 	 * fill in the prototype scsi_links.
@@ -129,7 +128,7 @@ ahd_attach(struct ahd_softc *ahd)
 
 	ahd->sc_child = config_found((void *)&ahd->sc_dev, &saa, scsiprint);
 
-	ahd_unlock(ahd, &s);
+	ahd_unlock(ahd);
 
 	return (1);
 
@@ -253,10 +252,10 @@ ahd_done(struct ahd_softc *ahd, struct scb *scb)
 		xs->error = XS_SENSE;
 	}
 
-	ahd_lock(ahd, &s);
+	ahd_lock(ahd);
 	ahd_free_scb(ahd, scb);
 	scsi_done(xs);
-	ahd_unlock(ahd, &s);
+	ahd_unlock(ahd);
 }
 
 void
@@ -283,7 +282,6 @@ ahd_action(struct scsi_xfer *xs)
 	struct hardware_scb *hscb;
 	u_int	target_id;
 	u_int	our_id;
-	int	s;
 	struct	ahd_initiator_tinfo *tinfo;
 	struct	ahd_tmode_tstate *tstate;
 	u_int	col_idx;
@@ -295,11 +293,11 @@ ahd_action(struct scsi_xfer *xs)
 	target_id = xs->sc_link->target;
 	our_id = SCSI_SCSI_ID(ahd, xs->sc_link);
 	
-	ahd_lock(ahd, &s);
+	ahd_lock(ahd);
 	if ((ahd->flags & AHD_INITIATORROLE) == 0) {
 		xs->error = XS_DRIVER_STUFFUP;
 		scsi_done(xs);
-		ahd_unlock(ahd, &s);
+		ahd_unlock(ahd);
 		return;
 	}
 	/*
@@ -319,10 +317,10 @@ ahd_action(struct scsi_xfer *xs)
 		ahd->flags |= AHD_RESOURCE_SHORTAGE;
 		xs->error = XS_NO_CCB;
 		scsi_done(xs);
-		ahd_unlock(ahd, &s);
+		ahd_unlock(ahd);
 		return;
 	}
-	ahd_unlock(ahd, &s);
+	ahd_unlock(ahd);
 		
 	hscb = scb->hscb;
 		
@@ -392,7 +390,7 @@ ahd_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 
 	}
 
-	ahd_lock(ahd, &s);
+	ahd_lock(ahd);
 
 	/*
 	 * Last time we need to check if this SCB needs to
@@ -403,7 +401,7 @@ ahd_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 			bus_dmamap_unload(ahd->parent_dmat,
 					  scb->dmamap);
 		ahd_free_scb(ahd, scb);
-		ahd_unlock(ahd, &s);
+		ahd_unlock(ahd);
 		return;
 	}
 
@@ -467,7 +465,7 @@ ahd_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 			ahd->inited_target[target] = 1;
 		}
 
-		ahd_unlock(ahd, &s);
+		ahd_unlock(ahd);
 		return;
 	}
 
@@ -485,7 +483,7 @@ ahd_execute_scb(void *arg, bus_dma_segment_t *dm_segs, int nsegments)
 		}
 	} while (!(xs->flags & ITSDONE));
 
-	ahd_unlock(ahd, &s);
+	ahd_unlock(ahd);
 }
 
 int
@@ -511,7 +509,6 @@ ahd_setup_data(struct ahd_softc *ahd, struct scsi_xfer *xs,
 	       struct scb *scb)
 {
 	struct hardware_scb *hscb;
-	int s;
 
 	hscb = scb->hscb;
 	xs->resid = xs->status = 0;
@@ -519,11 +516,11 @@ ahd_setup_data(struct ahd_softc *ahd, struct scsi_xfer *xs,
 	
 	hscb->cdb_len = xs->cmdlen;
 	if (hscb->cdb_len > MAX_CDB_LEN) {
-		ahd_lock(ahd, &s);
+		ahd_lock(ahd);
 		ahd_free_scb(ahd, scb);
 		xs->error = XS_DRIVER_STUFFUP;
 		scsi_done(xs);
-		ahd_unlock(ahd, &s);
+		ahd_unlock(ahd);
 		return;
 	}
 
@@ -546,11 +543,11 @@ ahd_setup_data(struct ahd_softc *ahd, struct scsi_xfer *xs,
 			printf("%s: in ahd_setup_data(): bus_dmamap_load() "
 			    "= %d\n", ahd_name(ahd), error);
 #endif
-			ahd_lock(ahd, &s);
+			ahd_lock(ahd);
 			ahd_free_scb(ahd, scb);
 			xs->error = XS_NO_CCB;
 			scsi_done(xs);
-			ahd_unlock(ahd, &s);
+			ahd_unlock(ahd);
 			return;
 		}
 		ahd_execute_scb(scb, scb->dmamap->dm_segs,
@@ -626,12 +623,11 @@ ahd_adapter_req_set_xfer_mode(struct ahd_softc *ahd, struct scb *scb)
 	struct ahd_devinfo devinfo;
 	u_int16_t quirks;
 	u_int width, ppr_options, period, offset;
-	int s;
 
 	target_id = scb->xs->sc_link->target;
 	our_id = SCSI_SCSI_ID(ahd, scb->xs->sc_link);
 
-	s = splbio();
+	crit_enter();
 
 	quirks = scb->xs->sc_link->quirks;
 	tinfo = ahd_fetch_transinfo(ahd, 'A', our_id, target_id, &tstate);
@@ -689,7 +685,7 @@ ahd_adapter_req_set_xfer_mode(struct ahd_softc *ahd, struct scb *scb)
 	ahd_set_syncrate(ahd, &devinfo, period, offset, ppr_options,
 		AHD_TRANS_GOAL, FALSE);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -726,9 +722,7 @@ ahd_flush_device_writes(struct ahd_softc *ahd)
 void
 aic_platform_scb_free(struct ahd_softc *ahd, struct scb *scb)
 {
-	int s;
-
-	ahd_lock(ahd, &s);
+	ahd_lock(ahd);
 
 	if ((ahd->flags & AHD_RESOURCE_SHORTAGE) != 0) {
 		ahd->flags &= ~AHD_RESOURCE_SHORTAGE;
@@ -739,7 +733,7 @@ aic_platform_scb_free(struct ahd_softc *ahd, struct scb *scb)
 		timeout_del(&scb->xs->stimeout);
 	}
 
-	ahd_unlock(ahd, &s);
+	ahd_unlock(ahd);
 }
 
 void

@@ -518,7 +518,6 @@ void
 sdstrategy(struct buf *bp)
 {
 	struct sd_softc *sc;
-	int s;
 
 	sc = sdlookup(DISKUNIT(bp->b_dev));
 	if (sc == NULL) {
@@ -563,9 +562,9 @@ sdstrategy(struct buf *bp)
 	bp->b_flags |= B_ERROR;
 	bp->b_resid = bp->b_bcount;
  done:
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	if (sc != NULL)
 		device_unref(&sc->sc_dev);
 }
@@ -773,9 +772,9 @@ retry:
 	disk_unbusy(&sc->sc_dk, bp->b_bcount - xs->resid,
 	    bp->b_flags & B_READ);
 
-	s = splbio();
+	crit_enter();
 	biodone(bp);
-	splx(s);
+	crit_leave();
 	scsi_xs_put(xs);
 }
 

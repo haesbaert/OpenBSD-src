@@ -141,7 +141,6 @@ twe_attach(sc)
 	u_int32_t	status;
 	int		error, i, retry, nunits, nseg;
 	const char	*errstr;
-	twe_lock_t	lock;
 	paddr_t		pa;
 
 	error = bus_dmamem_alloc(sc->dmat, sizeof(struct twe_cmd) * TWE_MAXCMDS,
@@ -373,7 +372,7 @@ twe_attach(sc)
 		cap->param_id = 4;
 		cap->param_size = 4;	/* 4 bytes */
 
-		lock = TWE_LOCK(sc);
+		TWE_LOCK(sc);
 		twe_cmd(ccb, BUS_DMA_NOWAIT, 1);
 		TWE_UNLOCK(sc, lock);
 		scsi_io_put(&sc->sc_iopool, ccb);
@@ -449,13 +448,12 @@ twe_thread(v)
 {
 	struct twe_softc *sc = v;
 	struct twe_ccb *ccb;
-	twe_lock_t lock;
 	u_int32_t status;
 	int err;
 
-	splbio();
+	crit_enter();
 	for (;;) {
-		lock = TWE_LOCK(sc);
+		TWE_LOCK(sc);
 
 		while (!TAILQ_EMPTY(&sc->sc_done_ccb)) {
 			ccb = TAILQ_FIRST(&sc->sc_done_ccb);
@@ -488,10 +486,11 @@ twe_thread(v)
 			bus_space_write_4(sc->iot, sc->ioh, TWE_CONTROL,
 			    TWE_CTRL_ECMDI);
 
-		TWE_UNLOCK(sc, lock);
+		TWE_UNLOCK(sc);
 		sc->sc_thread_on = 1;
 		tsleep(sc, PWAIT, "twespank", 0);
 	}
+	crit_leave();		/* NOTREACHED */
 }
 
 int
@@ -699,7 +698,6 @@ twe_done(sc, ccb)
 	struct twe_cmd *cmd = ccb->ccb_cmd;
 	struct scsi_xfer *xs = ccb->ccb_xs;
 	bus_dmamap_t	dmap;
-	twe_lock_t	lock;
 
 	TWE_DPRINTF(TWE_D_CMD, ("done(%d) ", cmd->cmd_index));
 
@@ -744,13 +742,13 @@ twe_done(sc, ccb)
 		bus_dmamem_free(sc->dmat, ccb->ccb_2bseg, ccb->ccb_2nseg);
 	}
 
-	lock = TWE_LOCK(sc);
+	TWE_LOCK(sc);
 
 	if (xs) {
 		xs->resid = 0;
 		scsi_done(xs);
 	}
-	TWE_UNLOCK(sc, lock);
+	TWE_UNLOCK(sc);
 
 	return 0;
 }
@@ -797,7 +795,6 @@ twe_scsi_cmd(xs)
 	struct scsi_rw *rw;
 	struct scsi_rw_big *rwb;
 	int error, op, flags, wait;
-	twe_lock_t lock;
 
 
 	if (target >= TWE_MAX_UNITS || !sc->sc_hdr[target].hd_present ||
@@ -868,7 +865,7 @@ twe_scsi_cmd(xs)
 	case WRITE_COMMAND:
 	case WRITE_BIG:
 	case SYNCHRONIZE_CACHE:
-		lock = TWE_LOCK(sc);
+		TWE_LOCK(sc);
 
 		flags = 0;
 		if (xs->cmd->opcode == SYNCHRONIZE_CACHE) {
@@ -896,7 +893,7 @@ twe_scsi_cmd(xs)
 				    sc->sc_hdr[target].hd_size);
 				xs->error = XS_DRIVER_STUFFUP;
 				scsi_done(xs);
-				TWE_UNLOCK(sc, lock);
+				TWE_UNLOCK(sc);
 				return;
 			}
 		}
@@ -931,7 +928,7 @@ twe_scsi_cmd(xs)
 			scsi_done(xs);
 		}
 
-		TWE_UNLOCK(sc, lock);
+		TWE_UNLOCK(sc);
 		return;
 
 	default:
@@ -1027,7 +1024,6 @@ twe_aen(void *cookie, void *io)
 	    TWE_ALIGN - 1) & ~(TWE_ALIGN - 1));
 	u_int16_t aen;
 
-	twe_lock_t lock;
 	int error;
 
 	ccb->ccb_xs = NULL;
@@ -1043,9 +1039,9 @@ twe_aen(void *cookie, void *io)
 	pb->param_id = 2;
 	pb->param_size = 2;
 
-	lock = TWE_LOCK(sc);
+	TWE_LOCK(sc);
 	error = twe_cmd(ccb, BUS_DMA_NOWAIT, 1);
-	TWE_UNLOCK(sc, lock);
+	TWE_UNLOCK(sc);
 	scsi_io_put(&sc->sc_iopool, ccb);
 
 	if (error) {

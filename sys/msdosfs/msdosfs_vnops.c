@@ -1778,7 +1778,6 @@ msdosfs_strategy(void *v)
 	struct denode *dep = VTODE(bp->b_vp);
 	struct vnode *vp;
 	int error = 0;
-	int s;
 
 	if (bp->b_vp->v_type == VBLK || bp->b_vp->v_type == VCHR)
 		panic("msdosfs_strategy: spec");
@@ -1797,9 +1796,9 @@ msdosfs_strategy(void *v)
 			clrbuf(bp);
 	}
 	if (bp->b_blkno == -1) {
-		s = splbio();	
+		crit_enter();
 		biodone(bp);
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 

@@ -1357,10 +1357,9 @@ siop_cmd_get(void *cookie)
 {
 	struct siop_softc *sc = cookie;
 	struct siop_cmd *siop_cmd;
-	int s;
 
 	/* Look if a ccb is available. */
-	s = splbio();
+	crit_enter();
 	siop_cmd = TAILQ_FIRST(&sc->free_list);
 	if (siop_cmd != NULL) {
 		TAILQ_REMOVE(&sc->free_list, siop_cmd, next);
@@ -1370,7 +1369,7 @@ siop_cmd_get(void *cookie)
 #endif
 		siop_cmd->cmd_c.status = CMDST_READY;
 	}
-	splx(s);
+	crit_leave();
 
 	return (siop_cmd);
 }
@@ -1380,12 +1379,11 @@ siop_cmd_put(void *cookie, void *io)
 {
 	struct siop_softc *sc = cookie;
 	struct siop_cmd *siop_cmd = io;
-	int s;
 
-	s = splbio();
+	crit_enter()
 	siop_cmd->cmd_c.status = CMDST_FREE;
 	TAILQ_INSERT_TAIL(&sc->free_list, siop_cmd, next);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1460,7 +1458,7 @@ siop_scsicmd(xs)
 	struct siop_softc *sc = (struct siop_softc *)xs->sc_link->adapter_softc;
 	struct siop_cmd *siop_cmd;
 	struct siop_target *siop_target;
-	int s, error, i, j;
+	int error, i, j;
 	const int target = xs->sc_link->target;
 	const int lun = xs->sc_link->lun;
 
@@ -1521,11 +1519,11 @@ siop_scsicmd(xs)
 	    siop_target->target_c.status == TARST_PROBING)
 		siop_target->target_c.status = TARST_ASYNC;
 
-	s = splbio();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&sc->ready_list, siop_cmd, next);
 	siop_start(sc);
 	if ((xs->flags & SCSI_POLL) == 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1572,7 +1570,7 @@ siop_scsicmd(xs)
 			siop_intr(sc);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1773,7 +1771,6 @@ siop_timeout(v)
 {
 	struct siop_cmd *siop_cmd = v;
 	struct siop_softc *sc = (struct siop_softc *)siop_cmd->cmd_c.siop_sc;
-	int s;
 
 	/* deactivate callout */
 	timeout_del(&siop_cmd->cmd_c.xs->stimeout);
@@ -1782,12 +1779,12 @@ siop_timeout(v)
 	printf("timeout on SCSI command 0x%x\n",
 	    siop_cmd->cmd_c.xs->cmd->opcode);
 
-	s = splbio();
+	crit_enter();
 	/* reset the scsi bus */
 	siop_resetbus(&sc->sc_c);
 	siop_cmd->cmd_c.flags |= CMDFL_TIMEOUT;
 	siop_handle_reset(sc);
-	splx(s);
+	crit_leave();
 
 	return;
 }
@@ -1925,9 +1922,9 @@ siop_morecbd(sc)
 		    dsa + sizeof(struct siop_common_xfer) + Ent_ldsa_data);
 		/* JUMP foo, IF FALSE - used by MOVE MEMORY to clear the slot */
 		scr[Ent_ldsa_data / 4] = siop_htoc32(&sc->sc_c, 0x80000000);
-		s = splbio();
+		crit_enter();
 		TAILQ_INSERT_TAIL(&sc->free_list, &newcbd->cmds[i], next);
-		splx(s);
+		crit_leave();
 #ifdef SIOP_DEBUG
 		printf("tables[%d]: in=0x%x out=0x%x status=0x%x "
 		    "offset=0x%x\n", i,
@@ -1939,9 +1936,9 @@ siop_morecbd(sc)
 			newcbd->cmds[i].cmd_tables->t_status.addr));
 #endif
 	}
-	s = splbio();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&sc->cmds, newcbd, next);
-	splx(s);
+	crit_leave();
 	return;
 bad0:
 	while (--i >= 0) {

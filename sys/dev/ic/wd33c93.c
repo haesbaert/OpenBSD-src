@@ -266,13 +266,13 @@ wd33c93_init(struct wd33c93_softc *sc)
 void
 wd33c93_reset(struct wd33c93_softc *sc)
 {
-	u_int	my_id, s, div, i;
+	u_int	my_id, div, i;
 	u_char	csr, reg;
 
 	SET_SBIC_cmd(sc, SBIC_CMD_ABORT);
 	WAIT_CIP(sc);
 
-	s = splbio();
+	crit_enter();
 
 	if (sc->sc_reset != NULL)
 		(*sc->sc_reset)(sc);
@@ -367,7 +367,7 @@ wd33c93_reset(struct wd33c93_softc *sc)
 	sc->sc_flags = 0;
 	sc->sc_state = SBIC_IDLE;
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -451,18 +451,17 @@ void
 wd33c93_dma_setup(struct wd33c93_softc *sc, int datain)
 {
 	struct wd33c93_acb *acb = sc->sc_nexus;
-	int s;
 
 	sc->sc_daddr = acb->daddr;
 	sc->sc_dleft = acb->dleft;
 
-	s = splbio();
+	crit_enter();
 	/* Indicate that we're in DMA mode */
 	if (sc->sc_dleft) {
 		sc->sc_dmasetup(sc, &sc->sc_daddr, &sc->sc_dleft,
 		    datain, &sc->sc_dleft);
 	}
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -487,7 +486,7 @@ wd33c93_dma_stop(struct wd33c93_softc *sc)
 
 	/* Only need to save pointers if DMA was active */
 	if (sc->sc_flags & SBICF_INDMA) {
-		int s = splbio();
+		crit_enter();
 
 		/* Shut down DMA and flush FIFO's */
 		sc->sc_dmastop(sc);
@@ -507,7 +506,7 @@ wd33c93_dma_stop(struct wd33c93_softc *sc)
 		sc->sc_dleft -= count;
 		sc->sc_tcnt   = 0;
 		sc->sc_flags &= ~SBICF_INDMA;
-		splx(s);
+		crit_leave();
 		SBIC_DEBUG(DMA, ("dma_stop\n"));
 	}
 	/*
@@ -528,7 +527,7 @@ wd33c93_scsi_cmd(struct scsi_xfer *xs)
 	struct scsi_link *sc_link = xs->sc_link;
 	struct wd33c93_softc *sc = sc_link->adapter_softc;
 	struct wd33c93_acb *acb;
-	int flags, s;
+	int flags;
 
 	SBIC_DEBUG(MISC, ("wd33c93_scsi_cmd\n"));
 
@@ -574,10 +573,10 @@ wd33c93_scsi_cmd(struct scsi_xfer *xs)
 	if (sc->sc_nexus && (flags & SCSI_POLL))
 		panic("wd33c93_scsicmd: busy");
 
-	s = splbio();
+	crit_enter();
 	acb = (struct wd33c93_acb *)pool_get(&wd33c93_pool,
 	    PR_NOWAIT | PR_ZERO);
-	splx(s);
+	crit_leave();
 
 	if (acb == NULL) {
 		xs->error = XS_NO_CCB;
@@ -604,14 +603,14 @@ wd33c93_scsi_cmd(struct scsi_xfer *xs)
 			wd33c93_poll(sc, sc->sc_nexus);
 	}
 
-	s = splbio();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&sc->ready_list, acb, chain);
 	acb->flags |= ACB_READY;
 
 	/* If nothing is active, try to start it now. */
 	if (sc->sc_state == SBIC_IDLE)
 		wd33c93_sched(sc);
-	splx(s);
+	crit_leave();
 
 	if ((flags & SCSI_POLL) == 0)
 		return;
@@ -634,7 +633,6 @@ wd33c93_sched(struct wd33c93_softc *sc)
 	struct wd33c93_tinfo *ti;
 	struct wd33c93_linfo *li;
 	int lun, tag, flags;
-	int s;
 
 	if (sc->sc_state != SBIC_IDLE)
 		return;
@@ -661,13 +659,13 @@ wd33c93_sched(struct wd33c93_softc *sc)
 		else
 			tag = MSG_SIMPLE_Q_TAG;
 
-		s = splbio();
+		crit_enter();
 		li = TINFO_LUN(ti, lun);
 		if (li == NULL) {
 			/* Initialize LUN info and add to list. */
 			li = malloc(sizeof(*li), M_DEVBUF, M_NOWAIT | M_ZERO);
 			if (li == NULL) {
-				splx(s);
+				crit_leave();
 				continue;
 			}
 			li->lun = lun;
@@ -691,7 +689,7 @@ wd33c93_sched(struct wd33c93_softc *sc)
 				sc_link = acb->xs->sc_link;
 			} else{
 				/* Not ready yet */
-				splx(s);
+				crit_leave();
 				continue;
 			}
 		}
@@ -703,7 +701,7 @@ wd33c93_sched(struct wd33c93_softc *sc)
 			/* Allocate a tag */
 			if (li->used == 255) {
 				/* no free tags */
-				splx(s);
+				crit_leave();
 				continue;
 			}
 			/* Start from the last used location */
@@ -729,7 +727,7 @@ wd33c93_sched(struct wd33c93_softc *sc)
 			li->queued[i] = acb;
 			acb->tag_id = i;
 		}
-		splx(s);
+		crit_leave();
 		if (li->untagged != NULL && (li->state != L_STATE_BUSY)) {
 			li->state = L_STATE_BUSY;
 			break;
@@ -825,10 +823,10 @@ wd33c93_scsidone(struct wd33c93_softc *sc, struct wd33c93_acb *acb, int status)
 
 	/* place control block back on free list. */
 	if ((xs->flags & SCSI_POLL) == 0) {
-		s = splbio();
+		crit_enter();
 		acb->flags = ACB_FREE;
 		pool_put(&wd33c93_pool, acb);
-		splx(s);
+		crit_leave();
 	}
 
 	scsi_done(xs);
@@ -1266,10 +1264,9 @@ void
 wd33c93_xferdone(struct wd33c93_softc *sc)
 {
 	u_char	phase, csr;
-	int	s;
 
 	QPRINTF(("{"));
-	s = splbio();
+	crit_enter();
 
 	/*
 	 * have the wd33c93 complete on its own
@@ -1298,7 +1295,7 @@ wd33c93_xferdone(struct wd33c93_softc *sc)
 		wd33c93_error(sc, sc->sc_nexus);
 
 	QPRINTF(("=STS:%02x=\n", sc->sc_status));
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1416,7 +1413,6 @@ wd33c93_poll(struct wd33c93_softc *sc, struct wd33c93_acb *acb)
 	u_char			asr, csr;
 	int			count;
 	struct scsi_xfer	*xs = acb->xs;
-	int s;
 
 	SBIC_WAIT(sc, SBIC_ASR_INT, wd33c93_cmd_wait);
 	for (count = acb->timeout; count;) {
@@ -1427,29 +1423,29 @@ wd33c93_poll(struct wd33c93_softc *sc, struct wd33c93_acb *acb)
 			    asr, csr);
 		if (asr & SBIC_ASR_INT) {
 			/* inline wd33c93_intr(sc) */
-			s = splbio();
+			crit_enter();
 			(void)wd33c93_loop(sc, asr, csr);
-			splx(s);
+			crit_leave();
 		} else {
 			DELAY(1000);
 			count--;
 		}
 
 		if ((xs->flags & ITSDONE) != 0) {
-			s = splbio();
+			crit_leave();
 			acb->flags = ACB_FREE;
 			pool_put(&wd33c93_pool, acb);
-			splx(s);
+			crit_leave();
 
 			return (0);
 		}
 
-		s = splbio();
+		crit_enter();
 		if (sc->sc_state == SBIC_IDLE) {
 			SBIC_DEBUG(ACBS, ("[poll: rescheduling] "));
 			wd33c93_sched(sc);
 		}
-		splx(s);
+		crit_leave();
 	}
 	return (1);
 }
@@ -2248,9 +2244,9 @@ wd33c93_timeout(void *arg)
 	struct scsi_xfer *xs = acb->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	struct wd33c93_softc *sc = sc_link->adapter_softc;
-	int s, asr, csr;
+	int asr, csr;
 
-	s = splbio();
+	crit_enter();
 
 	GET_SBIC_asr(sc, asr);
 
@@ -2268,7 +2264,7 @@ wd33c93_timeout(void *arg)
 	} else {
 		(void)wd33c93_abort(sc, acb, "timeout");
 	}
-	splx(s);
+	crit_leave();
 }
 
 
@@ -2278,21 +2274,21 @@ wd33c93_watchdog(void *arg)
 	struct wd33c93_softc *sc = arg;
 	struct wd33c93_tinfo *ti;
 	struct wd33c93_linfo *li;
-	int t, s, l;
+	int t, l;
 	/* scrub LUN's that have not been used in the last 10min. */
 	time_t old = time_second - (10 * 60);
 
 	for (t = 0; t < SBIC_NTARG; t++) {
 		ti = &sc->sc_tinfo[t];
 		for (l = 0; l < SBIC_NLUN; l++) {
-			s = splbio();
+			crit_enter();
 			li = TINFO_LUN(ti, l);
 			if (li && li->last_used < old &&
 			    li->untagged == NULL && li->used == 0) {
 				ti->lun[li->lun] = NULL;
 				free(li, M_DEVBUF);
 			}
-			splx(s);
+			crit_leave();
 		}
 	}
 	timeout_add_sec(&sc->sc_watchdog, 60);

@@ -196,8 +196,8 @@ void ahd_flush_device_writes(struct ahd_softc *);
 /**************************** Locking Primitives ******************************/
 /* Lock protecting internal data structures */
 #define ahd_lockinit(ahd)
-#define ahd_lock(ahd, flags) *(flags) = splbio()
-#define ahd_unlock(ahd, flags) splx(*(flags))
+#define ahd_lock(ahd) crit_enter()
+#define ahd_unlock(ahd) crit_leave()
 
 /* Lock held during command completion to the upper layer */
 #define ahd_done_lockinit(ahd)
@@ -206,8 +206,8 @@ void ahd_flush_device_writes(struct ahd_softc *);
 
 /* Lock held during ahd_list manipulation and ahd softc frees */
 #define ahd_list_lockinit(x)
-#define ahd_list_lock(flags) *(flags) = splbio()
-#define ahd_list_unlock(flags) splx(*(flags))
+#define ahd_list_lock() crit_enter()
+#define ahd_list_unlock() crit_leave()
 
 /****************************** OS Primitives *********************************/
 #define scsi_4btoul(b)	(_4btol(b))

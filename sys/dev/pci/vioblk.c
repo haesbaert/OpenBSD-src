@@ -395,17 +395,17 @@ vioblk_scsi_cmd(struct scsi_xfer *xs)
 	struct virtqueue *vq = &sc->sc_vq[0];
 	struct virtio_blk_req *vr;
 	struct virtio_softc *vsc = sc->sc_virtio;
-	int len, s;
+	int len;
 	int timeout;
 	int slot, ret, nsegs;
 
-	s = splbio();
+	crit_enter();
 	ret = virtio_enqueue_prep(vq, &slot);
 	if (ret) {
 		DBGPRINT("virtio_enqueue_prep: %d, vq_num: %d, sc_queued: %d",
 		    ret, vq->vq_num, sc->sc_queued);
 		vioblk_scsi_done(xs, XS_NO_CCB);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	vr = &sc->sc_reqs[slot];
@@ -460,7 +460,7 @@ vioblk_scsi_cmd(struct scsi_xfer *xs)
 		/* check if some xfers are done: */
 		if (sc->sc_queued > 1)
 			vioblk_vq_done(vq);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -471,7 +471,7 @@ vioblk_scsi_cmd(struct scsi_xfer *xs)
 
 		delay(1000);
 	} while(--timeout > 0);
-	splx(s);
+	crit_leave();
 	return;
 
 out_enq_abort:

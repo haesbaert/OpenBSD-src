@@ -1696,7 +1696,7 @@ ehci_set_qh_qtd(struct ehci_soft_qh *sqh, struct ehci_soft_qtd *sqtd)
 void
 ehci_sync_hc(struct ehci_softc *sc)
 {
-	int s, error;
+	int error;
 	int tries = 0;
 
 	if (sc->sc_bus.dying) {
@@ -1706,7 +1706,7 @@ ehci_sync_hc(struct ehci_softc *sc)
 	DPRINTFN(2,("ehci_sync_hc: enter\n"));
 	/* get doorbell */
 	rw_enter_write(&sc->sc_doorbell_lock);
-	s = splhardusb();
+	crit_enter();
 	do { 
 		/* ask for doorbell */
 		EOWRITE4(sc, EHCI_USBCMD, EOREAD4(sc, EHCI_USBCMD) |
@@ -1718,7 +1718,7 @@ ehci_sync_hc(struct ehci_softc *sc)
 		DPRINTFN(1,("ehci_sync_hc: cmd=0x%08x sts=0x%08x\n",
 		    EOREAD4(sc, EHCI_USBCMD), EOREAD4(sc, EHCI_USBSTS)));
 	} while (error && ++tries < 10);
-	splx(s);
+	crit_leave();
 	/* release doorbell */
 	rw_exit_write(&sc->sc_doorbell_lock);
 #ifdef DIAGNOSTIC

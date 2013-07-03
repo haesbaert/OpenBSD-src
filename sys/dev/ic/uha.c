@@ -313,7 +313,6 @@ uha_scsi_cmd(xs)
 	int seg;		/* scatter gather seg being worked on */
 	u_long thiskv, thisphys, nextphys;
 	int bytes_this_seg, bytes_this_page, datalen, flags;
-	int s;
 
 	SC_DEBUG(sc_link, SDEV_DB2, ("uha_scsi_cmd\n"));
 	/*
@@ -426,9 +425,9 @@ uha_scsi_cmd(xs)
 	mscp->link_id = 0;
 	mscp->link_addr = (physaddr)0;
 
-	s = splbio();
+	crit_enter();
 	(sc->start_mbox)(sc, mscp);
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Usually return SUCCESSFULLY QUEUED
@@ -460,12 +459,11 @@ uha_timeout(arg)
 	struct scsi_xfer *xs = mscp->xs;
 	struct scsi_link *sc_link = xs->sc_link;
 	struct uha_softc *sc = sc_link->adapter_softc;
-	int s;
 
 	sc_print_addr(sc_link);
 	printf("timed out");
 
-	s = splbio();
+	crit_enter();
 
 	if (mscp->flags & MSCP_ABORT) {
 		/* abort timed out */
@@ -480,5 +478,5 @@ uha_timeout(arg)
 		(sc->start_mbox)(sc, mscp);
 	}
 
-	splx(s);
+	crit_leave();
 }

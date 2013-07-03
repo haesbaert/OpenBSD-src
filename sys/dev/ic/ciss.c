@@ -142,7 +142,6 @@ ciss_attach(struct ciss_softc *sc)
 	struct ciss_inquiry *inq;
 	bus_dma_segment_t seg[1];
 	int error, i, total, rseg, maxfer;
-	ciss_lock_t lock;
 	paddr_t pa;
 
 	bus_space_read_region_4(sc->iot, sc->cfg_ioh, sc->cfgoff,
@@ -303,11 +302,11 @@ ciss_attach(struct ciss_softc *sc)
 		return -1;
 	}
 
-	lock = CISS_LOCK_SCRATCH(sc);
+	CISS_LOCK_SCRATCH(sc);
 	inq = sc->scratch;
 	if (ciss_inq(sc, inq)) {
 		printf(": adapter inquiry failed\n");
-		CISS_UNLOCK_SCRATCH(sc, lock);
+		CISS_UNLOCK_SCRATCH(sc);
 		bus_dmamem_free(sc->dmat, sc->cmdseg, 1);
 		bus_dmamap_destroy(sc->dmat, sc->cmdmap);
 		return -1;
@@ -316,7 +315,7 @@ ciss_attach(struct ciss_softc *sc)
 	if (!(inq->flags & CISS_INQ_BIGMAP)) {
 		printf(": big map is not supported, flags=%b\n",
 		    inq->flags, CISS_INQ_BITS);
-		CISS_UNLOCK_SCRATCH(sc, lock);
+		CISS_UNLOCK_SCRATCH(sc);
 		bus_dmamem_free(sc->dmat, sc->cmdseg, 1);
 		bus_dmamap_destroy(sc->dmat, sc->cmdmap);
 		return -1;
@@ -334,7 +333,7 @@ ciss_attach(struct ciss_softc *sc)
 		printf(", 64bit fifo rro");
 	printf("\n");
 
-	CISS_UNLOCK_SCRATCH(sc, lock);
+	CISS_UNLOCK_SCRATCH(sc);
 
 	timeout_set(&sc->sc_hb, ciss_heartbeat, sc);
 	timeout_add_sec(&sc->sc_hb, 3);
@@ -610,7 +609,6 @@ ciss_done(struct ciss_ccb *ccb)
 	struct ciss_softc *sc = ccb->ccb_sc;
 	struct scsi_xfer *xs = ccb->ccb_xs;
 	struct ciss_cmd *cmd = &ccb->ccb_cmd;
-	ciss_lock_t lock;
 	int error = 0;
 
 	CISS_DPRINTF(CISS_D_CMD, ("ciss_done(%p) ", ccb));
@@ -620,7 +618,7 @@ ciss_done(struct ciss_ccb *ccb)
 		    sc->sc_dev.dv_xname, ccb, ccb->ccb_state, CISS_CCB_BITS);
 		return 1;
 	}
-	lock = CISS_LOCK(sc);
+	CISS_LOCK(sc);
 	ccb->ccb_state = CISS_CCB_READY;
 
 	if (ccb->ccb_cmd.id & CISS_CMD_ERR)
@@ -638,7 +636,7 @@ ciss_done(struct ciss_ccb *ccb)
 		scsi_done(xs);
 	}
 
-	CISS_UNLOCK(sc, lock);
+	CISS_UNLOCK(sc);
 
 	return error;
 }
@@ -714,7 +712,6 @@ ciss_inq(struct ciss_softc *sc, struct ciss_inquiry *inq)
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
 	int rv;
-	int s;
 
 	ccb = scsi_io_get(&sc->sc_iopool, SCSI_POLL|SCSI_NOSLEEP);
 	if (ccb == NULL)
@@ -734,9 +731,9 @@ ciss_inq(struct ciss_softc *sc, struct ciss_inquiry *inq)
 	cmd->cdb[7] = sizeof(*inq) >> 8;	/* biiiig endian */
 	cmd->cdb[8] = sizeof(*inq) & 0xff;
 
-	s = splbio();
+	crit_enter();
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, SCSI_POLL|SCSI_NOSLEEP);
-	splx(s);
+	crit_leave();
 
 	scsi_io_put(&sc->sc_iopool, ccb);
 
@@ -749,10 +746,9 @@ ciss_ldmap(struct ciss_softc *sc)
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
 	struct ciss_ldmap *lmap;
-	ciss_lock_t lock;
 	int total, rv;
 
-	lock = CISS_LOCK_SCRATCH(sc);
+	CISS_LOCK_SCRATCH(sc);
 	lmap = sc->scratch;
 	lmap->size = htobe32(sc->maxunits * sizeof(lmap->map));
 	total = sizeof(*lmap) + (sc->maxunits - 1) * sizeof(lmap->map);
@@ -776,7 +772,7 @@ ciss_ldmap(struct ciss_softc *sc)
 
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, SCSI_POLL|SCSI_NOSLEEP);
 	scsi_io_put(&sc->sc_iopool, ccb);
-	CISS_UNLOCK_SCRATCH(sc, lock);
+	CISS_UNLOCK_SCRATCH(sc);
 
 	if (rv)
 		return rv;
@@ -793,10 +789,9 @@ ciss_sync(struct ciss_softc *sc)
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
 	struct ciss_flush *flush;
-	ciss_lock_t lock;
 	int rv;
 
-	lock = CISS_LOCK_SCRATCH(sc);
+	CISS_LOCK_SCRATCH(sc);
 	flush = sc->scratch;
 	bzero(flush, sizeof(*flush));
 	flush->flush = sc->sc_flush;
@@ -821,7 +816,7 @@ ciss_sync(struct ciss_softc *sc)
 
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, SCSI_POLL|SCSI_NOSLEEP);
 	scsi_io_put(&sc->sc_iopool, ccb);
-	CISS_UNLOCK_SCRATCH(sc, lock);
+	CISS_UNLOCK_SCRATCH(sc);
 
 	return rv;
 }
@@ -833,7 +828,6 @@ ciss_scsi_cmd(struct scsi_xfer *xs)
 	u_int8_t target = link->target;
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
-	ciss_lock_t lock;
 
 	CISS_DPRINTF(CISS_D_CMD, ("ciss_scsi_cmd "));
 
@@ -870,9 +864,9 @@ ciss_scsi_cmd(struct scsi_xfer *xs)
 	bzero(&cmd->cdb[0], sizeof(cmd->cdb));
 	bcopy(xs->cmd, &cmd->cdb[0], CISS_MAX_CDB);
 
-	lock = CISS_LOCK(sc);
+	CISS_LOCK(sc);
 	ciss_cmd(ccb, BUS_DMA_WAITOK, xs->flags & (SCSI_POLL|SCSI_NOSLEEP));
-	CISS_UNLOCK(sc, lock);
+	CISS_UNLOCK(sc);
 }
 
 int
@@ -978,7 +972,6 @@ ciss_ioctl(struct device *dev, u_long cmd, caddr_t addr)
 	struct ciss_pdid *pdid;
 	struct ciss_blink *blink;
 	struct ciss_ld *ldp;
-	ciss_lock_t lock;
 	u_int8_t drv;
 	int ld, pd, error = 0;
 	u_int blks;
@@ -986,7 +979,7 @@ ciss_ioctl(struct device *dev, u_long cmd, caddr_t addr)
 	if (!(sc->sc_flags & CISS_BIO))
 		return ENOTTY;
 
-	lock = CISS_LOCK(sc);
+	CISS_LOCK(sc);
 	switch (cmd) {
 	case BIOCINQ:
 		bi = (struct bioc_inq *)addr;
@@ -1119,7 +1112,7 @@ ciss_ioctl(struct device *dev, u_long cmd, caddr_t addr)
 		    sc->sc_dev.dv_xname));
 		error = ENOTTY;
 	}
-	CISS_UNLOCK(sc, lock);
+	CISS_UNLOCK(sc);
 
 	return error;
 }
@@ -1182,7 +1175,6 @@ ciss_ldid(struct ciss_softc *sc, int target, struct ciss_ldid *id)
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
 	int rv;
-	int s;
 
 	ccb = scsi_io_get(&sc->sc_iopool, SCSI_POLL);
 	if (ccb == NULL)
@@ -1203,9 +1195,9 @@ ciss_ldid(struct ciss_softc *sc, int target, struct ciss_ldid *id)
 	cmd->cdb[7] = sizeof(*id) >> 8;	/* biiiig endian */
 	cmd->cdb[8] = sizeof(*id) & 0xff;
 
-	s = splbio();
+	crit_enter();
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, SCSI_POLL);
-	splx(s);
+	crit_leave();
 
 	scsi_io_put(&sc->sc_iopool, ccb);
 
@@ -1218,7 +1210,6 @@ ciss_ldstat(struct ciss_softc *sc, int target, struct ciss_ldstat *stat)
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
 	int rv;
-	int s;
 
 	ccb = scsi_io_get(&sc->sc_iopool, SCSI_POLL);
 	if (ccb == NULL)
@@ -1239,9 +1230,9 @@ ciss_ldstat(struct ciss_softc *sc, int target, struct ciss_ldstat *stat)
 	cmd->cdb[7] = sizeof(*stat) >> 8;	/* biiiig endian */
 	cmd->cdb[8] = sizeof(*stat) & 0xff;
 
-	s = splbio();
+	crit_enter();
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, SCSI_POLL);
-	splx(s);
+	crit_leave();
 
 	scsi_io_put(&sc->sc_iopool, ccb);
 
@@ -1254,7 +1245,6 @@ ciss_pdid(struct ciss_softc *sc, u_int8_t drv, struct ciss_pdid *id, int wait)
 	struct ciss_ccb *ccb;
 	struct ciss_cmd *cmd;
 	int rv;
-	int s;
 
 	ccb = scsi_io_get(&sc->sc_iopool, SCSI_POLL);
 	if (ccb == NULL)
@@ -1275,9 +1265,9 @@ ciss_pdid(struct ciss_softc *sc, u_int8_t drv, struct ciss_pdid *id, int wait)
 	cmd->cdb[7] = sizeof(*id) >> 8;	/* biiiig endian */
 	cmd->cdb[8] = sizeof(*id) & 0xff;
 
-	s = splbio();
+	crit_enter();
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, wait);
-	splx(s);
+	crit_leave();
 
 	scsi_io_put(&sc->sc_iopool, ccb);
 
@@ -1329,7 +1319,6 @@ ciss_blink(struct ciss_softc *sc, int ld, int pd, int stat,
 	struct ciss_cmd *cmd;
 	struct ciss_ld *ldp;
 	int rv;
-	int s;
 
 	if (ld > sc->maxunits)
 		return EINVAL;
@@ -1360,9 +1349,9 @@ ciss_blink(struct ciss_softc *sc, int ld, int pd, int stat,
 	cmd->cdb[7] = sizeof(*blink) >> 8;	/* biiiig endian */
 	cmd->cdb[8] = sizeof(*blink) & 0xff;
 
-	s = splbio();
+	crit_enter();
 	rv = ciss_cmd(ccb, BUS_DMA_NOWAIT, SCSI_POLL);
-	splx(s);
+	crit_leave();
 
 	scsi_io_put(&sc->sc_iopool, ccb);
 

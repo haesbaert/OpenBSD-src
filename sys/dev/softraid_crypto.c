@@ -1190,7 +1190,6 @@ sr_crypto_write(struct cryptop *crp)
 {
 	struct sr_crypto_wu	*crwu = crp->crp_opaque;
 	struct sr_workunit	*wu = crwu->cr_wu;
-	int			s;
 
 	DNPRINTF(SR_D_INTR, "%s: sr_crypto_write: wu %x xs: %x\n",
 	    DEVNAME(wu->swu_dis->sd_sc), wu, wu->swu_xs);
@@ -1198,9 +1197,9 @@ sr_crypto_write(struct cryptop *crp)
 	if (crp->crp_etype) {
 		/* fail io */
 		wu->swu_xs->error = XS_DRIVER_STUFFUP;
-		s = splbio();
+		crit_enter();
 		sr_crypto_finish_io(wu);
-		splx(s);
+		crit_leave();
 	}
 
 	return (sr_crypto_dev_rw(wu, crwu));
@@ -1269,9 +1268,9 @@ sr_crypto_done(struct sr_workunit *wu)
 		return;
 	}
 
-	s = splbio();
+	crit_enter();
 	sr_crypto_finish_io(wu);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1305,7 +1304,6 @@ sr_crypto_read(struct cryptop *crp)
 {
 	struct sr_crypto_wu	*crwu = crp->crp_opaque;
 	struct sr_workunit	*wu = crwu->cr_wu;
-	int			s;
 
 	DNPRINTF(SR_D_INTR, "%s: sr_crypto_read: wu %x xs: %x\n",
 	    DEVNAME(wu->swu_dis->sd_sc), wu, wu->swu_xs);
@@ -1313,9 +1311,9 @@ sr_crypto_read(struct cryptop *crp)
 	if (crp->crp_etype)
 		wu->swu_xs->error = XS_DRIVER_STUFFUP;
 
-	s = splbio();
+	crit_enter();
 	sr_crypto_finish_io(wu);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

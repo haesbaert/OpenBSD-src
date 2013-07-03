@@ -317,9 +317,7 @@ ahc_platform_abort_scbs(struct ahc_softc *ahc, int target,
 static __inline void
 ahc_platform_scb_free(struct ahc_softc *ahc, struct scb *scb)
 {
-	int s;
-
-	s = splbio();
+	crit_enter();
 
 	if ((ahc->flags & AHC_RESOURCE_SHORTAGE) != 0) {
 		ahc->flags &= ~AHC_RESOURCE_SHORTAGE;
@@ -327,7 +325,7 @@ ahc_platform_scb_free(struct ahc_softc *ahc, struct scb *scb)
 
 	timeout_del(&scb->xs->stimeout);
 
-	splx(s);
+	crit_leave();
 }
 
 /********************************** PCI ***************************************/

@@ -161,7 +161,6 @@ sdmmc_scsi_detach(struct sdmmc_softc *sc)
 {
 	struct sdmmc_scsi_softc *scbus;
 	struct sdmmc_ccb *ccb;
-	int s;
 
 	rw_assert_wrlock(&sc->sc_lock);
 
@@ -170,11 +169,11 @@ sdmmc_scsi_detach(struct sdmmc_softc *sc)
 		return;
 
 	/* Complete all open scsi xfers. */
-	s = splbio();
+	crit_enter();
 	for (ccb = TAILQ_FIRST(&scbus->sc_ccb_runq); ccb != NULL;
 	     ccb = TAILQ_FIRST(&scbus->sc_ccb_runq))
 		sdmmc_stimeout(ccb);
-	splx(s);
+	crit_leave();
 
 	if (scbus->sc_child != NULL)
 		config_detach(scbus->sc_child, DETACH_FORCE);
@@ -251,12 +250,11 @@ sdmmc_ccb_free(void *xscbus, void *xccb)
 {
 	struct sdmmc_scsi_softc *scbus = xscbus;
 	struct sdmmc_ccb *ccb = xccb;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	if (ccb->ccb_state == SDMMC_CCB_QUEUED)
 		TAILQ_REMOVE(&scbus->sc_ccb_runq, ccb, ccb_link);
-	splx(s);
+	crit_leave();
 
 	ccb->ccb_state = SDMMC_CCB_FREE;
 	ccb->ccb_flags = 0;
@@ -411,15 +409,14 @@ sdmmc_start_xs(struct sdmmc_softc *sc, struct sdmmc_ccb *ccb)
 {
 	struct sdmmc_scsi_softc *scbus = sc->sc_scsibus;
 	struct scsi_xfer *xs = ccb->ccb_xs;
-	int s;
 
 	timeout_set(&xs->stimeout, sdmmc_stimeout, ccb);
 	sdmmc_init_task(&ccb->ccb_task, sdmmc_complete_xs, ccb);
 
-	s = splbio();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&scbus->sc_ccb_runq, ccb, ccb_link);
 	ccb->ccb_state = SDMMC_CCB_QUEUED;
-	splx(s);
+	crit_leave();
 
 	if (ISSET(xs->flags, SCSI_POLL)) {
 		sdmmc_complete_xs(ccb);
@@ -440,13 +437,12 @@ sdmmc_complete_xs(void *arg)
 	struct sdmmc_scsi_softc *scbus = sc->sc_scsibus;
 	struct sdmmc_scsi_target *tgt = &scbus->sc_tgt[link->target];
 	int error;
-	int s;
 
 	DPRINTF(("%s: scsi cmd target=%d opcode=%#x proc=\"%s\" (poll=%#x)"
 	    " complete\n", DEVNAME(sc), link->target, xs->cmd->opcode,
 	    curproc ? curproc->p_comm : "", xs->flags & SCSI_POLL));
 
-	s = splbio();
+	crit_enter();
 
 	if (ISSET(xs->flags, SCSI_DATA_IN))
 		error = sdmmc_mem_read_block(tgt->card, ccb->ccb_blockno,
@@ -459,7 +455,7 @@ sdmmc_complete_xs(void *arg)
 		xs->error = XS_DRIVER_STUFFUP;
 
 	sdmmc_done_xs(ccb);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -489,15 +485,14 @@ void
 sdmmc_stimeout(void *arg)
 {
 	struct sdmmc_ccb *ccb = arg;
-	int s;
 
-	s = splbio();
+	crit_enter();
 	ccb->ccb_flags |= SDMMC_CCB_F_ERR;
 	if (sdmmc_task_pending(&ccb->ccb_task)) {
 		sdmmc_del_task(&ccb->ccb_task);
 		sdmmc_done_xs(ccb);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void

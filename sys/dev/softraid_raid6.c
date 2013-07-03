@@ -169,7 +169,7 @@ sr_raid6_openings(struct sr_discipline *sd)
 void
 sr_raid6_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 {
-	int			old_state, s;
+	int			old_state;
 
 	/* XXX this is for RAID 0 */
 	DNPRINTF(SR_D_STATE, "%s: %s: %s: sr_raid_set_chunk_state %d -> %d\n",
@@ -177,7 +177,7 @@ sr_raid6_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 	    sd->sd_vol.sv_chunks[c]->src_meta.scmi.scm_devname, c, new_state);
 
 	/* ok to go to splbio since this only happens in error path */
-	s = splbio();
+	crit_enter();
 	old_state = sd->sd_vol.sv_chunks[c]->src_meta.scm_status;
 
 	/* multiple IOs to the same chunk that fail will come through here */
@@ -224,7 +224,7 @@ sr_raid6_set_chunk_state(struct sr_discipline *sd, int c, int new_state)
 
 	default:
 die:
-		splx(s); /* XXX */
+		crit_leave(); /* XXX */
 		panic("%s: %s: %s: invalid chunk state transition "
 		    "%d -> %d", DEVNAME(sd->sd_sc),
 		    sd->sd_meta->ssd_devname,
@@ -239,7 +239,7 @@ die:
 	sd->sd_must_flush = 1;
 	workq_add_task(NULL, 0, sr_meta_save_callback, sd, NULL);
 done:
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -381,7 +381,7 @@ sr_raid6_rw(struct sr_workunit *wu)
 	struct sr_discipline	*sd = wu->swu_dis;
 	struct scsi_xfer	*xs = wu->swu_xs;
 	struct sr_chunk		*scp;
-	int			s, fail, i, gxinv, pxinv;
+	int			fail, i, gxinv, pxinv;
 	daddr_t			blk, lbaoffs, strip_no, chunk, qchunk, pchunk, fchunk;
 	daddr_t			strip_size, no_chunk, lba, chunk_offs, phys_offs;
 	daddr_t			strip_bits, length, strip_offs, datalen, row_size;
@@ -618,7 +618,7 @@ sr_raid6_rw(struct sr_workunit *wu)
 		data += length;
 	}
 
-	s = splbio();
+	crit_enter();
 	if (wu_r) {
 		/* collide write request with reads */
 		wu_r->swu_blk_start = wu->swu_blk_start;
@@ -630,7 +630,7 @@ sr_raid6_rw(struct sr_workunit *wu)
 
 		wu = wu_r;
 	}
-	splx(s);
+	crit_leave();
 
 	sr_schedule_wu(wu);
 
@@ -667,12 +667,11 @@ sr_raid6_intr(struct buf *bp)
 	struct sr_workunit	*wu = ccb->ccb_wu;
 	struct sr_discipline	*sd = wu->swu_dis;
 	struct sr_raid6_opaque  *pq = ccb->ccb_opaque;
-	int			s;
 
 	DNPRINTF(SR_D_INTR, "%s: sr_raid6_intr bp %p xs %p\n",
 	    DEVNAME(sd->sd_sc), bp, wu->swu_xs);
 
-	s = splbio();
+	crit_enter();
 	sr_ccb_done(ccb);
 
 	/* XOR data to result. */
@@ -696,7 +695,7 @@ sr_raid6_intr(struct buf *bp)
 	}
 
 	sr_wu_done(wu);
-	splx(s);
+	crit_leave();
 }
 
 int
