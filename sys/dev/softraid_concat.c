@@ -24,6 +24,7 @@
 #include <sys/buf.h>
 #include <sys/queue.h>
 #include <sys/sensors.h>
+#include <sys/proc.h>
 
 #include <scsi/scsi_all.h>
 #include <scsi/scsiconf.h>

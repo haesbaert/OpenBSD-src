@@ -48,6 +48,7 @@
 #include <sys/buf.h>
 #include <sys/dirent.h>
 #include <sys/specdev.h>
+#include <sys/proc.h>
 
 /*#define NTFS_DEBUG 1*/
 #include <ntfs/ntfs.h>

@@ -837,11 +837,10 @@ int
 sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 {
 	int status;
-	int s;
 
 	mask |= SDHC_ERROR_INTERRUPT;
 
-	s = splsdmmc();
+	crit_enter();
 	status = hp->intr_status & mask;
 	while (status == 0) {
 		if (tsleep(&hp->intr_status, PWAIT, "hcintr", timo)
@@ -863,7 +862,7 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 		status = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return status;
 }
 

@@ -49,6 +49,7 @@
 #include <sys/unistd.h>
 #include <sys/endian.h>
 #include <sys/specdev.h>
+#include <sys/proc.h>
 
 #include <isofs/udf/ecma167-udf.h>
 #include <isofs/udf/udf.h>

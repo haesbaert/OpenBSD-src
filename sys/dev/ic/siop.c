@@ -34,6 +34,7 @@
 #include <sys/malloc.h>
 #include <sys/buf.h>
 #include <sys/kernel.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
 #include <machine/bus.h>
@@ -1380,7 +1381,7 @@ siop_cmd_put(void *cookie, void *io)
 	struct siop_softc *sc = cookie;
 	struct siop_cmd *siop_cmd = io;
 
-	crit_enter()
+	crit_enter();
 	siop_cmd->cmd_c.status = CMDST_FREE;
 	TAILQ_INSERT_TAIL(&sc->free_list, siop_cmd, next);
 	crit_leave();
@@ -1814,7 +1815,7 @@ void
 siop_morecbd(sc)
 	struct siop_softc *sc;
 {
-	int error, off, i, j, s;
+	int error, off, i, j;
 	struct siop_cbd *newcbd;
 	struct siop_xfer *xfers, *xfer;
 	bus_addr_t dsa;

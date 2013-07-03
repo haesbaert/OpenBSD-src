@@ -37,6 +37,7 @@
 #include <sys/kernel.h>
 #include <sys/buf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>

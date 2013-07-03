@@ -37,6 +37,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -218,7 +219,7 @@ uhci_pci_attach_deferred(struct device *self)
 unmap_ret:
 	bus_space_unmap(sc->sc.iot, sc->sc.ioh, sc->sc.sc_size);
 	pci_intr_disestablish(sc->sc_pc, sc->sc_ih);
-	splx(s);
+	crit_leave();
 }
 
 int

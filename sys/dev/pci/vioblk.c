@@ -49,6 +49,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
+#include <sys/proc.h>
 #include <machine/bus.h>
 
 #include <sys/device.h>
@@ -479,7 +480,7 @@ out_enq_abort:
 out_done:
 	vioblk_scsi_done(xs, XS_NO_CCB);
 	vr->vr_len = VIOBLK_DONE;
-	splx(s);
+	crit_leave();
 }
 }
 

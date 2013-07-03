@@ -52,6 +52,7 @@
 #include <sys/kernel.h>
 #include <sys/queue.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>

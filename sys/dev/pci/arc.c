@@ -26,6 +26,7 @@
 #include <sys/mutex.h>
 #include <sys/device.h>
 #include <sys/rwlock.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 

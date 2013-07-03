@@ -194,10 +194,10 @@ restart:
 	while (!sc->sc_dying) {
 		for (task = TAILQ_FIRST(&sc->sc_tskq); task != NULL;
 		     task = TAILQ_FIRST(&sc->sc_tskq)) {
-			splx(s);
+			crit_leave();
 			sdmmc_del_task(task);
 			task->func(task->arg);
-			s = splsdmmc();
+			crit_enter();
 		}
 		tsleep(&sc->sc_tskq, PWAIT, "mmctsk", 0);
 	}

@@ -1619,7 +1619,7 @@ wdc_exec_command(struct ata_drive_datas *drvp, struct wdc_command *wdc_c)
 	xfer->c_intr = __wdccommand_intr;
 	xfer->c_kill_xfer = __wdccommand_done;
 
-	crit_enter();x
+	crit_enter();
 	wdc_exec_xfer(chp, xfer);
 #ifdef DIAGNOSTIC
 	if ((wdc_c->flags & AT_POLL) != 0 &&

@@ -1366,7 +1366,7 @@ int
 ahci_port_portreset(struct ahci_port *ap, int pmp)
 {
 	u_int32_t			cmd, r;
-	int				s;
+	int				rc;
 
 	crit_enter();
 	DPRINTF(AHCI_D_VERBOSE, "%s: port reset\n", PORTNAME(ap));

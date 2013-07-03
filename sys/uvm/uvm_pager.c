@@ -731,7 +731,7 @@ uvm_pager_dropcluster(struct uvm_object *uobj, struct vm_page *pg,
 void
 uvm_aio_biodone(struct buf *bp)
 {
-	splassert(IPL_BIO);
+	CRIT_ASSERT();
 
 	/* reset b_iodone for when this is a single-buf i/o. */
 	bp->b_iodone = uvm_aio_aiodone;

@@ -1017,7 +1017,6 @@ ami_complete(struct ami_softc *sc, struct ami_ccb *ccb, int timeout)
 	void (*done)(struct ami_softc *, struct ami_ccb *);
 	int ready;
 	int i = 0;
-	int s;
 
 	done = ccb->ccb_done;
 	ccb->ccb_done = ami_done_dummy;

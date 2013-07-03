@@ -1178,7 +1178,7 @@ rtsx_wait_intr(struct rtsx_softc *sc, int mask, int timo)
 
 	mask |= RTSX_TRANS_FAIL_INT;
 
-	crit_enter()
+	crit_enter();
 	status = sc->intr_status & mask;
 	while (status == 0) {
 		if (tsleep(&sc->intr_status, PRIBIO, "rtsxintr", timo)

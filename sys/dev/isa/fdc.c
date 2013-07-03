@@ -57,6 +57,7 @@
 #include <sys/syslog.h>
 #include <sys/queue.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <machine/cpu.h>
 #include <machine/bus.h>

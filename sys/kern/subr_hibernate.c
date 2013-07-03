@@ -28,6 +28,7 @@
 #include <sys/buf.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+#include <sys/proc.h>
 #include <uvm/uvm.h>
 #include <uvm/uvm_swap.h>
 #include <machine/hibernate.h>
@@ -1239,7 +1240,7 @@ hibernate_resume(void)
 	hibernate_unpack_image(&disk_hiber_info);
 
 fail:
-	splx(s);
+	crit_leave();
 	printf("\nUnable to resume hibernated image\n");
 }
 
