@@ -237,6 +237,10 @@ IS_ERR_OR_NULL(const void *ptr)
 #define DRM_READMEMORYBARRIER()		DRM_MEMORYBARRIER() 
 #define DRM_WRITEMEMORYBARRIER()	DRM_MEMORYBARRIER()
 #define DRM_MEMORYBARRIER()		__asm __volatile("sync" : : : "memory");
+#elif defined(__sparc64__)
+#define DRM_READMEMORYBARRIER()		DRM_MEMORYBARRIER() 
+#define DRM_WRITEMEMORYBARRIER()	DRM_MEMORYBARRIER()
+#define DRM_MEMORYBARRIER()		membar(Sync)
 #endif
 
 #define	DRM_COPY_TO_USER(user, kern, size)	copyout(kern, user, size)
