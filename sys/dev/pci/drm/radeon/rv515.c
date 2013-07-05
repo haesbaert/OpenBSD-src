@@ -136,7 +136,7 @@ int rv515_mc_wait_for_idle(struct radeon_device *rdev)
 		if (tmp & MC_STATUS_IDLE) {
 			return 0;
 		}
-		DRM_UDELAY(1);
+		udelay(1);
 	}
 	return -1;
 }
@@ -311,7 +311,7 @@ void rv515_mc_stop(struct radeon_device *rdev, struct rv515_mc_save *save)
 			for (j = 0; j < rdev->usec_timeout; j++) {
 				if (radeon_get_vblank_counter(rdev, i) != frame_count)
 					break;
-				DRM_UDELAY(1);
+				udelay(1);
 			}
 
 			/* XXX this is a hack to avoid strange behavior with EFI on certain systems */
@@ -346,7 +346,7 @@ void rv515_mc_stop(struct radeon_device *rdev, struct rv515_mc_save *save)
 		}
 	}
 	/* wait for the MC to settle */
-	DRM_UDELAY(100);
+	udelay(100);
 
 	/* lock double buffered regs */
 	for (i = 0; i < rdev->num_crtc; i++) {
@@ -414,7 +414,7 @@ void rv515_mc_resume(struct radeon_device *rdev, struct rv515_mc_save *save)
 				tmp = RREG32(AVIVO_D1GRPH_UPDATE + crtc_offsets[i]);
 				if ((tmp & AVIVO_D1GRPH_SURFACE_UPDATE_PENDING) == 0)
 					break;
-				DRM_UDELAY(1);
+				udelay(1);
 			}
 		}
 	}
@@ -444,13 +444,13 @@ void rv515_mc_resume(struct radeon_device *rdev, struct rv515_mc_save *save)
 			for (j = 0; j < rdev->usec_timeout; j++) {
 				if (radeon_get_vblank_counter(rdev, i) != frame_count)
 					break;
-				DRM_UDELAY(1);
+				udelay(1);
 			}
 		}
 	}
 	/* Unlock vga access */
 	WREG32(R_000328_VGA_HDP_CONTROL, save->vga_hdp_control);
-	DRM_MDELAY(1);
+	mdelay(1);
 	WREG32(R_000300_VGA_RENDER_CONTROL, save->vga_render_control);
 }
 

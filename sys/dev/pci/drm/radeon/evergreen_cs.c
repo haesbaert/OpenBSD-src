@@ -2854,7 +2854,7 @@ int evergreen_cs_parse(struct radeon_cs_parser *p)
 #if 0
 	for (r = 0; r < p->ib.length_dw; r++) {
 		printk(KERN_INFO "%05d  0x%08X\n", r, p->ib.ptr[r]);
-		DRM_MDELAY(1);
+		mdelay(1);
 	}
 #endif
 	free(p->track, M_DRM);
@@ -3305,7 +3305,7 @@ int evergreen_dma_cs_parse(struct radeon_cs_parser *p)
 #if 0
 	for (r = 0; r < p->ib->length_dw; r++) {
 		printk(KERN_INFO "%05d  0x%08X\n", r, p->ib.ptr[r]);
-		DRM_MDELAY(1);
+		mdelay(1);
 	}
 #endif
 	return 0;
