@@ -265,9 +265,20 @@ static inline uint32_t ror32(uint32_t word, unsigned int shift)
 }
 
 #define DRM_UDELAY(udelay)	DELAY(udelay)
-#define DRM_MDELAY(msecs)	do { int loops = (msecs);		\
-					while (loops--) DELAY(1000);	\
-				} while (0)
+
+static __inline void
+udelay(unsigned long usecs)
+{
+	DELAY(usecs);
+}
+
+static __inline void
+mdelay(unsigned long msecs)
+{
+	int loops = msecs;
+	while (loops--)
+		DELAY(1000);
+}
 
 static __inline void
 udelay(unsigned long usecs)
