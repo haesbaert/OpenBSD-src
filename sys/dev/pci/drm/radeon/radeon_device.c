@@ -755,7 +755,7 @@ int radeon_atombios_init(struct radeon_device *rdev)
 	atom_card_info->reg_read = cail_reg_read;
 	atom_card_info->reg_write = cail_reg_write;
 	/* needed for iio ops */
-	if (rdev->ioregs) {
+	if (rdev->rio_mem_size > 0) {
 		atom_card_info->ioreg_read = cail_ioreg_read;
 		atom_card_info->ioreg_write = cail_ioreg_write;
 	} else {

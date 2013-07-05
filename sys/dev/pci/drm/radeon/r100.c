@@ -4170,15 +4170,15 @@ uint32_t r100_mm_rreg(struct radeon_device *rdev, uint32_t reg,
 		      bool always_indirect)
 {
 	if (reg < rdev->rmmio_size && !always_indirect)
-		return bus_space_read_4(rdev->regs->bst, rdev->regs->bsh, reg);
+		return bus_space_read_4(rdev->memt, rdev->rmmio, reg);
 		    
 	else {
 		uint32_t ret;
 
 		mtx_enter(&rdev->mmio_idx_lock);
-		bus_space_write_4(rdev->regs->bst, rdev->regs->bsh,
+		bus_space_write_4(rdev->memt, rdev->rmmio,
 		    RADEON_MM_INDEX, reg);
-		ret = bus_space_read_4(rdev->regs->bst, rdev->regs->bsh,
+		ret = bus_space_read_4(rdev->memt, rdev->rmmio,
 		    RADEON_MM_DATA);
 		mtx_leave(&rdev->mmio_idx_lock);
 
@@ -4190,12 +4190,12 @@ void r100_mm_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v,
 		  bool always_indirect)
 {
 	if (reg < rdev->rmmio_size && !always_indirect)
-		bus_space_write_4(rdev->regs->bst, rdev->regs->bsh, reg, v);
+		bus_space_write_4(rdev->memt, rdev->rmmio, reg, v);
 	else {
 		mtx_enter(&rdev->mmio_idx_lock);
-		bus_space_write_4(rdev->regs->bst, rdev->regs->bsh,
+		bus_space_write_4(rdev->memt, rdev->rmmio,
 		    RADEON_MM_INDEX, reg);
-		bus_space_write_4(rdev->regs->bst, rdev->regs->bsh,
+		bus_space_write_4(rdev->memt, rdev->rmmio,
 		    RADEON_MM_DATA, v);
 		mtx_leave(&rdev->mmio_idx_lock);
 	}
@@ -4204,12 +4204,11 @@ void r100_mm_wreg(struct radeon_device *rdev, uint32_t reg, uint32_t v,
 u32 r100_io_rreg(struct radeon_device *rdev, u32 reg)
 {
 	if (reg < rdev->rio_mem_size)
-		return bus_space_read_4(rdev->ioregs->bst, rdev->ioregs->bsh,
-		    reg);
+		return bus_space_read_4(rdev->iot, rdev->rio_mem, reg);
 	else {
-		bus_space_write_4(rdev->ioregs->bst, rdev->ioregs->bsh,
+		bus_space_write_4(rdev->iot, rdev->rio_mem,
 		    RADEON_MM_INDEX, reg);
-		return bus_space_read_4(rdev->ioregs->bst, rdev->ioregs->bsh,
+		return bus_space_read_4(rdev->iot, rdev->rio_mem,
 		    RADEON_MM_DATA);
 	}
 }
@@ -4217,11 +4216,11 @@ u32 r100_io_rreg(struct radeon_device *rdev, u32 reg)
 void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v)
 {
 	if (reg < rdev->rio_mem_size)
-		bus_space_write_4(rdev->ioregs->bst, rdev->ioregs->bsh, reg, v);
+		bus_space_write_4(rdev->iot, rdev->rio_mem, reg, v);
 	else {
-		bus_space_write_4(rdev->ioregs->bst, rdev->ioregs->bsh,
+		bus_space_write_4(rdev->iot, rdev->rio_mem,
 		    RADEON_MM_INDEX, reg);
-		bus_space_write_4(rdev->ioregs->bst, rdev->ioregs->bsh,
+		bus_space_write_4(rdev->iot, rdev->rio_mem,
 		    RADEON_MM_DATA, v);
 	}
 }

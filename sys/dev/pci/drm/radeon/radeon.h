@@ -1586,7 +1586,7 @@ struct radeon_device {
 	bus_size_t			rmmio_size;
 	/* protects concurrent MM_INDEX/DATA based register access */
 	struct mutex			mmio_idx_lock;
-	struct vga_pci_bar		*regs;		/* ~= rmmio */
+	bus_space_handle_t		rmmio;
 	radeon_rreg_t			mc_rreg;
 	radeon_wreg_t			mc_wreg;
 	radeon_rreg_t			pll_rreg;
@@ -1595,7 +1595,7 @@ struct radeon_device {
 	radeon_rreg_t			pciep_rreg;
 	radeon_wreg_t			pciep_wreg;
 	/* io port */
-	struct vga_pci_bar		*ioregs;	/* ~= rio_mem */
+	bus_space_handle_t		rio_mem;
 	bus_size_t			rio_mem_size;
 	struct radeon_clock             clock;
 	struct radeon_mc		mc;
@@ -1682,13 +1682,13 @@ void r100_io_wreg(struct radeon_device *rdev, u32 reg, u32 v);
  * Registers read & write functions.
  */
 #define RREG8(reg) \
-    bus_space_read_1(rdev->regs->bst, rdev->regs->bsh, (reg))
+    bus_space_read_1(rdev->memt, rdev->rmmio, (reg))
 #define WREG8(reg, v) \
-    bus_space_write_1(rdev->regs->bst, rdev->regs->bsh, (reg), (v))
+    bus_space_write_1(rdev->memt, rdev->rmmio, (reg), (v))
 #define RREG16(reg) \
-    bus_space_read_2(rdev->regs->bst, rdev->regs->bsh, (reg))
+    bus_space_read_2(rdev->memt, rdev->rmmio, (reg))
 #define WREG16(reg, v) \
-    bus_space_write_2(rdev->regs->bst, rdev->regs->bsh, (reg), (v))
+    bus_space_write_2(rdev->memt, rdev->rmmio, (reg), (v))
     
 #define RREG32(reg) r100_mm_rreg(rdev, (reg), false)
 #define RREG32_IDX(reg) r100_mm_rreg(rdev, (reg), true)
