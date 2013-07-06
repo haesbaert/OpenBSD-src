@@ -310,6 +310,7 @@ inteldrm*	at vga? 	# Intel i915, i945 DRM driver
 drm*		at inteldrm?
 radeondrm*	at vga? 	# ATI Radeon DRM driver
 drm*		at radeondrm?
+wsdisplay*	at radeondrm?
 
 pcppi0		at isa?
 

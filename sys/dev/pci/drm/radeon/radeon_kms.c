@@ -1646,7 +1646,6 @@ radeondrm_attachhook(void *xsc)
 {
 	extern int wsdisplay_console_initted;
 	struct wsemuldisplaydev_attach_args aa;
-	struct device *parent = rdev->dev.dv_parent;
 	struct rasops_info *ri = &rdev->ro;
 
 	if (ri->ri_bits == NULL)
@@ -1683,7 +1682,8 @@ radeondrm_attachhook(void *xsc)
 
 	printf("%s: %dx%d\n", rdev->dev.dv_xname, ri->ri_width, ri->ri_height);
 
-	config_found(parent, &aa, wsemuldisplaydevprint);
+	config_found_sm(&rdev->dev, &aa, wsemuldisplaydevprint,
+	    wsemuldisplaydevsubmatch);
 }
 }
 
