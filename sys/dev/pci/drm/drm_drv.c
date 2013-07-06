@@ -63,6 +63,7 @@ int	 drm_probe(struct device *, void *, void *);
 int	 drm_detach(struct device *, int);
 int	 drm_activate(struct device *, int);
 int	 drmprint(void *, const char *);
+int	 drmsubmatch(struct device *, void *, void *);
 int	 drm_dequeue_event(struct drm_device *, struct drm_file *, size_t,
 	     struct drm_pending_event **);
 
@@ -124,7 +125,7 @@ drm_attach_pci(struct drm_driver_info *driver, struct pci_attach_args *pa,
 	snprintf(arg.busid, arg.busid_len, "pci:%04x:%02x:%02x.%1x",
 	    pa->pa_domain, pa->pa_bus, pa->pa_device, pa->pa_function);
 
-	return (config_found(dev, &arg, drmprint));
+	return (config_found_sm(dev, &arg, drmprint, drmsubmatch));
 }
 
 int
@@ -133,6 +134,18 @@ drmprint(void *aux, const char *pnp)
 	if (pnp != NULL)
 		printf("drm at %s", pnp);
 	return (UNCONF);
+}
+
+int
+drmsubmatch(struct device *parent, void *match, void *aux)
+{
+	extern struct cfdriver drm_cd;
+	struct cfdata *cf = match;
+
+	/* only allow drm to attach */
+	if (cf->cf_driver == &drm_cd)
+		return ((*cf->cf_attach->ca_match)(parent, match, aux));
+	return (0);
 }
 
 int
