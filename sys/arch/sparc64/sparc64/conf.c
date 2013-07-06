@@ -86,6 +86,9 @@
 
 #include "fdc.h"		/* has NFDC and NFD; see files.sparc */
 
+#include "drm.h"
+cdev_decl(drm);
+
 #include "wsdisplay.h"
 #include "wskbd.h"
 #include "wsmouse.h"
@@ -244,7 +247,7 @@ struct cdevsw	cdevsw[] =
 	cdev_notdef(),			/* 84 */
 	cdev_notdef(),			/* 85 */
 	cdev_notdef(),			/* 86 */
-	cdev_notdef(),			/* 87 */
+	cdev_drm_init(NDRM,drm),	/* 87: drm */
 	cdev_notdef(),			/* 88 */
 	cdev_notdef(),			/* 89 */
 	cdev_usb_init(NUSB,usb),	/* 90: USB controller */
