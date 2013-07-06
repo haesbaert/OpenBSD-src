@@ -987,9 +987,11 @@ drmmmap(dev_t kdev, off_t offset, int prot)
 	DRM_UNLOCK();
 
 	switch (type) {
+#if __OS_HAS_AGP
 	case _DRM_AGP:
 		return agp_mmap(dev->agp->agpdev,
 		    offset + map->offset - dev->agp->base, prot);
+#endif
 	case _DRM_FRAME_BUFFER:
 	case _DRM_REGISTERS:
 		return (offset + map->offset);
