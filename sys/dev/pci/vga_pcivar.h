@@ -92,7 +92,7 @@ struct	vga_pci_bar *vga_pci_bar_map(struct vga_pci_softc *, int,
 void	vga_pci_bar_unmap(struct vga_pci_bar*);
 
 #if NDRM > 0
-int	drmsubmatch(struct device *, void *, void *);
+int	vga_drmsubmatch(struct device *, void *, void *);
 #endif
 
 #ifdef VESAFB

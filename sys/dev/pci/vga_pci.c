@@ -273,7 +273,7 @@ vga_pci_attach(struct device *parent, struct device *self, void *aux)
 #endif
 
 #if NDRM > 0
-	config_found_sm(self, aux, NULL, drmsubmatch);
+	config_found_sm(self, aux, NULL, vga_drmsubmatch);
 #endif
 
 	sc->sc_vc = vga_common_attach(self, pa->pa_iot, pa->pa_memt,
