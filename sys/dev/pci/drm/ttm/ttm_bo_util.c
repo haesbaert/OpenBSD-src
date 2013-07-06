@@ -475,9 +475,11 @@ static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 
 pgprot_t ttm_io_prot(uint32_t caching_flags, pgprot_t tmp)
 {
+#ifdef PMAP_WC
 	if (caching_flags & TTM_PL_FLAG_WC)
 		return PMAP_WC;
 	else
+#endif
 		return PMAP_NOCACHE;
 }
 EXPORT_SYMBOL(ttm_io_prot);
