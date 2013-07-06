@@ -107,7 +107,6 @@ define agpint {}
 
 # DRM - Direct Rendering Manager: /dev/drm
 define drmdev {}
-include "dev/pci/drm/files.drm"
 
 # VGA graphics
 device	vga: wsemuldisplaydev, pcdisplayops, drmdev, agpint

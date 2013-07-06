@@ -119,6 +119,8 @@ file    dev/pci/amas.c			amas
 include "dev/pci/files.agp"
 file	arch/i386/pci/agp_machdep.c	agp
 
+include "dev/pci/drm/files.drm"
+
 # AMD Elan SC520 System Controller (PCI-Host bridge)
 device	elansc: gpiobus
 attach	elansc at pci

@@ -129,6 +129,8 @@ file	dev/pci/amas.c				amas
 include "dev/pci/files.agp"
 file	arch/amd64/pci/agp_machdep.c		agp
 
+include "dev/pci/drm/files.drm"
+
 #
 # CARDBUS
 #
