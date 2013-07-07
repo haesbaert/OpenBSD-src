@@ -1522,7 +1522,9 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	struct drm_device	*dev;
 	struct pci_attach_args	*pa = aux;
 	const struct drm_pcidev *id_entry;
+#ifndef __sparc64__
 	struct vga_pci_softc	*vga_sc = (struct vga_pci_softc *)parent;
+#endif
 	int			 is_agp;
 	pcireg_t		 type;
 
@@ -1600,7 +1602,9 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
+#ifndef __sparc64__
 	vga_sc->sc_type = -1;
+#endif
 
 	if (rootvp == NULL)
 		mountroothook_establish(radeondrm_attachhook, rdev);
@@ -1613,6 +1617,7 @@ radeondrm_attachhook(void *xsc)
 {
 	struct radeon_device	*rdev = xsc;
 	int			 r, acpi_status;
+	int			 console = 0;
 
 	/* radeon_device_init should report only fatal error
 	 * like memory allocation failure or iomapping failure,
@@ -1644,7 +1649,11 @@ radeondrm_attachhook(void *xsc)
 	}
 
 {
+#ifdef __sparc64__
+	extern int fbnode;
+#else
 	extern int wsdisplay_console_initted;
+#endif
 	struct wsemuldisplaydev_attach_args aa;
 	struct rasops_info *ri = &rdev->ro;
 
@@ -1654,6 +1663,9 @@ radeondrm_attachhook(void *xsc)
 	drm_fb_helper_restore();
 
 	ri->ri_flg = RI_CENTER | RI_VCONS | RI_WRONLY;
+#ifdef __sparc64__
+	ri->ri_flg |= RI_BSWAP;
+#endif
 	rasops_init(ri, 160, 160);
 
 	ri->ri_hw = rdev;
@@ -1665,13 +1677,20 @@ radeondrm_attachhook(void *xsc)
 	radeondrm_stdscreen.fontwidth = ri->ri_font->fontwidth;
 	radeondrm_stdscreen.fontheight = ri->ri_font->fontheight;
 
-	aa.console = 0;
+#ifdef __sparc64__
+	if (fbnode == PCITAG_NODE(rdev->pa_tag))
+		console = 1;
+#else
+	console = wsdisplay_console_initted;
+#endif
+
+	aa.console = console;
 	aa.scrdata = &radeondrm_screenlist;
 	aa.accessops = &radeondrm_accessops;
 	aa.accesscookie = rdev;
 	aa.defaultscreens = 0;
 
-	if (wsdisplay_console_initted) {
+	if (console) {
 		long defattr;
 
 		ri->ri_ops.alloc_attr(ri->ri_active, 0, 0, 0, &defattr);
