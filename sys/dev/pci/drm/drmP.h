@@ -251,6 +251,15 @@ IS_ERR_OR_NULL(const void *ptr)
 
 #define be32_to_cpup(x) betoh32(*x)
 
+#ifdef __macppc__
+static __inline int
+of_machine_is_compatible(const char *model)
+{
+	extern char *hw_prod;
+	return (strcmp(model, hw_prod) == 0);
+}
+#endif
+
 static inline unsigned long
 roundup_pow_of_two(unsigned long x)
 {
