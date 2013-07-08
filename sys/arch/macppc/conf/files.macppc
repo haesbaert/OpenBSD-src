@@ -97,6 +97,7 @@ file	arch/macppc/pci/pchb.c				pchb
 
 # AGP bridge support. attach at pchb
 include "dev/pci/files.agp"
+include "dev/pci/drm/files.drm"
 file	arch/macppc/pci/agp_machdep.c			agp
 
 #
