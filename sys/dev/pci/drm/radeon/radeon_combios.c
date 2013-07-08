@@ -1525,7 +1525,7 @@ bool radeon_get_legacy_connector_info_from_table(struct drm_device *dev)
 
 	rdev->mode_info.connector_table = radeon_connector_table;
 	if (rdev->mode_info.connector_table == CT_NONE) {
-#ifdef CONFIG_PPC_PMAC
+#ifdef __macppc__
 		if (of_machine_is_compatible("PowerBook3,3")) {
 			/* powerbook with VGA */
 			rdev->mode_info.connector_table = CT_POWERBOOK_VGA;
@@ -1573,25 +1573,25 @@ bool radeon_get_legacy_connector_info_from_table(struct drm_device *dev)
 			/* PowerMac8,1 ? */
 			/* imac g5 isight */
 			rdev->mode_info.connector_table = CT_IMAC_G5_ISIGHT;
-		} else if ((ddev->pci_device == 0x4a48) &&
-			   (ddev->pci_subvendor == 0x1002) &&
-			   (ddev->pci_subdevice == 0x4a48)) {
+		} else if ((rdev->ddev->pci_device == 0x4a48) &&
+			   (rdev->ddev->pci_subvendor == 0x1002) &&
+			   (rdev->ddev->pci_subdevice == 0x4a48)) {
 			/* Mac X800 */
 			rdev->mode_info.connector_table = CT_MAC_X800;
 		} else if ((of_machine_is_compatible("PowerMac7,2") ||
 			    of_machine_is_compatible("PowerMac7,3")) &&
-			   (ddev->pci_device == 0x4150) &&
-			   (ddev->pci_subvendor == 0x1002) &&
-			   (ddev->pci_subdevice == 0x4150)) {
+			   (rdev->ddev->pci_device == 0x4150) &&
+			   (rdev->ddev->pci_subvendor == 0x1002) &&
+			   (rdev->ddev->pci_subdevice == 0x4150)) {
 			/* Mac G5 tower 9600 */
 			rdev->mode_info.connector_table = CT_MAC_G5_9600;
-		} else if ((ddev->pci_device == 0x4c66) &&
-			   (ddev->pci_subvendor == 0x1002) &&
-			   (ddev->pci_subdevice == 0x4c66)) {
+		} else if ((rdev->ddev->pci_device == 0x4c66) &&
+			   (rdev->ddev->pci_subvendor == 0x1002) &&
+			   (rdev->ddev->pci_subdevice == 0x4c66)) {
 			/* SAM440ep RV250 embedded board */
 			rdev->mode_info.connector_table = CT_SAM440EP;
 		} else
-#endif /* CONFIG_PPC_PMAC */
+#endif /* __macppc__ */
 #ifdef CONFIG_PPC64
 		if (ASIC_IS_RN50(rdev))
 			rdev->mode_info.connector_table = CT_RN50_POWER;
