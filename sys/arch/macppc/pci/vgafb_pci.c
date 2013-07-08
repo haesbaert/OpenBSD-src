@@ -222,6 +222,6 @@ vgafb_pci_attach(struct device *parent, struct device  *self, void *aux)
 	vgafb_wsdisplay_attach(self, vc, console);
 
 #if NDRM > 0
-	config_found_sm(self, aux, NULL, drmsubmatch);
+	config_found_sm(self, aux, NULL, vga_drmsubmatch);
 #endif
 }
