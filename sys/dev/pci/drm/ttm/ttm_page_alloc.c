@@ -772,7 +772,7 @@ ttm_get_pages(struct vm_page **pages, unsigned npages, int flags,
 	struct pglist plist;
 	struct vm_page *p = NULL;
 	const struct kmem_pa_mode *kp;
-	int gfp_flags;
+	int gfp_flags = 0;
 	unsigned count;
 	int r;
 
