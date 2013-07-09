@@ -303,6 +303,7 @@ void
 fbwscons_console_init(struct sunfb *sf, int row)
 {
 	struct rasops_info *ri = &sf->sf_ro;
+	void *cookie;
 	long defattr;
 
 	if (romgetcursoraddr(&sf->sf_crowp, &sf->sf_ccolp))
@@ -350,13 +351,19 @@ fbwscons_console_init(struct sunfb *sf, int row)
 		ri->ri_updatecursor = fb_updatecursor;
 
 	if (ISSET(ri->ri_caps, WSSCREEN_WSCOLORS))
-		ri->ri_ops.alloc_attr(ri,
+		ri->ri_alloc_attr(ri,
 		    WSCOL_BLACK, WSCOL_WHITE, WSATTR_WSCOLORS, &defattr);
 	else
-		ri->ri_ops.alloc_attr(ri, 0, 0, 0, &defattr);
+		ri->ri_alloc_attr(ri, 0, 0, 0, &defattr);
 
 	fb_initwsd(sf);
-	wsdisplay_cnattach(&sf->sf_wsd, ri, ri->ri_ccol, ri->ri_crow, defattr);
+
+	if (ri->ri_flg & RI_VCONS)
+		cookie = ri->ri_active;
+	else
+		cookie = ri;
+	wsdisplay_cnattach(&sf->sf_wsd, cookie, ri->ri_ccol,
+	    ri->ri_crow, defattr);
 }
 
 void
@@ -438,10 +445,10 @@ fb_alloc_screen(void *v, const struct wsscreen_descr *type,
 	*curyp = 0;
 	*curxp = 0;
 	if (ISSET(ri->ri_caps, WSSCREEN_WSCOLORS))
-		ri->ri_ops.alloc_attr(ri,
+		ri->ri_alloc_attr(ri,
 		    WSCOL_BLACK, WSCOL_WHITE, WSATTR_WSCOLORS, attrp);
 	else
-		ri->ri_ops.alloc_attr(ri, 0, 0, 0, attrp);
+		ri->ri_alloc_attr(ri, 0, 0, 0, attrp);
 	sf->sf_nscreens++;
 	return (0);
 }
