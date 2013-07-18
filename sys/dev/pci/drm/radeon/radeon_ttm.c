@@ -890,8 +890,6 @@ radeon_ttm_fault(struct uvm_faultinfo *ufi, vaddr_t vaddr, vm_page_t *pps,
 	return r;
 }
 
-struct uvm_object *radeon_mmap(struct drm_device *, voff_t, vsize_t);
-
 struct uvm_object *
 radeon_mmap(struct drm_device *dev, voff_t off, vsize_t size)
 {

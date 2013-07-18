@@ -1844,24 +1844,6 @@ out_free_list:
 	return ret;
 }
 
-#if 1
-struct uvm_object *radeon_mmap(struct drm_device *, voff_t, vsize_t);
-
-struct uvm_object *
-udv_attach_drm(void *arg, vm_prot_t accessprot, voff_t off, vsize_t size)
-{
-	dev_t kdev = *((dev_t *)arg);
-	struct drm_device *dev = drm_get_device_from_kdev(kdev);
-
-	if (cdevsw[major(kdev)].d_mmap != drmmmap)
-		return NULL;
-
-	if (dev == NULL)
-		return NULL;
-
-	return radeon_mmap(dev, off, size);
-}
-#else
 struct uvm_object *
 udv_attach_drm(void *arg, vm_prot_t accessprot, voff_t off, vsize_t size)
 {
@@ -1875,6 +1857,9 @@ udv_attach_drm(void *arg, vm_prot_t accessprot, voff_t off, vsize_t size)
 
 	if (dev == NULL)
 		return NULL;
+
+	if (dev->driver->mmap)
+		return dev->driver->mmap(dev, off, size);
 
 again:
 	DRM_LOCK();
@@ -1907,7 +1892,6 @@ again:
 	DRM_UNLOCK();
 	return &obj->uobj;
 }
-#endif
 
 int
 drm_handle_cmp(struct drm_handle *a, struct drm_handle *b)

@@ -630,6 +630,7 @@ struct drm_driver_info {
 		    struct drm_file *);
 	void	(*close)(struct drm_device *, struct drm_file *);
 	void	(*lastclose)(struct drm_device *);
+	struct uvm_object *(*mmap)(struct drm_device *, voff_t, vsize_t);
 	int	(*dma_ioctl)(struct drm_device *, struct drm_dma *,
 		    struct drm_file *);
 	int	(*irq_handler)(void *);

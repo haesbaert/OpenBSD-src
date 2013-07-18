@@ -1295,6 +1295,7 @@ static struct drm_driver_info kms_driver = {
 	.ioctl = radeondrm_ioctl_kms,
 	.firstopen = radeon_driver_firstopen_kms,
 	.open = radeon_driver_open_kms,
+	.mmap = radeon_mmap,
 #ifdef notyet
 	.preclose = radeon_driver_preclose_kms,
 	.postclose = radeon_driver_postclose_kms,
