@@ -1700,6 +1700,13 @@ radeondrm_attachhook(void *xsc)
 		aa.console = 1;
 	}
 
+	/*
+	 * Now that we've taken over the console, disable decoding of
+	 * VGA legacy addresses, and opt out of arbitration.
+	 */
+	radeon_vga_set_state(rdev, false);
+	pci_disable_legacy_vga(&rdev->dev);
+
 	printf("%s: %dx%d\n", rdev->dev.dv_xname, ri->ri_width, ri->ri_height);
 
 	config_found_sm(&rdev->dev, &aa, wsemuldisplaydevprint,
