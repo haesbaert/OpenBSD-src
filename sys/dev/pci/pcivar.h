@@ -247,6 +247,7 @@ struct pci_matchid {
 int pci_matchbyid(struct pci_attach_args *, const struct pci_matchid *, int);
 int pci_get_powerstate(pci_chipset_tag_t, pcitag_t);
 int pci_set_powerstate(pci_chipset_tag_t, pcitag_t, int);
+void pci_disable_legacy_vga(struct device *);
 
 /*
  * Vital Product Data (PCI 2.2)
