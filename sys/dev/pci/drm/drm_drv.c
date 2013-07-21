@@ -56,6 +56,7 @@
 int drm_debug_flag = 1;
 #endif
 
+struct drm_device *drm_get_device_from_kdev(dev_t);
 int	 drm_firstopen(struct drm_device *);
 int	 drm_lastclose(struct drm_device *);
 void	 drm_attach(struct device *, struct device *, void *);
@@ -324,6 +325,17 @@ drm_find_file_by_minor(struct drm_device *dev, int minor)
 
 	key.minor = minor;
 	return (SPLAY_FIND(drm_file_tree, &dev->files, &key));
+}
+
+struct drm_device *
+drm_get_device_from_kdev(dev_t kdev)
+{
+	int unit = minor(kdev) & 0xff;
+
+	if (unit < drm_cd.cd_ndevs)
+		return drm_cd.cd_devs[unit];
+
+	return NULL;
 }
 
 int
@@ -1848,7 +1860,7 @@ struct uvm_object *
 udv_attach_drm(void *arg, vm_prot_t accessprot, voff_t off, vsize_t size)
 {
 	dev_t device = *((dev_t *)arg);
-	struct drm_device *dev = drm_get_device_from_kdev(kdev);
+	struct drm_device *dev = drm_get_device_from_kdev(device);
 	struct drm_local_map *map;
 	struct drm_obj *obj;
 

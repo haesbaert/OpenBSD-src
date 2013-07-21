@@ -101,14 +101,6 @@
 #define DRM_READUNLOCK()	rw_exit_read(&dev->dev_lock)
 #define DRM_MAXUNITS		8
 
-/* D_CLONE only supports one device, this will be fixed eventually */
-#define drm_get_device_from_kdev(_kdev)	\
-	(drm_cd.cd_ndevs > 0 ? drm_cd.cd_devs[0] : NULL)
-#if 0
-#define drm_get_device_from_kdev(_kdev)			\
-	(minor(_kdev) < drm_cd.cd_ndevs) ? drm_cd.cd_devs[minor(_kdev)] : NULL
-#endif
-
 /* DRM_SUSER returns true if the user is superuser */
 #define DRM_SUSER(p)		(suser(p, 0) == 0)
 #define DRM_MTRR_WC		MDF_WRITECOMBINE
