@@ -426,6 +426,8 @@
 #       define RADEON_CRTC_VSYNC_DIS        (1 <<  9)
 #       define RADEON_CRTC_DISPLAY_DIS      (1 << 10)
 #       define RADEON_CRTC_SYNC_TRISTAT     (1 << 11)
+#       define RADEON_CRTC_HSYNC_TRISTAT    (1 << 12)
+#       define RADEON_CRTC_VSYNC_TRISTAT    (1 << 13)
 #       define RADEON_CRTC_CRT_ON           (1 << 15)
 #define RADEON_CRTC_EXT_CNTL_DPMS_BYTE      0x0055
 #       define RADEON_CRTC_HSYNC_DIS_BYTE   (1 <<  0)

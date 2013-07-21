@@ -680,6 +680,9 @@ static bool radeon_set_crtc_timing(struct drm_crtc *crtc, struct drm_display_mod
 				  RADEON_CRTC_VSYNC_DIS |
 				  RADEON_CRTC_HSYNC_DIS |
 				  RADEON_CRTC_DISPLAY_DIS);
+		crtc_ext_cntl &= ~(RADEON_CRTC_SYNC_TRISTAT |
+				   RADEON_CRTC_VSYNC_TRISTAT |
+				   RADEON_CRTC_HSYNC_TRISTAT);
 
 		disp_merge_cntl = RREG32(RADEON_DISP_MERGE_CNTL);
 		disp_merge_cntl &= ~RADEON_DISP_RGB_OFFSET_EN;
