@@ -1349,7 +1349,9 @@ static struct drm_driver_info kms_driver = {
 int
 radeondrm_probe(struct device *parent, void *match, void *aux)
 {
-	return drm_pciprobe((struct pci_attach_args *)aux, radeondrm_pciidlist);
+	if (drm_pciprobe(aux, radeondrm_pciidlist))
+		return 20;
+	return 0;
 }
 
 /**
@@ -1523,11 +1525,15 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	struct drm_device	*dev;
 	struct pci_attach_args	*pa = aux;
 	const struct drm_pcidev *id_entry;
-#ifndef __sparc64__
-	struct vga_pci_softc	*vga_sc = (struct vga_pci_softc *)parent;
-#endif
 	int			 is_agp;
 	pcireg_t		 type;
+
+#ifdef __sparc64__
+	extern int fbnode;
+#else
+	extern int vga_console_attached;
+	bus_space_handle_t ioh_vga;
+#endif
 
 	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
 	    PCI_PRODUCT(pa->pa_id), radeondrm_pciidlist);
@@ -1537,6 +1543,19 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	rdev->iot = pa->pa_iot;
 	rdev->memt = pa->pa_memt;
 	rdev->dmat = pa->pa_dmat;
+
+#ifdef __sparc64__
+	if (fbnode == PCITAG_NODE(rdev->pa_tag))
+		rdev->console = 1;
+#else
+	if ((pci_conf_read(pa->pa_pc, pa->pa_tag, PCI_COMMAND_STATUS_REG)
+	    & (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE))
+	    == (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE)) {
+		rdev->console = 1;
+		vga_console_attached = 1;
+		bus_space_map(pa->pa_iot, 0x3c0, 0x10, 0, &ioh_vga);
+	}
+#endif
 
 #define RADEON_PCI_MEM		0x10
 #define RADEON_PCI_IO		0x14
@@ -1603,10 +1622,6 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
-#ifndef __sparc64__
-	vga_sc->sc_type = -1;
-#endif
-
 	if (rootvp == NULL)
 		mountroothook_establish(radeondrm_attachhook, rdev);
 	else
@@ -1618,7 +1633,6 @@ radeondrm_attachhook(void *xsc)
 {
 	struct radeon_device	*rdev = xsc;
 	int			 r, acpi_status;
-	int			 console = 0;
 
 	/* radeon_device_init should report only fatal error
 	 * like memory allocation failure or iomapping failure,
@@ -1650,11 +1664,6 @@ radeondrm_attachhook(void *xsc)
 	}
 
 {
-#ifdef __sparc64__
-	extern int fbnode;
-#else
-	extern int wsdisplay_console_initted;
-#endif
 	struct wsemuldisplaydev_attach_args aa;
 	struct rasops_info *ri = &rdev->ro;
 
@@ -1678,26 +1687,18 @@ radeondrm_attachhook(void *xsc)
 	radeondrm_stdscreen.fontwidth = ri->ri_font->fontwidth;
 	radeondrm_stdscreen.fontheight = ri->ri_font->fontheight;
 
-#ifdef __sparc64__
-	if (fbnode == PCITAG_NODE(rdev->pa_tag))
-		console = 1;
-#else
-	console = wsdisplay_console_initted;
-#endif
-
-	aa.console = console;
+	aa.console = rdev->console;
 	aa.scrdata = &radeondrm_screenlist;
 	aa.accessops = &radeondrm_accessops;
 	aa.accesscookie = rdev;
 	aa.defaultscreens = 0;
 
-	if (console) {
+	if (rdev->console) {
 		long defattr;
 
 		ri->ri_ops.alloc_attr(ri->ri_active, 0, 0, 0, &defattr);
 		wsdisplay_cnattach(&radeondrm_stdscreen, ri->ri_active,
 		    0, 0, defattr);
-		aa.console = 1;
 	}
 
 	/*

@@ -1561,6 +1561,7 @@ struct radeon_device {
 	void				*switchcbarg;
 	struct workq_task		switchwqt;
 	struct rasops_info		ro;
+	int				console;
 
 	struct rwlock 			exclusive_lock;
 

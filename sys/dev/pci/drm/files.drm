@@ -75,7 +75,7 @@ file	dev/pci/drm/i915/dvo_sil164.c		inteldrm
 file	dev/pci/drm/i915/dvo_tfp410.c		inteldrm
 
 device	radeondrm: drmbase, ttm, wsemuldisplaydev, rasops8, rasops32, i2cbus, i2c_bitbang
-attach	radeondrm at drmdev
+attach	radeondrm at pci
 file	dev/pci/drm/ati_pcigart.c			radeondrm
 file	dev/pci/drm/drm_heap.c          		radeondrm
 file	dev/pci/drm/radeon/atom.c			radeondrm
