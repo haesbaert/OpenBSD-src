@@ -40,9 +40,6 @@ void	 drm_mode_validate_clocks(struct drm_device *, struct list_head *,
 	     int *, int *, int);
 bool	 drm_mode_parse_command_line_for_connector(const char *,
 	     struct drm_connector *, struct drm_cmdline_mode *);
-struct drm_display_mode *
-	 drm_mode_create_from_cmdline_mode(struct drm_device *,
-	     struct drm_cmdline_mode *);
 int	 drm_mode_compare(struct drm_display_mode *, struct drm_display_mode*);
 long	 simple_strtol(const char *, char **, int);
 

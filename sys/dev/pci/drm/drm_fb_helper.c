@@ -1061,9 +1061,6 @@ struct drm_display_mode *
 drm_pick_cmdline_mode(struct drm_fb_helper_connector *fb_helper_conn,
 						      int width, int height)
 {
-	DRM_DEBUG_KMS("stub\n");
-	return (NULL);
-#ifdef notyet
 	struct drm_cmdline_mode *cmdline_mode;
 	struct drm_display_mode *mode = NULL;
 
@@ -1100,7 +1097,6 @@ create_mode:
 						 cmdline_mode);
 	list_add(&mode->head, &fb_helper_conn->connector->modes);
 	return mode;
-#endif
 }
 
 bool

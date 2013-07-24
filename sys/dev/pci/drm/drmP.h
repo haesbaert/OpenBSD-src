@@ -929,6 +929,9 @@ bool	drm_handle_vblank(struct drm_device *, int);
 void	drm_calc_timestamping_constants(struct drm_crtc *);
 int	drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *,
 	    int, int *, struct timeval *, unsigned, struct drm_crtc *);
+struct drm_display_mode *
+	 drm_mode_create_from_cmdline_mode(struct drm_device *,
+	     struct drm_cmdline_mode *);
 
 /* AGP/PCI Express/GART support (drm_agpsupport.c) */
 struct drm_agp_head *drm_agp_init(void);
