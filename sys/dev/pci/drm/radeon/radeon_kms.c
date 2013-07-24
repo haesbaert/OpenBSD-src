@@ -1623,6 +1623,38 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
+#ifdef __sparc64__
+{
+	struct rasops_info *ri;
+	int node, console;
+
+	node = PCITAG_NODE(pa->pa_tag);
+	console = (fbnode == node);
+
+	fb_setsize(&rdev->sf, 8, 1152, 900, node, 0);
+
+	/*
+	 * The firmware sets up the framebuffer such that at starts at
+	 * an offset from the start of video memory.
+	 */
+	rdev->fb_offset =
+	    bus_space_read_4(rdev->memt,  rdev->rmmio, RADEON_CRTC_OFFSET);
+	if (bus_space_map(rdev->memt, rdev->fb_aper_offset + rdev->fb_offset,
+	    rdev->sf.sf_fbsize, BUS_SPACE_MAP_LINEAR, &rdev->memh)) {
+		printf("%s: can't map video memory\n", rdev->dev.dv_xname);
+		return;
+	}
+
+	ri = &rdev->sf.sf_ro;
+	ri->ri_bits = bus_space_vaddr(rdev->memt, rdev->memh);
+	ri->ri_hw = rdev;
+
+	fbwscons_init(&rdev->sf, RI_VCONS | RI_WRONLY | RI_BSWAP, console);
+	if (console)
+		fbwscons_console_init(&rdev->sf, -1);
+}
+#endif
+
 	if (rootvp == NULL)
 		mountroothook_establish(radeondrm_attachhook, rdev);
 	else
