@@ -792,9 +792,15 @@ int radeon_ttm_init(struct radeon_device *rdev)
 		DRM_ERROR("Failed initializing VRAM heap.\n");
 		return r;
 	}
+#ifdef __sparc64__
+	r = radeon_bo_create(rdev, rdev->fb_offset, PAGE_SIZE, true,
+			     RADEON_GEM_DOMAIN_VRAM,
+			     NULL, &rdev->stollen_vga_memory);
+#else
 	r = radeon_bo_create(rdev, 256 * 1024, PAGE_SIZE, true,
 			     RADEON_GEM_DOMAIN_VRAM,
 			     NULL, &rdev->stollen_vga_memory);
+#endif
 	if (r) {
 		return r;
 	}
