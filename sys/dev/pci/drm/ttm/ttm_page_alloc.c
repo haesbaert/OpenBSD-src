@@ -860,7 +860,7 @@ int ttm_page_alloc_init(struct ttm_mem_global *glob, unsigned max_pages)
 {
 	WARN_ON(_manager);
 
-	printf("Initializing pool allocator\n");
+	DRM_DEBUG("Initializing pool allocator\n");
 
 	_manager = malloc(sizeof(*_manager), M_DRM, M_WAITOK | M_ZERO);
 
