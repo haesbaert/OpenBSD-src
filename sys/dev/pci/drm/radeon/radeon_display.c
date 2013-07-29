@@ -538,6 +538,7 @@ static void radeon_crtc_init(struct drm_device *dev, int index)
 		radeon_legacy_init_crtc(dev, radeon_crtc);
 }
 
+#ifdef DRMDEBUG
 static const char *encoder_names[37] = {
 	"NONE",
 	"INTERNAL_LVDS",
@@ -586,9 +587,11 @@ static const char *hpd_names[6] = {
 	"HPD5",
 	"HPD6",
 };
+#endif /* DRMDEBUG */
 
 static void radeon_print_display_setup(struct drm_device *dev)
 {
+#ifdef DRMDEBUG
 	struct drm_connector *connector;
 	struct radeon_connector *radeon_connector;
 	struct drm_encoder *encoder;
@@ -661,6 +664,7 @@ static void radeon_print_display_setup(struct drm_device *dev)
 		}
 		i++;
 	}
+#endif /* DRMDEBUG */
 }
 
 static bool radeon_setup_enc_conn(struct drm_device *dev)
