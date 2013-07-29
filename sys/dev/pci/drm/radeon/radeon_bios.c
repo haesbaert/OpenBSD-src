@@ -92,7 +92,6 @@ radeon_read_platform_bios(struct radeon_device *rdev)
 static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 {
 	uint8_t __iomem *bios;
-	bus_addr_t vram_base;
 	bus_size_t size = 256 * 1024; /* ??? */
 	bus_space_handle_t bsh;
 	bus_space_tag_t bst = rdev->memt;
@@ -101,11 +100,9 @@ static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 		if (!radeon_card_posted(rdev))
 			return false;
 
-	vram_base = pci_conf_read(rdev->pc, rdev->pa_tag, PCI_MAPREG_START);
-
 	rdev->bios = NULL;
 
-	if (bus_space_map(bst, vram_base, size, BUS_SPACE_MAP_LINEAR, &bsh) != 0)
+	if (bus_space_map(bst, rdev->fb_aper_offset, size, BUS_SPACE_MAP_LINEAR, &bsh) != 0)
 		return false;
 
 	bios = bus_space_vaddr(rdev->memt, bsh);
@@ -114,7 +111,6 @@ static bool igp_read_bios_from_vram(struct radeon_device *rdev)
 		return false;
 	}
 	if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa) {
-		DRM_ERROR("bios size zero or checksum mismatch\n");
 		bus_space_unmap(bst, bsh, size);
 		return false;
 	}
