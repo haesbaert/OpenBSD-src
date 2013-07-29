@@ -273,7 +273,7 @@ int radeon_irq_kms_init(struct radeon_device *rdev)
 		rdev->irq.installed = false;
 		return r;
 	}
-	DRM_INFO("radeon: irq initialized.\n");
+	DRM_DEBUG("radeon: irq initialized.\n");
 	return 0;
 }
 

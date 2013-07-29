@@ -318,7 +318,9 @@ static int si_init_microcode(struct radeon_device *rdev)
 	default: BUG();
 	}
 
+#ifdef DRMDEBUG
 	DRM_INFO("Loading %s Microcode\n", chip_name);
+#endif
 
 	snprintf(fw_name, sizeof(fw_name), "radeon-%s_pfp", chip_name);
 	err = loadfirmware(fw_name, &rdev->pfp_fw, &rdev->pfp_fw_size);

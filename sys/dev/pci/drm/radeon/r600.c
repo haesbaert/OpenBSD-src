@@ -2070,7 +2070,9 @@ int r600_init_microcode(struct radeon_device *rdev)
 		rlc_req_size = RLC_UCODE_SIZE * 4;
 	}
 
+#ifdef DRMDEBUG
 	DRM_INFO("Loading %s Microcode\n", chip_name);
+#endif
 
 	snprintf(fw_name, sizeof(fw_name), "radeon-%s_pfp", chip_name);
 	err = loadfirmware(fw_name, &rdev->pfp_fw, &rdev->pfp_fw_size);
@@ -2462,7 +2464,9 @@ int r600_ring_test(struct radeon_device *rdev, struct radeon_ring *ring)
 		udelay(1);
 	}
 	if (i < rdev->usec_timeout) {
+#ifdef DRMDEBUG
 		DRM_INFO("ring test on %d succeeded in %d usecs\n", ring->idx, i);
+#endif
 	} else {
 		DRM_ERROR("radeon: ring %d test failed (scratch(0x%04X)=0x%08X)\n",
 			  ring->idx, scratch, tmp);
@@ -2517,7 +2521,9 @@ int r600_dma_ring_test(struct radeon_device *rdev,
 	}
 
 	if (i < rdev->usec_timeout) {
+#ifdef DRMDEBUG
 		DRM_INFO("ring test on %d succeeded in %d usecs\n", ring->idx, i);
+#endif
 	} else {
 		DRM_ERROR("radeon: ring %d test failed (0x%08X)\n",
 			  ring->idx, tmp);
@@ -3090,7 +3096,9 @@ int r600_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 		udelay(1);
 	}
 	if (i < rdev->usec_timeout) {
+#ifdef DRMDEBUG
 		DRM_INFO("ib test on ring %d succeeded in %u usecs\n", ib.fence->ring, i);
+#endif
 	} else {
 		DRM_ERROR("radeon: ib test failed (scratch(0x%04X)=0x%08X)\n",
 			  scratch, tmp);
@@ -3158,7 +3166,9 @@ int r600_dma_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 		udelay(1);
 	}
 	if (i < rdev->usec_timeout) {
+#ifdef DRMDEBUG
 		DRM_INFO("ib test on ring %d succeeded in %u usecs\n", ib.fence->ring, i);
+#endif
 	} else {
 		DRM_ERROR("radeon: ib test failed (0x%08X)\n", tmp);
 		r = -EINVAL;

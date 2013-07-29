@@ -994,13 +994,17 @@ static int r100_cp_init_microcode(struct radeon_device *rdev)
 	if ((rdev->family == CHIP_R100) || (rdev->family == CHIP_RV100) ||
 	    (rdev->family == CHIP_RV200) || (rdev->family == CHIP_RS100) ||
 	    (rdev->family == CHIP_RS200)) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading R100 Microcode\n");
+#endif
 		fw_name = FIRMWARE_R100;
 	} else if ((rdev->family == CHIP_R200) ||
 		   (rdev->family == CHIP_RV250) ||
 		   (rdev->family == CHIP_RV280) ||
 		   (rdev->family == CHIP_RS300)) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading R200 Microcode\n");
+#endif
 		fw_name = FIRMWARE_R200;
 	} else if ((rdev->family == CHIP_R300) ||
 		   (rdev->family == CHIP_R350) ||
@@ -1008,19 +1012,27 @@ static int r100_cp_init_microcode(struct radeon_device *rdev)
 		   (rdev->family == CHIP_RV380) ||
 		   (rdev->family == CHIP_RS400) ||
 		   (rdev->family == CHIP_RS480)) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading R300 Microcode\n");
+#endif
 		fw_name = FIRMWARE_R300;
 	} else if ((rdev->family == CHIP_R420) ||
 		   (rdev->family == CHIP_R423) ||
 		   (rdev->family == CHIP_RV410)) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading R400 Microcode\n");
+#endif
 		fw_name = FIRMWARE_R420;
 	} else if ((rdev->family == CHIP_RS690) ||
 		   (rdev->family == CHIP_RS740)) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading RS690/RS740 Microcode\n");
+#endif
 		fw_name = FIRMWARE_RS690;
 	} else if (rdev->family == CHIP_RS600) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading RS600 Microcode\n");
+#endif
 		fw_name = FIRMWARE_RS600;
 	} else if ((rdev->family == CHIP_RV515) ||
 		   (rdev->family == CHIP_R520) ||
@@ -1028,7 +1040,9 @@ static int r100_cp_init_microcode(struct radeon_device *rdev)
 		   (rdev->family == CHIP_R580) ||
 		   (rdev->family == CHIP_RV560) ||
 		   (rdev->family == CHIP_RV570)) {
+#ifdef DRMDEBUG
 		DRM_INFO("Loading R500 Microcode\n");
+#endif
 		fw_name = FIRMWARE_R520;
 	}
 
@@ -1142,7 +1156,9 @@ int r100_cp_init(struct radeon_device *rdev, unsigned ring_size)
 	WREG32(RADEON_CP_RB_CNTL, tmp | RADEON_RB_NO_UPDATE);
 
 	/* Set ring address */
+#ifdef DRMDEBUG
 	DRM_INFO("radeon: ring at 0x%016lX\n", (unsigned long)ring->gpu_addr);
+#endif
 	WREG32(RADEON_CP_RB_BASE, ring->gpu_addr);
 	/* Force read & write ptr to 0 */
 	WREG32(RADEON_CP_RB_CNTL, tmp | RADEON_RB_RPTR_WR_ENA | RADEON_RB_NO_UPDATE);
@@ -2839,7 +2855,9 @@ r100_get_accessible_vram(struct radeon_device *rdev)
 	    rdev->family >= CHIP_RV350) {
 		WREG32_P(RADEON_HOST_PATH_CNTL, RADEON_HDP_APER_CNTL,
 		       ~RADEON_HDP_APER_CNTL);
+#ifdef DRMDEBUG
 		DRM_INFO("Generation 2 PCI interface, using max accessible memory\n");
+#endif
 		return aper_size * 2;
 	}
 
@@ -3743,7 +3761,9 @@ int r100_ring_test(struct radeon_device *rdev, struct radeon_ring *ring)
 		udelay(1);
 	}
 	if (i < rdev->usec_timeout) {
+#ifdef DRMDEBUG
 		DRM_INFO("ring test succeeded in %d usecs\n", i);
+#endif
 	} else {
 		DRM_ERROR("radeon: ring test failed (scratch(0x%04X)=0x%08X)\n",
 			  scratch, tmp);
@@ -3814,7 +3834,9 @@ int r100_ib_test(struct radeon_device *rdev, struct radeon_ring *ring)
 		udelay(1);
 	}
 	if (i < rdev->usec_timeout) {
+#ifdef DRMDEBUG
 		DRM_INFO("ib test succeeded in %u usecs\n", i);
+#endif
 	} else {
 		DRM_ERROR("radeon: ib test failed (scratch(0x%04X)=0x%08X)\n",
 			  scratch, tmp);

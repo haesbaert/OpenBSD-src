@@ -1253,9 +1253,11 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 	int base;
 	struct atom_context *ctx =
 	    malloc(sizeof(struct atom_context), M_DRM, M_WAITOK | M_ZERO);
+#ifdef DRMDEBUG
 	char *str;
 	char name[512];
 	int i;
+#endif
 
 	if (!ctx)
 		return NULL;
@@ -1289,6 +1291,7 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 	ctx->data_table = CU16(base + ATOM_ROM_DATA_PTR);
 	atom_index_iio(ctx, CU16(ctx->data_table + ATOM_DATA_IIO_PTR) + 4);
 
+#ifdef DRMDEBUG
 	str = CSTR(CU16(base + ATOM_ROM_MSG_PTR));
 	while (*str && ((*str == '\n') || (*str == '\r')))
 		str++;
@@ -1301,6 +1304,7 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 		}
 	}
 	DRM_INFO( "ATOM BIOS: %s\n", name);
+#endif
 
 	return ctx;
 }

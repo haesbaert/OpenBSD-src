@@ -152,8 +152,10 @@ void r420_pipes_init(struct radeon_device *rdev)
 	} else
 		rdev->num_z_pipes = 1;
 
+#ifdef DRMDEBUG
 	DRM_INFO("radeon: %d quad pipes, %d z pipes initialized.\n",
 		 rdev->num_gb_pipes, rdev->num_z_pipes);
+#endif
 }
 
 u32 r420_mc_rreg(struct radeon_device *rdev, u32 reg)

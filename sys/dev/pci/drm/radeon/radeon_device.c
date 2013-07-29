@@ -314,7 +314,9 @@ int radeon_wb_init(struct radeon_device *rdev)
 		rdev->wb.use_event = true;
 	}
 
+#ifdef DRMDEBUG
 	dev_info(rdev->dev, "WB %sabled\n", rdev->wb.enabled ? "en" : "dis");
+#endif
 
 	return 0;
 }

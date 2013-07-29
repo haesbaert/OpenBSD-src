@@ -342,11 +342,13 @@ int radeon_bo_init(struct radeon_device *rdev)
 	end = start + atop(rdev->mc.aper_size);
 	uvm_page_physload(start, end, start, end, PHYSLOAD_DEVICE);
 
+#ifdef DRMDEBUG
 	DRM_INFO("Detected VRAM RAM=%lluM, BAR=%lluM\n",
 		rdev->mc.mc_vram_size >> 20,
 		(unsigned long long)rdev->mc.aper_size >> 20);
 	DRM_INFO("RAM width %dbits %cDR\n",
 			rdev->mc.vram_width, rdev->mc.vram_is_ddr ? 'D' : 'S');
+#endif
 	return radeon_ttm_init(rdev);
 }
 

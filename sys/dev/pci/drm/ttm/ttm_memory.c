@@ -356,8 +356,10 @@ ttm_mem_global_init(struct ttm_mem_global *glob)
 {
 	uint64_t mem;
 	int ret;
+#ifdef DRMDEBUG
 	int i;
 	struct ttm_mem_zone *zone;
+#endif
 
 	mtx_init(&glob->lock, IPL_NONE);
 #ifdef notyet
@@ -381,11 +383,13 @@ ttm_mem_global_init(struct ttm_mem_global *glob)
 	if (unlikely(ret != 0))
 		goto out_no_zone;
 #endif
+#ifdef DRMDEBUG
 	for (i = 0; i < glob->num_zones; ++i) {
 		zone = glob->zones[i];
 		DRM_INFO("Zone %7s: Available graphics memory: %llu kiB\n",
 			zone->name, (unsigned long long)zone->max_mem >> 10);
 	}
+#endif
 	ttm_page_alloc_init(glob, glob->zone_kernel->max_mem/(2*PAGE_SIZE));
 	ttm_dma_page_alloc_init(glob, glob->zone_kernel->max_mem/(2*PAGE_SIZE));
 	return 0;

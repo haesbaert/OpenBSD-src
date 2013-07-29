@@ -373,8 +373,10 @@ static void r300_gpu_init(struct radeon_device *rdev)
 		DRM_ERROR("Failed to wait MC idle while "
 		       "programming pipes. Bad things might happen.\n");
 	}
+#ifdef DRMDEBUG
 	DRM_INFO("radeon: %d quad pipes, %d Z pipes initialized.\n",
 		 rdev->num_gb_pipes, rdev->num_z_pipes);
+#endif
 }
 
 int r300_asic_reset(struct radeon_device *rdev)

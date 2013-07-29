@@ -346,8 +346,10 @@ int radeon_gart_init(struct radeon_device *rdev)
 	/* Compute table size */
 	rdev->gart.num_cpu_pages = rdev->mc.gtt_size / PAGE_SIZE;
 	rdev->gart.num_gpu_pages = rdev->mc.gtt_size / RADEON_GPU_PAGE_SIZE;
+#ifdef DRMDEBUG
 	DRM_INFO("GART: num cpu pages %u, num gpu pages %u\n",
 		 rdev->gart.num_cpu_pages, rdev->gart.num_gpu_pages);
+#endif
 	/* Allocate pages table */
 	rdev->gart.pages = malloc(sizeof(void *) * rdev->gart.num_cpu_pages,
 	    M_DRM, M_ZERO | M_WAITOK);

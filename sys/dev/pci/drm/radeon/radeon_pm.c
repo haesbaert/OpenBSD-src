@@ -672,7 +672,9 @@ int radeon_pm_init(struct radeon_device *rdev)
 		}
 #endif
 
+#ifdef DRMDEBUG
 		DRM_INFO("radeon: power management initialized\n");
+#endif
 	}
 
 	return 0;
