@@ -104,6 +104,7 @@ void	radeondrm_attach_kms(struct device *, struct device *, void *);
 int	radeondrm_detach_kms(struct device *, int);
 int	radeondrm_activate_kms(struct device *, int);
 void	radeondrm_attachhook(void *);
+int	radeondrm_forcedetach(struct radeon_device *);
 
 struct cfattach radeondrm_ca = {
         sizeof (struct radeon_device), radeondrm_probe, radeondrm_attach_kms,
@@ -164,6 +165,12 @@ int radeon_msi = -1;
 
 /* GPU lockup timeout in ms (defaul 10000 = 10 seconds, 0 = disable) */
 int radeon_lockup_timeout = 10000;
+
+/*
+ * set if the mountroot hook has a fatal error
+ * such as not being able to find the firmware on newer cards
+ */
+int radeon_fatal_error = 0;
 
 const struct drm_pcidev radeondrm_pciidlist[] = {
 	{PCI_VENDOR_ATI, PCI_PRODUCT_ATI_RADEON_M241P,
@@ -1348,6 +1355,8 @@ static struct drm_driver_info kms_driver = {
 int
 radeondrm_probe(struct device *parent, void *match, void *aux)
 {
+	if (radeon_fatal_error)
+		return 0;
 	if (drm_pciprobe(aux, radeondrm_pciidlist))
 		return 20;
 	return 0;
@@ -1538,6 +1547,7 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
 	    PCI_PRODUCT(pa->pa_id), radeondrm_pciidlist);
 	rdev->flags = id_entry->driver_private;
+	rdev->pa = *pa;
 	rdev->pc = pa->pa_pc;
 	rdev->pa_tag = pa->pa_tag;
 	rdev->iot = pa->pa_iot;
@@ -1666,6 +1676,25 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 		radeondrm_attachhook(rdev);
 }
 
+int
+radeondrm_forcedetach(struct radeon_device *rdev)
+{
+	struct pci_softc	*sc = (struct pci_softc *)rdev->dev.dv_parent;
+	struct pci_attach_args	 pa;
+	pcitag_t		 tag = rdev->pa_tag;
+
+	radeon_vga_set_state(rdev, true);
+	rdev->console = 0;
+	memcpy(&pa, &rdev->pa, sizeof(pa));
+#ifndef __sparc64__
+	extern int vga_console_attached;
+	vga_console_attached = 0;
+	bus_space_unmap(pa.pa_iot, 0x3c0, 0x10);
+#endif
+	config_detach(&rdev->dev, 0);
+	return (pci_probe_device(sc, tag, NULL, &pa));
+}
+
 void
 radeondrm_attachhook(void *xsc)
 {
@@ -1681,6 +1710,8 @@ radeondrm_attachhook(void *xsc)
 	r = radeon_device_init(rdev, rdev->ddev);
 	if (r) {
 		printf(": Fatal error during GPU init\n");
+		radeon_fatal_error = 1;
+		radeondrm_forcedetach(rdev);
 		return;
 	}
 
