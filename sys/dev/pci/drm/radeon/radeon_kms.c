@@ -1541,13 +1541,11 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	extern int fbnode;
 #else
 	extern int vga_console_attached;
-	bus_space_handle_t ioh_vga;
 #endif
 
 	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
 	    PCI_PRODUCT(pa->pa_id), radeondrm_pciidlist);
 	rdev->flags = id_entry->driver_private;
-	rdev->pa = *pa;
 	rdev->pc = pa->pa_pc;
 	rdev->pa_tag = pa->pa_tag;
 	rdev->iot = pa->pa_iot;
@@ -1565,7 +1563,6 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	    == (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE)) {
 		rdev->console = 1;
 		vga_console_attached = 1;
-		bus_space_map(pa->pa_iot, 0x3c0, 0x10, 0, &ioh_vga);
 	}
 #endif
 
@@ -1680,19 +1677,17 @@ int
 radeondrm_forcedetach(struct radeon_device *rdev)
 {
 	struct pci_softc	*sc = (struct pci_softc *)rdev->dev.dv_parent;
-	struct pci_attach_args	 pa;
 	pcitag_t		 tag = rdev->pa_tag;
 
-	radeon_vga_set_state(rdev, true);
-	rdev->console = 0;
-	memcpy(&pa, &rdev->pa, sizeof(pa));
 #ifndef __sparc64__
-	extern int vga_console_attached;
-	vga_console_attached = 0;
-	bus_space_unmap(pa.pa_iot, 0x3c0, 0x10);
+	if (rdev->console) {
+		extern int vga_console_attached;
+		vga_console_attached = 0;
+	}
 #endif
+
 	config_detach(&rdev->dev, 0);
-	return (pci_probe_device(sc, tag, NULL, &pa));
+	return pci_probe_device(sc, tag, NULL, NULL);
 }
 
 void
