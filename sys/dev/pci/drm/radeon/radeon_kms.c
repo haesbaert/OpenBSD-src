@@ -1539,7 +1539,7 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 
 #ifdef __sparc64__
 	extern int fbnode;
-#else
+#elif !defined(__macppc__)
 	extern int vga_console_attached;
 #endif
 
@@ -1562,7 +1562,9 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	    & (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE))
 	    == (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE)) {
 		rdev->console = 1;
+#ifndef __macppc__
 		vga_console_attached = 1;
+#endif
 	}
 #endif
 
@@ -1679,7 +1681,7 @@ radeondrm_forcedetach(struct radeon_device *rdev)
 	struct pci_softc	*sc = (struct pci_softc *)rdev->dev.dv_parent;
 	pcitag_t		 tag = rdev->pa_tag;
 
-#ifndef __sparc64__
+#if !defined(__sparc64__) && !defined(__macppc__)
 	if (rdev->console) {
 		extern int vga_console_attached;
 		vga_console_attached = 0;
