@@ -33,6 +33,12 @@
 
 /* can't include radeon_drv.h due to duplicated defines in radeon_reg.h */
 
+#include "vga.h"
+
+#if NVGA > 0
+extern int vga_console_attached;
+#endif
+
 #define DRIVER_NAME		"radeon"
 #define DRIVER_DESC		"ATI Radeon"
 #define DRIVER_DATE		"20080613"
@@ -1539,8 +1545,6 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 
 #ifdef __sparc64__
 	extern int fbnode;
-#elif !defined(__macppc__)
-	extern int vga_console_attached;
 #endif
 
 	id_entry = drm_find_description(PCI_VENDOR(pa->pa_id),
@@ -1562,7 +1566,7 @@ radeondrm_attach_kms(struct device *parent, struct device *self, void *aux)
 	    & (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE))
 	    == (PCI_COMMAND_IO_ENABLE | PCI_COMMAND_MEM_ENABLE)) {
 		rdev->console = 1;
-#ifndef __macppc__
+#if NVGA > 0
 		vga_console_attached = 1;
 #endif
 	}
@@ -1681,11 +1685,9 @@ radeondrm_forcedetach(struct radeon_device *rdev)
 	struct pci_softc	*sc = (struct pci_softc *)rdev->dev.dv_parent;
 	pcitag_t		 tag = rdev->pa_tag;
 
-#if !defined(__sparc64__) && !defined(__macppc__)
-	if (rdev->console) {
-		extern int vga_console_attached;
+#if NVGA > 0
+	if (rdev->console)
 		vga_console_attached = 0;
-	}
 #endif
 
 	config_detach(&rdev->dev, 0);
