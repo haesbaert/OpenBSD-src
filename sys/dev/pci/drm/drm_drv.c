@@ -254,6 +254,9 @@ drm_detach(struct device *self, int flags)
 
 	drm_lastclose(dev);
 
+	if (dev->driver->flags & DRIVER_GEM)
+		pool_destroy(&dev->objpl);
+
 	drm_ctxbitmap_cleanup(dev);
 
 	extent_destroy(dev->handle_ext);
