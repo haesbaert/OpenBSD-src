@@ -1519,6 +1519,7 @@ static int cayman_startup(struct radeon_device *rdev)
 			r = ni_init_microcode(rdev);
 			if (r) {
 				DRM_ERROR("Failed to load firmware!\n");
+				evergreen_mc_program(rdev);
 				return r;
 			}
 		}
