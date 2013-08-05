@@ -34,7 +34,6 @@ file	dev/pci/drm/ttm/ttm_lock.c		ttm
 file	dev/pci/drm/ttm/ttm_memory.c		ttm
 file	dev/pci/drm/ttm/ttm_object.c		ttm
 file	dev/pci/drm/ttm/ttm_page_alloc.c	ttm
-#file	dev/pci/drm/ttm/ttm_page_alloc_dma.c	ttm
 file	dev/pci/drm/ttm/ttm_tt.c		ttm
 
 device	inteldrm: drmbase, wsemuldisplaydev, rasops32, i2cbus, i2c_bitbang
