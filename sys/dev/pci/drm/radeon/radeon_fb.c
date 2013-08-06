@@ -463,8 +463,7 @@ void radeon_fbdev_fini(struct radeon_device *rdev)
 
 void radeon_fbdev_set_suspend(struct radeon_device *rdev, int state)
 {
-	printf("%s stub\n", __func__);
-#ifdef notyet
+#ifdef __linux__
 	fb_set_suspend(rdev->mode_info.rfbdev->helper.fbdev, state);
 #endif
 }
