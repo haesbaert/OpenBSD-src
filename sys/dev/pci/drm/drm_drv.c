@@ -42,6 +42,7 @@
 
 #include <sys/param.h>
 #include <sys/limits.h>
+#include <sys/specdev.h>
 #include <sys/systm.h>
 #include <uvm/uvm.h>
 #include <uvm/uvm_device.h>
@@ -333,7 +334,7 @@ drm_find_file_by_minor(struct drm_device *dev, int minor)
 struct drm_device *
 drm_get_device_from_kdev(dev_t kdev)
 {
-	int unit = minor(kdev) & 0xff;
+	int unit = minor(kdev) & ((1 << CLONE_SHIFT) - 1);
 
 	if (unit < drm_cd.cd_ndevs)
 		return drm_cd.cd_devs[unit];
