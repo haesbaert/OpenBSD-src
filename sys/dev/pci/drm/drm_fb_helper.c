@@ -190,11 +190,9 @@ drm_fb_helper_restore_lut_atomic(struct drm_crtc *crtc)
 	crtc->funcs->gamma_set(crtc, r_base, g_base, b_base, 0, crtc->gamma_size);
 }
 
-#if 0
 int
-drm_fb_helper_debug_enter(struct fb_info *info)
+drm_fb_helper_debug_enter(struct drm_fb_helper *helper)
 {
-	struct drm_fb_helper *helper = info->par;
 	struct drm_crtc_helper_funcs *funcs;
 	int i;
 
@@ -222,7 +220,6 @@ drm_fb_helper_debug_enter(struct fb_info *info)
 	return 0;
 }
 EXPORT_SYMBOL(drm_fb_helper_debug_enter);
-#endif
 
 /* Find the real fb for a given fb helper CRTC */
 struct drm_framebuffer *
@@ -239,11 +236,9 @@ drm_mode_config_fb(struct drm_crtc *crtc)
 	return NULL;
 }
 
-#if 0
 int
-drm_fb_helper_debug_leave(struct fb_info *info)
+drm_fb_helper_debug_leave(struct drm_fb_helper *helper)
 {
-	struct drm_fb_helper *helper = info->par;
 	struct drm_crtc *crtc;
 	struct drm_crtc_helper_funcs *funcs;
 	struct drm_framebuffer *fb;
@@ -271,7 +266,6 @@ drm_fb_helper_debug_leave(struct fb_info *info)
 	return 0;
 }
 EXPORT_SYMBOL(drm_fb_helper_debug_leave);
-#endif
 
 bool
 drm_fb_helper_restore_fbdev_mode(struct drm_fb_helper *fb_helper)
