@@ -268,10 +268,10 @@ ucom_detach(struct device *self, int flags)
 	/* Detach and free the tty. */
 	if (tp != NULL) {
 		(*LINESW(tp, l_close))(tp, FNONBLOCK, curproc);
-		s = spltty();
+		crit_enter();
 		CLR(tp->t_state, TS_BUSY | TS_FLUSH);
 		ttyclose(tp);
-		splx(s);
+		crit_leave();
 		ttyfree(tp);
 		sc->sc_tty = NULL;
 	}

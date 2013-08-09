@@ -794,7 +794,7 @@ brelse(struct buf *bp)
 				RB_REMOVE(buf_rb_bufs,
 				    &bp->b_vp->v_bufs_tree, bp);
 			buf_put(bp);
-			splx(s);
+			crit_leave();
 			return;
 		}
 
