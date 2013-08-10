@@ -571,7 +571,7 @@ be_read(struct be_softc *sc, int idx, int len)
 /*
  * Start output on interface.
  * We make two assumptions here:
- *  1) that the current priority is set to splnet _before_ this code
+ *  1) that we are in a critical section _before_ this code
  *     is called *and* is returned to the appropriate priority after
  *     return
  *  2) that the IFF_OACTIVE flag is checked before this code is called
@@ -666,13 +666,11 @@ bestop(struct be_softc *sc)
 void
 bereset(struct be_softc *sc)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	bestop(sc);
 	if ((sc->sc_arpcom.ac_if.if_flags & IFF_UP) != 0)
 		beinit(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -928,9 +926,9 @@ beioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct be_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -995,7 +993,7 @@ beioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1011,9 +1009,8 @@ beinit(struct be_softc *sc)
 	u_int32_t v;
 	u_int32_t qecaddr;
 	u_int8_t *ea;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	qec_meminit(&sc->sc_rb, BE_PKT_BUF_SZ);
 
@@ -1091,7 +1088,7 @@ beinit(struct be_softc *sc)
 
 	be_ifmedia_upd(ifp);
 	timeout_add_sec(&sc->sc_tick_ch, 1);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1349,13 +1346,13 @@ void
 be_tick(void *arg)
 {
 	struct be_softc *sc = arg;
-	int s = splnet();
+	crit_enter();
 
 	mii_tick(&sc->sc_mii);
 	(void)be_intphy_service(sc, &sc->sc_mii, MII_TICK);
 
 	timeout_add_sec(&sc->sc_tick_ch, 1);
-	splx(s);
+	crit_leave();
 }
 
 void

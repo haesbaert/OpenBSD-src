@@ -49,6 +49,7 @@
 #include <sys/errno.h>
 #include <sys/device.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -668,9 +669,9 @@ stge_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct stge_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -714,7 +715,7 @@ stge_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	/* Try to get more packets going. */
 	stge_start(ifp);
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1031,12 +1032,11 @@ void
 stge_tick(void *arg)
 {
 	struct stge_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
 	stge_stats_update(sc);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_timeout, 1);
 }
@@ -1114,7 +1114,7 @@ stge_reset(struct stge_softc *sc)
 /*
  * stge_init:		[ ifnet interface function ]
  *
- *	Initialize the interface.  Must be called at splnet().
+ *	Initialize the interface.  Must be called at crit_enter().
  */
 int
 stge_init(struct ifnet *ifp)

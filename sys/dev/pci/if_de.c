@@ -49,6 +49,7 @@
 #include <sys/kernel.h>
 #include <sys/device.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_media.h>
@@ -233,9 +234,8 @@ void
 tulip_timeout_callback(void *arg)
 {
     tulip_softc_t * const sc = arg;
-    int s;
 
-    s = splnet();
+    crit_enter();
 
     TULIP_PERFSTART(timeout)
 
@@ -244,7 +244,7 @@ tulip_timeout_callback(void *arg)
     (sc->tulip_boardsw->bd_media_poll)(sc, TULIP_MEDIAPOLL_TIMER);
 
     TULIP_PERFEND(timeout);
-    splx(s);
+    crit_leave();
 }
 
 void
@@ -4163,7 +4163,7 @@ tulip_txput_setup(tulip_softc_t * const sc)
 }
 
 /*
- * This routine is entered at splnet().
+ * This routine is entered at crit_enter().
  */
 int
 tulip_ifioctl(struct ifnet * ifp, u_long cmd, caddr_t data)
@@ -4172,10 +4172,9 @@ tulip_ifioctl(struct ifnet * ifp, u_long cmd, caddr_t data)
     tulip_softc_t * const sc = TULIP_IFP_TO_SOFTC(ifp);
     struct ifaddr *ifa = (struct ifaddr *)data;
     struct ifreq *ifr = (struct ifreq *) data;
-    int s;
     int error = 0;
 
-    s = splnet();
+    crit_enter();
 
     switch (cmd) {
     case SIOCSIFADDR: {
@@ -4219,7 +4218,7 @@ tulip_ifioctl(struct ifnet * ifp, u_long cmd, caddr_t data)
 	error = 0;
     }
 
-    splx(s);
+    crit_leave();
     TULIP_PERFEND(ifioctl);
     return (error);
 }

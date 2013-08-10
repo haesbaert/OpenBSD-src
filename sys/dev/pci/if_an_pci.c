@@ -60,6 +60,7 @@
 #include <sys/timeout.h>
 #include <sys/socket.h>
 #include <sys/tree.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>

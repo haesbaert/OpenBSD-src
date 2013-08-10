@@ -171,7 +171,6 @@ etherip_decap(struct mbuf *m, int iphlen)
 	struct ether_header eh;
 	struct etherip_header eip;
 	struct gif_softc *sc;
-	int s;
 
 	etheripstat.etherip_ipackets++;
 
@@ -280,9 +279,9 @@ etherip_decap(struct mbuf *m, int iphlen)
 	if (m->m_flags & (M_BCAST|M_MCAST))
 		sc->gif_if.if_imcasts++;
 
-	s = splnet();
+	crit_enter();
 	m = bridge_input(&sc->gif_if, &eh, m);
-	splx(s);
+	crit_leave();
 	if (m == NULL)
 		return;
 
@@ -298,7 +297,6 @@ mplsip_decap(struct mbuf *m, int iphlen)
 {
 	struct gif_softc *sc;
 	struct ifqueue *ifq;
-	int s;
 
 	etheripstat.etherip_ipackets++;
 
@@ -348,12 +346,12 @@ mplsip_decap(struct mbuf *m, int iphlen)
 #endif
 
 	ifq = &mplsintrq;
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
 		m_freem(m);
 		etheripstat.etherip_qfull++;
-		splx(s);
+		crit_leave();
 
 		DPRINTF(("mplsip_input(): packet dropped because of full "
 		    "queue\n"));
@@ -361,7 +359,7 @@ mplsip_decap(struct mbuf *m, int iphlen)
 	}
 	IF_ENQUEUE(ifq, m);
 	schednetisr(NETISR_MPLS);
-	splx(s);
+	crit_leave();
 	return;
 }
 #endif

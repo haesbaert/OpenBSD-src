@@ -876,18 +876,18 @@ noct_ea_thread(vsc)
 	struct noct_workq *q;
 	struct cryptop *crp;
 	struct cryptodesc *crd;
-	int s, rseg;
+	int rseg;
 	u_int32_t len;
 
 	for (;;) {
 		tsleep(&sc->sc_eawp, PWAIT, "noctea", 0);
 
 		/* Handle output queue */
-		s = splnet();
+		crit_enter();
 		while (!SIMPLEQ_EMPTY(&sc->sc_outq)) {
 			q = SIMPLEQ_FIRST(&sc->sc_outq);
 			SIMPLEQ_REMOVE_HEAD(&sc->sc_outq, q_next);
-			splx(s);
+			crit_leave();
 
 			crp = q->q_crp;
 			crd = crp->crp_desc;
@@ -934,22 +934,22 @@ noct_ea_thread(vsc)
 			bus_dmamem_free(sc->sc_dmat, &q->q_dmaseg, rseg);
 			crp->crp_etype = 0;
 			free(q, M_DEVBUF);
-			s = splnet();
+			crit_enter();
 			crypto_done(crp);
 		}
-		splx(s);
+		crit_leave();
 
 		/* Handle input queue */
-		s = splnet();
+		crit_enter();
 		while (!SIMPLEQ_EMPTY(&sc->sc_inq)) {
 			q = SIMPLEQ_FIRST(&sc->sc_inq);
 			SIMPLEQ_REMOVE_HEAD(&sc->sc_inq, q_next);
-			splx(s);
+			crit_leave();
 
 			noct_ea_start(sc, q);
-			s = splnet();
+			crit_enter();
 		}
-		splx(s);
+		crit_leave();
 	}
 }
 
@@ -960,7 +960,7 @@ noct_ea_start(sc, q)
 {
 	struct cryptop *crp;
 	struct cryptodesc *crd;
-	int s, err;
+	int err;
 
 	crp = q->q_crp;
 	crd = crp->crp_desc;
@@ -990,9 +990,9 @@ noct_ea_start(sc, q)
 errout:
 	crp->crp_etype = err;
 	free(q, M_DEVBUF);
-	s = splnet();
+	crit_enter();
 	crypto_done(crp);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1003,7 +1003,7 @@ noct_ea_start_hash(sc, q, crp, crd)
 	struct cryptodesc *crd;
 {
 	u_int64_t adr;
-	int s, err, i, rseg;
+	int err, i, rseg;
 	u_int32_t wp;
 
 	if (crd->crd_len > 0x4800) {
@@ -1041,7 +1041,7 @@ noct_ea_start_hash(sc, q, crp, crd)
 	bus_dmamap_sync(sc->sc_dmat, q->q_dmamap, 0, q->q_dmamap->dm_mapsize,
 	    BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
 
-	s = splnet();
+	crit_enter();
 	if (noct_ea_nfree(sc) < 1) {
 		err = ENOMEM;
 		goto errout_dmaunload;
@@ -1084,7 +1084,7 @@ noct_ea_start_hash(sc, q, crp, crd)
 	sc->sc_eawp = wp;
 
 	SIMPLEQ_INSERT_TAIL(&sc->sc_chipq, q, q_next);
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -1099,9 +1099,9 @@ errout_dmafree:
 errout:
 	crp->crp_etype = err;
 	free(q, M_DEVBUF);
-	s = splnet();
+	crit_enter();
 	crypto_done(crp);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1113,7 +1113,7 @@ noct_ea_start_des(sc, q, crp, crd)
 {
 	u_int64_t adr;
 	volatile u_int8_t *pb;
-	int s, err, i, rseg;
+	int err, i, rseg;
 	u_int32_t wp;
 	u_int8_t iv[8], key[24];
 
@@ -1190,7 +1190,7 @@ noct_ea_start_des(sc, q, crp, crd)
 	bus_dmamap_sync(sc->sc_dmat, q->q_dmamap, 0, q->q_dmamap->dm_mapsize,
 	    BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
 
-	s = splnet();
+	crit_enter();
 	if (noct_ea_nfree(sc) < 1) {
 		err = ENOMEM;
 		goto errout_dmaunload;
@@ -1245,7 +1245,7 @@ noct_ea_start_des(sc, q, crp, crd)
 	sc->sc_eawp = wp;
 
 	SIMPLEQ_INSERT_TAIL(&sc->sc_chipq, q, q_next);
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -1260,9 +1260,9 @@ errout_dmafree:
 errout:
 	crp->crp_etype = err;
 	free(q, M_DEVBUF);
-	s = splnet();
+	crit_enter();
 	crypto_done(crp);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1443,16 +1443,16 @@ noct_kprocess_modexp(sc, krp)
 	struct noct_softc *sc;
 	struct cryptkop *krp;
 {
-	int s, err;
+	int err;
 	u_int32_t wp, aidx, bidx, midx;
 	u_int64_t adr;
 	union noct_pkh_cmd *cmd;
 	int i, bits, mbits, digits, rmodidx, mmulidx;
 
-	s = splnet();
+	crit_enter();
 	if (noct_pkh_nfree(sc) < 7) {
 		/* Need 7 entries: 3 loads, 1 store, 3 ops */
-		splx(s);
+		crit_leave();
 		return (ENOMEM);
 	}
 
@@ -1612,7 +1612,7 @@ noct_kprocess_modexp(sc, krp)
 	NOCT_WRITE_4(sc, NOCT_PKH_Q_PTR, wp);
 	sc->sc_pkhwp = wp;
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 
@@ -1626,7 +1626,7 @@ errout_m:
 	extent_free(sc->sc_pkh_bn, sc->sc_pkh_bnsw[midx].bn_off,
 	    sc->sc_pkh_bnsw[midx].bn_siz, EX_NOWAIT);
 errout:
-	splx(s);
+	crit_leave();
 	krp->krp_status = err;
 	crypto_kdone(krp);
 	return (1);
@@ -1858,7 +1858,7 @@ noct_process(crp)
 {
 	struct noct_softc *sc;
 	struct noct_workq *q = NULL;
-	int card, err, s;
+	int card, err;
 
 	if (crp == NULL || crp->crp_callback == NULL)
 		return (EINVAL);
@@ -1876,9 +1876,9 @@ noct_process(crp)
 	}
 	q->q_crp = crp;
 
-	s = splnet();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_inq, q, q_next);
-	splx(s);
+	crit_leave();
 	NOCT_WAKEUP(sc);
 	return (0);
 

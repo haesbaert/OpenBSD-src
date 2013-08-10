@@ -71,14 +71,14 @@ int
 priq_pfattach(struct pf_altq *a)
 {
 	struct ifnet *ifp;
-	int s, error;
+	int error;
 
 	if ((ifp = ifunit(a->ifname)) == NULL || a->altq_disc == NULL)
 		return (EINVAL);
-	s = splnet();
+	crit_enter();
 	error = altq_attach(&ifp->if_snd, ALTQT_PRIQ, a->altq_disc,
 	    priq_enqueue, priq_dequeue, priq_request, NULL, NULL);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -236,7 +236,6 @@ static struct priq_class *
 priq_class_create(struct priq_if *pif, int pri, int qlimit, int flags, int qid)
 {
 	struct priq_class *cl;
-	int s;
 
 #ifndef ALTQ_RED
 	if (flags & PRCF_RED) {
@@ -249,10 +248,10 @@ priq_class_create(struct priq_if *pif, int pri, int qlimit, int flags, int qid)
 
 	if ((cl = pif->pif_classes[pri]) != NULL) {
 		/* modify the class instead of creating a new one */
-		s = splnet();
+		crit_enter();
 		if (!qempty(cl->cl_q))
 			priq_purgeq(cl);
-		splx(s);
+		crit_leave();
 #ifdef ALTQ_RED
 		if (q_is_red(cl->cl_q))
 			red_destroy(cl->cl_red);
@@ -309,9 +308,9 @@ static int
 priq_class_destroy(struct priq_class *cl)
 {
 	struct priq_if *pif;
-	int s, pri;
+	int pri;
 
-	s = splnet();
+	crit_enter();
 
 	if (!qempty(cl->cl_q))
 		priq_purgeq(cl);
@@ -327,7 +326,7 @@ priq_class_destroy(struct priq_class *cl)
 		if (pri < 0)
 			pif->pif_maxpri = -1;
 	}
-	splx(s);
+	crit_leave();
 
 	if (cl->cl_red != NULL) {
 #ifdef ALTQ_RED

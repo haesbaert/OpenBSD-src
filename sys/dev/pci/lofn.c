@@ -42,6 +42,7 @@
 #include <sys/kernel.h>
 #include <sys/mbuf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <crypto/cryptodev.h>
 #include <dev/rndvar.h>
@@ -285,7 +286,6 @@ lofn_kprocess(krp)
 {
 	struct lofn_softc *sc;
 	struct lofn_q *q;
-	int s;
 
 	if (krp == NULL || krp->krp_callback == NULL)
 		return (EINVAL);
@@ -307,10 +307,10 @@ lofn_kprocess(krp)
 		q->q_start = lofn_modexp_start;
 		q->q_finish = lofn_modexp_finish;
 		q->q_krp = krp;
-		s = splnet();
+		crit_enter();
 		SIMPLEQ_INSERT_TAIL(&sc->sc_queue, q, q_next);
 		lofn_feed(sc);
-		splx(s);
+		crit_leave();
 		return (0);
 	default:
 		printf("%s: kprocess: invalid op 0x%x\n",

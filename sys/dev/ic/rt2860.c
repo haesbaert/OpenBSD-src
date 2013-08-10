@@ -34,6 +34,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -1825,9 +1826,9 @@ rt2860_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1888,7 +1889,7 @@ rt2860_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return error;
 }

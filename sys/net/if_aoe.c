@@ -37,7 +37,7 @@ aoe_input(struct ifnet *ifp, struct mbuf *m)
 	struct aoe_packet *ap;
 	struct aoe_handler *q = NULL;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	ap = mtod(m, struct aoe_packet *);
 	DPRINTF(("aoe packet %d %d\n", htons(ap->major), ap->minor));

@@ -41,6 +41,7 @@
 #include <sys/malloc.h>
 #include <sys/device.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -1080,9 +1081,9 @@ lii_ioctl(struct ifnet *ifp, u_long cmd, caddr_t addr)
 	struct lii_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)addr;
 	struct ifreq *ifr = (struct ifreq *)addr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(cmd) {
 	case SIOCSIFADDR:
@@ -1120,7 +1121,7 @@ lii_ioctl(struct ifnet *ifp, u_long cmd, caddr_t addr)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -1175,11 +1176,10 @@ void
 lii_tick(void *v)
 {
 	struct lii_softc *sc = v;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick, 1);
 }

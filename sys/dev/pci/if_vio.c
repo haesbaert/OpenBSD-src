@@ -362,7 +362,7 @@ vio_free_dmamem(struct vio_softc *sc)
  *   sc_ctrl_mac_tbl_mc: multicast MAC address filter for a VIRTIO_NET_CTRL_MAC
  *			 class command (WRITE)
  * sc_ctrl_* structures are allocated only one each; they are protected by
- * sc_ctrl_inuse, which must only be accessed at splnet
+ * sc_ctrl_inuse, which must only be accessed at crit_enter
  *
  * metadata headers for received frames are stored at the start of the
  * rx mbufs.
@@ -811,10 +811,10 @@ int
 vio_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 {
 	struct vio_softc *sc = ifp->if_softc;
-	int s, r = 0;
+	int r = 0;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 
-	s = splnet();
+	crit_enter();
 	switch (cmd) {
 	case SIOCSIFADDR:
 		ifp->if_flags |= IFF_UP;
@@ -854,7 +854,7 @@ vio_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			vio_iff(sc);
 		r = 0;
 	}
-	splx(s);
+	crit_leave();
 	return r;
 }
 
@@ -1068,9 +1068,9 @@ void
 vio_txtick(void *arg)
 {
 	struct virtqueue *vq = arg;
-	int s = splnet();
+	crit_enter();
 	vio_tx_intr(vq);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1183,7 +1183,7 @@ vio_ctrl_rx(struct vio_softc *sc, int cmd, int onoff)
 	if (vsc->sc_nvqs < 3)
 		return ENOTSUP;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 	vio_wait_ctrl(sc);
 
 	sc->sc_ctrl_cmd->class = VIRTIO_NET_CTRL_RX;
@@ -1294,7 +1294,7 @@ vio_set_rx_filter(struct vio_softc *sc)
 	struct virtqueue *vq = &sc->sc_vq[VQCTL];
 	int r, slot;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	if (vsc->sc_nvqs < 3)
 		return ENOTSUP;
@@ -1365,7 +1365,7 @@ vio_iff(struct vio_softc *sc)
 	int promisc = 0, allmulti = 0, rxfilter = 0;
 	int r;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	ifp->if_flags &= ~IFF_ALLMULTI;
 

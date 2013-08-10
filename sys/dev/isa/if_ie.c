@@ -88,7 +88,7 @@ that we must include this header in the transmit buffer as well.
 By convention, all transmit commands, and only transmit commands, shall have
 the I (IE_CMD_INTR) bit set in the command.  This way, when an interrupt
 arrives at ieintr(), it is immediately possible to tell what precisely caused
-it.  ANY OTHER command-sending routines should run at splnet(), and should
+it.  ANY OTHER command-sending routines should run at crit_enter(), and should
 post an acknowledgement to every interrupt they generate.
 
 The 82586 has a 24-bit address space internally, and the adaptor's memory is
@@ -1532,9 +1532,8 @@ check_ie_present(sc, where, size)
 	volatile struct ie_int_sys_conf_ptr *iscp;
 	volatile struct ie_sys_ctl_block *scb;
 	u_long realbase;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	realbase = (u_long)where + size - (1 << 24);
 
@@ -1566,7 +1565,7 @@ check_ie_present(sc, where, size)
 	delay(100);			/* wait a while... */
 
 	if (iscp->ie_busy) {
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 
@@ -1588,7 +1587,7 @@ check_ie_present(sc, where, size)
 	delay(100);
 
 	if (iscp->ie_busy) {
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 
@@ -1602,7 +1601,7 @@ check_ie_present(sc, where, size)
 	 * Acknowledge any interrupts we may have caused...
 	 */
 	ie_ack(sc, IE_ST_WHENCE);
-	splx(s);
+	crit_leave();
 
 	return 1;
 }
@@ -1785,7 +1784,7 @@ void
 iereset(sc)
 	struct ie_softc *sc;
 {
-	int s = splnet();
+	crit_enter();
 
 	iestop(sc);
 
@@ -1800,7 +1799,7 @@ iereset(sc)
 
 	ieinit(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1976,7 +1975,7 @@ iememinit(ptr, sc)
 
 /*
  * Run the multicast setup command.
- * Called at splnet().
+ * Called at crit_enter().
  */
 static int
 mc_setup(sc, ptr)
@@ -2010,7 +2009,7 @@ mc_setup(sc, ptr)
  * includes executing the CONFIGURE, IA-SETUP, and MC-SETUP commands, starting
  * the receiver unit, and clearing interrupts.
  *
- * THIS ROUTINE MUST BE CALLED AT splnet() OR HIGHER.
+ * THIS ROUTINE MUST BE CALLED AT crit_enter() OR HIGHER.
  */
 int
 ieinit(sc)
@@ -2120,9 +2119,9 @@ ieioctl(ifp, cmd, data)
 {
 	struct ie_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2184,7 +2183,7 @@ ieioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 

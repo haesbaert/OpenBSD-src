@@ -40,6 +40,7 @@
 #include <sys/rwlock.h>
 #include <sys/queue.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 #include <dev/rndvar.h>
 
 #include <net/if.h>
@@ -348,7 +349,7 @@ lacp_xmit_lacpdu(struct lacp_port *lp)
 	struct mbuf *m;
 	struct ether_header *eh;
 	struct lacpdu *du;
-	int error, s;
+	int error;
 
 	m = m_gethdr(M_DONTWAIT, MT_DATA);
 	if (m == NULL)
@@ -393,9 +394,9 @@ lacp_xmit_lacpdu(struct lacp_port *lp)
 	 * XXX should use higher priority queue.
 	 * otherwise network congestion can break aggregation.
 	 */
-	s = splnet();
+	crit_enter();
 	error = trunk_enqueue(lp->lp_ifp, m);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -406,7 +407,7 @@ lacp_xmit_marker(struct lacp_port *lp)
 	struct mbuf *m;
 	struct ether_header *eh;
 	struct markerdu *mdu;
-	int error, s;
+	int error;
 
 	m = m_gethdr(M_DONTWAIT, MT_DATA);
 	if (m == NULL)
@@ -439,9 +440,9 @@ lacp_xmit_marker(struct lacp_port *lp)
 	    ntohl(mdu->mdu_info.mi_rq_xid)));
 
 	m->m_flags |= M_MCAST;
-	s = splnet();
+	crit_enter();
 	error = trunk_enqueue(lp->lp_ifp, m);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

@@ -94,6 +94,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -313,13 +314,13 @@ int
 vge_miibus_readreg(struct device *dev, int phy, int reg)
 {
 	struct vge_softc	*sc = (struct vge_softc *)dev;
-	int			i, s;
+	int			i;
 	u_int16_t		rval = 0;
 
 	if (phy != (CSR_READ_1(sc, VGE_MIICFG) & 0x1F))
 		return(0);
 
-	s = splnet();
+	crit_enter();
 
 	vge_miipoll_stop(sc);
 
@@ -342,7 +343,7 @@ vge_miibus_readreg(struct device *dev, int phy, int reg)
 		rval = CSR_READ_2(sc, VGE_MIIDATA);
 
 	vge_miipoll_start(sc);
-	splx(s);
+	crit_leave();
 
 	return (rval);
 }
@@ -351,12 +352,12 @@ void
 vge_miibus_writereg(struct device *dev, int phy, int reg, int data)
 {
 	struct vge_softc	*sc = (struct vge_softc *)dev;
-	int			i, s;
+	int			i;
 
 	if (phy != (CSR_READ_1(sc, VGE_MIICFG) & 0x1F))
 		return;
 
-	s = splnet();
+	crit_enter();
 	vge_miipoll_stop(sc);
 
 	/* Specify the register we want to write. */
@@ -380,7 +381,7 @@ vge_miibus_writereg(struct device *dev, int phy, int reg, int data)
 	}
 
 	vge_miipoll_start(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1228,9 +1229,8 @@ vge_tick(void *xsc)
 	struct vge_softc	*sc = xsc;
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
 	struct mii_data		*mii = &sc->sc_mii;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 
@@ -1254,7 +1254,7 @@ vge_tick(void *xsc)
 		}
 	}
 	timeout_add_sec(&sc->timer_handle, 1);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1770,9 +1770,9 @@ vge_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct vge_softc	*sc = ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *) data;
 	struct ifreq		*ifr = (struct ifreq *) data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -1812,7 +1812,7 @@ vge_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1820,9 +1820,8 @@ void
 vge_watchdog(struct ifnet *ifp)
 {
 	struct vge_softc *sc = ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	printf("%s: watchdog timeout\n", sc->vge_dev.dv_xname);
 	ifp->if_oerrors++;
 
@@ -1831,7 +1830,7 @@ vge_watchdog(struct ifnet *ifp)
 
 	vge_init(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 /*

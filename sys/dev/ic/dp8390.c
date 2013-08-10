@@ -24,6 +24,7 @@
 #include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -179,12 +180,10 @@ dp8390_mediastatus(struct ifnet *ifp, struct ifmediareq *ifmr)
 void
 dp8390_reset(struct dp8390_softc *sc)
 {
-	int     s;
-
-	s = splnet();
+	crit_enter();
 	dp8390_stop(sc);
 	dp8390_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -420,7 +419,7 @@ dp8390_xmit(struct dp8390_softc *sc)
 /*
  * Start output on interface.
  * We make two assumptions here:
- *  1) that the current priority is set to splnet _before_ this code
+ *  1) that the current priority is set to crit_enter _before_ this code
  *     is called *and* is returned to the appropriate priority after
  *     return
  *  2) that the IFF_OACTIVE flag is checked before this code is called
@@ -810,9 +809,9 @@ dp8390_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct dp8390_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -862,7 +861,7 @@ dp8390_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

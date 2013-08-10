@@ -217,7 +217,6 @@ upl_attach(struct device *parent, struct device *self, void *aux)
 {
 	struct upl_softc	*sc = (struct upl_softc *)self;
 	struct usb_attach_arg	*uaa = aux;
-	int			s;
 	struct usbd_device	*dev = uaa->device;
 	struct usbd_interface	*iface;
 	usbd_status		err;
@@ -275,7 +274,7 @@ upl_attach(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	/* Initialize interface info.*/
 	ifp = &sc->sc_if;
@@ -299,7 +298,7 @@ upl_attach(struct device *parent, struct device *self, void *aux)
 	if_alloc_sadl(ifp);
 
 	sc->sc_attached = 1;
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -461,7 +460,6 @@ upl_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct ifnet		*ifp = &sc->sc_if;
 	struct mbuf		*m;
 	int			total_len = 0;
-	int			s;
 
 	if (sc->sc_dying)
 		return;
@@ -497,7 +495,7 @@ upl_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	m->m_pkthdr.rcvif = ifp;
 
-	s = splnet();
+	crit_enter();
 
 	/* XXX ugly */
 	if (upl_newbuf(sc, c, NULL) == ENOBUFS) {
@@ -523,7 +521,7 @@ upl_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	ether_input_mbuf(ifp, m);
 
  done1:
-	splx(s);
+	crit_leave();
 
  done:
 #if 1
@@ -548,12 +546,11 @@ upl_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct upl_chain	*c = priv;
 	struct upl_softc	*sc = c->upl_sc;
 	struct ifnet		*ifp = &sc->sc_if;
-	int			s;
 
 	if (sc->sc_dying)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10,("%s: %s: enter status=%d\n", sc->sc_dev.dv_xname,
 		    __func__, status));
@@ -563,7 +560,7 @@ upl_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -571,7 +568,7 @@ upl_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->sc_ep[UPL_ENDPT_TX]);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -583,7 +580,7 @@ upl_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		upl_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -672,7 +669,6 @@ upl_init(void *xsc)
 {
 	struct upl_softc	*sc = xsc;
 	struct ifnet		*ifp = &sc->sc_if;
-	int			s;
 
 	if (sc->sc_dying)
 		return;
@@ -682,25 +678,25 @@ upl_init(void *xsc)
 	if (ifp->if_flags & IFF_RUNNING)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	/* Init TX ring. */
 	if (upl_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n", sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Init RX ring. */
 	if (upl_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n", sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (sc->sc_ep[UPL_ENDPT_RX] == NULL) {
 		if (upl_openpipes(sc)) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 	}
@@ -708,7 +704,7 @@ upl_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -806,7 +802,7 @@ upl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct upl_softc	*sc = ifp->if_softc;
 	struct ifaddr 		*ifa = (struct ifaddr *)data;
 	struct ifreq		*ifr = (struct ifreq *)data;
-	int			s, error = 0;
+	int			error = 0;
 
 	if (sc->sc_dying)
 		return (EIO);
@@ -814,7 +810,7 @@ upl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	DPRINTFN(5,("%s: %s: cmd=0x%08lx\n",
 		    sc->sc_dev.dv_xname, __func__, command));
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -851,7 +847,7 @@ upl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -964,14 +960,14 @@ int
 upl_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 	   struct rtentry *rt0)
 {
-	int s, len, error;
+	int len, error;
 
 	DPRINTFN(10,("%s: %s: enter\n",
 		     ((struct upl_softc *)ifp->if_softc)->sc_dev.dv_xname,
 		     __func__));
 
 	len = m->m_pkthdr.len;
-	s = splnet();
+	crit_enter();
 	/*
 	 * Queue message on interface, and start output if interface
 	 * not yet active.
@@ -979,13 +975,13 @@ upl_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 	if (error) {
 		/* mbuf is already freed */
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	ifp->if_obytes += len;
 	if ((ifp->if_flags & IFF_OACTIVE) == 0)
 		(*ifp->if_start)(ifp);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

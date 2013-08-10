@@ -35,6 +35,7 @@
 #include <sys/conf.h>
 #include <sys/device.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -726,7 +727,6 @@ rt2661_amrr_node_alloc(struct ieee80211com *ic, struct rt2661_node *rn)
 {
 	struct rt2661_softc *sc = ic->ic_softc;
 	struct rt2661_amrr_node *amn;
-	int s;
 
 	if (sc->amn_count >= RT2661_AMRR_NODES_MAX)
 		rt2661_amrr_node_free_unused(sc);
@@ -737,11 +737,11 @@ rt2661_amrr_node_alloc(struct ieee80211com *ic, struct rt2661_node *rn)
 	    M_NOWAIT | M_ZERO);
 
 	if (amn) {
-		s = splnet();
+		crit_enter();
 		amn->id = sc->amn_count++;
 		amn->rn = rn;
 		TAILQ_INSERT_TAIL(&sc->amn, amn, entry);
-		splx(s);
+		crit_leave();
 	}
 
 	return amn;
@@ -750,14 +750,12 @@ rt2661_amrr_node_alloc(struct ieee80211com *ic, struct rt2661_node *rn)
 void
 rt2661_amrr_node_free(struct rt2661_softc *sc, struct rt2661_amrr_node *amn)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	if (amn->rn)
 		amn->rn->amn = NULL;
 	TAILQ_REMOVE(&sc->amn, amn, entry);
 	sc->amn_count--;
-	splx(s);
+	crit_leave();
 	free(amn, M_DEVBUF);
 }
 
@@ -765,38 +763,35 @@ void
 rt2661_amrr_node_free_all(struct rt2661_softc *sc)
 {
 	struct rt2661_amrr_node *amn, *a;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_FOREACH_SAFE(amn, &sc->amn, entry, a)
 		rt2661_amrr_node_free(sc, amn);
-	splx(s);
+	crit_leave();
 }
 
 void
 rt2661_amrr_node_free_unused(struct rt2661_softc *sc)
 {
 	struct rt2661_amrr_node *amn, *a;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_FOREACH_SAFE(amn, &sc->amn, entry, a) {
 		if (amn->rn == NULL)
 			rt2661_amrr_node_free(sc, amn);
 	}
-	splx(s);
+	crit_leave();
 }
 
 struct rt2661_amrr_node *
 rt2661_amrr_node_find(struct rt2661_softc *sc, u_int8_t id)
 {
 	struct rt2661_amrr_node *amn, *a, *ret = NULL;
-	int s;
 
 	if (id == RT2661_AMRR_INVALID_ID)
 		return NULL;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_FOREACH_SAFE(amn, &sc->amn, entry, a) {
 		/* If the corresponding node was freed, free the amrr node. */
 		if (amn->rn == NULL)
@@ -804,7 +799,7 @@ rt2661_amrr_node_find(struct rt2661_softc *sc, u_int8_t id)
 		else if (amn->id == id)
 			ret = amn;
 	}
-	splx(s);
+	crit_leave();
 
 	return ret;
 }
@@ -859,12 +854,11 @@ rt2661_next_scan(void *arg)
 	struct rt2661_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(ifp);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -889,9 +883,8 @@ rt2661_updatestats(void *arg)
 {
 	struct rt2661_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_opmode == IEEE80211_M_STA)
 		rt2661_iter_func(sc, ic->ic_bss);
 	else
@@ -902,7 +895,7 @@ rt2661_updatestats(void *arg)
 		rt2661_rx_tune(sc);
 		rt2661_amrr_node_free_unused(sc);
 	}
-	splx(s);
+	crit_leave();
 
 	timeout_add_msec(&sc->amrr_to, 500);
 }
@@ -2020,9 +2013,9 @@ rt2661_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2083,7 +2076,7 @@ rt2661_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return error;
 }

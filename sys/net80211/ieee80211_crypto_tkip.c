@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <sys/endian.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>

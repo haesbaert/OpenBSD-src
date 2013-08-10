@@ -32,6 +32,7 @@
 #include <sys/timeout.h>
 #include <sys/device.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>
@@ -254,9 +255,8 @@ ral_pci_resume(void *arg1, void *arg2)
 {
 	struct ral_pci_softc *psc = arg1;
 	struct rt2560_softc *sc = &psc->sc_sc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	(*psc->sc_opns->resume)(sc);
-	splx(s);
+	crit_leave();
 }

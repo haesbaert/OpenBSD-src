@@ -49,6 +49,7 @@
 #include <sys/systm.h>
 #include <sys/errno.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -132,15 +133,15 @@ int
 hfsc_pfattach(struct pf_altq *a)
 {
 	struct ifnet *ifp;
-	int s, error;
+	int error;
 
 	if ((ifp = ifunit(a->ifname)) == NULL || a->altq_disc == NULL)
 		return (EINVAL);
-	s = splnet();
+	crit_enter();
 	error = altq_attach(&ifp->if_snd, ALTQT_HFSC, a->altq_disc,
 	    altq_hfsc_enqueue, altq_hfsc_dequeue, altq_hfsc_request, NULL,
 	    NULL);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -328,7 +329,7 @@ altq_hfsc_class_create(struct altq_hfsc_if *hif, struct service_curve *rsc,
     struct altq_hfsc_class *parent, int qlimit, int flags, int qid)
 {
 	struct altq_hfsc_class *cl, *p;
-	int i, s;
+	int i;
 
 	if (hif->hif_classes >= HFSC_MAX_CLASSES)
 		return (NULL);
@@ -410,7 +411,7 @@ altq_hfsc_class_create(struct altq_hfsc_if *hif, struct service_curve *rsc,
 	cl->cl_hif = hif;
 	cl->cl_parent = parent;
 
-	s = splnet();
+	crit_enter();
 	hif->hif_classes++;
 
 	/*
@@ -428,7 +429,7 @@ altq_hfsc_class_create(struct altq_hfsc_if *hif, struct service_curve *rsc,
 				break;
 			}
 		if (i == HFSC_MAX_CLASSES) {
-			splx(s);
+			crit_leave();
 			goto err_ret;
 		}
 	}
@@ -449,7 +450,7 @@ altq_hfsc_class_create(struct altq_hfsc_if *hif, struct service_curve *rsc,
 			p->cl_siblings = cl;
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	return (cl);
 
@@ -477,7 +478,7 @@ altq_hfsc_class_create(struct altq_hfsc_if *hif, struct service_curve *rsc,
 static int
 altq_hfsc_class_destroy(struct altq_hfsc_class *cl)
 {
-	int i, s;
+	int i;
 
 	if (cl == NULL)
 		return (0);
@@ -485,7 +486,7 @@ altq_hfsc_class_destroy(struct altq_hfsc_class *cl)
 	if (is_a_parent_class(cl))
 		return (EBUSY);
 
-	s = splnet();
+	crit_enter();
 
 	if (!qempty(cl->cl_q))
 		altq_hfsc_purgeq(cl);
@@ -513,7 +514,7 @@ altq_hfsc_class_destroy(struct altq_hfsc_class *cl)
 		}
 
 	cl->cl_hif->hif_classes--;
-	splx(s);
+	crit_leave();
 
 	actlist_destroy(cl->cl_actc);
 

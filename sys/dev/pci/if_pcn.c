@@ -78,6 +78,7 @@
 #include <sys/errno.h>
 #include <sys/device.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -1050,9 +1051,9 @@ pcn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct pcn_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1103,7 +1104,7 @@ pcn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	/* Try to get more packets going. */
 	pcn_start(ifp);
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1454,11 +1455,10 @@ void
 pcn_tick(void *arg)
 {
 	struct pcn_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_timeout, 1);
 }
@@ -1499,7 +1499,7 @@ pcn_reset(struct pcn_softc *sc)
 /*
  * pcn_init:		[ifnet interface function]
  *
- *	Initialize the interface.  Must be called at splnet().
+ *	Initialize the interface.  Must be called at crit_enter().
  */
 int
 pcn_init(struct ifnet *ifp)

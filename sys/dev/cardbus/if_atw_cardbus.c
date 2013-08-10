@@ -47,6 +47,7 @@
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
  

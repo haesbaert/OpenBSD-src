@@ -36,6 +36,7 @@
 #include <sys/conf.h>
 #include <sys/device.h>
 #include <sys/stdint.h>	/* uintptr_t */
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>

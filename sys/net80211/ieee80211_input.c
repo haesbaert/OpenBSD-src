@@ -675,13 +675,13 @@ void
 ieee80211_defrag_timeout(void *arg)
 {
 	struct ieee80211_defrag *df = arg;
-	int s = splnet();
+	crit_enter();
 
 	/* discard all received fragments */
 	m_freem(df->df_m);
 	df->df_m = NULL;
 
-	splx(s);
+	crit_leave();
 }
 
 #ifndef IEEE80211_NO_HT

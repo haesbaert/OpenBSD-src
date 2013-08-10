@@ -333,9 +333,9 @@ ixgb_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ixgb_softc *sc = ifp->if_softc;
 	struct ifaddr	*ifa = (struct ifaddr *) data;
 	struct ifreq	*ifr = (struct ifreq *) data;
-	int		s, error = 0;
+	int		error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -392,7 +392,7 @@ ixgb_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -440,11 +440,10 @@ ixgb_init(void *arg)
 	struct ixgb_softc *sc = arg;
 	struct ifnet   *ifp = &sc->interface_data.ac_if;
 	uint32_t temp_reg;
-	int s;
 
 	INIT_DEBUGOUT("ixgb_init: begin");
 
-	s = splnet();
+	crit_enter();
 
 	ixgb_stop(sc);
 
@@ -456,7 +455,7 @@ ixgb_init(void *arg)
 	if (ixgb_hardware_init(sc)) {
 		printf("%s: Unable to initialize the hardware\n",
 		       sc->sc_dv.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -468,7 +467,7 @@ ixgb_init(void *arg)
 		printf("%s: Could not setup transmit structures\n",
 		       sc->sc_dv.dv_xname);
 		ixgb_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	ixgb_initialize_transmit_unit(sc);
@@ -481,7 +480,7 @@ ixgb_init(void *arg)
 		printf("%s: Could not setup receive structures\n",
 		       sc->sc_dv.dv_xname);
 		ixgb_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	ixgb_initialize_receive_unit(sc);
@@ -503,7 +502,7 @@ ixgb_init(void *arg)
 	ixgb_clear_hw_cntrs(&sc->hw);
 	ixgb_enable_intr(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 /*********************************************************************
@@ -788,11 +787,10 @@ ixgb_local_timer(void *arg)
 {
 	struct ifnet   *ifp;
 	struct ixgb_softc *sc = arg;
-	int s;
 
 	ifp = &sc->interface_data.ac_if;
 
-	s = splnet();
+	crit_enter();
 
 	ixgb_check_for_link(&sc->hw);
 	ixgb_update_link_status(sc);
@@ -804,7 +802,7 @@ ixgb_local_timer(void *arg)
 
 	timeout_add_sec(&sc->timer_handle, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void

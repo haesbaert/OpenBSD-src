@@ -28,6 +28,7 @@
 #include <sys/sockio.h>
 #include <sys/endian.h>
 #include <sys/errno.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>

@@ -32,6 +32,7 @@
 #include <sys/timeout.h>
 #include <sys/device.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>
@@ -333,9 +334,8 @@ ral_cardbus_resume(void *arg1, void *arg2)
 {
 	struct ral_cardbus_softc *csc = arg1;
 	struct rt2560_softc *sc = &csc->sc_sc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	(*csc->sc_opns->resume)(sc);
-	splx(s);
+	crit_leave();
 }

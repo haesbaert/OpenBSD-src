@@ -53,6 +53,7 @@
 #include <sys/kernel.h>
 #include <sys/mbuf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <crypto/cryptodev.h>
 #include <dev/rndvar.h>
@@ -1379,7 +1380,7 @@ hifn_crypto(struct hifn_softc *sc, struct hifn_command *cmd,
 {
 	struct	hifn_dma *dma = sc->sc_dma;
 	u_int32_t cmdlen;
-	int cmdi, resi, s, err = 0;
+	int cmdi, resi, err = 0;
 
 	if (bus_dmamap_create(sc->sc_dmat, HIFN_MAX_DMALEN, MAX_SCATTER,
 	    HIFN_MAX_SEGLEN, 0, BUS_DMA_NOWAIT, &cmd->src_map))
@@ -1513,7 +1514,7 @@ hifn_crypto(struct hifn_softc *sc, struct hifn_command *cmd,
 		    0, cmd->dst_map->dm_mapsize, BUS_DMASYNC_PREREAD);
 	}
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * need 1 cmd, and 1 res
@@ -1521,13 +1522,13 @@ hifn_crypto(struct hifn_softc *sc, struct hifn_command *cmd,
 	 */
 	if ((dma->cmdu + 1) > HIFN_D_CMD_RSIZE ||
 	    (dma->resu + 1) > HIFN_D_RES_RSIZE) {
-		splx(s);
+		crit_leave();
 		err = ENOMEM;
 		goto err_dstmap;
 	}
 	if ((dma->srcu + cmd->src_map->dm_nsegs) > HIFN_D_SRC_RSIZE ||
 	    (dma->dstu + cmd->dst_map->dm_nsegs + 1) > HIFN_D_DST_RSIZE) {
-		splx(s);
+		crit_leave();
 		err = ENOMEM;
 		goto err_dstmap;
 	}
@@ -1620,7 +1621,7 @@ hifn_crypto(struct hifn_softc *sc, struct hifn_command *cmd,
 
 	sc->sc_active = 5;
 	cmd->cmd_callback = hifn_callback;
-	splx(s);
+	crit_leave();
 	return (err);		/* success */
 
 err_dstmap:
@@ -1643,9 +1644,8 @@ void
 hifn_tick(void *vsc)
 {
 	struct hifn_softc *sc = vsc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_active == 0) {
 		struct hifn_dma *dma = sc->sc_dma;
 		u_int32_t r = 0;
@@ -1674,7 +1674,7 @@ hifn_tick(void *vsc)
 	}
 	else
 		sc->sc_active--;
-	splx(s);
+	crit_leave();
 	timeout_add_sec(&sc->sc_tickto, 1);
 }
 
@@ -2375,7 +2375,7 @@ hifn_compression(struct hifn_softc *sc, struct cryptop *crp,
     struct hifn_command *cmd)
 {
 	struct cryptodesc *crd = crp->crp_desc;
-	int s, err = 0;
+	int err = 0;
 
 	cmd->compcrd = crd;
 	cmd->base_masks |= HIFN_BASE_CMD_COMP;
@@ -2471,9 +2471,9 @@ hifn_compression(struct hifn_softc *sc, struct cryptop *crp,
 	cmd->session_num = 0;
 	cmd->softc = sc;
 
-	s = splnet();
+	crit_enter();
 	err = hifn_compress_enter(sc, cmd);
-	splx(s);
+	crit_leave();
 
 	if (err != 0)
 		goto fail;
@@ -2502,7 +2502,7 @@ fail:
 }
 
 /*
- * must be called at splnet()
+ * must be called at crit_enter()
  */
 int
 hifn_compress_enter(struct hifn_softc *sc, struct hifn_command *cmd)
@@ -2676,7 +2676,7 @@ hifn_callback_comp(struct hifn_softc *sc, struct hifn_command *cmd,
 		bus_dmamap_sync(sc->sc_dmat, cmd->dst_map,
 		    0, cmd->dst_map->dm_mapsize, BUS_DMASYNC_PREREAD);
 
-		/* already at splnet... */
+		/* already at crit_enter... */
 		err = hifn_compress_enter(sc, cmd);
 		if (err != 0)
 			goto out;

@@ -396,11 +396,10 @@ vte_detach(struct device *self, int flags)
 {
 	struct vte_softc *sc = (struct vte_softc *)self;
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	vte_stop(sc);
-	splx(s);
+	crit_leave();
 
 	mii_detach(&sc->sc_miibus, MII_PHY_ANY, MII_OFFSET_ANY);
 
@@ -734,9 +733,9 @@ vte_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct mii_data *mii = &sc->sc_miibus;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -774,7 +773,7 @@ vte_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1096,13 +1095,12 @@ vte_tick(void *arg)
 {
 	struct vte_softc *sc = arg;
 	struct mii_data *mii = &sc->sc_miibus;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(mii);
 	vte_stats_update(sc);
 	timeout_add_sec(&sc->vte_tick_ch, 1);
-	splx(s);
+	crit_leave();
 }
 
 void

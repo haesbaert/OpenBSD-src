@@ -94,6 +94,7 @@
 #include <sys/socket.h>
 #include <sys/device.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -312,9 +313,9 @@ rl_mii_send(struct rl_softc *sc, u_int32_t bits, int cnt)
 int
 rl_mii_readreg(struct rl_softc *sc, struct rl_mii_frame *frame)
 {
-	int	i, ack, s;
+	int	i, ack;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Set up frame for RX.
@@ -390,7 +391,7 @@ fail:
 	MII_SET(RL_MII_CLK);
 	DELAY(1);
 
-	splx(s);
+	crit_leave();
 
 	if (ack)
 		return(1);
@@ -403,9 +404,8 @@ fail:
 int
 rl_mii_writereg(struct rl_softc *sc, struct rl_mii_frame *frame)
 {
-	int	s;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Set up frame for TX.
 	 */
@@ -439,7 +439,7 @@ rl_mii_writereg(struct rl_softc *sc, struct rl_mii_frame *frame)
 	 */
 	MII_CLR(RL_MII_DIR);
 
-	splx(s);
+	crit_leave();
 
 	return(0);
 }
@@ -922,9 +922,8 @@ rl_init(void *xsc)
 {
 	struct rl_softc	*sc = xsc;
 	struct ifnet	*ifp = &sc->sc_arpcom.ac_if;
-	int		s;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -986,7 +985,7 @@ rl_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_tmo, 1);
 }
@@ -1022,9 +1021,9 @@ rl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct rl_softc	*sc = ifp->if_softc;
 	struct ifreq	*ifr = (struct ifreq *) data;
 	struct ifaddr	*ifa = (struct ifaddr *) data;
-	int		s, error = 0;
+	int		error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1064,7 +1063,7 @@ rl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 
@@ -1358,11 +1357,10 @@ void
 rl_tick(void *v)
 {
 	struct rl_softc	*sc = v;
-	int		s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_tmo, 1);
 }

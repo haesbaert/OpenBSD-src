@@ -86,7 +86,7 @@ didn't get a copy, you may request one from <license@ipv6.nrl.navy.mil>.
 #include <sys/errno.h>
 #include <sys/syslog.h>
 #include <sys/timeout.h>
-
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/netisr.h>
@@ -203,7 +203,7 @@ ether_output(struct ifnet *ifp0, struct mbuf *m0, struct sockaddr *dst,
     struct rtentry *rt0)
 {
 	u_int16_t etype;
-	int s, len, error = 0, hdrcmplt = 0;
+	int len, error = 0, hdrcmplt = 0;
 	u_char edst[ETHER_ADDR_LEN], esrc[ETHER_ADDR_LEN];
 	struct mbuf *m = m0;
 	struct rtentry *rt;
@@ -415,7 +415,7 @@ ether_output(struct ifnet *ifp0, struct mbuf *m0, struct sockaddr *dst,
 #endif
 	mflags = m->m_flags;
 	len = m->m_pkthdr.len;
-	s = splnet();
+	crit_enter();
 	/*
 	 * Queue message on interface, and start output if interface
 	 * not yet active.
@@ -423,7 +423,7 @@ ether_output(struct ifnet *ifp0, struct mbuf *m0, struct sockaddr *dst,
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 	if (error) {
 		/* mbuf is already freed */
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	ifp->if_obytes += len;
@@ -434,7 +434,7 @@ ether_output(struct ifnet *ifp0, struct mbuf *m0, struct sockaddr *dst,
 	if (mflags & M_MCAST)
 		ifp->if_omcasts++;
 	if_start(ifp);
-	splx(s);
+	crit_leave();
 	return (error);
 
 bad:
@@ -453,7 +453,7 @@ ether_input(struct ifnet *ifp0, struct ether_header *eh, struct mbuf *m)
 {
 	struct ifqueue *inq;
 	u_int16_t etype;
-	int s, llcfound = 0;
+	int llcfound = 0;
 	struct llc *l;
 	struct arpcom *ac;
 	struct ifnet *ifp = ifp0;
@@ -616,7 +616,7 @@ ether_input(struct ifnet *ifp0, struct ether_header *eh, struct mbuf *m)
 	/*
 	 * Schedule softnet interrupt and enqueue packet within the same spl.
 	 */
-	s = splnet();
+	crit_enter();
 decapsulate:
 
 	switch (etype) {
@@ -724,7 +724,7 @@ decapsulate:
 
 	IF_INPUT_ENQUEUE(inq, m);
 done:
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1014,11 +1014,12 @@ ether_addmulti(struct ifreq *ifr, struct arpcom *ac)
 	struct ether_multi *enm;
 	u_char addrlo[ETHER_ADDR_LEN];
 	u_char addrhi[ETHER_ADDR_LEN];
-	int s = splnet(), error;
+	int error;
 
+	crit_enter();
 	error = ether_multiaddr(&ifr->ifr_addr, addrlo, addrhi);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 
@@ -1026,7 +1027,7 @@ ether_addmulti(struct ifreq *ifr, struct arpcom *ac)
 	 * Verify that we have valid Ethernet multicast addresses.
 	 */
 	if ((addrlo[0] & 0x01) != 1 || (addrhi[0] & 0x01) != 1) {
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 	/*
@@ -1038,7 +1039,7 @@ ether_addmulti(struct ifreq *ifr, struct arpcom *ac)
 		 * Found it; just increment the reference count.
 		 */
 		++enm->enm_refcount;
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	/*
@@ -1047,7 +1048,7 @@ ether_addmulti(struct ifreq *ifr, struct arpcom *ac)
 	 */
 	enm = malloc(sizeof(*enm), M_IFMADDR, M_NOWAIT);
 	if (enm == NULL) {
-		splx(s);
+		crit_leave();
 		return (ENOBUFS);
 	}
 	bcopy(addrlo, enm->enm_addrlo, ETHER_ADDR_LEN);
@@ -1058,7 +1059,7 @@ ether_addmulti(struct ifreq *ifr, struct arpcom *ac)
 	ac->ac_multicnt++;
 	if (bcmp(addrlo, addrhi, ETHER_ADDR_LEN) != 0)
 		ac->ac_multirangecnt++;
-	splx(s);
+	crit_leave();
 	/*
 	 * Return ENETRESET to inform the driver that the list has changed
 	 * and its reception filter should be adjusted accordingly.
@@ -1075,11 +1076,12 @@ ether_delmulti(struct ifreq *ifr, struct arpcom *ac)
 	struct ether_multi *enm;
 	u_char addrlo[ETHER_ADDR_LEN];
 	u_char addrhi[ETHER_ADDR_LEN];
-	int s = splnet(), error;
+	int error;
 
+	crit_enter();
 	error = ether_multiaddr(&ifr->ifr_addr, addrlo, addrhi);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 
@@ -1088,14 +1090,14 @@ ether_delmulti(struct ifreq *ifr, struct arpcom *ac)
 	 */
 	ETHER_LOOKUP_MULTI(addrlo, addrhi, ac, enm);
 	if (enm == NULL) {
-		splx(s);
+		crit_leave();
 		return (ENXIO);
 	}
 	if (--enm->enm_refcount != 0) {
 		/*
 		 * Still some claims to this record.
 		 */
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	/*
@@ -1106,7 +1108,7 @@ ether_delmulti(struct ifreq *ifr, struct arpcom *ac)
 	ac->ac_multicnt--;
 	if (bcmp(addrlo, addrhi, ETHER_ADDR_LEN) != 0)
 		ac->ac_multirangecnt--;
-	splx(s);
+	crit_leave();
 	/*
 	 * Return ENETRESET to inform the driver that the list has changed
 	 * and its reception filter should be adjusted accordingly.

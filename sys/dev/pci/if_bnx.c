@@ -50,6 +50,7 @@
  */
 
 #include <dev/pci/if_bnxreg.h>
+#include <sys/proc.h>
 
 struct bnx_firmware {
 	char *filename;
@@ -3749,7 +3750,6 @@ bnx_alloc_pkts(void *xsc, void *arg)
 	struct ifnet *ifp = &sc->arpcom.ac_if;
 	struct bnx_pkt *pkt;
 	int i;
-	int s;
 
 	for (i = 0; i < 4; i++) { /* magic! */
 		pkt = pool_get(bnx_tx_pool, PR_WAITOK);
@@ -3775,10 +3775,10 @@ bnx_alloc_pkts(void *xsc, void *arg)
 	CLR(sc->bnx_flags, BNX_ALLOC_PKTS_FLAG);
 	mtx_leave(&sc->tx_pkt_mtx);
 
-	s = splnet();
+	crit_enter();
 	if (!IFQ_IS_EMPTY(&ifp->if_snd))
 		bnx_start(ifp);
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -4183,12 +4183,11 @@ void
 bnx_rxrefill(void *xsc)
 {
 	struct bnx_softc	*sc = xsc;
-	int			s;
 
-	s = splnet();
+	crit_enter();
 	if (!bnx_fill_rx_chain(sc))
 		timeout_add(&sc->bnx_rxrefill, 1);
-	splx(s);
+	crit_leave();
 }
 
 /****************************************************************************/
@@ -4229,11 +4228,10 @@ bnx_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 {
 	struct bnx_softc	*sc;
 	struct mii_data		*mii;
-	int			s;
 
 	sc = ifp->if_softc;
 
-	s = splnet();
+	crit_enter();
 
 	mii = &sc->bnx_mii;
 
@@ -4242,7 +4240,7 @@ bnx_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 	ifmr->ifm_active = (mii->mii_media_active & ~IFM_ETH_FMASK) |
 	    sc->bnx_flowflags;
 
-	splx(s);
+	crit_leave();
 }
 
 /****************************************************************************/
@@ -4730,7 +4728,6 @@ bnx_init(void *xsc)
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
 	u_int32_t		ether_mtu;
 	int			txpl = 1;
-	int			s;
 
 	DBPRINT(sc, BNX_VERBOSE_RESET, "Entering %s()\n", __FUNCTION__);
 
@@ -4749,7 +4746,7 @@ bnx_init(void *xsc)
 	if (!txpl)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	bnx_stop(sc);
 
@@ -4814,7 +4811,7 @@ bnx_init(void *xsc)
 bnx_init_exit:
 	DBPRINT(sc, BNX_VERBOSE_RESET, "Exiting %s()\n", __FUNCTION__);
 
-	splx(s);
+	crit_leave();
 
 	return;
 }
@@ -5101,9 +5098,9 @@ bnx_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ifaddr		*ifa = (struct ifaddr *) data;
 	struct ifreq		*ifr = (struct ifreq *) data;
 	struct mii_data		*mii = &sc->bnx_mii;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -5160,7 +5157,7 @@ bnx_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

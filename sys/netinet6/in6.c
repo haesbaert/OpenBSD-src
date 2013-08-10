@@ -1226,7 +1226,7 @@ in6_purgeaddr(struct ifaddr *ifa)
 void
 in6_unlink_ifa(struct in6_ifaddr *ia, struct ifnet *ifp)
 {
-	int	s = splnet();
+	crit_enter();
 
 	ifa_del(ifp, &ia->ia_ifa);
 
@@ -1256,7 +1256,7 @@ in6_unlink_ifa(struct in6_ifaddr *ia, struct ifnet *ifp)
 	 */
 	ifafree(&ia->ia_ifa);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1503,9 +1503,9 @@ int
 in6_ifinit(struct ifnet *ifp, struct in6_ifaddr *ia, int newhost)
 {
 	int	error = 0, plen, ifacount = 0;
-	int	s = splnet();
 	struct ifaddr *ifa;
 
+	crit_enter();
 	/*
 	 * Give the interface a chance to initialize
 	 * if this is its first address (or it is a CARP interface)
@@ -1521,10 +1521,10 @@ in6_ifinit(struct ifnet *ifp, struct in6_ifaddr *ia, int newhost)
 
 	if ((ifacount <= 1 || ifp->if_type == IFT_CARP) && ifp->if_ioctl &&
 	    (error = (*ifp->if_ioctl)(ifp, SIOCSIFADDR, (caddr_t)ia))) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
-	splx(s);
+	crit_leave();
 
 	ia->ia_ifa.ifa_metric = ifp->if_metric;
 

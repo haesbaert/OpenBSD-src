@@ -86,7 +86,7 @@ divert_output(struct mbuf *m, ...)
 	struct sockaddr_in *sin;
 	struct socket *so;
 	struct ifaddr *ifa;
-	int s, error = 0, p_hdrlen = 0;
+	int error = 0, p_hdrlen = 0;
 	va_list ap;
 	struct ip *ip;
 	u_int16_t off, csum = 0;
@@ -176,10 +176,10 @@ divert_output(struct mbuf *m, ...)
 
 		inq = &ipintrq;
 
-		s = splnet();
+		crit_enter();
 		IF_INPUT_ENQUEUE(inq, m);
 		schednetisr(NETISR_IP);
-		splx(s);
+		crit_leave();
 	} else {
 		error = ip_output(m, (void *)NULL, &inp->inp_route,
 		    ((so->so_options & SO_DONTROUTE) ? IP_ROUTETOIF : 0)

@@ -237,9 +237,9 @@ pdq_ifioctl(
     caddr_t data)
 {
     pdq_softc_t *sc = (pdq_softc_t *) ((caddr_t) ifp - offsetof(pdq_softc_t, sc_arpcom.ac_if));
-    int s, error = 0;
+    int error = 0;
 
-    s = splnet();
+    crit_enter();
 
     switch (cmd) {
 	case SIOCSIFADDR: {
@@ -313,7 +313,7 @@ pdq_ifioctl(
 	}
     }
 
-    splx(s);
+    crit_leave();
     return error;
 }
 

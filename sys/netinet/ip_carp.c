@@ -975,7 +975,6 @@ void
 carpdetach(struct carp_softc *sc)
 {
 	struct carp_if *cif;
-	int s;
 
 	carp_del_all_timeouts(sc);
 
@@ -989,7 +988,7 @@ carpdetach(struct carp_softc *sc)
 	carp_setrun_all(sc, 0);
 	carp_multicast_cleanup(sc);
 
-	s = splnet();
+	crit_enter();
 	if (sc->ah_cookie != NULL)
 		hook_disestablish(sc->sc_if.if_addrhooks, sc->ah_cookie);
 	if (sc->sc_carpdev != NULL) {
@@ -1005,7 +1004,7 @@ carpdetach(struct carp_softc *sc)
 		}
 	}
 	sc->sc_carpdev = NULL;
-	splx(s);
+	crit_leave();
 }
 
 /* Detach an interface from the carp. */
@@ -1809,7 +1808,6 @@ carp_set_ifp(struct carp_softc *sc, struct ifnet *ifp)
 	struct carp_if *cif, *ncif = NULL;
 	struct carp_softc *vr, *after = NULL;
 	int myself = 0, error = 0;
-	int s;
 
 	if (ifp == sc->sc_carpdev)
 		return (0);
@@ -1888,11 +1886,11 @@ carp_set_ifp(struct carp_softc *sc, struct ifnet *ifp)
 		if (sc->sc_naddrs || sc->sc_naddrs6)
 			sc->sc_if.if_flags |= IFF_UP;
 		carp_set_enaddr(sc);
-		s = splnet();
+		crit_enter();
 		sc->lh_cookie = hook_establish(ifp->if_linkstatehooks, 1,
 		    carp_carpdev_state, ifp);
 		carp_carpdev_state(ifp);
-		splx(s);
+		crit_leave();
 	} else {
 		carpdetach(sc);
 		sc->sc_if.if_flags &= ~(IFF_UP|IFF_RUNNING);

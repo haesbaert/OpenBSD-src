@@ -47,6 +47,7 @@
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
 
@@ -431,7 +432,6 @@ gem_tick(void *arg)
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	bus_space_tag_t t = sc->sc_bustag;
 	bus_space_handle_t mac = sc->sc_h1;
-	int s;
 	u_int32_t v;
 
 	/* unload collisions counters */
@@ -459,9 +459,9 @@ gem_tick(void *arg)
 	bus_space_write_4(t, mac, GEM_MAC_RX_CRC_ERR_CNT, 0);
 	bus_space_write_4(t, mac, GEM_MAC_RX_CODE_VIOL, 0);
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_ch, 1);
 }
@@ -487,9 +487,8 @@ gem_reset(struct gem_softc *sc)
 {
 	bus_space_tag_t t = sc->sc_bustag;
 	bus_space_handle_t h = sc->sc_h2;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	DPRINTF(sc, ("%s: gem_reset\n", sc->sc_dev.dv_xname));
 	gem_reset_rx(sc);
 	gem_reset_tx(sc);
@@ -498,7 +497,7 @@ gem_reset(struct gem_softc *sc)
 	bus_space_write_4(t, h, GEM_RESET, GEM_RESET_RX|GEM_RESET_TX);
 	if (!gem_bitwait(sc, h, GEM_RESET, GEM_RESET_RX | GEM_RESET_TX, 0))
 		printf("%s: cannot reset device\n", sc->sc_dev.dv_xname);
-	splx(s);
+	crit_leave();
 }
 
 
@@ -742,10 +741,9 @@ gem_init(struct ifnet *ifp)
 	struct gem_softc *sc = (struct gem_softc *)ifp->if_softc;
 	bus_space_tag_t t = sc->sc_bustag;
 	bus_space_handle_t h = sc->sc_h1;
-	int s;
 	u_int32_t v;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTF(sc, ("%s: gem_init: calling stop\n", sc->sc_dev.dv_xname));
 	/*
@@ -851,7 +849,7 @@ gem_init(struct ifnet *ifp)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1598,9 +1596,9 @@ gem_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct gem_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1643,7 +1641,7 @@ gem_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

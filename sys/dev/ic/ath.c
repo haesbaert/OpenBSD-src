@@ -55,6 +55,7 @@
 #include <sys/errno.h>
 #include <sys/timeout.h>
 #include <sys/gpio.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
 #include <machine/bus.h>
@@ -453,7 +454,6 @@ int
 ath_detach(struct ath_softc *sc, int flags)
 {
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
 	if ((sc->sc_flags & ATH_ATTACHED) == 0)
 		return (0);
@@ -466,7 +466,7 @@ ath_detach(struct ath_softc *sc, int flags)
 	timeout_del(&sc->sc_cal_to);
 	timeout_del(&sc->sc_rssadapt_to);
 
-	s = splnet();
+	crit_enter();
 	ath_stop(ifp);
 	ath_desc_free(sc);
 	ath_hal_detach(sc->sc_ah);
@@ -474,7 +474,7 @@ ath_detach(struct ath_softc *sc, int flags)
 	ieee80211_ifdetach(ifp);
 	if_detach(ifp);
 
-	splx(s);
+	crit_leave();
 #ifdef __FreeBSD__
 	ATH_TXBUF_LOCK_DESTROY(sc);
 	ATH_TXQ_LOCK_DESTROY(sc);
@@ -641,7 +641,7 @@ ath_init1(struct ath_softc *sc)
 	struct ath_hal *ah = sc->sc_ah;
 	HAL_STATUS status;
 	HAL_CHANNEL hchan;
-	int error = 0, s;
+	int error = 0;
 
 	DPRINTF(ATH_DEBUG_ANY, ("%s: if_flags 0x%x\n",
 	    __func__, ifp->if_flags));
@@ -649,7 +649,7 @@ ath_init1(struct ath_softc *sc)
 	if ((error = ath_enable(sc)) != 0)
 		return error;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Stop anything previously setup.  This is safe
 	 * whether this is the first time through or not.
@@ -721,7 +721,7 @@ ath_init1(struct ath_softc *sc)
 		ieee80211_new_state(ic, IEEE80211_S_RUN, -1);
 	}
 done:
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -731,12 +731,11 @@ ath_stop(struct ifnet *ifp)
 	struct ieee80211com *ic = (struct ieee80211com *) ifp;
 	struct ath_softc *sc = ifp->if_softc;
 	struct ath_hal *ah = sc->sc_ah;
-	int s;
 
 	DPRINTF(ATH_DEBUG_ANY, ("%s: invalid %u if_flags 0x%x\n",
 	    __func__, sc->sc_invalid, ifp->if_flags));
 
-	s = splnet();
+	crit_enter();
 	if (ifp->if_flags & IFF_RUNNING) {
 		/*
 		 * Shutdown the hardware and driver:
@@ -772,7 +771,7 @@ ath_stop(struct ifnet *ifp)
 		}
 		ath_disable(sc);
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -831,7 +830,6 @@ ath_start(struct ifnet *ifp)
 	struct ath_buf *bf;
 	struct mbuf *m;
 	struct ieee80211_frame *wh;
-	int s;
 
 	if ((ifp->if_flags & (IFF_RUNNING|IFF_OACTIVE)) != IFF_RUNNING ||
 	    sc->sc_invalid)
@@ -840,11 +838,11 @@ ath_start(struct ifnet *ifp)
 		/*
 		 * Grab a TX buffer and associated resources.
 		 */
-		s = splnet();
+		crit_enter();
 		bf = TAILQ_FIRST(&sc->sc_txbuf);
 		if (bf != NULL)
 			TAILQ_REMOVE(&sc->sc_txbuf, bf, bf_list);
-		splx(s);
+		crit_leave();
 		if (bf == NULL) {
 			DPRINTF(ATH_DEBUG_ANY, ("%s: out of xmit buffers\n",
 			    __func__));
@@ -866,16 +864,16 @@ ath_start(struct ifnet *ifp)
 				    ("%s: ignore data packet, state %u\n",
 				    __func__, ic->ic_state));
 				sc->sc_stats.ast_tx_discard++;
-				s = splnet();
+				crit_enter();
 				TAILQ_INSERT_TAIL(&sc->sc_txbuf, bf, bf_list);
-				splx(s);
+				crit_leave();
 				break;
 			}
 			IFQ_DEQUEUE(&ifp->if_snd, m);
 			if (m == NULL) {
-				s = splnet();
+				crit_enter();
 				TAILQ_INSERT_TAIL(&sc->sc_txbuf, bf, bf_list);
-				splx(s);
+				crit_leave();
 				break;
 			}
 			ifp->if_opackets++;
@@ -929,9 +927,9 @@ ath_start(struct ifnet *ifp)
 
 		if (ath_tx_start(sc, ni, bf, m)) {
 	bad:
-			s = splnet();
+			crit_enter();
 			TAILQ_INSERT_TAIL(&sc->sc_txbuf, bf, bf_list);
-			splx(s);
+			crit_leave();
 			ifp->if_oerrors++;
 			if (ni != NULL)
 				ieee80211_release_node(ic, ni);
@@ -987,9 +985,9 @@ ath_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifreq *ifr = (struct ifreq *)data;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int error = 0, s;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 	switch (cmd) {
 	case SIOCSIFADDR:
 		ifp->if_flags |= IFF_UP;
@@ -1062,7 +1060,7 @@ ath_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		}
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -2068,7 +2066,7 @@ ath_tx_start(struct ath_softc *sc, struct ieee80211_node *ni,
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ath_hal *ah = sc->sc_ah;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int i, error, iswep, hdrlen, pktlen, len, s, tries;
+	int i, error, iswep, hdrlen, pktlen, len, tries;
 	u_int8_t rix, cix, txrate, ctsrate;
 	struct ath_desc *ds;
 	struct ieee80211_frame *wh;
@@ -2423,7 +2421,7 @@ ath_tx_start(struct ath_softc *sc, struct ieee80211_node *ni,
 	 * Insert the frame on the outbound list and
 	 * pass it on to the hardware.
 	 */
-	s = splnet();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&sc->sc_txq, bf, bf_list);
 	if (sc->sc_txlink == NULL) {
 		ath_hal_put_tx_buf(ah, sc->sc_txhalq[hwqueue], bf->bf_daddr);
@@ -2435,7 +2433,7 @@ ath_tx_start(struct ath_softc *sc, struct ieee80211_node *ni,
 		    sc->sc_txlink, (caddr_t)bf->bf_daddr, bf->bf_desc));
 	}
 	sc->sc_txlink = &bf->bf_desc[bf->bf_nseg - 1].ds_link;
-	splx(s);
+	crit_leave();
 
 	ath_hal_tx_start(ah, sc->sc_txhalq[hwqueue]);
 	return 0;
@@ -2452,15 +2450,15 @@ ath_tx_proc(void *arg, int npending)
 	struct ath_desc *ds;
 	struct ieee80211_node *ni;
 	struct ath_node *an;
-	int sr, lr, s;
+	int sr, lr;
 	HAL_STATUS status;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		bf = TAILQ_FIRST(&sc->sc_txq);
 		if (bf == NULL) {
 			sc->sc_txlink = NULL;
-			splx(s);
+			crit_leave();
 			break;
 		}
 		/* only the last descriptor is needed */
@@ -2471,11 +2469,11 @@ ath_tx_proc(void *arg, int npending)
 			ath_printtxbuf(bf, status == HAL_OK);
 #endif
 		if (status == HAL_EINPROGRESS) {
-			splx(s);
+			crit_leave();
 			break;
 		}
 		TAILQ_REMOVE(&sc->sc_txq, bf, bf_list);
-		splx(s);
+		crit_leave();
 
 		ni = bf->bf_node;
 		if (ni != NULL) {
@@ -2517,9 +2515,9 @@ ath_tx_proc(void *arg, int npending)
 		bf->bf_m = NULL;
 		bf->bf_node = NULL;
 
-		s = splnet();
+		crit_enter();
 		TAILQ_INSERT_TAIL(&sc->sc_txbuf, bf, bf_list);
-		splx(s);
+		crit_leave();
 	}
 	ifp->if_flags &= ~IFF_OACTIVE;
 	sc->sc_tx_timer = 0;
@@ -2538,7 +2536,7 @@ ath_draintxq(struct ath_softc *sc)
 	struct ifnet *ifp = &ic->ic_if;
 	struct ieee80211_node *ni;
 	struct ath_buf *bf;
-	int s, i;
+	int i;
 
 	/* XXX return value */
 	if (!sc->sc_invalid) {
@@ -2556,15 +2554,15 @@ ath_draintxq(struct ath_softc *sc)
 		    (caddr_t)(u_intptr_t)ath_hal_get_tx_buf(ah, sc->sc_bhalq)));
 	}
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		bf = TAILQ_FIRST(&sc->sc_txq);
 		if (bf == NULL) {
 			sc->sc_txlink = NULL;
-			splx(s);
+			crit_leave();
 			break;
 		}
 		TAILQ_REMOVE(&sc->sc_txq, bf, bf_list);
-		splx(s);
+		crit_leave();
 #ifdef AR_DEBUG
 		if (ath_debug & ATH_DEBUG_RESET) {
 			ath_printtxbuf(bf,
@@ -2576,7 +2574,7 @@ ath_draintxq(struct ath_softc *sc)
 		bf->bf_m = NULL;
 		ni = bf->bf_node;
 		bf->bf_node = NULL;
-		s = splnet();
+		crit_enter();
 		if (ni != NULL) {
 			/*
 			 * Reclaim node reference.
@@ -2584,7 +2582,7 @@ ath_draintxq(struct ath_softc *sc)
 			ieee80211_release_node(ic, ni);
 		}
 		TAILQ_INSERT_TAIL(&sc->sc_txbuf, bf, bf_list);
-		splx(s);
+		crit_leave();
 	}
 	ifp->if_flags &= ~IFF_OACTIVE;
 	sc->sc_tx_timer = 0;
@@ -2738,14 +2736,13 @@ ath_next_scan(void *arg)
 	struct ath_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	/* don't call ath_start w/o network interrupts blocked */
-	s = splnet();
+	crit_enter();
 
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(ifp);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2772,7 +2769,6 @@ ath_calibrate(void *arg)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211_channel *c;
 	HAL_CHANNEL hchan;
-	int s;
 
 	sc->sc_stats.ast_per_cal++;
 
@@ -2784,7 +2780,7 @@ ath_calibrate(void *arg)
 	hchan.channel = c->ic_freq;
 	hchan.channelFlags = ath_chan2flags(ic, c);
 
-	s = splnet();
+	crit_enter();
 	DPRINTF(ATH_DEBUG_CALIBRATE,
 	    ("%s: channel %u/%x\n", __func__, c->ic_freq, c->ic_flags));
 
@@ -2803,7 +2799,7 @@ ath_calibrate(void *arg)
 		sc->sc_stats.ast_per_calfail++;
 	}
 	timeout_add_sec(&sc->sc_cal_to, ath_calinterval);
-	splx(s);
+	crit_leave();
 }
 
 void

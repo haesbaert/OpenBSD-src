@@ -74,6 +74,7 @@
 #include <sys/malloc.h>
 #include <sys/kernel.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <dev/pci/pcidevs.h>
 
@@ -164,7 +165,6 @@ lmc_pci_attach(struct device * const parent,
 	unsigned csroffset = LMC_PCI_CSROFFSET;
 	unsigned csrsize = LMC_PCI_CSRSIZE;
 	lmc_csrptr_t csr_base;
-	lmc_spl_t s;
 	lmc_intrfunc_t (*intr_rtn)(void *) = lmc_intr_normal;
 	lmc_softc_t * const sc = (lmc_softc_t *) self;
 	struct pci_attach_args * const pa = (struct pci_attach_args *) aux;
@@ -304,11 +304,11 @@ lmc_pci_attach(struct device * const parent,
                (sc->lmc_revinfo & 0xF0) >> 4, sc->lmc_revinfo & 0x0F,
                LMC_EADDR_ARGS(sc->lmc_enaddr), intrstr);
 
-	s = LMC_RAISESPL();
+	crit_enter();
 	lmc_dec_reset(sc);
 	lmc_reset(sc);
 	lmc_attach(sc);
-	LMC_RESTORESPL(s);
+	crit_leave();
 }
 
 static int

@@ -165,7 +165,6 @@ tun_create(struct if_clone *ifc, int unit, int flags)
 {
 	struct tun_softc	*tp;
 	struct ifnet		*ifp;
-	int			 s;
 
 	tp = malloc(sizeof(*tp), M_DEVBUF, M_NOWAIT|M_ZERO);
 	if (!tp)
@@ -212,9 +211,9 @@ tun_create(struct if_clone *ifc, int unit, int flags)
 	/* force output function to our function */
 	ifp->if_output = tun_output;
 
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&tun_softc_list, tp, tun_list);
-	splx(s);
+	crit_leave();
 #ifdef PIPEX
 	pipex_iface_init(&tp->pipex_iface, ifp);
 #endif
@@ -226,7 +225,7 @@ int
 tun_clone_destroy(struct ifnet *ifp)
 {
 	struct tun_softc	*tp = ifp->if_softc;
-	int			 s;
+	int s;
 
 #ifdef PIPEX
 	pipex_iface_stop(&tp->pipex_iface);
@@ -238,9 +237,9 @@ tun_clone_destroy(struct ifnet *ifp)
 	klist_invalidate(&tp->tun_wsel.si_note);
 	splx(s);
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(tp, tun_list);
-	splx(s);
+	crit_leave();
 
 	if (tp->tun_flags & TUN_LAYER2)
 		ether_ifdetach(ifp);
@@ -266,7 +265,7 @@ int
 tun_switch(struct tun_softc *tp, int flags)
 {
 	struct ifnet		*ifp = &tp->tun_if;
-	int			 unit, open, r, s;
+	int			 unit, open, r;
 	struct ifg_list		*ifgl;
 	u_int			ifgr_len;
 	char			*ifgrpnames, *p;
@@ -314,11 +313,11 @@ tun_switch(struct tun_softc *tp, int flags)
 	}
 	if (open && r == 0) {
 		/* already opened before ifconfig tunX link0 */
-		s = splnet();
+		crit_enter();
 		tp->tun_flags |= open;
 		ifp->if_flags |= IFF_RUNNING;
 		tun_link_state(tp);
-		splx(s);
+		crit_leave();
 		TUNDEBUG(("%s: already open\n", tp->tun_if.if_xname));
 	}
  abort:
@@ -336,7 +335,7 @@ tunopen(dev_t dev, int flag, int mode, struct proc *p)
 {
 	struct tun_softc	*tp;
 	struct ifnet		*ifp;
-	int			 error, s;
+	int			 error;
 
 	if ((tp = tun_lookup(minor(dev))) == NULL) {	/* create on demand */
 		char	xname[IFNAMSIZ];
@@ -357,10 +356,10 @@ tunopen(dev_t dev, int flag, int mode, struct proc *p)
 	tp->tun_flags |= TUN_OPEN;
 
 	/* automatically mark the interface running on open */
-	s = splnet();
+	crit_enter();
 	ifp->if_flags |= IFF_RUNNING;
 	tun_link_state(tp);
-	splx(s);
+	crit_leave();
 
 	TUNDEBUG(("%s: open\n", ifp->if_xname));
 	return (0);
@@ -373,7 +372,6 @@ tunopen(dev_t dev, int flag, int mode, struct proc *p)
 int
 tunclose(dev_t dev, int flag, int mode, struct proc *p)
 {
-	int			 s;
 	struct tun_softc	*tp;
 	struct ifnet		*ifp;
 
@@ -386,11 +384,11 @@ tunclose(dev_t dev, int flag, int mode, struct proc *p)
 	/*
 	 * junk all pending output
 	 */
-	s = splnet();
+	crit_enter();
 	ifp->if_flags &= ~IFF_RUNNING;
 	tun_link_state(tp);
 	IFQ_PURGE(&ifp->if_snd);
-	splx(s);
+	crit_leave();
 
 	TUNDEBUG(("%s: closed\n", ifp->if_xname));
 
@@ -470,9 +468,9 @@ tun_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 {
 	struct tun_softc	*tp = (struct tun_softc *)(ifp->if_softc);
 	struct ifreq		*ifr = (struct ifreq *)data;
-	int			 error = 0, s;
+	int			 error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -552,7 +550,7 @@ tun_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			error = ENOTTY;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -564,7 +562,7 @@ tun_output(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
     struct rtentry *rt)
 {
 	struct tun_softc	*tp = ifp->if_softc;
-	int			 s, len, error;
+	int			 len, error;
 	u_int32_t		*af;
 
 	if ((ifp->if_flags & (IFF_UP|IFF_RUNNING)) != (IFF_UP|IFF_RUNNING)) {
@@ -591,7 +589,7 @@ tun_output(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
 	af = mtod(m0, u_int32_t *);
 	*af = htonl(dst->sa_family);
 
-	s = splnet();
+	crit_enter();
 
 #if NBPFILTER > 0
 	if (ifp->if_bpf)
@@ -600,7 +598,7 @@ tun_output(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
 #ifdef PIPEX
 	if ((m0 = pipex_output(m0, dst->sa_family, sizeof(u_int32_t),
 	    &tp->pipex_iface)) == NULL) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 #endif
@@ -608,11 +606,11 @@ tun_output(struct ifnet *ifp, struct mbuf *m0, struct sockaddr *dst,
 	len = m0->m_pkthdr.len;
 	IFQ_ENQUEUE(&ifp->if_snd, m0, NULL, error);
 	if (error) {
-		splx(s);
+		crit_leave();
 		ifp->if_collisions++;
 		return (error);
 	}
-	splx(s);
+	crit_leave();
 	ifp->if_opackets++;
 	ifp->if_obytes += len;
 
@@ -639,7 +637,6 @@ tun_wakeup(struct tun_softc *tp)
 int
 tunioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 {
-	int			 s;
 	struct tun_softc	*tp;
 	struct tuninfo		*tunp;
 	struct mbuf		*m;
@@ -647,12 +644,12 @@ tunioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 	if ((tp = tun_lookup(minor(dev))) == NULL)
 		return (ENXIO);
 
-	s = splnet();
+	crit_enter();
 	switch (cmd) {
 	case TUNSIFINFO:
 		tunp = (struct tuninfo *)data;
 		if (tunp->mtu < ETHERMIN || tunp->mtu > TUNMRU) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		tp->tun_if.if_mtu = tunp->mtu;
@@ -685,7 +682,7 @@ tunioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 			tp->tun_if.if_flags |= *(int *)data & TUN_IFF_FLAGS;
 			break;
 		default:
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		break;
@@ -720,7 +717,7 @@ tunioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 	case OSIOCGIFADDR:
 	case SIOCGIFADDR:
 		if (!(tp->tun_flags & TUN_LAYER2)) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		bcopy(tp->arpcom.ac_enaddr, data,
@@ -729,7 +726,7 @@ tunioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 
 	case SIOCSIFADDR:
 		if (!(tp->tun_flags & TUN_LAYER2)) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		bcopy(data, tp->arpcom.ac_enaddr,
@@ -740,15 +737,15 @@ tunioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 	    {
 		int ret;
 		ret = pipex_ioctl(&tp->pipex_iface, cmd, data);
-		splx(s);
+		crit_leave();
 		return (ret);
 	    }
 #else
-		splx(s);
+		crit_leave();
 		return (ENOTTY);
 #endif
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -762,7 +759,7 @@ tunread(dev_t dev, struct uio *uio, int ioflag)
 	struct tun_softc	*tp;
 	struct ifnet		*ifp;
 	struct mbuf		*m, *m0;
-	int			 error = 0, len, s;
+	int			 error = 0, len;
 
 	if ((tp = tun_lookup(minor(dev))) == NULL)
 		return (ENXIO);
@@ -776,29 +773,29 @@ tunread(dev_t dev, struct uio *uio, int ioflag)
 
 	tp->tun_flags &= ~TUN_RWAIT;
 
-	s = splnet();
+	crit_enter();
 	do {
 		while ((tp->tun_flags & TUN_READY) != TUN_READY)
 			if ((error = tsleep((caddr_t)tp,
 			    (PZERO + 1)|PCATCH, "tunread", 0)) != 0) {
-				splx(s);
+				crit_leave();
 				return (error);
 			}
 		IFQ_DEQUEUE(&ifp->if_snd, m0);
 		if (m0 == NULL) {
 			if (tp->tun_flags & TUN_NBIO && ioflag & IO_NDELAY) {
-				splx(s);
+				crit_leave();
 				return (EWOULDBLOCK);
 			}
 			tp->tun_flags |= TUN_RWAIT;
 			if ((error = tsleep((caddr_t)tp,
 			    (PZERO + 1)|PCATCH, "tunread", 0)) != 0) {
-				splx(s);
+				crit_leave();
 				return (error);
 			}
 		}
 	} while (m0 == NULL);
-	splx(s);
+	crit_leave();
 
 	while (m0 != NULL && uio->uio_resid > 0 && error == 0) {
 		len = min(uio->uio_resid, m0->m_len);
@@ -830,7 +827,7 @@ tunwrite(dev_t dev, struct uio *uio, int ioflag)
 	u_int32_t		*th;
 	struct mbuf		*top, **mp, *m;
 	int			 isr;
-	int			 error=0, s, tlen, mlen;
+	int			 error=0, tlen, mlen;
 
 	if ((tp = tun_lookup(minor(dev))) == NULL)
 		return (ENXIO);
@@ -904,9 +901,9 @@ tunwrite(dev_t dev, struct uio *uio, int ioflag)
 
 #if NBPFILTER > 0
 	if (ifp->if_bpf) {
-		s = splnet();
+		crit_enter();
 		bpf_mtap(ifp->if_bpf, top, BPF_DIRECTION_IN);
-		splx(s);
+		crit_leave();
 	}
 #endif
 
@@ -914,9 +911,9 @@ tunwrite(dev_t dev, struct uio *uio, int ioflag)
 		/* quirk to not add randomness from a virtual device */
 		atomic_setbits_int(&netisr, (1 << NETISR_RND_DONE));
 
-		s = splnet();
+		crit_enter();
 		ether_input_mbuf(ifp, top);
-		splx(s);
+		crit_leave();
 
 		ifp->if_ipackets++; /* ibytes are counted in ether_input */
 
@@ -948,10 +945,10 @@ tunwrite(dev_t dev, struct uio *uio, int ioflag)
 		return (EAFNOSUPPORT);
 	}
 
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
-		splx(s);
+		crit_leave();
 		ifp->if_collisions++;
 		m_freem(top);
 		if (!ifq->ifq_congestion)
@@ -962,7 +959,7 @@ tunwrite(dev_t dev, struct uio *uio, int ioflag)
 	schednetisr(isr);
 	ifp->if_ipackets++;
 	ifp->if_ibytes += top->m_pkthdr.len;
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -974,7 +971,7 @@ tunwrite(dev_t dev, struct uio *uio, int ioflag)
 int
 tunpoll(dev_t dev, int events, struct proc *p)
 {
-	int			 revents, s;
+	int			 revents;
 	struct tun_softc	*tp;
 	struct ifnet		*ifp;
 	struct mbuf		*m;
@@ -984,7 +981,7 @@ tunpoll(dev_t dev, int events, struct proc *p)
 
 	ifp = &tp->tun_if;
 	revents = 0;
-	s = splnet();
+	crit_enter();
 	TUNDEBUG(("%s: tunpoll\n", ifp->if_xname));
 
 	if (events & (POLLIN | POLLRDNORM)) {
@@ -1000,7 +997,7 @@ tunpoll(dev_t dev, int events, struct proc *p)
 	}
 	if (events & (POLLOUT | POLLWRNORM))
 		revents |= events & (POLLOUT | POLLWRNORM);
-	splx(s);
+	crit_leave();
 	return (revents);
 }
 
@@ -1026,9 +1023,9 @@ tunkqfilter(dev_t dev, struct knote *kn)
 
 	ifp = &tp->tun_if;
 
-	s = splnet();
+	crit_enter();
 	TUNDEBUG(("%s: tunkqfilter\n", ifp->if_xname));
-	splx(s);
+	crit_leave();
 
 	switch (kn->kn_filter) {
 		case EVFILT_READ:
@@ -1068,7 +1065,6 @@ filt_tunrdetach(struct knote *kn)
 int
 filt_tunread(struct knote *kn, long hint)
 {
-	int			 s;
 	struct tun_softc	*tp;
 	struct ifnet		*ifp;
 	struct mbuf		*m;
@@ -1081,17 +1077,17 @@ filt_tunread(struct knote *kn, long hint)
 	tp = (struct tun_softc *)kn->kn_hook;
 	ifp = &tp->tun_if;
 
-	s = splnet();
+	crit_enter();
 	IFQ_POLL(&ifp->if_snd, m);
 	if (m != NULL) {
-		splx(s);
+		crit_leave();
 		kn->kn_data = IFQ_LEN(&ifp->if_snd);
 
 		TUNDEBUG(("%s: tunkqread q=%d\n", ifp->if_xname,
 		    IFQ_LEN(&ifp->if_snd)));
 		return (1);
 	}
-	splx(s);
+	crit_leave();
 	TUNDEBUG(("%s: tunkqread waiting\n", ifp->if_xname));
 	return (0);
 }
@@ -1141,7 +1137,7 @@ tunstart(struct ifnet *ifp)
 	struct tun_softc	*tp = ifp->if_softc;
 	struct mbuf		*m;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	if (!(tp->tun_flags & TUN_LAYER2) &&
 	    !ALTQ_IS_ENABLED(&ifp->if_snd) &&

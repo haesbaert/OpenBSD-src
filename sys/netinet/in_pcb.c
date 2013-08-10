@@ -170,7 +170,6 @@ int
 in_pcballoc(struct socket *so, struct inpcbtable *table)
 {
 	struct inpcb *inp;
-	int s;
 
 	CRIT_ASSERT();
 
@@ -189,14 +188,14 @@ in_pcballoc(struct socket *so, struct inpcbtable *table)
 	inp->inp_seclevel[SL_ESP_NETWORK] = IPSEC_ESP_NETWORK_LEVEL_DEFAULT;
 	inp->inp_seclevel[SL_IPCOMP] = IPSEC_IPCOMP_LEVEL_DEFAULT;
 	inp->inp_rtableid = curproc->p_p->ps_rtableid;
-	s = splnet();
+	crit_enter();
 	CIRCLEQ_INSERT_HEAD(&table->inpt_queue, inp, inp_queue);
 	LIST_INSERT_HEAD(INPCBLHASH(table, inp->inp_lport,
 	    inp->inp_rtableid), inp, inp_lhash);
 	LIST_INSERT_HEAD(INPCBHASH(table, &inp->inp_faddr, inp->inp_fport,
 	    &inp->inp_laddr, inp->inp_lport, rtable_l2(inp->inp_rtableid)),
 	    inp, inp_hash);
-	splx(s);
+	crit_leave();
 	so->so_pcb = inp;
 	inp->inp_hops = -1;
 
@@ -461,7 +460,6 @@ void
 in_pcbdetach(struct inpcb *inp)
 {
 	struct socket *so = inp->inp_socket;
-	int s;
 
 	CRIT_ASSERT();
 
@@ -499,11 +497,11 @@ in_pcbdetach(struct inpcb *inp)
 	if (inp->inp_pf_sk)
 		inp->inp_pf_sk->inp = NULL;
 #endif
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(inp, inp_lhash);
 	LIST_REMOVE(inp, inp_hash);
 	CIRCLEQ_REMOVE(&inp->inp_table->inpt_queue, inp, inp_queue);
-	splx(s);
+	crit_leave();
 	pool_put(&inpcb_pool, inp);
 }
 
@@ -866,9 +864,8 @@ void
 in_pcbrehash(struct inpcb *inp)
 {
 	struct inpcbtable *table = inp->inp_table;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(inp, inp_lhash);
 	LIST_INSERT_HEAD(INPCBLHASH(table, inp->inp_lport, inp->inp_rtableid),
 	    inp, inp_lhash);
@@ -886,7 +883,7 @@ in_pcbrehash(struct inpcb *inp)
 #ifdef INET6
 	}
 #endif /* INET6 */
-	splx(s);
+	crit_leave();
 }
 
 #ifdef DIAGNOSTIC

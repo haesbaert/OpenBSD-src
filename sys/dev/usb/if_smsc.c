@@ -543,9 +543,9 @@ smsc_init(void *xsc)
 	struct ifnet		*ifp = &sc->sc_ac.ac_if;
 	struct smsc_chain	*c;
 	usbd_status		 err;
-	int			 s, i;
+	int			 i;
 	
-	s = splnet();
+	crit_enter();
 
 	/* Cancel pending I/O */
 	smsc_stop(sc);
@@ -556,14 +556,14 @@ smsc_init(void *xsc)
 	/* Init RX ring. */
 	if (smsc_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n", sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Init TX ring. */
 	if (smsc_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n", sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -576,7 +576,7 @@ smsc_init(void *xsc)
 	if (err) {
 		printf("%s: open rx pipe failed: %s\n",
 		    sc->sc_dev.dv_xname, usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -585,7 +585,7 @@ smsc_init(void *xsc)
 	if (err) {
 		printf("%s: open tx pipe failed: %s\n",
 		    sc->sc_dev.dv_xname, usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -608,7 +608,7 @@ smsc_init(void *xsc)
 
 	timeout_add_sec(&sc->sc_stat_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -887,9 +887,9 @@ smsc_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct smsc_softc	*sc = ifp->if_softc;
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct ifaddr		*ifa = (struct ifaddr *)data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(cmd) {
 	case SIOCSIFADDR:
@@ -929,7 +929,7 @@ smsc_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 
@@ -955,7 +955,7 @@ smsc_attach(struct device *parent, struct device *self, void *aux)
 	usb_endpoint_descriptor_t *ed;
 	struct mii_data *mii;
 	struct ifnet *ifp;
-	int err, s, i;
+	int err, i;
 	uint32_t mac_h, mac_l;
 
 	sc->sc_udev = dev;
@@ -1003,7 +1003,7 @@ smsc_attach(struct device *parent, struct device *self, void *aux)
 		}
 	}
 
-	s = splnet();
+	crit_enter();
 
 	ifp = &sc->sc_ac.ac_if;
 	ifp->if_softc = sc;
@@ -1064,7 +1064,7 @@ smsc_attach(struct device *parent, struct device *self, void *aux)
 
 	timeout_set(&sc->sc_stat_ch, smsc_tick, sc);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1127,7 +1127,6 @@ smsc_detach(struct device *self, int flags)
 void
 smsc_tick_task(void *xsc)
 {
-	int			 s;
 	struct smsc_softc	*sc = xsc;
 	struct ifnet		*ifp;
 	struct mii_data		*mii;
@@ -1142,14 +1141,14 @@ smsc_tick_task(void *xsc)
 	if (mii == NULL)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 	if ((sc->sc_flags & SMSC_FLAG_LINK) == 0)
 		smsc_miibus_statchg(&sc->sc_dev);
 	timeout_add_sec(&sc->sc_stat_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1190,7 +1189,6 @@ smsc_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	uint32_t		total_len;
 	uint16_t		pktlen = 0;
 	struct mbuf		*m;
-	int			s;
 	uint32_t		rxhdr;
 
 	if (usbd_is_dying(sc->sc_udev))
@@ -1266,14 +1264,14 @@ smsc_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		memcpy(mtod(m, char *), buf, pktlen);
 
 		/* push the packet up */
-		s = splnet();
+		crit_enter();
 #if NBPFILTER > 0
 		if (ifp->if_bpf)
 			bpf_mtap(ifp->if_bpf, m, BPF_DIRECTION_IN);
 #endif
 		ether_input_mbuf(ifp, m);
 
-		splx(s);
+		crit_leave();
 	} while (total_len > 0);
 
 done:
@@ -1295,7 +1293,6 @@ smsc_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct smsc_softc	*sc;
 	struct smsc_chain	*c;
 	struct ifnet		*ifp;
-	int			s;
 
 	c = priv;
 	sc = c->sc_sc;
@@ -1304,11 +1301,11 @@ smsc_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -1316,7 +1313,7 @@ smsc_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->sc_ep[SMSC_ENDPT_TX]);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1330,7 +1327,7 @@ smsc_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		smsc_start(ifp);
 
 	ifp->if_opackets++;
-	splx(s);
+	crit_leave();
 }
 
 int

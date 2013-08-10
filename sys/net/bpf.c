@@ -242,7 +242,7 @@ bpf_movein(struct uio *uio, u_int linktype, struct mbuf **mp,
 
 /*
  * Attach file to the bpf interface, i.e. make d listen on bp.
- * Must be called at splnet.
+ * Must be called at crit_enter().
  */
 void
 bpf_attachd(struct bpf_d *d, struct bpf_if *bp)
@@ -351,15 +351,14 @@ int
 bpfclose(dev_t dev, int flag, int mode, struct proc *p)
 {
 	struct bpf_d *d;
-	int s;
 
 	d = bpfilter_lookup(minor(dev));
-	s = splnet();
+	crit_enter();
 	if (d->bd_bif)
 		bpf_detachd(d);
 	bpf_wakeup(d);
 	D_PUT(d);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -383,7 +382,6 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 {
 	struct bpf_d *d;
 	int error;
-	int s;
 
 	d = bpfilter_lookup(minor(dev));
 	if (d->bd_bif == 0)
@@ -396,7 +394,7 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 	if (uio->uio_resid != d->bd_bufsize)
 		return (EINVAL);
 
-	s = splnet();
+	crit_enter();
 
 	D_GET(d);
 
@@ -419,7 +417,7 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 			/* interface is gone */
 			if (d->bd_slen == 0) {
 				D_PUT(d);
-				splx(s);
+				crit_leave();
 				return (EIO);
 			}
 			ROTATE_BUFFERS(d);
@@ -447,7 +445,7 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 		}
 		if (error == EINTR || error == ERESTART) {
 			D_PUT(d);
-			splx(s);
+			crit_leave();
 			return (error);
 		}
 		if (error == EWOULDBLOCK) {
@@ -466,7 +464,7 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 
 			if (d->bd_slen == 0) {
 				D_PUT(d);
-				splx(s);
+				crit_leave();
 				return (0);
 			}
 			ROTATE_BUFFERS(d);
@@ -476,7 +474,7 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 	/*
 	 * At this point, we know we have something in the hold slot.
 	 */
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Move data from hold buffer into user space.
@@ -485,13 +483,13 @@ bpfread(dev_t dev, struct uio *uio, int ioflag)
 	 */
 	error = uiomove(d->bd_hbuf, d->bd_hlen, uio);
 
-	s = splnet();
+	crit_enter();
 	d->bd_fbuf = d->bd_hbuf;
 	d->bd_hbuf = 0;
 	d->bd_hlen = 0;
 
 	D_PUT(d);
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -561,7 +559,7 @@ bpfwrite(dev_t dev, struct uio *uio, int ioflag)
 
 /*
  * Reset a descriptor by flushing its packet buffer and clearing the
- * receive and drop counts.  Should be called at splnet.
+ * receive and drop counts.  Should be called at crit_enter().
  */
 void
 bpf_reset_d(struct bpf_d *d)
@@ -601,7 +599,7 @@ int
 bpfioctl(dev_t dev, u_long cmd, caddr_t addr, int flag, struct proc *p)
 {
 	struct bpf_d *d;
-	int s, error = 0;
+	int error = 0;
 
 	d = bpfilter_lookup(minor(dev));
 	if (d->bd_locked && suser(p, 0) != 0) {
@@ -642,11 +640,11 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t addr, int flag, struct proc *p)
 		{
 			int n;
 
-			s = splnet();
+			crit_enter();
 			n = d->bd_slen;
 			if (d->bd_hbuf)
 				n += d->bd_hlen;
-			splx(s);
+			crit_leave();
 
 			*(int *)addr = n;
 			break;
@@ -694,9 +692,9 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t addr, int flag, struct proc *p)
 	 * Flush read packet buffer.
 	 */
 	case BIOCFLUSH:
-		s = splnet();
+		crit_enter();
 		bpf_reset_d(d);
-		splx(s);
+		crit_leave();
 		break;
 
 	/*
@@ -710,13 +708,13 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t addr, int flag, struct proc *p)
 			error = EINVAL;
 			break;
 		}
-		s = splnet();
+		crit_enter();
 		if (d->bd_promisc == 0) {
 			error = ifpromisc(d->bd_bif->bif_ifp, 1);
 			if (error == 0)
 				d->bd_promisc = 1;
 		}
-		splx(s);
+		crit_leave();
 		break;
 
 	/*
@@ -906,19 +904,18 @@ bpf_setf(struct bpf_d *d, struct bpf_program *fp, int wf)
 {
 	struct bpf_insn *fcode, *old;
 	u_int flen, size;
-	int s;
 
 	old = wf ? d->bd_wfilter : d->bd_rfilter;
 	if (fp->bf_insns == 0) {
 		if (fp->bf_len != 0)
 			return (EINVAL);
-		s = splnet();
+		crit_enter();
 		if (wf)
 			d->bd_wfilter = 0;
 		else
 			d->bd_rfilter = 0;
 		bpf_reset_d(d);
-		splx(s);
+		crit_leave();
 		if (old != 0)
 			free((caddr_t)old, M_DEVBUF);
 		return (0);
@@ -931,13 +928,13 @@ bpf_setf(struct bpf_d *d, struct bpf_program *fp, int wf)
 	fcode = (struct bpf_insn *)malloc(size, M_DEVBUF, M_WAITOK);
 	if (copyin((caddr_t)fp->bf_insns, (caddr_t)fcode, size) == 0 &&
 	    bpf_validate(fcode, (int)flen)) {
-		s = splnet();
+		crit_enter();
 		if (wf)
 			d->bd_wfilter = fcode;
 		else
 			d->bd_rfilter = fcode;
 		bpf_reset_d(d);
-		splx(s);
+		crit_leave();
 		if (old != 0)
 			free((caddr_t)old, M_DEVBUF);
 
@@ -956,7 +953,6 @@ int
 bpf_setif(struct bpf_d *d, struct ifreq *ifr)
 {
 	struct bpf_if *bp, *candidate = NULL;
-	int s;
 
 	/*
 	 * Look through attached interfaces for the named one.
@@ -983,7 +979,7 @@ bpf_setif(struct bpf_d *d, struct ifreq *ifr)
 		 */
 		if (d->bd_sbuf == 0)
 			bpf_allocbufs(d);
-		s = splnet();
+		crit_enter();
 		if (candidate != d->bd_bif) {
 			if (d->bd_bif)
 				/*
@@ -994,7 +990,7 @@ bpf_setif(struct bpf_d *d, struct ifreq *ifr)
 			bpf_attachd(d, candidate);
 		}
 		bpf_reset_d(d);
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	/* Not found. */
@@ -1017,7 +1013,7 @@ int
 bpfpoll(dev_t dev, int events, struct proc *p)
 {
 	struct bpf_d *d;
-	int s, revents;
+	int revents;
 
 	/*
 	 * An imitation of the FIONREAD ioctl code.
@@ -1038,7 +1034,7 @@ bpfpoll(dev_t dev, int events, struct proc *p)
 	revents = events & (POLLOUT | POLLWRNORM);
 
 	if (events & (POLLIN | POLLRDNORM)) {
-		s = splnet();
+		crit_enter();
 		if (d->bd_hlen != 0 || (d->bd_immediate && d->bd_slen != 0))
 			revents |= events & (POLLIN | POLLRDNORM);
 		else {
@@ -1050,7 +1046,7 @@ bpfpoll(dev_t dev, int events, struct proc *p)
 				d->bd_rdStart = ticks;
 			selrecord(p, &d->bd_sel);
 		}
-		splx(s);
+		crit_leave();
 	}
 	return (revents);
 }
@@ -1063,7 +1059,6 @@ bpfkqfilter(dev_t dev, struct knote *kn)
 {
 	struct bpf_d *d;
 	struct klist *klist;
-	int s;
 
 	d = bpfilter_lookup(minor(dev));
 	switch (kn->kn_filter) {
@@ -1077,10 +1072,10 @@ bpfkqfilter(dev_t dev, struct knote *kn)
 
 	kn->kn_hook = (caddr_t)((u_long)dev);
 
-	s = splnet();
+	crit_enter();
 	D_GET(d);
 	SLIST_INSERT_HEAD(klist, kn, kn_selnext);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1090,13 +1085,12 @@ filt_bpfrdetach(struct knote *kn)
 {
 	dev_t dev = (dev_t)((u_long)kn->kn_hook);
 	struct bpf_d *d;
-	int s;
 
 	d = bpfilter_lookup(minor(dev));
-	s = splnet();
+	crit_enter();
 	SLIST_REMOVE(&d->bd_sel.si_note, kn, knote, kn_selnext);
 	D_PUT(d);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1650,7 +1644,6 @@ bpf_getdltlist(struct bpf_d *d, struct bpf_dltlist *bfl)
 int
 bpf_setdlt(struct bpf_d *d, u_int dlt)
 {
-	int s;
 	struct ifnet *ifp;
 	struct bpf_if *bp;
 
@@ -1663,10 +1656,10 @@ bpf_setdlt(struct bpf_d *d, u_int dlt)
 	}
 	if (bp == NULL)
 		return (EINVAL);
-	s = splnet();
+	crit_enter();
 	bpf_detachd(d);
 	bpf_attachd(d, bp);
 	bpf_reset_d(d);
-	splx(s);
+	crit_leave();
 	return (0);
 }

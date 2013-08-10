@@ -680,7 +680,7 @@ axe_attach(struct device *parent, struct device *self, void *aux)
 	u_char eaddr[ETHER_ADDR_LEN];
 	char *devname = sc->axe_dev.dv_xname;
 	struct ifnet *ifp;
-	int i, s;
+	int i;
 
 	sc->axe_unit = self->dv_unit; /*device_get_unit(self);*/
 	sc->axe_udev = dev;
@@ -739,7 +739,7 @@ axe_attach(struct device *parent, struct device *self, void *aux)
 		}
 	}
 
-	s = splnet();
+	crit_enter();
 
 	/* We need the PHYID for init dance in some cases */
 	axe_cmd(sc, AXE_CMD_READ_PHYID, 0, 0, (void *)&sc->axe_phyaddrs);
@@ -827,7 +827,7 @@ axe_attach(struct device *parent, struct device *self, void *aux)
 
 	timeout_set(&sc->axe_stat_ch, axe_tick, sc);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1002,7 +1002,6 @@ axe_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	u_int16_t		pktlen = 0;
 	struct mbuf		*m;
 	struct axe_sframe_hdr	hdr;
-	int			s;
 
 	DPRINTFN(10,("%s: %s: enter\n", sc->axe_dev.dv_xname,__func__));
 
@@ -1077,7 +1076,7 @@ axe_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		memcpy(mtod(m, char *), buf, pktlen);
 
 		/* push the packet up */
-		s = splnet();
+		crit_enter();
 #if NBPFILTER > 0
 		if (ifp->if_bpf)
 			bpf_mtap(ifp->if_bpf, m, BPF_DIRECTION_IN);
@@ -1085,7 +1084,7 @@ axe_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 		ether_input_mbuf(ifp, m);
 
-		splx(s);
+		crit_leave();
 
 	} while (total_len > 0);
 
@@ -1115,7 +1114,6 @@ axe_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct axe_softc	*sc;
 	struct axe_chain	*c;
 	struct ifnet		*ifp;
-	int			s;
 
 	c = priv;
 	sc = c->axe_sc;
@@ -1124,11 +1122,11 @@ axe_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (usbd_is_dying(sc->axe_udev))
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -1136,7 +1134,7 @@ axe_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->axe_ep[AXE_ENDPT_TX]);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1150,7 +1148,7 @@ axe_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		axe_start(ifp);
 
 	ifp->if_opackets++;
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -1176,7 +1174,6 @@ axe_tick(void *xsc)
 void
 axe_tick_task(void *xsc)
 {
-	int			s;
 	struct axe_softc	*sc;
 	struct ifnet		*ifp;
 	struct mii_data		*mii;
@@ -1194,14 +1191,14 @@ axe_tick_task(void *xsc)
 	if (mii == NULL)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 	if (sc->axe_link == 0)
 		axe_miibus_statchg(&sc->axe_dev);
 	timeout_add_sec(&sc->axe_stat_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1308,9 +1305,9 @@ axe_init(void *xsc)
 	usbd_status		err;
 	uWord			urxmode;
 	int			rxmode;
-	int			i, s;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1327,14 +1324,14 @@ axe_init(void *xsc)
 	/* Init RX ring. */
 	if (axe_rx_list_init(sc) == ENOBUFS) {
 		printf("axe%d: rx list init failed\n", sc->axe_unit);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Init TX ring. */
 	if (axe_tx_list_init(sc) == ENOBUFS) {
 		printf("axe%d: tx list init failed\n", sc->axe_unit);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1371,7 +1368,7 @@ axe_init(void *xsc)
 	if (err) {
 		printf("axe%d: open rx pipe failed: %s\n",
 		    sc->axe_unit, usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1380,7 +1377,7 @@ axe_init(void *xsc)
 	if (err) {
 		printf("axe%d: open tx pipe failed: %s\n",
 		    sc->axe_unit, usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1398,7 +1395,7 @@ axe_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->axe_stat_ch, 1);
 	return;
@@ -1410,9 +1407,9 @@ axe_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct axe_softc	*sc = ifp->if_softc;
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct ifaddr		*ifa = (struct ifaddr *)data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(cmd) {
 	case SIOCSIFADDR:
@@ -1452,7 +1449,7 @@ axe_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 

@@ -1163,10 +1163,10 @@ upgt_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 	uint8_t chan;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1221,7 +1221,7 @@ upgt_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -1629,9 +1629,9 @@ upgt_tx_done(struct upgt_softc *sc, uint8_t *data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
 	struct upgt_lmac_tx_done_desc *desc;
-	int i, s;
+	int i;
 
-	s = splnet();
+	crit_enter();
 
 	desc = (struct upgt_lmac_tx_done_desc *)data;
 
@@ -1664,7 +1664,7 @@ upgt_tx_done(struct upgt_softc *sc, uint8_t *data)
 		upgt_start(ifp);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1754,7 +1754,6 @@ upgt_rx(struct upgt_softc *sc, uint8_t *data, int pkglen)
 	struct ieee80211_rxinfo rxi;
 	struct ieee80211_node *ni;
 	struct mbuf *m;
-	int s;
 
 	/* access RX packet descriptor */
 	rxdesc = (struct upgt_lmac_rx_desc *)data;
@@ -1767,7 +1766,7 @@ upgt_rx(struct upgt_softc *sc, uint8_t *data, int pkglen)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 #if NBPFILTER > 0
 	if (sc->sc_drvbpf != NULL) {
@@ -1804,7 +1803,7 @@ upgt_rx(struct upgt_softc *sc, uint8_t *data, int pkglen)
 	/* node is no longer needed */
 	ieee80211_release_node(ic, ni);
 
-	splx(s);
+	crit_leave();
 
 	DPRINTF(3, "%s: RX done\n", sc->sc_dev.dv_xname);
 }

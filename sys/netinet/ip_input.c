@@ -214,16 +214,15 @@ void
 ipintr(void)
 {
 	struct mbuf *m;
-	int s;
 
 	for (;;) {
 		/*
 		 * Get next datagram off input queue and get IP header
 		 * in first mbuf.
 		 */
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&ipintrq, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			return;
 #ifdef	DIAGNOSTIC

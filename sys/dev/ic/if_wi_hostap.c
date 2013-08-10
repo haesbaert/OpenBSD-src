@@ -181,7 +181,7 @@ put_rates(caddr_t *ppkt, u_int16_t rates)
 /* wihap_init()
  *
  *	Initialize host AP data structures.  Called even if port type is
- *	not AP.  Caller MUST raise to splnet().
+ *	not AP.  Caller MUST raise to crit_enter().
  */
 void
 wihap_init(struct wi_softc *sc)
@@ -274,7 +274,7 @@ wihap_shutdown(struct wi_softc *sc)
 {
 	struct wihap_info	*whi = &sc->wi_hostap_info;
 	struct wihap_sta_info	*sta, *next;
-	int i, s;
+	int i;
 
 	if (sc->sc_ic.ic_if.if_flags & IFF_DEBUG)
 		printf("wihap_shutdown: sc=%p whi=%p\n", sc, whi);
@@ -283,7 +283,7 @@ wihap_shutdown(struct wi_softc *sc)
 		return;
 	whi->apflags = 0;
 
-	s = splnet();
+	crit_enter();
 
 	/* Disable wihap inactivity timer. */
 	timeout_del(&whi->tmo);
@@ -312,7 +312,7 @@ wihap_shutdown(struct wi_softc *sc)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /* sta_hash_func()
@@ -348,9 +348,9 @@ wihap_timeout(void *v)
 	struct wi_softc		*sc = v;
 	struct wihap_info	*whi = &sc->wi_hostap_info;
 	struct wihap_sta_info	*sta, *next;
-	int	i, s;
+	int	i;
 
-	s = splnet();
+	crit_enter();
 
 	for (i = 10, sta = TAILQ_FIRST(&whi->sta_list);
 	    i != 0 && sta != TAILQ_END(&whi->sta_list) &&
@@ -399,7 +399,7 @@ wihap_timeout(void *v)
 	if (sta != NULL && (sta->flags & WI_SIFLAGS_DEAD))
 		timeout_add(&whi->tmo, 1);	/* still work left, requeue */
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -408,9 +408,8 @@ wihap_sta_timeout(void *v)
 	struct wihap_sta_info	*sta = v;
 	struct wi_softc		*sc = sta->sc;
 	struct wihap_info	*whi = &sc->wi_hostap_info;
-	int	s;
 
-	s = splnet();
+	crit_enter();
 
 	/* Mark sta as dead and move it to the head of the list. */
 	TAILQ_REMOVE(&whi->sta_list, sta, list);
@@ -421,12 +420,12 @@ wihap_sta_timeout(void *v)
 	if (!timeout_pending(&whi->tmo))
 		timeout_add(&whi->tmo, hz / 10);
 
-	splx(s);
+	crit_leave();
 }
 
 /* wihap_sta_delete()
  * Delete a single station and free up its data structure.
- * Caller must raise to splnet().
+ * Caller must raise to crit_enter().
  */
 void
 wihap_sta_delete(struct wihap_sta_info *sta)
@@ -548,7 +547,7 @@ wihap_auth_req(struct wi_softc *sc, struct wi_frame *rxfrm,
 {
 	struct wihap_info	*whi = &sc->wi_hostap_info;
 	struct wihap_sta_info	*sta;
-	int			i, s;
+	int			i;
 
 	u_int16_t		algo;
 	u_int16_t		seq;
@@ -606,9 +605,9 @@ wihap_auth_req(struct wi_softc *sc, struct wi_frame *rxfrm,
 			printf("wihap_auth_req: new station\n");
 
 		/* Create new station. */
-		s = splnet();
+		crit_enter();
 		sta = wihap_sta_alloc(sc, rxfrm->wi_addr2);
-		splx(s);
+		crit_leave();
 		if (sta == NULL) {
 			/* Out of memory! */
 			status = IEEE80211_STATUS_TOOMANY;
@@ -1200,7 +1199,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 	struct hostap_getall	reqall;
 	struct hostap_sta	reqsta;
 	struct hostap_sta	stabuf;
-	int			s, error = 0, n, flag;
+	int			error = 0, n, flag;
 
 	struct ieee80211_nodereq nr;
 	struct ieee80211_nodereq_all *na;
@@ -1214,7 +1213,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 			break;
 		if ((error = copyin(ifr->ifr_data, &reqsta, sizeof(reqsta))))
 			break;
-		s = splnet();
+		crit_enter();
 		sta = wihap_sta_find(whi, reqsta.addr);
 		if (sta == NULL)
 			error = ENOENT;
@@ -1230,13 +1229,13 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 
 			wihap_sta_delete(sta);
 		}
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCHOSTAP_GET:
 		if ((error = copyin(ifr->ifr_data, &reqsta, sizeof(reqsta))))
 			break;
-		s = splnet();
+		crit_enter();
 		sta = wihap_sta_find(whi, reqsta.addr);
 		if (sta == NULL)
 			error = ENOENT;
@@ -1250,7 +1249,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 			error = copyout(&reqsta, ifr->ifr_data,
 			    sizeof(reqsta));
 		}
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCHOSTAP_ADD:
@@ -1258,22 +1257,22 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 			break;
 		if ((error = copyin(ifr->ifr_data, &reqsta, sizeof(reqsta))))
 			break;
-		s = splnet();
+		crit_enter();
 		sta = wihap_sta_find(whi, reqsta.addr);
 		if (sta != NULL) {
 			error = EEXIST;
-			splx(s);
+			crit_leave();
 			break;
 		}
 		if (whi->n_stations >= WIHAP_MAX_STATIONS) {
 			error = ENOSPC;
-			splx(s);
+			crit_leave();
 			break;
 		}
 		sta = wihap_sta_alloc(sc, reqsta.addr);
 		sta->flags = reqsta.flags;
 		timeout_add_sec(&sta->tmo, whi->inactivity_time);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCHOSTAP_SFLAGS:
@@ -1297,7 +1296,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 
 		reqall.nstations = whi->n_stations;
 		n = 0;
-		s = splnet();
+		crit_enter();
 		sta = TAILQ_FIRST(&whi->sta_list);
 		while (sta && reqall.size >= n+sizeof(struct hostap_sta)) {
 
@@ -1316,7 +1315,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 			sta = TAILQ_NEXT(sta, list);
 			n += sizeof(struct hostap_sta);
 		}
-		splx(s);
+		crit_leave();
 
 		if (!error)
 			error = copyout(&reqall, ifr->ifr_data,
@@ -1326,7 +1325,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 	case SIOCG80211ALLNODES:
 		na = (struct ieee80211_nodereq_all *)data;
 		na->na_nodes = n = 0;
-		s = splnet();
+		crit_enter();
 		sta = TAILQ_FIRST(&whi->sta_list);
 		while (sta && na->na_size >=
 		    n + sizeof(struct ieee80211_nodereq)) {
@@ -1358,7 +1357,7 @@ wihap_ioctl(struct wi_softc *sc, u_long command, caddr_t data)
 			na->na_nodes++;
 			sta = TAILQ_NEXT(sta, list);
 		}
-		splx(s);
+		crit_leave();
 		break;
 
 	default:

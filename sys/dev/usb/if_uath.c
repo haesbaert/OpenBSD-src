@@ -431,13 +431,12 @@ uath_detach(struct device *self, int flags)
 {
 	struct uath_softc *sc = (struct uath_softc *)self;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	if (sc->sc_flags & UATH_FLAG_PRE_FIRMWARE) {
 		uath_close_pipes(sc);
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 
@@ -463,7 +462,7 @@ uath_detach(struct device *self, int flags)
 		if_detach(ifp);
 	}
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -1183,7 +1182,7 @@ uath_data_rxeof(struct usbd_xfer *xfer, void *priv,
 	struct uath_rx_desc *desc;
 	struct mbuf *mnew, *m;
 	uint32_t hdr;
-	int s, len;
+	int len;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -1284,7 +1283,7 @@ uath_data_rxeof(struct usbd_xfer *xfer, void *priv,
 	}
 #endif
 
-	s = splnet();
+	crit_enter();
 	ni = ieee80211_find_rxnode(ic, wh);
 	rxi.rxi_rssi = (int)betoh32(desc->rssi);
 	rxi.rxi_tstamp = 0;	/* unused */
@@ -1292,7 +1291,7 @@ uath_data_rxeof(struct usbd_xfer *xfer, void *priv,
 
 	/* node is no longer needed */
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 
 skip:	/* setup a new transfer */
 	usbd_setup_xfer(xfer, sc->data_rx_pipe, data, data->buf, sc->rxbufsz,
@@ -1336,7 +1335,6 @@ uath_data_txeof(struct usbd_xfer *xfer, void *priv,
 	struct uath_softc *sc = data->sc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -1352,7 +1350,7 @@ uath_data_txeof(struct usbd_xfer *xfer, void *priv,
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	ieee80211_release_node(ic, data->ni);
 	data->ni = NULL;
@@ -1364,7 +1362,7 @@ uath_data_txeof(struct usbd_xfer *xfer, void *priv,
 	ifp->if_flags &= ~IFF_OACTIVE;
 	uath_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1567,9 +1565,9 @@ uath_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1611,7 +1609,7 @@ uath_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return error;
 }

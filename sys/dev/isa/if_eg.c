@@ -781,9 +781,9 @@ egioctl(ifp, cmd, data)
 {
 	struct eg_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -835,7 +835,7 @@ egioctl(ifp, cmd, data)
 		error = ether_ioctl(ifp, &sc->sc_arpcom, cmd, data);
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -843,13 +843,11 @@ void
 egreset(sc)
 	struct eg_softc *sc;
 {
-	int s;
-
 	DPRINTF(("egreset()\n"));
-	s = splnet();
+	crit_enter();
 	egstop(sc);
 	eginit(sc);
-	splx(s);
+	crit_leave();
 }
 
 void

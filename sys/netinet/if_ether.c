@@ -507,12 +507,12 @@ arpintr(void)
 {
 	struct mbuf *m;
 	struct arphdr *ar;
-	int s, len;
+	int len;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&arpintrq, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			break;
 #ifdef DIAGNOSTIC

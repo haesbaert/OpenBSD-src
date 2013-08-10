@@ -48,6 +48,7 @@
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -529,9 +530,9 @@ epic_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct epic_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -580,7 +581,7 @@ epic_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -850,11 +851,10 @@ void
 epic_tick(void *arg)
 {
 	struct epic_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_mii_timeout, 1);
 }
@@ -898,7 +898,7 @@ epic_reset(struct epic_softc *sc)
 }
 
 /*
- * Initialize the interface.  Must be called at splnet().
+ * Initialize the interface.  Must be called at crit_enter().
  */
 int
 epic_init(struct ifnet *ifp)

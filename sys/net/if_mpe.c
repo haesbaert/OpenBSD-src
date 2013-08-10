@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/ioctl.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -86,7 +87,6 @@ mpe_clone_create(struct if_clone *ifc, int unit)
 {
 	struct ifnet 		*ifp;
 	struct mpe_softc	*mpeif;
-	int 			 s;
 
 	if ((mpeif = malloc(sizeof(*mpeif),
 	    M_DEVBUF, M_NOWAIT|M_ZERO)) == NULL)
@@ -112,9 +112,9 @@ mpe_clone_create(struct if_clone *ifc, int unit)
 	bpfattach(&ifp->if_bpf, ifp, DLT_LOOP, sizeof(u_int32_t));
 #endif
 
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&mpeif_list, mpeif, sc_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -123,11 +123,10 @@ int
 mpe_clone_destroy(struct ifnet *ifp)
 {
 	struct mpe_softc	*mpeif = ifp->if_softc;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(mpeif, sc_list);
-	splx(s);
+	crit_leave();
 
 	if_detach(ifp);
 	free(mpeif, M_DEVBUF);
@@ -143,14 +142,13 @@ mpestart(struct ifnet *ifp)
 {
 	struct mbuf 		*m;
 	struct sockaddr		*sa = (struct sockaddr *)&mpedst;
-	int			 s;
 	sa_family_t		 af;
 	struct rtentry		*rt;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IFQ_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			return;
@@ -203,7 +201,6 @@ mpeoutput(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 	struct rtentry *rt)
 {
 	struct shim_hdr	shim;
-	int		s;
 	int		error;
 	int		off;
 	u_int8_t	op = 0;
@@ -259,15 +256,15 @@ mpeoutput(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 
 	m_copyback(m, off, sizeof(shim), (caddr_t)&shim, M_NOWAIT);
 
-	s = splnet();
+	crit_enter();
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 	if (error) {
 		/* mbuf is already freed */
-		splx(s);
+		crit_leave();
 		goto out;
 	}
 	if_start(ifp);
-	splx(s);
+	crit_leave();
 
 out:
 	if (error)
@@ -366,7 +363,7 @@ mpe_input(struct mbuf *m, struct ifnet *ifp, struct sockaddr_mpls *smpls,
     u_int8_t ttl)
 {
 	struct ip	*ip;
-	int		 s, hlen;
+	int		 hlen;
 
 	/* label -> AF lookup */
 
@@ -403,10 +400,10 @@ mpe_input(struct mbuf *m, struct ifnet *ifp, struct sockaddr_mpls *smpls,
 	if (ifp && ifp->if_bpf)
 		bpf_mtap_af(ifp->if_bpf, AF_INET, m, BPF_DIRECTION_IN);
 #endif
-	s = splnet();
+	crit_enter();
 	IF_INPUT_ENQUEUE(&ipintrq, m);
 	schednetisr(NETISR_IP);
-	splx(s);
+	crit_leave();
 }
 
 #ifdef INET6
@@ -415,7 +412,6 @@ mpe_input6(struct mbuf *m, struct ifnet *ifp, struct sockaddr_mpls *smpls,
     u_int8_t ttl)
 {
 	struct ip6_hdr *ip6hdr;
-	int s;
 
 	/* label -> AF lookup */
 
@@ -438,10 +434,10 @@ mpe_input6(struct mbuf *m, struct ifnet *ifp, struct sockaddr_mpls *smpls,
 	if (ifp && ifp->if_bpf)
 		bpf_mtap_af(ifp->if_bpf, AF_INET6, m, BPF_DIRECTION_IN);
 #endif
-	s = splnet();
+	crit_enter();
 	IF_INPUT_ENQUEUE(&ip6intrq, m);
 	schednetisr(NETISR_IPV6);
-	splx(s);
+	crit_leave();
 }
 #endif	/* INET6 */
 

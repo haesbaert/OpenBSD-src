@@ -850,10 +850,10 @@ acx_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 	uint8_t chan;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -911,7 +911,7 @@ acx_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }

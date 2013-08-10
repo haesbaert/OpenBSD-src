@@ -315,14 +315,13 @@ ipw_resume(void *arg1, void *arg2)
 	struct ipw_softc *sc = arg1;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
 	pcireg_t data;
-	int s;
 
 	/* clear device specific PCI configuration register 0x41 */
 	data = pci_conf_read(sc->sc_pct, sc->sc_pcitag, 0x40);
 	data &= ~0x0000ff00;
 	pci_conf_write(sc->sc_pct, sc->sc_pcitag, 0x40, data);
 
-	s = splnet();
+	crit_enter();
 	while (sc->sc_flags & IPW_FLAG_BUSY)
 		tsleep(&sc->sc_flags, PZERO, "ipwpwr", 0);
 	sc->sc_flags |= IPW_FLAG_BUSY;
@@ -332,7 +331,7 @@ ipw_resume(void *arg1, void *arg2)
 
 	sc->sc_flags &= ~IPW_FLAG_BUSY;
 	wakeup(&sc->sc_flags);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1085,9 +1084,9 @@ int
 ipw_cmd(struct ipw_softc *sc, uint32_t type, void *data, uint32_t len)
 {
 	struct ipw_soft_bd *sbd;
-	int s, error;
+	int error;
 
-	s = splnet();
+	crit_enter();
 
 	sc->cmd.type = htole32(type);
 	sc->cmd.subtype = htole32(0);
@@ -1101,7 +1100,7 @@ ipw_cmd(struct ipw_softc *sc, uint32_t type, void *data, uint32_t len)
 	if (error != 0) {
 		printf("%s: can't map command DMA memory\n",
 		    sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return error;
 	}
 
@@ -1127,7 +1126,7 @@ ipw_cmd(struct ipw_softc *sc, uint32_t type, void *data, uint32_t len)
 
 	/* wait at most one second for command to complete */
 	error = tsleep(&sc->cmd, 0, "ipwcmd", hz);
-	splx(s);
+	crit_leave();
 
 	return error;
 }
@@ -1379,9 +1378,9 @@ ipw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Prevent processes from entering this function while another
 	 * process is tsleep'ing in it.
@@ -1389,7 +1388,7 @@ ipw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	while ((sc->sc_flags & IPW_FLAG_BUSY) && error == 0)
 		error = tsleep(&sc->sc_flags, PCATCH, "ipwioc", 0);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return error;
 	}
 	sc->sc_flags |= IPW_FLAG_BUSY;
@@ -1448,7 +1447,7 @@ ipw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 
 	sc->sc_flags &= ~IPW_FLAG_BUSY;
 	wakeup(&sc->sc_flags);
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -1754,7 +1753,7 @@ ipw_auth_and_assoc(void *arg1, void *arg2)
 	struct ipw_assoc_req assoc;
 	uint32_t data;
 	uint8_t chan;
-	int s, error;
+	int error;
 
 	DPRINTF(("Disabling adapter\n"));
 	error = ipw_cmd(sc, IPW_CMD_DISABLE, NULL, 0);
@@ -1762,9 +1761,9 @@ ipw_auth_and_assoc(void *arg1, void *arg2)
 		goto fail;
 #if 1
 	/* wait at most one second for card to be disabled */
-	s = splnet();
+	crit_enter();
 	error = tsleep(sc, 0, "ipwdis", hz);
-	splx(s);
+	crit_leave();
 	if (error != 0) {
 		printf("%s: timeout waiting for disabled state\n",
 		    sc->sc_dev.dv_xname);

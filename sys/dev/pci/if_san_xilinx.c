@@ -537,7 +537,6 @@ wan_xilinx_down(struct ifnet *ifp)
 	xilinx_softc_t	*sc = ifp->if_softc;
 	sdla_t		*card = (sdla_t *)sc->common.card;
 	struct xilinx_rx_buffer *buf;
-	int		s;
 
 	if (card->state == WAN_DISCONNECTED)
 		return (0);
@@ -557,7 +556,7 @@ wan_xilinx_down(struct ifnet *ifp)
 	if (IS_TE1(&card->fe_te.te_cfg))
 		sdla_te_unconfig(card);
 
-	s = splnet();
+	crit_enter();
 
 	card->isr = NULL;
 
@@ -592,7 +591,7 @@ wan_xilinx_down(struct ifnet *ifp)
 		aft_release_rx_dma_buff(sc, buf);		
 	}
 
-	splx(s);
+	crit_leave();
 
 	DELAY(10);
 
@@ -1409,7 +1408,7 @@ static void
 xilinx_dev_unconfigure(sdla_t *card, xilinx_softc_t *sc)
 {
 	u_int32_t reg;
-	int i, s;
+	int i;
 
 #ifdef DEBUG_INIT
 	log(LOG_DEBUG, "\n-- Unconfigure Xilinx. --\n");
@@ -1461,14 +1460,14 @@ xilinx_dev_unconfigure(sdla_t *card, xilinx_softc_t *sc)
 		/*
 		 * Lock to protect the logic ch map to sc device array
 		 */
-		s = splnet();
+		crit_enter();
 		free_xilinx_logical_channel_num(card, sc->logic_ch_num);
 		for (i = 0; i < card->u.xilinx.num_of_time_slots; i++)
 			if (bit_test((u_int8_t *)&sc->time_slot_map, i))
 				--sc->num_of_time_slots;
 
 		free_fifo_baddr_and_size(card, sc);
-		splx(s);
+		crit_leave();
 
 		sc->logic_ch_num = -1;
 
@@ -1601,7 +1600,6 @@ xilinx_dev_close(sdla_t *card, xilinx_softc_t *sc)
 {
 	u_int32_t reg;
 	unsigned long dma_descr;
-	int s;
 
 #ifdef DEBUG_INIT
 	log(LOG_DEBUG, "-- Close Xilinx device. --\n");
@@ -1617,9 +1615,9 @@ xilinx_dev_close(sdla_t *card, xilinx_softc_t *sc)
 	 * Lock to make sure that the interrupt is
 	 * not running
 	 */
-	s = splnet();
+	crit_enter();
 	sdla_bus_write_4(card->hw, XILINX_GLOBAL_INTER_MASK, reg);
-	splx(s);
+	crit_leave();
 
 	reg = 0;
 
@@ -2504,11 +2502,10 @@ static void
 enable_timer(void *card_id)
 {
 	sdla_t *card = (sdla_t *)card_id;
-	int	s;
 
-	s = splnet();
+	crit_enter();
 	sdla_te_polling(card);
-	splx(s);
+	crit_leave();
 
 	return;
 }
@@ -3495,7 +3492,7 @@ aft_led_timer(void *data)
 		return;
 
 	if (IS_TE1(&card->fe_te.te_cfg)) {
-		int s = splnet();
+		crit_enter();
 
 		te_alarm = sdla_te_alarm(card, 0);
 		te_alarm &= ~(BIT_OOSMF_ALARM|BIT_OOCMF_ALARM);
@@ -3534,7 +3531,7 @@ aft_led_timer(void *data)
 			aft_green_led_ctrl(card, AFT_LED_ON);
 		}
 
-		splx(s);
+		crit_leave();
 		timeout_add_sec(&card->u.xilinx.led_timer, 1);
 	}
 }

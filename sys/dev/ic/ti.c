@@ -83,6 +83,7 @@
 #include <sys/socket.h>
 #include <sys/device.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -2210,9 +2211,8 @@ void
 ti_init(void *xsc)
 {
 	struct ti_softc		*sc = xsc;
-        int			s;
 
-	s = splnet();
+	crit_enter();
 
 	/* Cancel pending I/O and flush buffers. */
 	ti_stop(sc);
@@ -2220,11 +2220,11 @@ ti_init(void *xsc)
 	/* Init the gen info block, ring control blocks and firmware. */
 	if (ti_gibinit(sc)) {
 		printf("%s: initialization failure\n", sc->sc_dv.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2422,9 +2422,9 @@ ti_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ti_softc		*sc = ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *)data;
 	struct ifreq		*ifr = (struct ifreq *)data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -2464,7 +2464,7 @@ ti_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

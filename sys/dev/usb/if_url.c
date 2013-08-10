@@ -198,7 +198,7 @@ url_attach(struct device *parent, struct device *self, void *aux)
 	struct ifnet *ifp;
 	struct mii_data *mii;
 	u_char eaddr[ETHER_ADDR_LEN];
-	int i, s;
+	int i;
 
 	sc->sc_udev = dev;
 
@@ -254,7 +254,7 @@ url_attach(struct device *parent, struct device *self, void *aux)
 		goto bad;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	/* reset the adapter */
 	url_reset(sc);
@@ -264,7 +264,7 @@ url_attach(struct device *parent, struct device *self, void *aux)
 		      ETHER_ADDR_LEN);
 	if (err) {
 		printf("%s: read MAC address failed\n", devname);
-		splx(s);
+		crit_leave();
 		goto bad;
 	}
 
@@ -315,7 +315,7 @@ url_attach(struct device *parent, struct device *self, void *aux)
 
 	timeout_set(&sc->sc_stat_ch, url_tick, sc);
 
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -483,11 +483,11 @@ url_init(struct ifnet *ifp)
 	struct url_softc *sc = ifp->if_softc;
 	struct mii_data *mii = GET_MII(sc);
 	u_char *eaddr;
-	int i, s;
+	int i;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
-	s = splnet();
+	crit_enter();
 
 	/* Cancel pending I/O and free all TX/RX buffers */
 	url_stop(ifp, 1);
@@ -508,14 +508,14 @@ url_init(struct ifnet *ifp)
 	/* Initialize transmit ring */
 	if (url_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n", sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return (EIO);
 	}
 
 	/* Initialize receive ring */
 	if (url_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n", sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return (EIO);
 	}
 
@@ -529,7 +529,7 @@ url_init(struct ifnet *ifp)
 
 	if (sc->sc_pipe_tx == NULL || sc->sc_pipe_rx == NULL) {
 		if (url_openpipes(sc)) {
-			splx(s);
+			crit_leave();
 			return (EIO);
 		}
 	}
@@ -537,7 +537,7 @@ url_init(struct ifnet *ifp)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_stat_ch, 1);
 
@@ -893,12 +893,11 @@ url_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct url_chain *c = priv;
 	struct url_softc *sc = c->url_sc;
 	struct ifnet *ifp = GET_IFP(sc);
-	int s;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
@@ -907,7 +906,7 @@ url_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -919,7 +918,7 @@ url_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 			if (--sc->sc_refcnt < 0)
 				usb_detach_wakeup(&sc->sc_dev);
 		}
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -931,7 +930,7 @@ url_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		url_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -943,7 +942,6 @@ url_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct mbuf *m;
 	u_int32_t total_len;
 	url_rxhdr_t rxhdr;
-	int s;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname,__func__));
 
@@ -1000,7 +998,7 @@ url_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	m->m_pkthdr.len = m->m_len = total_len;
 	m->m_pkthdr.rcvif = ifp;
 
-	s = splnet();
+	crit_enter();
 
 	if (url_newbuf(sc, c, NULL) == ENOBUFS) {
 		ifp->if_ierrors++;
@@ -1017,7 +1015,7 @@ url_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	ether_input_mbuf(ifp, m);
 
  done1:
-	splx(s);
+	crit_leave();
 
  done:
 	/* Setup new transfer */
@@ -1038,14 +1036,14 @@ url_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct url_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
 	DPRINTF(("%s: %s: enter\n", sc->sc_dev.dv_xname, __func__));
 
 	if (usbd_is_dying(sc->sc_udev))
 		return (EIO);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1085,7 +1083,7 @@ url_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1274,7 +1272,6 @@ url_tick_task(void *xsc)
 	struct url_softc *sc = xsc;
 	struct ifnet *ifp;
 	struct mii_data *mii;
-	int s;
 
 	if (sc == NULL)
 		return;
@@ -1291,7 +1288,7 @@ url_tick_task(void *xsc)
 	if (mii == NULL)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 	if (!sc->sc_link && mii->mii_media_status & IFM_ACTIVE &&
@@ -1305,7 +1302,7 @@ url_tick_task(void *xsc)
 
 	timeout_add_sec(&sc->sc_stat_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 /* Get exclusive access to the MII registers */

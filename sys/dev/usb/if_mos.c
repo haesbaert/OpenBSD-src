@@ -634,7 +634,7 @@ mos_attach(struct device *parent, struct device *self, void *aux)
 	usb_endpoint_descriptor_t 	*ed;
 	struct mii_data 	*mii;
 	u_char			eaddr[ETHER_ADDR_LEN];
-	int			i,s;
+	int			i;
 
 	sc->mos_udev = dev;
 	sc->mos_unit = self->dv_unit;
@@ -685,7 +685,7 @@ mos_attach(struct device *parent, struct device *self, void *aux)
 		}
 	}
 
-	s = splnet();
+	crit_enter();
 
 	printf("%s:", sc->mos_dev.dv_xname);
 
@@ -746,7 +746,7 @@ mos_attach(struct device *parent, struct device *self, void *aux)
 
 	timeout_set(&sc->mos_stat_ch, mos_tick, sc);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -921,7 +921,6 @@ mos_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	u_int32_t		total_len;
 	u_int16_t		pktlen = 0;
 	struct mbuf		*m;
-	int			s;
 
 	DPRINTFN(10,("%s: %s: enter\n", sc->mos_dev.dv_xname,__func__));
 
@@ -985,7 +984,7 @@ mos_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	memcpy(mtod(m, char *), buf, pktlen);
 
 	/* push the packet up */
-	s = splnet();
+	crit_enter();
 #if NBPFILTER > 0
 	if (ifp->if_bpf)
 		bpf_mtap(ifp->if_bpf, m, BPF_DIRECTION_IN);
@@ -993,7 +992,7 @@ mos_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	ether_input_mbuf(ifp, m);
 
-	splx(s);
+	crit_leave();
 
 done:
 	memset(c->mos_buf, 0, sc->mos_bufsz);
@@ -1021,7 +1020,6 @@ mos_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct mos_softc	*sc;
 	struct mos_chain	*c;
 	struct ifnet		*ifp;
-	int			s;
 
 	c = priv;
 	sc = c->mos_sc;
@@ -1030,11 +1028,11 @@ mos_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (usbd_is_dying(sc->mos_udev))
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -1042,7 +1040,7 @@ mos_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->mos_ep[MOS_ENDPT_TX]);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1056,7 +1054,7 @@ mos_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		mos_start(ifp);
 
 	ifp->if_opackets++;
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -1082,7 +1080,6 @@ mos_tick(void *xsc)
 void
 mos_tick_task(void *xsc)
 {
-	int			s;
 	struct mos_softc	*sc;
 	struct ifnet		*ifp;
 	struct mii_data		*mii;
@@ -1100,7 +1097,7 @@ mos_tick_task(void *xsc)
 	if (mii == NULL)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 	if (!sc->mos_link && mii->mii_media_status & IFM_ACTIVE &&
@@ -1114,7 +1111,7 @@ mos_tick_task(void *xsc)
 
 	timeout_add_sec(&sc->mos_stat_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1198,9 +1195,9 @@ mos_init(void *xsc)
 	struct mos_chain	*c;
 	usbd_status		err;
 	u_int8_t		rxmode;
-	int			i, s;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1215,14 +1212,14 @@ mos_init(void *xsc)
 	/* Init RX ring. */
 	if (mos_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n", sc->mos_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Init TX ring. */
 	if (mos_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n", sc->mos_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1249,7 +1246,7 @@ mos_init(void *xsc)
 	if (err) {
 		printf("%s: open rx pipe failed: %s\n",
 		    sc->mos_dev.dv_xname, usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1258,7 +1255,7 @@ mos_init(void *xsc)
 	if (err) {
 		printf("%s: open tx pipe failed: %s\n",
 		    sc->mos_dev.dv_xname, usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1275,7 +1272,7 @@ mos_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->mos_stat_ch, 1);
 	return;
@@ -1287,9 +1284,9 @@ mos_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct mos_softc	*sc = ifp->if_softc;
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct ifaddr		*ifa = (struct ifaddr *)data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(cmd) {
 	case SIOCSIFADDR:
@@ -1329,7 +1326,7 @@ mos_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 

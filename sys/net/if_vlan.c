@@ -57,6 +57,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include "bpfilter.h"
 #if NBPFILTER > 0
@@ -245,7 +246,7 @@ vlan_start(struct ifnet *ifp)
 
 		/*
 		 * Send it, precisely as ether_output() would have.
-		 * We are already running at splnet.
+		 * We are already running at crit_enter().
 		 */
 		IFQ_ENQUEUE(&p->if_snd, m, NULL, error);
 		if (error) {
@@ -358,7 +359,6 @@ vlan_config(struct ifvlan *ifv, struct ifnet *p, u_int16_t tag)
 	struct sockaddr_dl *sdl1, *sdl2;
 	struct vlan_taghash *tagh;
 	u_int flags;
-	int s;
 
 	if (p->if_type != IFT_ETHER)
 		return EPROTONOSUPPORT;
@@ -443,7 +443,7 @@ vlan_config(struct ifvlan *ifv, struct ifnet *p, u_int16_t tag)
 	bcopy(LLADDR(sdl2), ifv->ifv_ac.ac_enaddr, ETHER_ADDR_LEN);
 
 	ifv->ifv_tag = tag;
-	s = splnet();
+	crit_enter();
 	tagh = ifv->ifv_type == ETHERTYPE_QINQ ? svlan_tagh : vlan_tagh;
 	LIST_INSERT_HEAD(&tagh[TAG_HASH(tag)], ifv, ifv_list);
 
@@ -456,7 +456,7 @@ vlan_config(struct ifvlan *ifv, struct ifnet *p, u_int16_t tag)
 	    vlan_ifdetach, ifv);
 
 	vlan_vlandev_state(ifv);
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -468,7 +468,6 @@ vlan_unconfig(struct ifnet *ifp, struct ifnet *newp)
 	struct sockaddr_dl *sdl;
 	struct ifvlan *ifv;
 	struct ifnet *p;
-	int s;
 
 	ifv = ifp->if_softc;
 	p = ifv->ifv_p;
@@ -481,7 +480,7 @@ vlan_unconfig(struct ifnet *ifp, struct ifnet *newp)
 		vlan_set_promisc(ifp);
 	}
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(ifv, ifv_list);
 	if (ifv->lh_cookie != NULL)
 		hook_disestablish(p->if_linkstatehooks, ifv->lh_cookie);
@@ -493,7 +492,7 @@ vlan_unconfig(struct ifnet *ifp, struct ifnet *newp)
 		ifp->if_link_state = LINK_STATE_INVALID;
 		if_link_state_change(ifp);
 	}
-	splx(s);
+	crit_leave();
 
 	/*
  	 * Since the interface is being unconfigured, we need to
@@ -564,7 +563,7 @@ vlan_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ifreq *ifr;
 	struct ifvlan *ifv;
 	struct vlanreq vlr;
-	int error = 0, p_mtu = 0, s;
+	int error = 0, p_mtu = 0;
 
 	ifr = (struct ifreq *)data;
 	ifa = (struct ifaddr *)data;
@@ -621,12 +620,12 @@ vlan_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		if ((error = copyin(ifr->ifr_data, &vlr, sizeof vlr)))
 			break;
 		if (vlr.vlr_parent[0] == '\0') {
-			s = splnet();
+			crit_enter();
 			vlan_unconfig(ifp, NULL);
 			if (ifp->if_flags & IFF_UP)
 				if_down(ifp);
 			ifp->if_flags &= ~IFF_RUNNING;
-			splx(s);
+			crit_leave();
 			break;
 		}
 		pr = ifunit(vlr.vlr_parent);

@@ -38,6 +38,7 @@
 #include <sys/systm.h>
 #include <sys/errno.h>
 #include <sys/time.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -187,14 +188,14 @@ int
 cbq_pfattach(struct pf_altq *a)
 {
 	struct ifnet	*ifp;
-	int		 s, error;
+	int		 error;
 
 	if ((ifp = ifunit(a->ifname)) == NULL || a->altq_disc == NULL)
 		return (EINVAL);
-	s = splnet();
+	crit_enter();
 	error = altq_attach(&ifp->if_snd, ALTQT_CBQ, a->altq_disc,
 	    cbq_enqueue, cbq_dequeue, cbq_request, NULL, NULL);
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -423,7 +424,7 @@ cbq_getqstats(struct pf_altq *a, void *ubuf, int *nbytes)
  *	layer (e.g. ether_output).  cbq_enqueue queues the given packet
  *	to the cbq, then invokes the driver's start routine.
  *
- *	Assumptions:	called in splnet
+ *	Assumptions:	called in critical section.
  *	Returns:	0 if the queueing is successful.
  *			ENOBUFS if a packet dropping occurred as a result of
  *			the queueing.
@@ -487,7 +488,7 @@ cbq_dequeue(struct ifaltq *ifq, int op)
 /*
  * void
  * cbqrestart(queue_t *) - Restart sending of data.
- * called from rmc_restart in splnet via timeout after waking up
+ * called from rmc_restart in critical section via timeout after waking up
  * a suspended class.
  *	Returns:	NONE
  */

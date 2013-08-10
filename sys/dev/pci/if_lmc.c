@@ -1203,13 +1203,12 @@ lmc_txput(lmc_softc_t * const sc, struct mbuf *m)
 
 
 /*
- * This routine is entered at splnet()
+ * This routine is entered at crit_enter()
  */
 static int
 lmc_ifioctl(struct ifnet * ifp, ioctl_cmd_t cmd, caddr_t data)
 {
 	lmc_softc_t * const sc = LMC_IFP_TO_SOFTC(ifp);
-	int s;
 	struct proc *p = curproc;
 	int error = 0;
 	struct ifreq *ifr = (struct ifreq *)data;
@@ -1217,7 +1216,7 @@ lmc_ifioctl(struct ifnet * ifp, ioctl_cmd_t cmd, caddr_t data)
 	u_int32_t old_state;
 	lmc_ctl_t ctl;
 
-	s = LMC_RAISESPL();
+	crit_enter();
 
 	switch (cmd) {
 	case LMCIOCGINFO:
@@ -1273,7 +1272,7 @@ lmc_ifioctl(struct ifnet * ifp, ioctl_cmd_t cmd, caddr_t data)
 		lmc_ifdown(sc);
 
  out:
-	LMC_RESTORESPL(s);
+	crit_leave();
 
 	return error;
 }

@@ -275,9 +275,8 @@ malo_pcmcia_resume(void *arg1, void *arg2)
 	struct malo_softc *sc = arg1;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 	
-	s = splnet();
+	crit_enter();
 	while (sc->sc_flags & MALO_BUSY)
 		tsleep(&sc->sc_flags, 0, "malopwr", 0);
 	sc->sc_flags |= MALO_BUSY;
@@ -286,7 +285,7 @@ malo_pcmcia_resume(void *arg1, void *arg2)
 
 	sc->sc_flags &= ~MALO_BUSY;
 	wakeup(&sc->sc_flags);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -376,9 +375,9 @@ cmalo_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211_nodereq *nr;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int i, j, s, error = 0;
+	int i, j, error = 0;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Prevent processes from entering this function while another
 	 * process is tsleep'ing in it.
@@ -386,7 +385,7 @@ cmalo_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	while ((sc->sc_flags & MALO_BUSY) && error == 0)
 		error = tsleep(&sc->sc_flags, PCATCH, "maloioc", 0);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return error;
 	}
 	sc->sc_flags |= MALO_BUSY;
@@ -472,7 +471,7 @@ cmalo_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 
 	sc->sc_flags &= ~MALO_BUSY;
 	wakeup(&sc->sc_flags);
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -936,7 +935,7 @@ cmalo_rx(struct malo_softc *sc)
 	uint16_t psize;
 	int i;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	/* read the whole RX packet which is always 802.3 */
 	psize = MALO_READ_2(sc, MALO_REG_DATA_READ_LEN);
@@ -1032,7 +1031,7 @@ cmalo_tx(struct malo_softc *sc, struct mbuf *m)
 	uint8_t *data;
 	uint16_t psize;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	bzero(sc->sc_data, sizeof(*txdesc));
 	psize = sizeof(*txdesc) + m->m_pkthdr.len;
@@ -1076,7 +1075,7 @@ cmalo_tx_done(struct malo_softc *sc)
 {
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	DPRINTF(2, "%s: TX done\n", sc->sc_dev.dv_xname);
 
@@ -2067,9 +2066,8 @@ cmalo_cmd_response(struct malo_softc *sc)
 	struct malo_cmd_header *hdr = sc->sc_cmd;
 	uint16_t psize;
 	uint8_t *cmd;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	bzero(sc->sc_cmd, MALO_CMD_BUFFER_SIZE);
 
@@ -2100,7 +2098,7 @@ cmalo_cmd_response(struct malo_softc *sc)
 	if (!(hdr->cmd & MALO_CMD_RESP)) {
 		printf("%s: got invalid command response (0x%04x)\n",
 		    sc->sc_dev.dv_xname, hdr->cmd);
-		splx(s);
+		crit_leave();
 		return (EIO);
 	}
 	hdr->cmd &= ~MALO_CMD_RESP;
@@ -2201,7 +2199,7 @@ cmalo_cmd_response(struct malo_softc *sc)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

@@ -137,7 +137,7 @@ fddi_output(ifp0, m0, dst, rt0)
 	struct rtentry *rt0;
 {
 	u_int16_t type;
-	int s, len, error = 0, hdrcmplt = 0;
+	int len, error = 0, hdrcmplt = 0;
  	u_char edst[6], esrc[6];
 	struct mbuf *m = m0;
 	struct rtentry *rt;
@@ -348,7 +348,7 @@ fddi_output(ifp0, m0, dst, rt0)
 #endif
 	mflags = m->m_flags;
 	len = m->m_pkthdr.len;
-	s = splnet();
+	crit_enter();
 	/*
 	 * Queue message on interface, and start output if interface
 	 * not yet active.
@@ -356,7 +356,7 @@ fddi_output(ifp0, m0, dst, rt0)
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 	if (error) {
 		/* mbuf is already freed */
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	ifp->if_obytes += len;
@@ -367,7 +367,7 @@ fddi_output(ifp0, m0, dst, rt0)
 	if (mflags & M_MCAST)
 		ifp->if_omcasts++;
 	if_start(ifp);
-	splx(s);
+	crit_leave();
 	return (error);
 
 bad:
@@ -389,7 +389,6 @@ fddi_input(ifp, fh, m)
 {
 	struct ifqueue *inq;
 	struct llc *l;
-	int s;
 
 	if ((ifp->if_flags & IFF_UP) == 0) {
 		m_freem(m);
@@ -464,9 +463,9 @@ fddi_input(ifp, fh, m)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 	IF_INPUT_ENQUEUE(inq, m);
-	splx(s);
+	crit_leave();
 }
 /*
  * Perform common duties while attaching to interface list

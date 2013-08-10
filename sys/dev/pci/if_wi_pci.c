@@ -47,6 +47,7 @@
 #include <sys/socket.h>
 #include <sys/tree.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -182,9 +183,7 @@ wi_pci_resume(void *arg1, void *arg2)
 {
 	struct wi_softc *sc = (struct wi_softc *)arg1;
 
-	int s;
-
-	s = splnet();
+	crit_enter();
 	while (sc->wi_flags & WI_FLAGS_BUSY)
 		tsleep(&sc->wi_flags, 0, "wipwr", 0);
 	sc->wi_flags |= WI_FLAGS_BUSY;
@@ -193,7 +192,7 @@ wi_pci_resume(void *arg1, void *arg2)
 
 	sc->wi_flags &= ~WI_FLAGS_BUSY;
 	wakeup(&sc->wi_flags);
-	splx(s);
+	crit_leave();
 }
 
 /*

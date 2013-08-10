@@ -59,6 +59,7 @@
 #include <sys/ioctl.h>
 #include <sys/device.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -1128,7 +1129,6 @@ pgt_per_device_kthread(void *argp)
 	struct pgt_softc_kthread *sck;
 	struct pgt_async_trap *pa;
 	struct mbuf *m;
-	int s;
 
 	sc = argp;
 	sck = &sc->sc_kthread;
@@ -1142,9 +1142,9 @@ pgt_per_device_kthread(void *argp)
 			sck->sck_reset = 0;
 			sck->sck_update = 0;
 			pgt_empty_traps(sck);
-			s = splnet();
+			crit_enter();
 			pgt_stop(sc, SC_NEEDS_RESET);
-			splx(s);
+			crit_leave();
 		} else if (!TAILQ_EMPTY(&sck->sck_traps)) {
 			DPRINTF(("%s: [thread] got a trap\n",
 			    sc->sc_dev.dv_xname));
@@ -2039,7 +2039,6 @@ pgt_media_status(struct ifnet *ifp, struct ifmediareq *imr)
 	struct pgt_softc *sc = ifp->if_softc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	uint32_t rate;
-	int s;
 
 	imr->ifm_status = 0;
 	imr->ifm_active = IFM_IEEE80211 | IFM_NONE;
@@ -2047,7 +2046,7 @@ pgt_media_status(struct ifnet *ifp, struct ifmediareq *imr)
 	if (!(ifp->if_flags & IFF_UP))
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	if (ic->ic_fixed_rate != -1) {
 		rate = ic->ic_sup_rates[ic->ic_curmode].
@@ -2093,7 +2092,7 @@ pgt_media_status(struct ifnet *ifp, struct ifmediareq *imr)
 	}
 
 out:
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -2247,12 +2246,12 @@ pgt_ioctl(struct ifnet *ifp, u_long cmd, caddr_t req)
         struct wi_scan_p2_hdr *p2hdr;
         struct wi_scan_res *res;
         uint32_t noise;
-	int maxscan, i, j, s, error = 0;
+	int maxscan, i, j, error = 0;
 
 	ic = &sc->sc_ic;
 	ifr = (struct ifreq *)req;
 
-	s = splnet();
+	crit_enter();
 	switch (cmd) {
 	case SIOCS80211SCAN:
 		/*
@@ -2399,7 +2398,7 @@ pgt_ioctl(struct ifnet *ifp, u_long cmd, caddr_t req)
 		pgt_update_hw_from_sw(sc, 0, 0);
 		error = 0;
 	}
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -2562,7 +2561,7 @@ pgt_update_hw_from_sw(struct pgt_softc *sc, int keepassoc, int keepnodes)
 	uint32_t mode, bsstype, config, profile, channel, slot, preamble;
 	uint32_t wep, exunencrypted, wepkey, dot1x, auth, mlme;
 	unsigned int i;
-	int success, shouldbeup, s;
+	int success, shouldbeup;
 
 	config = PGT_CONFIG_MANUAL_RUN | PGT_CONFIG_RX_ANNEX;
 
@@ -2713,7 +2712,7 @@ badopmode:
 	essid.pos_length = min(ic->ic_des_esslen, sizeof(essid.pos_ssid));
 	memcpy(&essid.pos_ssid, ic->ic_des_essid, essid.pos_length);
 
-	s = splnet();
+	crit_enter();
 	for (success = 0; success == 0; success = 1) {
 		SETOID(PGT_OID_PROFILE, &profile, sizeof(profile));
 		SETOID(PGT_OID_CONFIG, &config, sizeof(config));
@@ -2797,7 +2796,7 @@ badopmode:
 		/* set mode again to commit */
 		SETOID(PGT_OID_MODE, &mode, sizeof(mode));
 	}
-	splx(s);
+	crit_leave();
 
 	if (success) {
 		if (shouldbeup && keepnodes)
@@ -2857,7 +2856,7 @@ pgt_update_sw_from_hw(struct pgt_softc *sc, struct pgt_async_trap *pa,
 	struct pgt_obj_ssid ssid;
 	struct pgt_obj_bss bss;
 	uint32_t channel, noise, ls;
-	int error, s;
+	int error;
 
 	if (pa != NULL) {
 		struct pgt_obj_mlme *mlme;
@@ -2905,9 +2904,9 @@ pgt_update_sw_from_hw(struct pgt_softc *sc, struct pgt_async_trap *pa,
 		return;
 	}
 	if (ic->ic_state == IEEE80211_S_SCAN) {
-		s = splnet();
+		crit_enter();
 		error = pgt_oid_get(sc, PGT_OID_LINK_STATE, &ls, sizeof(ls));
-		splx(s);
+		crit_leave();
 		if (error)
 			return;
 		DPRINTF(("%s: up_sw_from_hw: link %u\n", sc->sc_dev.dv_xname,
@@ -2917,7 +2916,7 @@ pgt_update_sw_from_hw(struct pgt_softc *sc, struct pgt_async_trap *pa,
 	}
 
 gotlinkstate:
-	s = splnet();
+	crit_enter();
 	if (pgt_oid_get(sc, PGT_OID_NOISE_FLOOR, &noise, sizeof(noise)) != 0)
 		goto out;
 	sc->sc_noise = letoh32(noise);
@@ -2947,7 +2946,7 @@ gotlinkstate:
 	}
 
 out:
-	splx(s);
+	crit_leave();
 }
 
 int

@@ -208,13 +208,11 @@ void
 elreset(sc)
 	struct el_softc *sc;
 {
-	int s;
-
 	dprintf(("elreset()\n"));
-	s = splnet();
+	crit_enter();
 	elstop(sc);
 	elinit(sc);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -286,7 +284,7 @@ elinit(sc)
 
 /*
  * Start output on interface.  Get datagrams from the queue and output them,
- * giving the receiver a chance between datagrams.  Call only from splnet or
+ * giving the receiver a chance between datagrams.  Call only from crit_enter or
  * interrupt level!
  */
 void
@@ -296,14 +294,14 @@ elstart(ifp)
 	struct el_softc *sc = ifp->if_softc;
 	int iobase = sc->sc_iobase;
 	struct mbuf *m, *m0;
-	int s, i, off, retries;
+	int i, off, retries;
 
 	dprintf(("elstart()...\n"));
-	s = splnet();
+	crit_enter();
 
 	/* Don't do anything if output is active. */
 	if ((ifp->if_flags & IFF_OACTIVE) != 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -383,20 +381,20 @@ elstart(ifp)
 		 */
 		(void)inb(iobase+EL_AS);
 		outb(iobase+EL_AC, EL_AC_IRQE | EL_AC_RX);
-		splx(s);
+		crit_leave();
 		/* Interrupt here. */
-		s = splnet();
+		crit_enter();
 	}
 
 	(void)inb(iobase+EL_AS);
 	outb(iobase+EL_AC, EL_AC_IRQE | EL_AC_RX);
 	ifp->if_flags &= ~IFF_OACTIVE;
-	splx(s);
+	crit_leave();
 }
 
 /*
  * This function actually attempts to transmit a datagram downloaded to the
- * board.  Call at splnet or interrupt, after downloading data!  Returns 0 on
+ * board.  Call at crit_enter or interrupt, after downloading data!  Returns 0 on
  * success, non-0 on failure.
  */
 static int
@@ -590,9 +588,9 @@ elioctl(ifp, cmd, data)
 {
 	struct el_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -640,7 +638,7 @@ elioctl(ifp, cmd, data)
 		error = ether_ioctl(ifp, &sc->sc_arpcom, cmd, data);
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 

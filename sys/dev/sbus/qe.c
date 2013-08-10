@@ -442,7 +442,7 @@ qe_read(sc, idx, len)
 /*
  * Start output on interface.
  * We make two assumptions here:
- *  1) that the current priority is set to splnet _before_ this code
+ *  1) that we are in a critical section _before_ this code
  *     is called *and* is returned to the appropriate priority after
  *     return
  *  2) that the IFF_OACTIVE flag is checked before this code is called
@@ -539,12 +539,10 @@ void
 qereset(sc)
 	struct qe_softc *sc;
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	qestop(sc);
 	qeinit(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -900,9 +898,9 @@ qeioctl(ifp, cmd, data)
 	struct qe_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -964,7 +962,7 @@ qeioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -980,9 +978,8 @@ qeinit(sc)
 	struct qec_softc *qec = sc->sc_qec;
 	u_int32_t qecaddr;
 	u_int8_t *ea;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	qestop(sc);
 
@@ -1068,7 +1065,7 @@ qeinit(sc)
 
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
-	splx(s);
+	crit_leave();
 }
 
 /*

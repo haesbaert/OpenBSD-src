@@ -617,7 +617,6 @@ cas_tick(void *arg)
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	bus_space_tag_t t = sc->sc_memt;
 	bus_space_handle_t mac = sc->sc_memh;
-	int s;
 	u_int32_t v;
 
 	/* unload collisions counters */
@@ -645,9 +644,9 @@ cas_tick(void *arg)
 	bus_space_write_4(t, mac, CAS_MAC_RX_CRC_ERR_CNT, 0);
 	bus_space_write_4(t, mac, CAS_MAC_RX_CODE_VIOL, 0);
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_ch, 1);
 }
@@ -673,9 +672,8 @@ cas_reset(struct cas_softc *sc)
 {
 	bus_space_tag_t t = sc->sc_memt;
 	bus_space_handle_t h = sc->sc_memh;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	DPRINTF(sc, ("%s: cas_reset\n", sc->sc_dev.dv_xname));
 	cas_reset_rx(sc);
 	cas_reset_tx(sc);
@@ -685,7 +683,7 @@ cas_reset(struct cas_softc *sc)
 	    CAS_RESET_RX | CAS_RESET_TX | CAS_RESET_BLOCK_PCS);
 	if (!cas_bitwait(sc, h, CAS_RESET, CAS_RESET_RX | CAS_RESET_TX, 0))
 		printf("%s: cannot reset device\n", sc->sc_dev.dv_xname);
-	splx(s);
+	crit_leave();
 }
 
 
@@ -943,11 +941,10 @@ cas_init(struct ifnet *ifp)
 	struct cas_softc *sc = (struct cas_softc *)ifp->if_softc;
 	bus_space_tag_t t = sc->sc_memt;
 	bus_space_handle_t h = sc->sc_memh;
-	int s;
 	u_int max_frame_size;
 	u_int32_t v;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTF(sc, ("%s: cas_init: calling stop\n", sc->sc_dev.dv_xname));
 	/*
@@ -1067,7 +1064,7 @@ cas_init(struct ifnet *ifp)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 	ifp->if_timer = 0;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1668,9 +1665,9 @@ cas_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct cas_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1713,7 +1710,7 @@ cas_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

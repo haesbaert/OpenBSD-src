@@ -56,6 +56,7 @@
 #include <sys/timeout.h>
 #include <sys/queue.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -304,7 +305,7 @@ atu_usb_request(struct atu_softc *sc, u_int8_t type,
 	usb_device_request_t	req;
 	struct usbd_xfer	*xfer;
 	usbd_status		err;
-	int			total_len = 0, s;
+	int			total_len = 0;
 
 	req.bmRequestType = type;
 	req.bRequest = request;
@@ -326,7 +327,7 @@ atu_usb_request(struct atu_softc *sc, u_int8_t type,
 	}
 #endif /* ATU_DEBUG */
 
-	s = splnet();
+	crit_enter();
 
 	xfer = usbd_alloc_xfer(sc->atu_udev);
 	usbd_setup_default_xfer(xfer, sc->atu_udev, 0, 500000, &req, data,
@@ -353,7 +354,7 @@ atu_usb_request(struct atu_softc *sc, u_int8_t type,
 
 	usbd_free_xfer(xfer);
 
-	splx(s);
+	crit_leave();
 	return(err);
 }
 
@@ -1168,7 +1169,6 @@ atu_task(void *arg)
 	struct ieee80211com	*ic = &sc->sc_ic;
 	struct ifnet		*ifp = &ic->ic_if;
 	usbd_status		err;
-	int			s;
 
 	DPRINTFN(10, ("%s: atu_task\n", sc->atu_dev.dv_xname));
 
@@ -1195,10 +1195,10 @@ atu_task(void *arg)
 		DPRINTF(("%s: ==========================> END OF SCAN!\n",
 		    sc->atu_dev.dv_xname));
 
-		s = splnet();
+		crit_enter();
 		/* ieee80211_next_scan(ifp); */
 		ieee80211_end_scan(ifp);
-		splx(s);
+		crit_leave();
 
 		DPRINTF(("%s: ----------------------======> END OF SCAN2!\n",
 		    sc->atu_dev.dv_xname));
@@ -1660,7 +1660,6 @@ atu_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct ieee80211_node	*ni;
 	struct mbuf		*m;
 	u_int32_t		len;
-	int			s;
 
 	DPRINTFN(25, ("%s: atu_rxeof\n", sc->atu_dev.dv_xname));
 
@@ -1690,7 +1689,7 @@ atu_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 			 * die... If someone knows of a situation where we can
 			 * recover from USBD_IOERROR, let me know.
 			 */
-			splx(s);
+			crit_leave();
 			return;
 		}
 #endif /* 0 */
@@ -1726,7 +1725,7 @@ atu_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	ifp->if_ipackets++;
 
-	s = splnet();
+	crit_enter();
 
 	if (atu_newbuf(sc, c, NULL) == ENOBUFS) {
 		ifp->if_ierrors++;
@@ -1772,7 +1771,7 @@ atu_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	ieee80211_release_node(ic, ni);
 done1:
-	splx(s);
+	crit_leave();
 done:
 	/* Setup new transfer. */
 	usbd_setup_xfer(c->atu_xfer, sc->atu_ep[ATU_ENDPT_RX], c, c->atu_buf,
@@ -1792,7 +1791,6 @@ atu_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct atu_softc	*sc = c->atu_sc;
 	struct ifnet		*ifp = &sc->sc_ic.ic_if;
 	usbd_status		err;
-	int			s;
 
 	DPRINTFN(25, ("%s: atu_txeof status=%d\n", sc->atu_dev.dv_xname,
 	    status));
@@ -1820,13 +1818,13 @@ atu_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	else
 		ifp->if_opackets++;
 
-	s = splnet();
+	crit_enter();
 	SLIST_INSERT_HEAD(&sc->atu_cdata.atu_tx_free, c, atu_list);
 	sc->atu_cdata.atu_tx_inuse--;
 	if (sc->atu_cdata.atu_tx_inuse == 0)
 		ifp->if_timer = 0;
 	ifp->if_flags &= ~IFF_OACTIVE;
-	splx(s);
+	crit_leave();
 
 	atu_start(ifp);
 }
@@ -1933,7 +1931,6 @@ atu_start(struct ifnet *ifp)
 	struct ieee80211_frame	*wh;
 	struct atu_chain	*c;
 	struct mbuf		*m = NULL;
-	int			s;
 
 	DPRINTFN(25, ("%s: atu_start: enter\n", sc->atu_dev.dv_xname));
 
@@ -1951,7 +1948,7 @@ atu_start(struct ifnet *ifp)
 
 	for (;;) {
 		/* grab a TX buffer */
-		s = splnet();
+		crit_enter();
 		c = SLIST_FIRST(&cd->atu_tx_free);
 		if (c != NULL) {
 			SLIST_REMOVE_HEAD(&cd->atu_tx_free, atu_list);
@@ -1959,7 +1956,7 @@ atu_start(struct ifnet *ifp)
 			if (cd->atu_tx_inuse == ATU_TX_LIST_CNT)
 				ifp->if_flags |= IFF_OACTIVE;
 		}
-		splx(s);
+		crit_leave();
 		if (c == NULL) {
 			DPRINTFN(10, ("%s: out of tx xfers\n",
 			    sc->atu_dev.dv_xname));
@@ -1979,11 +1976,11 @@ atu_start(struct ifnet *ifp)
 				DPRINTFN(25, ("%s: no data till running\n",
 				    sc->atu_dev.dv_xname));
 				/* put the xfer back on the list */
-				s = splnet();
+				crit_enter();
 				SLIST_INSERT_HEAD(&cd->atu_tx_free, c,
 				    atu_list);
 				cd->atu_tx_inuse--;
-				splx(s);
+				crit_leave();
 				break;
 			}
 
@@ -1991,11 +1988,11 @@ atu_start(struct ifnet *ifp)
 			if (m == NULL) {
 				DPRINTFN(25, ("%s: nothing to send\n",
 				    sc->atu_dev.dv_xname));
-				s = splnet();
+				crit_enter();
 				SLIST_INSERT_HEAD(&cd->atu_tx_free, c,
 				    atu_list);
 				cd->atu_tx_inuse--;
-				splx(s);
+				crit_leave();
 				break;
 			}
 
@@ -2035,11 +2032,11 @@ atu_start(struct ifnet *ifp)
 
 		if (atu_tx_start(sc, ni, c, m)) {
 bad:
-			s = splnet();
+			crit_enter();
 			SLIST_INSERT_HEAD(&cd->atu_tx_free, c,
 			    atu_list);
 			cd->atu_tx_inuse--;
-			splx(s);
+			crit_leave();
 			/* ifp_if_oerrors++; */
 			if (ni != NULL)
 				ieee80211_release_node(ic, ni);
@@ -2056,14 +2053,14 @@ atu_init(struct ifnet *ifp)
 	struct ieee80211com	*ic = &sc->sc_ic;
 	struct atu_chain	*c;
 	usbd_status		err;
-	int			i, s;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10, ("%s: atu_init\n", sc->atu_dev.dv_xname));
 
 	if (ifp->if_flags & IFF_RUNNING) {
-		splx(s);
+		crit_leave();
 		return(0);
 	}
 
@@ -2084,7 +2081,7 @@ atu_init(struct ifnet *ifp)
 	if (err) {
 		DPRINTF(("%s: open rx pipe failed: %s\n",
 		    sc->atu_dev.dv_xname, usbd_errstr(err)));
-		splx(s);
+		crit_leave();
 		return(EIO);
 	}
 
@@ -2093,7 +2090,7 @@ atu_init(struct ifnet *ifp)
 	if (err) {
 		DPRINTF(("%s: open tx pipe failed: %s\n",
 		    sc->atu_dev.dv_xname, usbd_errstr(err)));
-		splx(s);
+		crit_leave();
 		return(EIO);
 	}
 
@@ -2115,7 +2112,7 @@ atu_init(struct ifnet *ifp)
 	if (err) {
 		DPRINTF(("%s: initial config failed!\n",
 		    sc->atu_dev.dv_xname));
-		splx(s);
+		crit_leave();
 		return(EIO);
 	}
 	DPRINTFN(10, ("%s: initialised transceiver\n",
@@ -2131,15 +2128,15 @@ atu_init(struct ifnet *ifp)
 
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
-	splx(s);
+	crit_leave();
 
 	/* XXX the following HAS to be replaced */
-	s = splnet();
+	crit_enter();
 	err = ieee80211_new_state(ic, IEEE80211_S_SCAN, -1);
 	if (err)
 		DPRINTFN(1, ("%s: atu_init: error calling "
 		    "ieee80211_net_state", sc->atu_dev.dv_xname));
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -2149,9 +2146,9 @@ atu_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 {
 	struct atu_softc	*sc = ifp->if_softc;
 	struct ifaddr		*ifa;
-	int			err = 0, s;
+	int			err = 0;
 
-	s = splnet();
+	crit_enter();
 	switch (command) {
 	case SIOCSIFADDR:
 		DPRINTFN(15, ("%s: SIOCSIFADDR\n", sc->atu_dev.dv_xname));
@@ -2236,7 +2233,7 @@ atu_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		err = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (err);
 }
 
@@ -2246,7 +2243,7 @@ atu_watchdog(struct ifnet *ifp)
 	struct atu_softc	*sc = ifp->if_softc;
 	struct atu_chain	*c;
 	usbd_status		stat;
-	int			cnt, s;
+	int			cnt;
 
 	DPRINTF(("%s: atu_watchdog\n", sc->atu_dev.dv_xname));
 
@@ -2259,7 +2256,7 @@ atu_watchdog(struct ifnet *ifp)
 		return;
 
 	sc = ifp->if_softc;
-	s = splnet();
+	crit_enter();
 	ifp->if_oerrors++;
 	DPRINTF(("%s: watchdog timeout\n", sc->atu_dev.dv_xname));
 
@@ -2278,7 +2275,7 @@ atu_watchdog(struct ifnet *ifp)
 
 	if (!IFQ_IS_EMPTY(&ifp->if_snd))
 		atu_start(ifp);
-	splx(s);
+	crit_leave();
 
 	ieee80211_watchdog(ifp);
 }
@@ -2293,9 +2290,8 @@ atu_stop(struct ifnet *ifp, int disable)
 	struct atu_softc	*sc = ifp->if_softc;
 	struct atu_cdata	*cd;
 	usbd_status		err;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	ifp->if_flags &= ~(IFF_RUNNING | IFF_OACTIVE);
 	ifp->if_timer = 0;
 
@@ -2336,5 +2332,5 @@ atu_stop(struct ifnet *ifp, int disable)
 	/* Let's be nice and turn off the radio before we leave */
 	atu_switch_radio(sc, 0);
 
-	splx(s);
+	crit_leave();
 }

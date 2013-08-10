@@ -211,12 +211,12 @@ wanpipe_generic_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	wanpipe_common_t*	common = WAN_IFP_TO_COMMON(ifp);
 	struct if_settings	ifsettings;
 	unsigned long		ts_map;
-	int			err = 0, s;
+	int			err = 0;
 
 	if ((card = wanpipe_generic_getcard(ifp)) == NULL)
 		return (EINVAL);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -345,7 +345,7 @@ wanpipe_generic_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		err = sppp_ioctl(ifp, cmd, data);
 
 ioctl_out:
-	splx(s);
+	crit_leave();
 	return (err);
 }
 

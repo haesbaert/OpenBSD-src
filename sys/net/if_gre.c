@@ -125,7 +125,6 @@ int
 gre_clone_create(struct if_clone *ifc, int unit)
 {
 	struct gre_softc *sc;
-	int s;
 
 	sc = malloc(sizeof(*sc), M_DEVBUF, M_NOWAIT|M_ZERO);
 	if (!sc)
@@ -159,9 +158,9 @@ gre_clone_create(struct if_clone *ifc, int unit)
 #if NBPFILTER > 0
 	bpfattach(&sc->sc_if.if_bpf, &sc->sc_if, DLT_LOOP, sizeof(u_int32_t));
 #endif
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&gre_softc_list, sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -170,13 +169,12 @@ int
 gre_clone_destroy(struct ifnet *ifp)
 {
 	struct gre_softc *sc = ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	timeout_del(&sc->sc_ka_snd);
 	timeout_del(&sc->sc_ka_hold);
 	LIST_REMOVE(sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	if_detach(ifp);
 
@@ -447,13 +445,12 @@ gre_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct if_laddrreq *lifr = (struct if_laddrreq *)data;
 	struct ifkalivereq *ikar = (struct ifkalivereq *)data;
 	struct gre_softc *sc = ifp->if_softc;
-	int s;
 	struct sockaddr_in si;
 	struct sockaddr *sa = NULL;
 	int error = 0;
 	struct proc *prc = curproc;		/* XXX */
 
-	s = splnet();
+	crit_enter();
 	switch(cmd) {
 	case SIOCSIFADDR:
 		ifp->if_flags |= IFF_UP;
@@ -642,7 +639,7 @@ recompute:
 		error = ENOTTY;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

@@ -680,7 +680,6 @@ ural_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct ural_softc *sc = data->sc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -696,7 +695,7 @@ ural_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	ieee80211_release_node(ic, data->ni);
 	data->ni = NULL;
@@ -710,7 +709,7 @@ ural_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	ifp->if_flags &= ~IFF_OACTIVE;
 	ural_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -725,7 +724,7 @@ ural_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct ieee80211_rxinfo rxi;
 	struct ieee80211_node *ni;
 	struct mbuf *mnew, *m;
-	int s, len;
+	int len;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -781,7 +780,7 @@ ural_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	m->m_pkthdr.rcvif = ifp;
 	m->m_pkthdr.len = m->m_len = (letoh32(desc->flags) >> 16) & 0xfff;
 
-	s = splnet();
+	crit_enter();
 
 #if NBPFILTER > 0
 	if (sc->sc_drvbpf != NULL) {
@@ -818,7 +817,7 @@ ural_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	/* node is no longer needed */
 	ieee80211_release_node(ic, ni);
 
-	splx(s);
+	crit_leave();
 
 	DPRINTFN(15, ("rx done\n"));
 
@@ -1330,14 +1329,14 @@ ural_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return ENXIO;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1398,7 +1397,7 @@ ural_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 

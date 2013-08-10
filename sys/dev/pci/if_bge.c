@@ -84,6 +84,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -1265,16 +1266,15 @@ void
 bge_rxtick(void *arg)
 {
 	struct bge_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ISSET(sc->bge_flags, BGE_RXRING_VALID) &&
 	    sc->bge_std_cnt <= 8)
 		bge_fill_rx_ring_std(sc);
 	if (ISSET(sc->bge_flags, BGE_JUMBO_RXRING_VALID) &&
 	    sc->bge_jumbo_cnt <= 8)
 		bge_fill_rx_ring_jumbo(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -3582,9 +3582,8 @@ bge_tick(void *xsc)
 {
 	struct bge_softc *sc = xsc;
 	struct mii_data *mii = &sc->bge_mii;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	if (BGE_IS_5705_PLUS(sc))
 		bge_stats_update_regs(sc);
@@ -3611,7 +3610,7 @@ bge_tick(void *xsc)
 
 	timeout_add_sec(&sc->bge_timeout, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -3999,9 +3998,8 @@ bge_init(void *xsc)
 	struct ifnet *ifp;
 	u_int16_t *m;
 	u_int32_t mode;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	ifp = &sc->arpcom.ac_if;
 
@@ -4020,7 +4018,7 @@ bge_init(void *xsc)
 	 */
 	if (bge_blockinit(sc)) {
 		printf("%s: initialization failure\n", sc->bge_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -4121,7 +4119,7 @@ bge_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->bge_timeout, 1);
 }
@@ -4244,10 +4242,10 @@ bge_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct bge_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 	struct mii_data *mii;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -4314,7 +4312,7 @@ bge_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

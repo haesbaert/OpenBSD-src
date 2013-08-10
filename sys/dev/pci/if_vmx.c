@@ -970,9 +970,9 @@ vmxnet3_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct vmxnet3_softc *sc = ifp->if_softc;
 	struct ifreq *ifr = (struct ifreq *)data;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int error = 0, s;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1012,7 +1012,7 @@ vmxnet3_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -1155,13 +1155,12 @@ void
 vmxnet3_watchdog(struct ifnet *ifp)
 {
 	struct vmxnet3_softc *sc = ifp->if_softc;
-	int s;
 
 	printf("%s: device timeout\n", ifp->if_xname);
-	s = splnet();
+	crit_enter();
 	vmxnet3_stop(ifp);
 	vmxnet3_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 void

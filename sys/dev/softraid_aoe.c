@@ -148,7 +148,7 @@ sr_aoe_assemble(struct sr_discipline *sd, struct bioc_createraid *bc,
 	struct ifnet		*ifp;
 	struct aoe_handler	*ah;
 	struct sr_aoe_config	sri;
-	int			rv, s;
+	int			rv;
 #if 0
 	struct mbuf *m;
 	struct ether_header *eh;
@@ -177,9 +177,9 @@ sr_aoe_assemble(struct sr_discipline *sd, struct bioc_createraid *bc,
 	ah->fn = (workq_fn)sr_aoe_input;
 	TAILQ_INIT(&ah->reqs);
 
-	s = splnet();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&aoe_handlers, ah, next);
-	splx(s);
+	crit_leave();
 
 	sd->mds.mdd_aoe.sra_ah = ah;
 	sd->mds.mdd_aoe.sra_eaddr = sri.dsteaddr;
@@ -205,16 +205,16 @@ sr_aoe_assemble(struct sr_discipline *sd, struct bioc_createraid *bc,
 	ap->ccmd = 0;
 	ap->configstringlen = 0;
 	m->m_pkthdr.len = m->m_len = AOE_CFGHDRLEN;
-	s = splnet();
+	crit_enter();
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, rv);
 	if ((ifp->if_flags & IFF_OACTIVE) == 0)
 		(*ifp->if_start)(ifp);
 	rv = tsleep(ah, PRIBIO|PCATCH, "aoesetup", 30 * hz);
-	splx(s);
+	crit_leave();
 	if (rv) {
-		s = splnet();
+		crit_enter();
 		TAILQ_REMOVE(&aoe_handlers, ah, next);
-		splx(s);
+		crit_leave();
 		free(ah, M_DEVBUF);
 		return rv;
 	}
@@ -226,17 +226,16 @@ void
 sr_aoe_setup(struct aoe_handler *ah, struct mbuf *m)
 {
 	struct aoe_packet	*ap;
-	int			s;
 
 	ap = mtod(m, struct aoe_packet *);
 	if (ap->command != 1)
 		goto out;
 	if (ap->tag != 0)
 		goto out;
-	s = splnet();
+	crit_enter();
 	ah->fn = (workq_fn)sr_aoe_input;
 	wakeup(ah);
-	splx(s);
+	crit_leave();
 
 out:
 	m_freem(m);
@@ -258,16 +257,15 @@ void
 sr_aoe_free_resources(struct sr_discipline *sd)
 {
 	struct aoe_handler	*ah;
-	int			s;
 
 	DNPRINTF(SR_D_DIS, "%s: sr_aoe_free_resources\n",
 	    DEVNAME(sd->sd_sc));
 
 	ah = sd->mds.mdd_aoe.sra_ah;
 	if (ah) {
-		s = splnet();
+		crit_enter();
 		TAILQ_REMOVE(&aoe_handlers, ah, next);
-		splx(s);
+		crit_leave();
 		free(ah, M_DEVBUF);
 	}
 
@@ -294,7 +292,6 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 	int			tag, rv;
 	int			fragsize;
 	const int		aoe_frags = 2;
-	int			s;
 
 	crit_enter();
 	fragblk = blk + aoe_frags * i;
@@ -360,13 +357,13 @@ sr_send_aoe_chunk(struct sr_workunit *wu, daddr_t blk, int i)
 	AOE_BLK2HDR(fragblk, ap);
 
 	m->m_pkthdr.len = m->m_len = AOE_CMDHDRLEN + fragsize;
-	s = splnet();
+	crit_enter();
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, rv);
 	if ((ifp->if_flags & IFF_OACTIVE) == 0)
 		(*ifp->if_start)(ifp);
 	if (rv == 0)
 		timeout_add_sec(&ar->to, 10);
-	splx(s);
+	crit_leave();
 
 	if (rv) {
 		crit_enter();
@@ -515,12 +512,11 @@ sr_aoe_input(struct aoe_handler *ah, struct mbuf *m)
 	struct aoe_packet	*ap;
 	struct aoe_req		*ar;
 	int			tag;
-	int			s;
 
 	ap = mtod(m, struct aoe_packet *);
 	tag = ap->tag;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_FOREACH(ar, &ah->reqs, next) {
 		if (ar->tag == tag) {
 			timeout_del(&ar->to);
@@ -528,7 +524,7 @@ sr_aoe_input(struct aoe_handler *ah, struct mbuf *m)
 			break;
 		}
 	}
-	splx(s);
+	crit_leave();
 	if (!ar)
 		goto out;
 
@@ -546,16 +542,15 @@ sr_aoe_timeout(void *v)
 	struct scsi_xfer	*xs;
 	struct aoe_handler	*ah;
 	struct sr_workunit	*wu;
-	int			s;
 
 	wu = ar->v;
 	sd = wu->swu_dis;
 	xs = wu->swu_xs;
 	ah = sd->mds.mdd_aoe.sra_ah;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_REMOVE(&ah->reqs, ar, next);
-	splx(s);
+	crit_leave();
 
 	sr_aoe_request_done(ar, NULL);
 }
@@ -597,7 +592,7 @@ sr_aoe_server_assemble(struct sr_discipline *sd, struct bioc_createraid *bc,
 int
 sr_aoe_server_alloc_resources(struct sr_discipline *sd)
 {
-	int			s, rv = EINVAL;
+	int			rv = EINVAL;
 	unsigned char		slot;
 	unsigned short		shelf;
 	const char		*nic;
@@ -628,9 +623,9 @@ sr_aoe_server_alloc_resources(struct sr_discipline *sd)
 	ah->fn = (workq_fn)sr_aoe_server;
 	TAILQ_INIT(&ah->reqs);
 
-	s = splnet();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&aoe_handlers, ah, next);
-	splx(s);
+	crit_leave();
 
 	sd->mds.mdd_aoe.sra_ah = ah;
 	memset(&sd->mds.mdd_aoe.sra_eaddr, 0xff,
@@ -650,17 +645,15 @@ bad:
 void
 sr_aoe_server_free_resources(struct sr_discipline *sd)
 {
-	int			s;
-
 	DNPRINTF(SR_D_DIS, "%s: sr_aoe_server_free_resources\n",
 	    DEVNAME(sd->sd_sc));
 
-	s = splnet();
+	crit_enter();
 	if (sd->mds.mdd_aoe.sra_ah) {
 		TAILQ_REMOVE(&aoe_handlers, sd->mds.mdd_aoe.sra_ah, next);
 		free(sd->mds.mdd_aoe.sra_ah, M_DEVBUF);
 	}
-	splx(s);
+	crit_leave();
 
 	sr_wu_free(sd);
 	sr_ccb_free(sd);
@@ -701,7 +694,7 @@ sr_aoe_server_thread(void *arg)
 	struct buf		buf;
 	daddr_t			blk;
 	int			len;
-	int			rv, s;
+	int			rv;
 
 	/* sanity */
 	if (!sd)
@@ -717,11 +710,11 @@ sr_aoe_server_thread(void *arg)
 	    DEVNAME(sd->sd_sc), sd->sd_meta->ssd_devname, ifp->if_xname);
 
 	while (1) {
-		s = splnet();
+		crit_enter();
 resleep:
 		rv = tsleep(ah, PCATCH | PRIBIO, "aoe targ", 0);
 		if (rv) {
-			splx(s);
+			crit_leave();
 			break;
 		}
 		ar = TAILQ_FIRST(&ah->reqs);
@@ -729,7 +722,7 @@ resleep:
 			goto resleep;
 		}
 		TAILQ_REMOVE(&ah->reqs, ar, next);
-		splx(s);
+		crit_leave();
 		m2 = ar->v;
 		rp = mtod(m2, struct aoe_packet *);
 		if (rp->command) {
@@ -790,11 +783,11 @@ resleep:
 
 			m->m_pkthdr.len = m->m_len = AOE_CMDHDRLEN;
 
-			s = splnet();
+			crit_enter();
 			IFQ_ENQUEUE(&ifp->if_snd, m, NULL, rv);
 			if ((ifp->if_flags & IFF_OACTIVE) == 0)
 				(*ifp->if_start)(ifp);
-			splx(s);
+			crit_leave();
 		} else {
 			MGETHDR(m, M_DONTWAIT, MT_HEADER);
 			if (m) {
@@ -856,11 +849,11 @@ resleep:
 			ap->reserved = 0;
 			m->m_pkthdr.len = m->m_len = AOE_CMDHDRLEN;
 
-			s = splnet();
+			crit_enter();
 			IFQ_ENQUEUE(&ifp->if_snd, m, NULL, rv);
 			if ((ifp->if_flags & IFF_OACTIVE) == 0)
 				(*ifp->if_start)(ifp);
-			splx(s);
+			crit_leave();
 		}
 	}
 }
@@ -869,7 +862,6 @@ void
 sr_aoe_server(struct aoe_handler *ah, struct mbuf *m)
 {
 	struct aoe_req		*ar;
-	int			s;
 
 	ar = malloc(sizeof *ar, M_DEVBUF, M_NOWAIT);
 	if (!ar) {
@@ -878,8 +870,8 @@ sr_aoe_server(struct aoe_handler *ah, struct mbuf *m)
 		return;
 	}
 	ar->v = m;
-	s = splnet();
+	crit_enter();
 	TAILQ_INSERT_TAIL(&ah->reqs, ar, next);
 	wakeup(ah);
-	splx(s);
+	crit_leave();
 }

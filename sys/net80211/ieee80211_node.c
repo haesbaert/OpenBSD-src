@@ -104,9 +104,8 @@ ieee80211_inact_timeout(void *arg)
 {
 	struct ieee80211com *ic = arg;
 	struct ieee80211_node *ni, *next_ni;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	for (ni = RB_MIN(ieee80211_tree, &ic->ic_tree);
 	    ni != NULL; ni = next_ni) {
 		next_ni = RB_NEXT(ieee80211_tree, &ic->ic_tree, ni);
@@ -115,7 +114,7 @@ ieee80211_inact_timeout(void *arg)
 		if (ni->ni_inact < IEEE80211_INACT_MAX)
 			ni->ni_inact++;
 	}
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&ic->ic_inact_timeout, IEEE80211_INACT_WAIT);
 }
@@ -800,8 +799,6 @@ void
 ieee80211_setup_node(struct ieee80211com *ic,
 	struct ieee80211_node *ni, const u_int8_t *macaddr)
 {
-	int s;
-
 	DPRINTF(("%s\n", ether_sprintf((u_int8_t *)macaddr)));
 	IEEE80211_ADDR_COPY(ni->ni_macaddr, macaddr);
 	ieee80211_node_newstate(ni, IEEE80211_STA_CACHE);
@@ -812,10 +809,10 @@ ieee80211_setup_node(struct ieee80211com *ic,
 	timeout_set(&ni->ni_eapol_to, ieee80211_eapol_timeout, ni);
 	timeout_set(&ni->ni_sa_query_to, ieee80211_sa_query_timeout, ni);
 #endif
-	s = splnet();
+	crit_enter();
 	RB_INSERT(ieee80211_tree, &ic->ic_tree, ni);
 	ic->ic_nnodes++;
-	splx(s);
+	crit_leave();
 }
 
 struct ieee80211_node *
@@ -877,7 +874,6 @@ ieee80211_find_txnode(struct ieee80211com *ic, const u_int8_t *macaddr)
 {
 #ifndef IEEE80211_STA_ONLY
 	struct ieee80211_node *ni;
-	int s;
 #endif
 
 	/*
@@ -889,9 +885,9 @@ ieee80211_find_txnode(struct ieee80211com *ic, const u_int8_t *macaddr)
 		return ieee80211_ref_node(ic->ic_bss);
 
 #ifndef IEEE80211_STA_ONLY
-	s = splnet();
+	crit_enter();
 	ni = ieee80211_find_node(ic, macaddr);
-	splx(s);
+	crit_leave();
 	if (ni == NULL) {
 		if (ic->ic_opmode != IEEE80211_M_IBSS &&
 		    ic->ic_opmode != IEEE80211_M_AHDEMO)
@@ -1019,14 +1015,13 @@ ieee80211_find_rxnode(struct ieee80211com *ic,
 	static const u_int8_t zero[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	struct ieee80211_node *ni;
 	const u_int8_t *bssid;
-	int s;
 
 	if (!ieee80211_needs_rxnode(ic, wh, &bssid))
 		return ieee80211_ref_node(ic->ic_bss);
 
-	s = splnet();
+	crit_enter();
 	ni = ieee80211_find_node(ic, wh->i_addr2);
-	splx(s);
+	crit_leave();
 
 	if (ni != NULL)
 		return ieee80211_ref_node(ni);
@@ -1057,10 +1052,10 @@ ieee80211_find_node_for_beacon(struct ieee80211com *ic,
     const char *ssid, u_int8_t rssi)
 {
 	struct ieee80211_node *ni, *keep = NULL;
-	int s, score = 0;
+	int score = 0;
 
 	if ((ni = ieee80211_find_node(ic, macaddr)) != NULL) {
-		s = splnet();
+		crit_enter();
 
 		if (ni->ni_chan != chan && ni->ni_rssi >= rssi)
 			score++;
@@ -1069,7 +1064,7 @@ ieee80211_find_node_for_beacon(struct ieee80211com *ic,
 		if (score > 0)
 			keep = ni;
 
-		splx(s);
+		crit_leave();
 	}
 
 	return (keep);
@@ -1081,7 +1076,7 @@ ieee80211_free_node(struct ieee80211com *ic, struct ieee80211_node *ni)
 	if (ni == ic->ic_bss)
 		panic("freeing bss node");
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	DPRINTF(("%s\n", ether_sprintf(ni->ni_macaddr)));
 #ifndef IEEE80211_STA_ONLY
@@ -1105,29 +1100,26 @@ ieee80211_free_node(struct ieee80211com *ic, struct ieee80211_node *ni)
 void
 ieee80211_release_node(struct ieee80211com *ic, struct ieee80211_node *ni)
 {
-	int s;
-
 	DPRINTF(("%s refcnt %u\n", ether_sprintf(ni->ni_macaddr),
 	    ni->ni_refcnt));
-	s = splnet();
+	crit_enter();
 	if (ieee80211_node_decref(ni) == 0 &&
 	    ni->ni_state == IEEE80211_STA_COLLECT) {
 		ieee80211_free_node(ic, ni);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
 ieee80211_free_allnodes(struct ieee80211com *ic)
 {
 	struct ieee80211_node *ni;
-	int s;
 
 	DPRINTF(("freeing all nodes\n"));
-	s = splnet();
+	crit_enter();
 	while ((ni = RB_MIN(ieee80211_tree, &ic->ic_tree)) != NULL)
 		ieee80211_free_node(ic, ni);
-	splx(s);
+	crit_leave();
 
 	if (ic->ic_bss != NULL)
 		ieee80211_node_cleanup(ic, ic->ic_bss);	/* for station mode */
@@ -1151,13 +1143,12 @@ ieee80211_clean_nodes(struct ieee80211com *ic, int cache_timeout)
 {
 	struct ieee80211_node *ni, *next_ni;
 	u_int gen = ic->ic_scangen++;		/* NB: ok 'cuz single-threaded*/
-	int s;
 #ifndef IEEE80211_STA_ONLY
 	int nnodes = 0;
 	struct ifnet *ifp = &ic->ic_if;
 #endif
 
-	s = splnet();
+	crit_enter();
 	for (ni = RB_MIN(ieee80211_tree, &ic->ic_tree);
 	    ni != NULL; ni = next_ni) {
 		next_ni = RB_NEXT(ieee80211_tree, &ic->ic_tree, ni);
@@ -1209,11 +1200,11 @@ ieee80211_clean_nodes(struct ieee80211com *ic, int cache_timeout)
 		if (ic->ic_opmode == IEEE80211_M_HOSTAP &&
 		    ni->ni_state >= IEEE80211_STA_AUTH &&
 		    ni->ni_state != IEEE80211_STA_COLLECT) {
-			splx(s);
+			crit_leave();
 			IEEE80211_SEND_MGMT(ic, ni,
 			    IEEE80211_FC0_SUBTYPE_DEAUTH,
 			    IEEE80211_REASON_AUTH_EXPIRE);
-			s = splnet();
+			crit_enter();
 			ieee80211_node_leave(ic, ni);
 		} else
 #endif
@@ -1234,7 +1225,7 @@ ieee80211_clean_nodes(struct ieee80211com *ic, int cache_timeout)
 		    "possible nodes leak\n", ifp->if_xname, nnodes,
 		    ic->ic_nnodes);
 #endif
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1242,12 +1233,11 @@ ieee80211_iterate_nodes(struct ieee80211com *ic, ieee80211_iter_func *f,
     void *arg)
 {
 	struct ieee80211_node *ni;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	RB_FOREACH(ni, ieee80211_tree, &ic->ic_tree)
 		(*f)(arg, ni);
-	splx(s);
+	crit_leave();
 }
 
 /*

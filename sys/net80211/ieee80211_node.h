@@ -256,22 +256,20 @@ RB_HEAD(ieee80211_tree, ieee80211_node);
 static __inline void
 ieee80211_node_incref(struct ieee80211_node *ni)
 {
-	int		s;
 
-	s = splnet();
+	crit_enter();
 	ni->ni_refcnt++;
-	splx(s);
+	crit_leave();
 }
 
 static __inline u_int
 ieee80211_node_decref(struct ieee80211_node *ni)
 {
 	u_int		refcnt;
-	int 		s;
 
-	s = splnet();
+	crit_enter();
 	refcnt = --ni->ni_refcnt;
-	splx(s);
+	crit_leave();
 	return refcnt;
 }
 

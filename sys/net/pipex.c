@@ -38,6 +38,7 @@
 #include <sys/time.h>
 #include <sys/timeout.h>
 #include <sys/kernel.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -149,13 +150,12 @@ pipex_init(void)
 void
 pipex_iface_init(struct pipex_iface_context *pipex_iface, struct ifnet *ifp)
 {
-	int s;
 	struct pipex_session *session;
 
 	pipex_iface->pipexmode = 0;
 	pipex_iface->ifnet_this = ifp;
 
-	s = splnet();
+	crit_enter();
 	if (!pipex_rd_head4_initialized) {
 		pipex_rd_head4_initialized++;
 		if (!rn_inithead0(&pipex_rd_head4,
@@ -168,7 +168,7 @@ pipex_iface_init(struct pipex_iface_context *pipex_iface, struct ifnet *ifp)
 		    offsetof(struct sockaddr_in6, sin6_addr) *NBBY))
 			panic("rn_inithead0() failed on pipex_init()");
 	}
-	splx(s);
+	crit_leave();
 
 	/* virtual pipex_session entry for multicast */
 	session = malloc(sizeof(*session), M_TEMP, M_WAITOK);
@@ -188,9 +188,8 @@ pipex_iface_stop(struct pipex_iface_context *pipex_iface)
 {
 	struct pipex_session *session;
 	struct pipex_session *session_next;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	pipex_iface->pipexmode = 0;
 	/*
 	 * traversal all pipex sessions.
@@ -202,10 +201,10 @@ pipex_iface_stop(struct pipex_iface_context *pipex_iface)
 		if (session->pipex_iface == pipex_iface)
 			pipex_destroy_session(session);
 	}
-	splx(s);
+	crit_leave();
 }
 
-/* called from tunioctl() with splnet() */
+/* called from tunioctl() with crit_enter() */
 int
 pipex_ioctl(struct pipex_iface_context *pipex_iface, u_long cmd, caddr_t data)
 {
@@ -266,7 +265,6 @@ pipex_add_session(struct pipex_session_req *req,
 	struct pipex_session *session;
 	struct pipex_hash_head *chain;
 	struct radix_node *rn;
-	int s;
 #ifdef PIPEX_PPPOE
 	struct ifnet *over_ifp = NULL;
 #endif
@@ -425,11 +423,11 @@ pipex_add_session(struct pipex_session_req *req,
 #endif
 
 	/* commit the session */
-	s = splnet();
+	crit_enter();
 	if (!in_nullhost(session->ip_address.sin_addr)) {
 		if (pipex_lookup_by_ip_address(session->ip_address.sin_addr)
 		    != NULL) {
-			splx(s);
+			crit_leave();
 			free(session, M_TEMP);
 			return (EADDRINUSE);
 		}
@@ -437,7 +435,7 @@ pipex_add_session(struct pipex_session_req *req,
 		rn = pipex_rd_head4.rnh_addaddr(&session->ip_address,
 		    &session->ip_netmask, &pipex_rd_head4, session->ps4_rn, RTP_STATIC);
 		if (rn == NULL) {
-			splx(s);
+			crit_leave();
 			free(session, M_TEMP);
 			return (ENOMEM);
 		}
@@ -447,7 +445,7 @@ pipex_add_session(struct pipex_session_req *req,
                     &session->ip6_prefixlen, &pipex_rd_head6, session->ps6_rn, 
                     RTP_STATIC);
                 if (rn == NULL) {
-                        splx(s);
+                        crit_leave();
                         free(session, M_TEMP);
                         return (ENOMEM);
                 }
@@ -468,7 +466,7 @@ pipex_add_session(struct pipex_session_req *req,
 	if (LIST_NEXT(session, session_list) == NULL)
 		pipex_timer_start();
 
-	splx(s);
+	crit_leave();
 
 	pipex_session_log(session, LOG_INFO, "PIPEX is ready.");
 
@@ -478,13 +476,11 @@ pipex_add_session(struct pipex_session_req *req,
 int
 pipex_notify_close_session(struct pipex_session *session)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	session->state = PIPEX_STATE_CLOSE_WAIT;
 	session->stat.idle_time = 0;
 	LIST_INSERT_HEAD(&pipex_close_wait_list, session, state_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -493,13 +489,12 @@ int
 pipex_notify_close_session_all(void)
 {
 	struct pipex_session *session;
-	int s;
 	
-	s = splnet();
+	crit_enter();
 	LIST_FOREACH(session, &pipex_session_list, session_list)
 		if (session->state == PIPEX_STATE_OPENED)
 			pipex_notify_close_session(session);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -508,13 +503,12 @@ Static int
 pipex_close_session(struct pipex_session_close_req *req)
 {
 	struct pipex_session *session;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	session = pipex_lookup_by_session_id(req->pcr_protocol,
 	    req->pcr_session_id);
 	if (session == NULL) {
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 
@@ -525,7 +519,7 @@ pipex_close_session(struct pipex_session_close_req *req)
 	/* get statistics before destroy the session */
 	req->pcr_stat = session->stat;
 	session->state = PIPEX_STATE_CLOSED;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -534,17 +528,16 @@ Static int
 pipex_config_session(struct pipex_session_config_req *req)
 {
 	struct pipex_session *session;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	session = pipex_lookup_by_session_id(req->pcr_protocol,
 	    req->pcr_session_id);
 	if (session == NULL) {
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 	session->ip_forward = req->pcr_ip_forward;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -553,17 +546,16 @@ Static int
 pipex_get_stat(struct pipex_session_stat_req *req)
 {
 	struct pipex_session *session;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	session = pipex_lookup_by_session_id(req->psr_protocol,
 	    req->psr_session_id);
 	if (session == NULL) {
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 	req->psr_stat = session->stat;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -572,9 +564,8 @@ Static int
 pipex_get_closed(struct pipex_session_list_req *req)
 {
 	struct pipex_session *session;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	bzero(req, sizeof(*req));
 	while (!LIST_EMPTY(&pipex_close_wait_list)) {
 		session = LIST_FIRST(&pipex_close_wait_list);
@@ -587,7 +578,7 @@ pipex_get_closed(struct pipex_session_list_req *req)
 			break;
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -596,10 +587,9 @@ Static int
 pipex_destroy_session(struct pipex_session *session)
 {
 	struct radix_node *rn;
-	int s;
 
 	/* remove from radix tree and hash chain */
-	s = splnet();
+	crit_enter();
 
 	if (!in_nullhost(session->ip_address.sin_addr)) {
 		rn = pipex_rd_head4.rnh_deladdr(&session->ip_address,
@@ -624,7 +614,7 @@ pipex_destroy_session(struct pipex_session *session)
 	if (LIST_EMPTY(&pipex_session_list))
 		pipex_timer_stop();
 
-	splx(s);
+	crit_leave();
 
 	if (session->mppe_recv.old_session_keys)
 		free(session->mppe_recv.old_session_keys, M_TEMP);
@@ -702,17 +692,17 @@ pipex_ppp_dequeue(void)
 	struct mbuf *m;
 	struct m_tag *mtag;
 	struct pipex_tag *tag;
-	int c, s;
+	int c;
 
 	/* ppp output */
 	for (c = 0; c < PIPEX_DEQUEUE_LIMIT; c++) {
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&pipexoutq, m);
 		if (m == NULL) {
-			splx(s);
+			crit_leave();
 			break;
 		}
-		splx(s);
+		crit_leave();
 
 		mtag = m_tag_find(m, PACKET_TAG_PIPEX, NULL);
 		if (mtag == NULL) {
@@ -746,13 +736,13 @@ pipex_ppp_dequeue(void)
 
 	/* ppp input */
 	for (c = 0; c < PIPEX_DEQUEUE_LIMIT; c++) {
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&pipexinq, m);
 		if (m == NULL) {
-			splx(s);
+			crit_leave();
 			break;
 		}
-		splx(s);
+		crit_leave();
 
 		mtag = m_tag_find(m, PACKET_TAG_PIPEX, NULL);
 		if (mtag == NULL) {
@@ -767,10 +757,10 @@ pipex_ppp_dequeue(void)
 	 * When packet remains in queue, it is necessary
 	 * to re-schedule software interrupt.
 	 */
-	s = splnet();
+	crit_enter();
 	if (!IF_IS_EMPTY(&pipexinq) || !IF_IS_EMPTY(&pipexoutq))
 		ithread_softsched(pipex_softintr);
-	splx(s);
+	crit_leave();
 }
 
 Static int
@@ -779,17 +769,16 @@ pipex_ppp_enqueue(struct mbuf *m0, struct pipex_session *session,
 {
 	struct pipex_tag *tag;
 	struct m_tag *mtag;
-	int s;
 	
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(queue)) {
 		IF_DROP(queue);
-		splx(s);
+		crit_leave();
 		goto fail;
 	}
 	mtag = m_tag_get(PACKET_TAG_PIPEX, sizeof(struct pipex_tag), M_NOWAIT);
 	if (mtag == NULL) {
-		splx(s);
+		crit_leave();
 		goto fail;
 	}
 	m_tag_prepend(m0, mtag);
@@ -798,7 +787,7 @@ pipex_ppp_enqueue(struct mbuf *m0, struct pipex_session *session,
 	tag->proto = PPP_IP;	/* XXX need to support other protocols */
 
 	IF_ENQUEUE(queue, m0);
-	splx(s);
+	crit_leave();
 
 	ithread_softsched(pipex_softintr);
 	return (0);
@@ -827,11 +816,10 @@ pipex_timer_stop(void)
 Static void
 pipex_timer(void *ignored_arg)
 {
-	int s;
 	struct pipex_session *session;
 	struct pipex_session *session_next;
 
-	s = splnet();
+	crit_enter();
 	timeout_add_sec(&pipex_timer_ch, pipex_prune);
 
 	/* walk through */
@@ -875,7 +863,7 @@ pipex_timer(void *ignored_arg)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /***********************************************************************
@@ -1118,7 +1106,7 @@ pipex_ip_input(struct mbuf *m0, struct pipex_session *session)
 {
 	struct ifnet *ifp;
 	struct ip *ip;
-	int s, len;
+	int len;
 	int is_idle;
 
 	/* change recvif */
@@ -1178,13 +1166,13 @@ pipex_ip_input(struct mbuf *m0, struct pipex_session *session)
 		bpf_mtap_af(ifp->if_bpf, AF_INET, m0, BPF_DIRECTION_IN);
 #endif
 
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(&ipintrq)) {
 		IF_DROP(&ipintrq);
 		ifp->if_collisions++;
 		if (!ipintrq.ifq_congestion)
 			if_congestion(&ipintrq);
-		splx(s);
+		crit_leave();
 		goto drop;
 	}
 	IF_ENQUEUE(&ipintrq, m0);
@@ -1195,7 +1183,7 @@ pipex_ip_input(struct mbuf *m0, struct pipex_session *session)
 	session->stat.ipackets++;
 	session->stat.ibytes += len;
 
-	splx(s);
+	crit_leave();
 
 	return;
 drop:
@@ -1210,7 +1198,7 @@ pipex_ip6_input(struct mbuf *m0, struct pipex_session *session)
 {
 	struct ifnet *ifp;
 	struct ip6_hdr *ip6;
-	int s, len;
+	int len;
 
 	/* change recvif */
 	m0->m_pkthdr.rcvif = session->pipex_iface->ifnet_this;
@@ -1253,13 +1241,13 @@ pipex_ip6_input(struct mbuf *m0, struct pipex_session *session)
 		bpf_mtap_af(ifp->if_bpf, AF_INET6, m0, BPF_DIRECTION_IN);
 #endif
 
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(&ip6intrq)) {
 		IF_DROP(&ip6intrq);
 		ifp->if_collisions++;
 		if (!ip6intrq.ifq_congestion)
 			if_congestion(&ip6intrq);
-		splx(s);
+		crit_leave();
 		goto drop;
 	}
 	IF_ENQUEUE(&ip6intrq, m0);
@@ -1270,7 +1258,7 @@ pipex_ip6_input(struct mbuf *m0, struct pipex_session *session)
 	session->stat.ipackets++;
 	session->stat.ibytes += len;
 
-	splx(s);
+	crit_leave();
 
 	return;
 drop:

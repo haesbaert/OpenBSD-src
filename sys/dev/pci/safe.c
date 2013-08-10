@@ -40,6 +40,7 @@
 #include <sys/mbuf.h>
 #include <sys/device.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -318,7 +319,7 @@ bad:
 int
 safe_process(struct cryptop *crp)
 {
-	int err = 0, i, nicealign, uniform, s;
+	int err = 0, i, nicealign, uniform;
 	struct safe_softc *sc;
 	struct cryptodesc *crd1, *crd2, *maccrd, *enccrd;
 	int bypass, oplen, ivsize, card;
@@ -329,29 +330,29 @@ safe_process(struct cryptop *crp)
 	struct safe_pdesc *pd;
 	u_int32_t cmd0, cmd1, staterec, iv[4];
 
-	s = splnet();
+	crit_enter();
 	if (crp == NULL || crp->crp_callback == NULL) {
 		safestats.st_invalid++;
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 	card = SAFE_CARD(crp->crp_sid);
 	if (card >= safe_cd.cd_ndevs || safe_cd.cd_devs[card] == NULL) {
 		safestats.st_invalid++;
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 	sc = safe_cd.cd_devs[card];
 
 	if (SAFE_SESSION(crp->crp_sid) >= sc->sc_nsessions) {
 		safestats.st_badsession++;
-		splx(s);
+		crit_leave();
 		return (EINVAL);
 	}
 
 	if (sc->sc_front == sc->sc_back && sc->sc_nqchip != 0) {
 		safestats.st_ringfull++;
-		splx(s);
+		crit_leave();
 		return (ERESTART);
 	}
 	re = sc->sc_front;
@@ -960,7 +961,7 @@ safe_process(struct cryptop *crp)
 
 	/* XXX honor batching */
 	safe_feed(sc, re);
-	splx(s);
+	crit_leave();
 	return (0);
 
 errout:
@@ -977,7 +978,7 @@ errout:
 	}
 	crp->crp_etype = err;
 	crypto_done(crp);
-	splx(s);
+	crit_leave();
 	return (err);
 }
 
@@ -1479,7 +1480,7 @@ safe_dmamap_aligned(const struct safe_operand *op)
 
 /*
  * Clean up after a chip crash.
- * It is assumed that the caller in splnet()
+ * It is assumed that the caller in crit_enter()
  */
 void
 safe_cleanchip(struct safe_softc *sc)
@@ -1501,7 +1502,7 @@ safe_cleanchip(struct safe_softc *sc)
 
 /*
  * free a safe_q
- * It is assumed that the caller is within splnet().
+ * It is assumed that the caller is within crit_enter().
  */
 int
 safe_free_entry(struct safe_softc *sc, struct safe_ringentry *re)
@@ -1777,7 +1778,6 @@ safe_kprocess(struct cryptkop *krp)
 {
 	struct safe_softc *sc;
 	struct safe_pkq *q;
-	int s;
 
 	if ((sc = safe_kfind(krp)) == NULL) {
 		krp->krp_status = EINVAL;
@@ -1796,10 +1796,10 @@ safe_kprocess(struct cryptkop *krp)
 	}
 	q->pkq_krp = krp;
 
-	s = splnet();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_pkq, q, pkq_next);
 	safe_kfeed(sc);
-	splx(s);
+	crit_leave();
 	return (0);
 
 err:
@@ -1965,10 +1965,10 @@ safe_kpoll(void *vsc)
 	struct safe_softc *sc = vsc;
 	struct safe_pkq *q;
 	struct crparam *res;
-	int s, i;
+	int i;
 	u_int32_t buf[64];
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_pkq_cur == NULL)
 		goto out;
 	if (READ_REG(sc, SAFE_PK_FUNC) & SAFE_PK_FUNC_RUN) {
@@ -1998,7 +1998,7 @@ safe_kpoll(void *vsc)
 
 	safe_kfeed(sc);
 out:
-	splx(s);
+	crit_leave();
 }
 
 void

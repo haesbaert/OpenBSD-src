@@ -47,6 +47,7 @@
 #include <sys/mbuf.h>
 #include <sys/device.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <crypto/cryptodev.h>
 #include <crypto/cryptosoft.h>
@@ -514,7 +515,7 @@ ubsec_intr(void *arg)
 
 /*
  * ubsec_feed() - aggregate and post requests to chip
- *		  It is assumed that the caller set splnet()
+ *		  It is assumed that the caller set crit_enter()
  */
 void
 ubsec_feed(struct ubsec_softc *sc)
@@ -806,7 +807,7 @@ int
 ubsec_process(struct cryptop *crp)
 {
 	struct ubsec_q *q = NULL;
-	int card, err = 0, i, j, s, nicealign;
+	int card, err = 0, i, j, nicealign;
 	struct ubsec_softc *sc;
 	struct cryptodesc *crd1, *crd2, *maccrd, *enccrd;
 	int encoffset = 0, macoffset = 0, cpskip, cpoffset;
@@ -829,18 +830,18 @@ ubsec_process(struct cryptop *crp)
 
 	sc = ubsec_cd.cd_devs[card];
 
-	s = splnet();
+	crit_enter();
 
 	if (SIMPLEQ_EMPTY(&sc->sc_freequeue)) {
 		ubsecstats.hst_queuefull++;
-		splx(s);
+		crit_leave();
 		err = ENOMEM;
 		goto errout2;
 	}
 
 	q = SIMPLEQ_FIRST(&sc->sc_freequeue);
 	SIMPLEQ_REMOVE_HEAD(&sc->sc_freequeue, q_next);
-	splx(s);
+	crit_leave();
 
 	dmap = q->q_dma; /* Save dma pointer */
 	bzero(q, sizeof(struct ubsec_q));
@@ -1317,13 +1318,13 @@ ubsec_process(struct cryptop *crp)
 			ctx->pc_iv[i] = key.ses_iv[i];
 	}
 
-	s = splnet();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_queue, q, q_next);
 	sc->sc_nqueue++;
 	ubsecstats.hst_ipackets++;
 	ubsecstats.hst_ibytes += dmap->d_alloc.dma_map->dm_mapsize;
 	ubsec_feed(sc);
-	splx(s);
+	crit_leave();
 	explicit_bzero(&key, sizeof(key));
 	return (0);
 
@@ -1341,9 +1342,9 @@ errout:
 			bus_dmamap_destroy(sc->sc_dmat, q->q_src_map);
 		}
 
-		s = splnet();
+		crit_enter();
 		SIMPLEQ_INSERT_TAIL(&sc->sc_freequeue, q, q_next);
-		splx(s);
+		crit_leave();
 	}
 	if (err == EINVAL)
 		ubsecstats.hst_invalid++;
@@ -1408,7 +1409,7 @@ ubsec_callback(struct ubsec_softc *sc, struct ubsec_q *q)
 }
 
 /*
- * feed the key generator, must be called at splnet() or higher.
+ * feed the key generator, must be called at crit_enter() or higher.
  */
 void
 ubsec_feed2(struct ubsec_softc *sc)
@@ -1576,11 +1577,11 @@ ubsec_rng(void *vsc)
 	struct ubsec_q2_rng *rng = &sc->sc_rng;
 	struct ubsec_mcr *mcr;
 	struct ubsec_ctx_rngbypass *ctx;
-	int s, *nqueue;
+	int *nqueue;
 
-	s = splnet();
+	crit_enter();
 	if (rng->rng_used) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if (sc->sc_flags & UBS_FLAGS_RNG4)
@@ -1622,7 +1623,7 @@ ubsec_rng(void *vsc)
 		rng->rng_used = 1;
 		ubsec_feed2(sc);
 	}
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -1631,7 +1632,7 @@ out:
 	 * Something weird happened, generate our own call back.
 	 */
 	(*nqueue)--;
-	splx(s);
+	crit_leave();
 	timeout_add(&sc->sc_rngto, sc->sc_rnghz);
 }
 #endif /* UBSEC_NO_RNG */
@@ -1763,7 +1764,7 @@ ubsec_init_pciregs(struct pci_attach_args *pa)
 
 /*
  * Clean up after a chip crash.
- * It is assumed that the caller is in splnet()
+ * It is assumed that the caller is in crit_enter()
  */
 void
 ubsec_cleanchip(struct ubsec_softc *sc)
@@ -1779,7 +1780,7 @@ ubsec_cleanchip(struct ubsec_softc *sc)
 
 /*
  * free a ubsec_q
- * It is assumed that the caller is within splnet()
+ * It is assumed that the caller is within crit_enter()
  */
 int
 ubsec_free_q(struct ubsec_softc *sc, struct ubsec_q *q)
@@ -1826,7 +1827,7 @@ ubsec_free_q(struct ubsec_softc *sc, struct ubsec_q *q)
 
 /*
  * Routine to reset the chip and clean up.
- * It is assumed that the caller is in splnet()
+ * It is assumed that the caller is in crit_enter()
  */
 void
 ubsec_totalreset(struct ubsec_softc *sc)
@@ -1949,7 +1950,7 @@ ubsec_kprocess_modexp_sw(struct ubsec_softc *sc, struct cryptkop *krp)
 	struct ubsec_mcr *mcr;
 	struct ubsec_ctx_modexp *ctx;
 	struct ubsec_pktbuf *epb;
-	int err = 0, s;
+	int err = 0;
 	u_int nbits, normbits, mbits, shiftbits, ebits;
 
 	me = malloc(sizeof *me, M_DEVBUF, M_NOWAIT | M_ZERO);
@@ -2101,10 +2102,10 @@ ubsec_kprocess_modexp_sw(struct ubsec_softc *sc, struct cryptkop *krp)
 	    0, me->me_epb.dma_map->dm_mapsize, BUS_DMASYNC_PREWRITE);
 
 	/* Enqueue and we're done... */
-	s = splnet();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_queue2, &me->me_q, q_next);
 	ubsec_feed2(sc);
-	splx(s);
+	crit_leave();
 
 	return (0);
 
@@ -2148,7 +2149,7 @@ ubsec_kprocess_modexp_hw(struct ubsec_softc *sc, struct cryptkop *krp)
 	struct ubsec_mcr *mcr;
 	struct ubsec_ctx_modexp *ctx;
 	struct ubsec_pktbuf *epb;
-	int err = 0, s;
+	int err = 0;
 	u_int nbits, normbits, mbits, shiftbits, ebits;
 
 	me = malloc(sizeof *me, M_DEVBUF, M_NOWAIT | M_ZERO);
@@ -2300,10 +2301,10 @@ ubsec_kprocess_modexp_hw(struct ubsec_softc *sc, struct cryptkop *krp)
 	    0, me->me_epb.dma_map->dm_mapsize, BUS_DMASYNC_PREWRITE);
 
 	/* Enqueue and we're done... */
-	s = splnet();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_queue2, &me->me_q, q_next);
 	ubsec_feed2(sc);
-	splx(s);
+	crit_leave();
 
 	return (0);
 
@@ -2343,7 +2344,7 @@ ubsec_kprocess_rsapriv(struct ubsec_softc *sc, struct cryptkop *krp)
 	struct ubsec_q2_rsapriv *rp = NULL;
 	struct ubsec_mcr *mcr;
 	struct ubsec_ctx_rsapriv *ctx;
-	int err = 0, s;
+	int err = 0;
 	u_int padlen, msglen;
 
 	msglen = ubsec_ksigbits(&krp->krp_param[UBS_RSAPRIV_PAR_P]);
@@ -2496,10 +2497,10 @@ ubsec_kprocess_rsapriv(struct ubsec_softc *sc, struct cryptkop *krp)
 	    0, rp->rpr_msgout.dma_map->dm_mapsize, BUS_DMASYNC_PREREAD);
 
 	/* Enqueue and we're done... */
-	s = splnet();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_queue2, &rp->rpr_q, q_next);
 	ubsec_feed2(sc);
-	splx(s);
+	crit_leave();
 	return (0);
 
 errout:

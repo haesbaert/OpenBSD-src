@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <sys/device.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -160,36 +161,35 @@ txp_attachhook(void *vsc)
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	u_int16_t p1;
 	u_int32_t p2;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	printf("%s: ", sc->sc_dev.dv_xname);
 
 	if (txp_chip_init(sc)) {
 		printf("failed chip init\n");
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (txp_download_fw(sc)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (txp_alloc_rings(sc)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (txp_command(sc, TXP_CMD_MAX_PKT_SIZE_WRITE, TXP_MAX_PKTLEN, 0, 0,
 	    NULL, NULL, NULL, 1)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (txp_command(sc, TXP_CMD_STATION_ADDRESS_READ, 0, 0, 0,
 	    &p1, &p2, NULL, 1)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -239,7 +239,7 @@ txp_attachhook(void *vsc)
 	if_attach(ifp);
 	ether_ifattach(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1177,9 +1177,9 @@ txp_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct txp_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1221,7 +1221,7 @@ txp_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 
@@ -1229,11 +1229,10 @@ void
 txp_init(struct txp_softc *sc)
 {
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int s;
 
 	txp_stop(sc);
 
-	s = splnet();
+	crit_enter();
 
 	txp_set_filter(sc);
 
@@ -1253,7 +1252,7 @@ txp_init(struct txp_softc *sc)
 	if (!timeout_pending(&sc->sc_tick))
 		timeout_add_sec(&sc->sc_tick, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1263,9 +1262,8 @@ txp_tick(void *vsc)
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	struct txp_rsp_desc *rsp = NULL;
 	struct txp_ext_desc *ext;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	txp_rxbuf_reclaim(sc);
 
 	if (txp_command2(sc, TXP_CMD_READ_STATISTICS, 0, 0, 0, NULL, 0,
@@ -1291,7 +1289,7 @@ out:
 	if (rsp != NULL)
 		free(rsp, M_DEVBUF);
 
-	splx(s);
+	crit_leave();
 	timeout_add_sec(&sc->sc_tick, 1);
 }
 

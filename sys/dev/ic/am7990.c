@@ -206,11 +206,9 @@ void
 am7990_reset(sc)
 	struct am7990_softc *sc;
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	am7990_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -735,7 +733,7 @@ am7990_watchdog(ifp)
  * Setup output on interface.
  * Get another datagram to send off of the interface queue, and map it to the
  * interface before starting the output.
- * Called only at splnet or interrupt level.
+ * Called only at crit_enter() or interrupt level.
  */
 void
 am7990_start(ifp)
@@ -832,9 +830,9 @@ am7990_ioctl(ifp, cmd, data)
 	register struct am7990_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -886,7 +884,7 @@ am7990_ioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

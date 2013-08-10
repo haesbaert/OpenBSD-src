@@ -290,12 +290,12 @@ void
 ex_init(struct ex_softc *sc)
 {
 	struct ifnet *ifp = &sc->arpcom.ac_if;
-	int s, i;
+	int i;
 	unsigned short temp_reg;
 
 	DODEBUG(Start_End, printf("ex_init: start\n"););
 
-	s = splnet();
+	crit_enter();
 	sc->arpcom.ac_if.if_timer = 0;
 
 	/*
@@ -370,7 +370,7 @@ ex_init(struct ex_softc *sc)
 	CSR_WRITE_1(sc, CMD_REG, Rcv_Enable_CMD);
 
 	ex_start(ifp);
-	splx(s);
+	crit_leave();
 
 	DODEBUG(Start_End, printf("ex_init: finish\n"););
 }
@@ -422,7 +422,7 @@ ex_start(struct ifnet *ifp)
 			/*
  			 * Disable rx and tx interrupts, to avoid corruption of
 			 * the host address register by interrupt service 
-			 * routines. XXX Is this necessary with splnet() 
+			 * routines. XXX Is this necessary with crit_enter() 
 			 * enabled?
 			 */
 			CSR_WRITE_2(sc, MASK_REG, All_Int);
@@ -739,11 +739,11 @@ ex_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ex_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
 	DODEBUG(Start_End, printf("ex_ioctl: start "););
 
-	s = splnet();
+	crit_enter();
 
 	switch(cmd) {
 	case SIOCSIFADDR:
@@ -778,7 +778,7 @@ ex_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	DODEBUG(Start_End, printf("\nex_ioctl: finish\n"););
 	return(error);
 }
@@ -880,14 +880,12 @@ ex_setmulti(struct ex_softc *sc)
 void 
 ex_reset(struct ex_softc *sc)
 {
-	int s;
-
 	DODEBUG(Start_End, printf("ex_reset: start\n"););
   
-	s = splnet();
+	crit_enter();
 	ex_stop(sc);
 	ex_init(sc);
-	splx(s);
+	crit_leave();
 
 	DODEBUG(Start_End, printf("ex_reset: finish\n"););
 }

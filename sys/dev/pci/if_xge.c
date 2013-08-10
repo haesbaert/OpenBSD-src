@@ -50,6 +50,7 @@
 #include <sys/kernel.h>
 #include <sys/socket.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -712,9 +713,8 @@ xge_init(struct ifnet *ifp)
 {
 	struct xge_softc *sc = ifp->if_softc;
 	uint64_t val;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel any pending I/O
@@ -739,7 +739,7 @@ xge_init(struct ifnet *ifp)
 		bitmask_snprintf(val, QUIESCENT_BMSK, buf, sizeof buf);
 		printf("%s: ADAPTER_STATUS missing bits %s\n", XNAME, buf);
 #endif
-		splx(s);
+		crit_leave();
 		return (1);
 	}
 
@@ -784,7 +784,7 @@ xge_init(struct ifnet *ifp)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -955,9 +955,9 @@ xge_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct xge_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1002,7 +1002,7 @@ xge_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

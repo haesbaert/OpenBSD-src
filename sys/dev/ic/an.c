@@ -881,12 +881,12 @@ an_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 {
 	struct an_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 
 	if ((sc->sc_dev.dv_flags & DVF_ACTIVE) == 0)
 		return ENXIO;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -939,7 +939,7 @@ an_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		else
 			error = 0;
 	}
-	splx(s);
+	crit_leave();
 	return(error);
 }
 
@@ -1240,14 +1240,14 @@ void
 an_stop(struct ifnet *ifp, int disable)
 {
 	struct an_softc *sc = ifp->if_softc;
-	int i, s;
+	int i;
 
 	if (!sc->sc_enabled)
 		return;
 
 	DPRINTF(("an_stop: disable %d\n", disable));
 
-	s = splnet();
+	crit_enter();
 	ieee80211_new_state(&sc->sc_ic, IEEE80211_S_INIT, -1);
 	if (!sc->sc_invalid) {
 		an_cmd(sc, AN_CMD_FORCE_SYNCLOSS, 0);
@@ -1267,7 +1267,7 @@ an_stop(struct ifnet *ifp, int disable)
 			(*sc->sc_disable)(sc);
 		sc->sc_enabled = 0;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1664,18 +1664,17 @@ int
 an_detach(struct an_softc *sc)
 {
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
 	if (!sc->sc_attached)
 		return 0;
 
-	s = splnet();
+	crit_enter();
 	sc->sc_invalid = 1;
 	an_stop(ifp, 1);
 	ifmedia_delete_instance(&sc->sc_ic.ic_media, IFM_INST_ANY);
 	ieee80211_ifdetach(ifp);
 	if_detach(ifp);
-	splx(s);
+	crit_leave();
 	return 0;
 }
 

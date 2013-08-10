@@ -2390,14 +2390,14 @@ urtw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return (ENXIO);
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2468,7 +2468,7 @@ urtw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 
@@ -2572,7 +2572,6 @@ urtw_txeof_low(struct usbd_xfer *xfer, void *priv,
 	struct urtw_softc *sc = data->sc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -2588,7 +2587,7 @@ urtw_txeof_low(struct usbd_xfer *xfer, void *priv,
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	ieee80211_release_node(ic, data->ni);
 	data->ni = NULL;
@@ -2600,7 +2599,7 @@ urtw_txeof_low(struct usbd_xfer *xfer, void *priv,
 	ifp->if_flags &= ~IFF_OACTIVE;
 	urtw_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2611,7 +2610,6 @@ urtw_txeof_normal(struct usbd_xfer *xfer, void *priv,
 	struct urtw_softc *sc = data->sc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -2627,7 +2625,7 @@ urtw_txeof_normal(struct usbd_xfer *xfer, void *priv,
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	ieee80211_release_node(ic, data->ni);
 	data->ni = NULL;
@@ -2639,7 +2637,7 @@ urtw_txeof_normal(struct usbd_xfer *xfer, void *priv,
 	ifp->if_flags &= ~IFF_OACTIVE;
 	urtw_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -3124,7 +3122,7 @@ urtw_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct ieee80211_rxinfo rxi;
 	struct mbuf *m, *mnew;
 	uint8_t *desc, quality, rate;
-	int actlen, flen, len, nf, rssi, s;
+	int actlen, flen, len, nf, rssi;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -3198,7 +3196,7 @@ urtw_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	m->m_pkthdr.rcvif = ifp;
 	m->m_pkthdr.len = m->m_len = flen - 4;
 
-	s = splnet();
+	crit_enter();
 
 #if NBPFILTER > 0
 	if (sc->sc_drvbpf != NULL) {
@@ -3246,7 +3244,7 @@ urtw_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	/* node is no longer needed */
 	ieee80211_release_node(ic, ni);
 
-	splx(s);
+	crit_leave();
 
 skip:	/* setup a new transfer */
 	usbd_setup_xfer(xfer, sc->sc_rxpipe, data, data->buf, MCLBYTES,
