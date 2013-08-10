@@ -145,7 +145,6 @@ cdcef_attach(struct device *parent, struct device *self, void *aux)
 	struct ifnet *ifp;
 	usbf_status err;
 	struct usb_cdc_union_descriptor udesc;
-	int s;
 	u_int16_t macaddr_hi;
 
 
@@ -238,7 +237,7 @@ cdcef_attach(struct device *parent, struct device *self, void *aux)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	macaddr_hi = htons(0x2acb);
 	bcopy(&macaddr_hi, &sc->sc_arpcom.ac_enaddr[0], sizeof(u_int16_t));
@@ -260,7 +259,7 @@ cdcef_attach(struct device *parent, struct device *self, void *aux)
 	if_attach(ifp);
 	ether_ifattach(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 usbf_status
@@ -318,9 +317,8 @@ cdcef_txeof(struct usbf_xfer *xfer, void *priv,
 {
 	struct cdcef_softc *sc = priv;
 	struct ifnet *ifp = GET_IFP(sc);
-	int s;
 
-	s = splnet();
+	crit_enter();
 #if 0
 	printf("cdcef_txeof: xfer=%p, priv=%p, %s\n", xfer, priv,
 	    usbf_errstr(err));
@@ -342,18 +340,17 @@ cdcef_txeof(struct usbf_xfer *xfer, void *priv,
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		timeout_add(&sc->start_to, 1); /* XXX  */
 
-	splx(s);
+	crit_leave();
 }
 void
 cdcef_start_timeout (void *v)
 {
 	struct cdcef_softc *sc = v;
 	struct ifnet *ifp = GET_IFP(sc);
-	int s;
 
-	s = splnet();
+	crit_enter();
 	cdcef_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 
@@ -366,8 +363,6 @@ cdcef_rxeof(struct usbf_xfer *xfer, void *priv,
 	struct ifnet		*ifp = GET_IFP(sc);
 	struct mbuf		*m = NULL;
 
-
-	int s;
 
 #if 0
 	printf("cdcef_rxeof: xfer=%p, priv=%p, %s\n", xfer, priv,
@@ -408,7 +403,7 @@ cdcef_rxeof(struct usbf_xfer *xfer, void *priv,
 		goto done;
 	}
 
-	s = splnet();
+	crit_enter();
 	if (ifp->if_flags & IFF_RUNNING) {
 		m = cdcef_newbuf();
 		if (m == NULL) {
@@ -432,7 +427,7 @@ cdcef_rxeof(struct usbf_xfer *xfer, void *priv,
 	}
 
 done1:
-	splx(s);
+	crit_leave();
 
 done:
 	/* Setup another xfer. */
@@ -472,9 +467,9 @@ cdcef_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 {
 	struct cdcef_softc	*sc = ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *)data;
-	int			 s, error = 0;
+	int			 error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -505,7 +500,7 @@ cdcef_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	if (error == ENETRESET)
 		error = 0;
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -534,16 +529,15 @@ cdcef_watchdog(struct ifnet *ifp)
 void
 cdcef_init(struct cdcef_softc *sc)
 {
-	int s;
 	struct ifnet    *ifp = GET_IFP(sc);
 	if (ifp->if_flags & IFF_RUNNING)
 		return;
-	s = splnet();
+	crit_enter();
 
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 }
 
 int

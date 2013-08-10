@@ -71,6 +71,7 @@
 #include <sys/kernel.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <sys/device.h>
@@ -225,9 +226,9 @@ struct vr_type {
 int
 vr_mii_readreg(struct vr_softc *sc, struct vr_mii_frame *frame)
 {
-	int			s, i;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	/* Set the PHY-address */
 	CSR_WRITE_1(sc, VR_PHYADDR, (CSR_READ_1(sc, VR_PHYADDR)& 0xe0)|
@@ -245,7 +246,7 @@ vr_mii_readreg(struct vr_softc *sc, struct vr_mii_frame *frame)
 
 	frame->mii_data = CSR_READ_2(sc, VR_MIIDATA);
 
-	splx(s);
+	crit_leave();
 
 	return(0);
 }
@@ -256,9 +257,9 @@ vr_mii_readreg(struct vr_softc *sc, struct vr_mii_frame *frame)
 int
 vr_mii_writereg(struct vr_softc *sc, struct vr_mii_frame *frame)
 {
-	int			s, i;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	/* Set the PHY-address */
 	CSR_WRITE_1(sc, VR_PHYADDR, (CSR_READ_1(sc, VR_PHYADDR)& 0xe0)|
@@ -276,7 +277,7 @@ vr_mii_writereg(struct vr_softc *sc, struct vr_mii_frame *frame)
 		DELAY(1);
 	}
 
-	splx(s);
+	crit_leave();
 
 	return(0);
 }
@@ -1074,9 +1075,8 @@ void
 vr_tick(void *xsc)
 {
 	struct vr_softc *sc = xsc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (sc->vr_flags & VR_F_RESTART) {
 		printf("%s: restarting\n", sc->sc_dev.dv_xname);
 		vr_init(sc);
@@ -1085,22 +1085,21 @@ vr_tick(void *xsc)
 
 	mii_tick(&sc->sc_mii);
 	timeout_add_sec(&sc->sc_to, 1);
-	splx(s);
+	crit_leave();
 }
 
 void
 vr_rxtick(void *xsc)
 {
 	struct vr_softc *sc = xsc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (sc->vr_cdata.vr_rx_cnt == 0) {
 		vr_fill_rx_ring(sc);
 		if (sc->vr_cdata.vr_rx_cnt == 0)
 			timeout_add(&sc->sc_rxto, 1);
 	}
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1420,9 +1419,9 @@ vr_init(void *xsc)
 	struct vr_softc		*sc = xsc;
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
 	struct mii_data		*mii = &sc->sc_mii;
-	int			s, i;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1464,7 +1463,7 @@ vr_init(void *xsc)
 		printf("%s: initialization failed: no memory for rx buffers\n",
 		    sc->sc_dev.dv_xname);
 		vr_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1475,7 +1474,7 @@ vr_init(void *xsc)
 		printf("%s: initialization failed: no memory for tx buffers\n",
 		    sc->sc_dev.dv_xname);
 		vr_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1513,7 +1512,7 @@ vr_init(void *xsc)
 	if (!timeout_pending(&sc->sc_to))
 		timeout_add_sec(&sc->sc_to, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1550,9 +1549,9 @@ vr_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct vr_softc		*sc = ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *) data;
 	struct ifreq		*ifr = (struct ifreq *) data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1592,7 +1591,7 @@ vr_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 

@@ -157,7 +157,7 @@ ipip_input(struct mbuf *m, int iphlen, struct ifnet *gifp, int proto)
 	struct ip6_hdr *ip6;
 #endif
 	int isr;
-	int mode, hlen, s;
+	int mode, hlen;
 	u_int8_t itos, otos;
 	u_int8_t v;
 	sa_family_t af;
@@ -393,13 +393,13 @@ ipip_input(struct mbuf *m, int iphlen, struct ifnet *gifp, int proto)
 	pf_pkt_addr_changed(m);
 #endif
 
-	s = splnet();			/* isn't it already? */
+	crit_enter();			/* isn't it already? */
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
 		m_freem(m);
 		ipipstat.ipips_qfull++;
 
-		splx(s);
+		crit_leave();
 
 		DPRINTF(("ipip_input(): packet dropped because of full "
 		    "queue\n"));
@@ -408,7 +408,7 @@ ipip_input(struct mbuf *m, int iphlen, struct ifnet *gifp, int proto)
 
 	IF_ENQUEUE(ifq, m);
 	schednetisr(isr);
-	splx(s);
+	crit_leave();
 	return;
 }
 

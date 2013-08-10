@@ -856,9 +856,9 @@ rsu_newstate_cb(struct rsu_softc *sc, void *arg)
 	struct rsu_cmd_newstate *cmd = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	enum ieee80211_state ostate;
-	int error, s;
+	int error;
 
-	s = splnet();
+	crit_enter();
 	ostate = ic->ic_state;
 	DPRINTF(("newstate %d -> %d\n", ostate, cmd->state));
 
@@ -878,7 +878,7 @@ rsu_newstate_cb(struct rsu_softc *sc, void *arg)
 			    sc->sc_dev.dv_xname);
 		}
 		ic->ic_state = cmd->state;
-		splx(s);
+		crit_leave();
 		return;
 	case IEEE80211_S_AUTH:
 		error = rsu_join_bss(sc, ic->ic_bss);
@@ -886,15 +886,15 @@ rsu_newstate_cb(struct rsu_softc *sc, void *arg)
 			printf("%s: could not send join command\n",
 			    sc->sc_dev.dv_xname);
 			ieee80211_begin_scan(&ic->ic_if);
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ic->ic_state = cmd->state;
-		splx(s);
+		crit_leave();
 		return;
 	case IEEE80211_S_ASSOC:
 		ic->ic_state = cmd->state;
-		splx(s);
+		crit_leave();
 		return;
 	case IEEE80211_S_RUN:
 		/* Indicate highest supported rate. */
@@ -906,7 +906,7 @@ rsu_newstate_cb(struct rsu_softc *sc, void *arg)
 		break;
 	}
 	(void)sc->sc_newstate(ic, cmd->state, cmd->arg);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1296,7 +1296,7 @@ rsu_rx_frame(struct rsu_softc *sc, uint8_t *buf, int pktlen)
 	struct mbuf *m;
 	uint8_t rate;
 	int8_t rssi = 0;
-	int s, infosz;
+	int infosz;
 
 	stat = (struct r92s_rx_stat *)buf;
 	rxdw0 = letoh32(stat->rxdw0);
@@ -1347,7 +1347,7 @@ rsu_rx_frame(struct rsu_softc *sc, uint8_t *buf, int pktlen)
 	memcpy(mtod(m, uint8_t *), wh, pktlen);
 	m->m_pkthdr.len = m->m_len = pktlen;
 
-	s = splnet();
+	crit_enter();
 #if NBPFILTER > 0
 	if (__predict_false(sc->sc_drvbpf != NULL)) {
 		struct rsu_rx_radiotap_header *tap = &sc->sc_rxtap;
@@ -1398,7 +1398,7 @@ rsu_rx_frame(struct rsu_softc *sc, uint8_t *buf, int pktlen)
 	ieee80211_input(ifp, m, ni, &rxi);
 	/* Node is no longer needed. */
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1483,9 +1483,8 @@ rsu_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct rsu_tx_data *data = priv;
 	struct rsu_softc *sc = data->sc;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	/* Put this Tx buffer back to our free list. */
 	TAILQ_INSERT_TAIL(&sc->tx_free_list, data, next);
 
@@ -1494,7 +1493,7 @@ rsu_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(data->pipe);
 		ifp->if_oerrors++;
-		splx(s);
+		crit_leave();
 		return;
 	}
 	sc->sc_tx_timer = 0;
@@ -1505,7 +1504,7 @@ rsu_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		ifp->if_flags &= ~IFF_OACTIVE;
 		rsu_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1704,14 +1703,14 @@ rsu_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return ENXIO;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1752,7 +1751,7 @@ rsu_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		}
 		error = 0;
 	}
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 

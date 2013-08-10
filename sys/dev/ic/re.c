@@ -120,6 +120,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -416,19 +417,18 @@ re_miibus_readreg(struct device *dev, int phy, int reg)
 	struct rl_softc	*sc = (struct rl_softc *)dev;
 	u_int16_t	rval = 0;
 	u_int16_t	re8139_reg = 0;
-	int		s;
 
-	s = splnet();
+	crit_enter();
 
 	if (sc->sc_hwrev != RL_HWREV_8139CPLUS) {
 		rval = re_gmii_readreg(dev, phy, reg);
-		splx(s);
+		crit_leave();
 		return (rval);
 	}
 
 	/* Pretend the internal PHY is only at address 0 */
 	if (phy) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	switch(reg) {
@@ -449,7 +449,7 @@ re_miibus_readreg(struct device *dev, int phy, int reg)
 		break;
 	case MII_PHYIDR1:
 	case MII_PHYIDR2:
-		splx(s);
+		crit_leave();
 		return (0);
 	/*
 	 * Allow the rlphy driver to read the media status
@@ -459,11 +459,11 @@ re_miibus_readreg(struct device *dev, int phy, int reg)
 	 */
 	case RL_MEDIASTAT:
 		rval = CSR_READ_1(sc, RL_MEDIASTAT);
-		splx(s);
+		crit_leave();
 		return (rval);
 	default:
 		printf("%s: bad phy register %x\n", sc->sc_dev.dv_xname, reg);
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	rval = CSR_READ_2(sc, re8139_reg);
@@ -471,7 +471,7 @@ re_miibus_readreg(struct device *dev, int phy, int reg)
 		/* 8139C+ has different bit layout. */
 		rval &= ~(BMCR_LOOP | BMCR_ISO);
 	}
-	splx(s);
+	crit_leave();
 	return (rval);
 }
 
@@ -480,19 +480,18 @@ re_miibus_writereg(struct device *dev, int phy, int reg, int data)
 {
 	struct rl_softc	*sc = (struct rl_softc *)dev;
 	u_int16_t	re8139_reg = 0;
-	int		s;
 
-	s = splnet();
+	crit_enter();
 
 	if (sc->sc_hwrev != RL_HWREV_8139CPLUS) {
 		re_gmii_writereg(dev, phy, reg, data);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Pretend the internal PHY is only at address 0 */
 	if (phy) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	switch(reg) {
@@ -515,16 +514,16 @@ re_miibus_writereg(struct device *dev, int phy, int reg, int data)
 		break;
 	case MII_PHYIDR1:
 	case MII_PHYIDR2:
-		splx(s);
+		crit_leave();
 		return;
 		break;
 	default:
 		printf("%s: bad phy register %x\n", sc->sc_dev.dv_xname, reg);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	CSR_WRITE_2(sc, re8139_reg, data);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -706,10 +705,10 @@ re_diag(struct rl_softc *sc)
 	 */
 
 	CSR_WRITE_2(sc, RL_ISR, 0xFFFF);
-	s = splnet();
+	crit_enter();
 	IFQ_ENQUEUE(&ifp->if_snd, m0, NULL, error);
 	re_start(ifp);
-	splx(s);
+	crit_leave();
 	m0 = NULL;
 
 	DPRINTF(("re_diag: transmission started\n"));
@@ -1630,12 +1629,11 @@ re_tick(void *xsc)
 	struct rl_softc	*sc = xsc;
 	struct mii_data	*mii;
 	struct ifnet	*ifp;
-	int s;
 
 	ifp = &sc->sc_arpcom.ac_if;
 	mii = &sc->sc_mii;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 	if (sc->rl_flags & RL_FLAG_LINK) {
@@ -1649,7 +1647,7 @@ re_tick(void *xsc)
 				re_start(ifp);
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->timer_handle, 1);
 }
@@ -1992,13 +1990,12 @@ re_init(struct ifnet *ifp)
 	struct rl_softc *sc = ifp->if_softc;
 	u_int16_t	cfg;
 	uint32_t	rxcfg;
-	int		s;
 	union {
 		u_int32_t align_dummy;
 		u_char eaddr[ETHER_ADDR_LEN];
 	} eaddr;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -2107,7 +2104,7 @@ re_init(struct ifnet *ifp)
 		CSR_WRITE_2(sc, RL_MAXRXPKTLEN, 16383);
 
 	if (sc->rl_testmode) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
@@ -2118,7 +2115,7 @@ re_init(struct ifnet *ifp)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	sc->rl_flags &= ~RL_FLAG_LINK;
 
@@ -2161,9 +2158,9 @@ re_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct rl_softc	*sc = ifp->if_softc;
 	struct ifreq	*ifr = (struct ifreq *) data;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int		s, error = 0;
+	int		error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -2200,7 +2197,7 @@ re_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2208,10 +2205,9 @@ void
 re_watchdog(struct ifnet *ifp)
 {
 	struct rl_softc	*sc;
-	int	s;
 
 	sc = ifp->if_softc;
-	s = splnet();
+	crit_enter();
 	printf("%s: watchdog timeout\n", sc->sc_dev.dv_xname);
 	ifp->if_oerrors++;
 
@@ -2220,7 +2216,7 @@ re_watchdog(struct ifnet *ifp)
 
 	re_init(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 /*

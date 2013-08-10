@@ -633,7 +633,7 @@ pf_enable_altq(struct pf_altq *altq)
 {
 	struct ifnet		*ifp;
 	struct oldtb_profile	 tb;
-	int			 s, error = 0;
+	int			 error = 0;
 
 	if ((ifp = ifunit(altq->ifname)) == NULL)
 		return (EINVAL);
@@ -645,9 +645,9 @@ pf_enable_altq(struct pf_altq *altq)
 	if (error == 0 && ifp != NULL && ALTQ_IS_ENABLED(&ifp->if_snd)) {
 		tb.rate = altq->ifbandwidth;
 		tb.depth = altq->tbrsize;
-		s = splnet();
+		crit_enter();
 		error = oldtbr_set(&ifp->if_snd, &tb);
-		splx(s);
+		crit_leave();
 	}
 
 	return (error);
@@ -658,7 +658,7 @@ pf_disable_altq(struct pf_altq *altq)
 {
 	struct ifnet		*ifp;
 	struct oldtb_profile	 tb;
-	int			 s, error;
+	int			 error;
 
 	if ((ifp = ifunit(altq->ifname)) == NULL)
 		return (EINVAL);
@@ -675,9 +675,9 @@ pf_disable_altq(struct pf_altq *altq)
 	if (error == 0) {
 		/* clear tokenbucket regulator */
 		tb.rate = 0;
-		s = splnet();
+		crit_enter();
 		error = oldtbr_set(&ifp->if_snd, &tb);
-		splx(s);
+		crit_leave();
 	}
 
 	return (error);

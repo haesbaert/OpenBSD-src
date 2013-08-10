@@ -862,9 +862,9 @@ myx_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct myx_softc	*sc = (struct myx_softc *)ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *)data;
 	struct ifreq		*ifr = (struct ifreq *)data;
-	int			 s, error = 0;
+	int			 error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -903,7 +903,7 @@ myx_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1284,9 +1284,8 @@ myx_down(struct myx_softc *sc)
 	bus_dmamap_t		 map = sc->sc_sts_dma.mxm_map;
 	struct myx_buf		*mb;
 	struct myx_cmd		 mc;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	bus_dmamap_sync(sc->sc_dmat, map, 0, map->dm_mapsize,
 	    BUS_DMASYNC_POSTREAD);
 	sc->sc_linkdown = sc->sc_sts->ms_linkdown;
@@ -1317,7 +1316,7 @@ myx_down(struct myx_softc *sc)
 		ifp->if_baudrate = 0;
 		if_link_state_change(ifp);
 	}
-	splx(s);
+	crit_leave();
 
 	bzero(&mc, sizeof(mc));
 	if (myx_cmd(sc, MYXCMD_RESET, &mc, NULL) != 0) {
@@ -1647,15 +1646,14 @@ myx_refill(void *xsc)
 {
 	struct myx_softc *sc = xsc;
 	int i;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	for (i = 0; i < 2; i++) {
 		myx_rx_fill(sc, i);
 		if (SIMPLEQ_EMPTY(&sc->sc_rx_buf_list[i]))
 			timeout_add(&sc->sc_refill, 1);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void

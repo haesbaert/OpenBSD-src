@@ -791,7 +791,6 @@ urndis_decap(struct urndis_softc *sc, struct urndis_chain *c, u_int32_t len)
 	struct mbuf		*m;
 	struct urndis_packet_msg	*msg;
 	struct ifnet		*ifp;
-	int			 s;
 	int			 offset;
 
 	ifp = GET_IFP(sc);
@@ -881,7 +880,7 @@ urndis_decap(struct urndis_softc *sc, struct urndis_chain *c, u_int32_t len)
 		ifp->if_ipackets++;
 		m->m_pkthdr.rcvif = ifp;
 
-		s = splnet();
+		crit_enter();
 
 		if (urndis_newbuf(sc, c) == ENOBUFS) {
 			ifp->if_ierrors++;
@@ -895,7 +894,7 @@ urndis_decap(struct urndis_softc *sc, struct urndis_chain *c, u_int32_t len)
 			ether_input_mbuf(ifp, m);
 
 		}
-		splx(s);
+		crit_leave();
 
 		offset += letoh32(msg->rm_len);
 		len -= letoh32(msg->rm_len);
@@ -988,7 +987,7 @@ urndis_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 {
 	struct urndis_softc	*sc;
 	struct ifaddr		*ifa;
-	int			 s, error;
+	int			 error;
 
 	sc = ifp->if_softc;
 	ifa = (struct ifaddr *)data;
@@ -997,7 +996,7 @@ urndis_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	if (sc->sc_dying)
 		return (EIO);
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1030,7 +1029,7 @@ urndis_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	if (error == ENETRESET)
 		error = 0;
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1056,7 +1055,7 @@ void
 urndis_init(struct urndis_softc *sc)
 {
 	struct ifnet		*ifp;
-	int			 i, s;
+	int			 i;
 	usbd_status		 err;
 
 
@@ -1067,19 +1066,19 @@ urndis_init(struct urndis_softc *sc)
 	if (urndis_ctrl_init(sc) != RNDIS_STATUS_SUCCESS)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	if (urndis_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n",
 		    DEVNAME(sc));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	if (urndis_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n",
 		    DEVNAME(sc));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1088,7 +1087,7 @@ urndis_init(struct urndis_softc *sc)
 	if (err) {
 		printf("%s: open rx pipe failed: %s\n", DEVNAME(sc),
 		    usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1097,7 +1096,7 @@ urndis_init(struct urndis_softc *sc)
 	if (err) {
 		printf("%s: open tx pipe failed: %s\n", DEVNAME(sc),
 		    usbd_errstr(err));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1115,7 +1114,7 @@ urndis_init(struct urndis_softc *sc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1267,7 +1266,6 @@ urndis_txeof(struct usbd_xfer *xfer,
 	struct urndis_softc	*sc;
 	struct ifnet		*ifp;
 	usbd_status		 err;
-	int			 s;
 
 	c = priv;
 	sc = c->sc_softc;
@@ -1278,14 +1276,14 @@ urndis_txeof(struct usbd_xfer *xfer,
 	if (sc->sc_dying)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	ifp->if_timer = 0;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -1293,7 +1291,7 @@ urndis_txeof(struct usbd_xfer *xfer,
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->sc_bulkout_pipe);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1312,7 +1310,7 @@ urndis_txeof(struct usbd_xfer *xfer,
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		urndis_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 const struct urndis_class *
@@ -1361,7 +1359,6 @@ urndis_attach(struct device *parent, struct device *self, void *aux)
 	usb_endpoint_descriptor_t	*ed;
 	usb_config_descriptor_t		*cd;
 	int				 i, j, altcnt;
-	int				 s;
 	u_char				 eaddr[ETHER_ADDR_LEN];
 	void				*buf;
 	size_t				 bufsz;
@@ -1456,13 +1453,13 @@ urndis_attach(struct device *parent, struct device *self, void *aux)
 
 	urndis_init(sc);
 
-	s = splnet();
+	crit_enter();
 
 	if (urndis_ctrl_query(sc, OID_802_3_PERMANENT_ADDRESS, NULL, 0,
 	    &buf, &bufsz) != RNDIS_STATUS_SUCCESS) {
 		printf(": unable to get hardware address\n");
 		urndis_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1474,7 +1471,7 @@ urndis_attach(struct device *parent, struct device *self, void *aux)
 		printf(", invalid address\n");
 		free(buf, M_TEMP);
 		urndis_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1486,7 +1483,7 @@ urndis_attach(struct device *parent, struct device *self, void *aux)
 	    sizeof(filter)) != RNDIS_STATUS_SUCCESS) {
 		printf("%s: unable to set data filters\n", DEVNAME(sc));
 		urndis_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1495,7 +1492,7 @@ urndis_attach(struct device *parent, struct device *self, void *aux)
 	if_attach(ifp);
 	ether_ifattach(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int

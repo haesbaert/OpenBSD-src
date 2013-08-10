@@ -587,10 +587,10 @@ int tl_mii_readreg(sc, frame)
 	struct tl_mii_frame	*frame;
 	
 {
-	int			i, ack, s;
+	int			i, ack;
 	int			minten = 0;
 
-	s = splnet();
+	crit_enter();
 
 	tl_mii_sync(sc);
 
@@ -670,7 +670,7 @@ fail:
 		tl_dio_setbit(sc, TL_NETSIO, TL_SIO_MINTEN);
 	}
 
-	splx(s);
+	crit_leave();
 
 	if (ack)
 		return(1);
@@ -682,12 +682,11 @@ int tl_mii_writereg(sc, frame)
 	struct tl_mii_frame	*frame;
 	
 {
-	int			s;
 	int			minten;
 
 	tl_mii_sync(sc);
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Set up frame for TX.
 	 */
@@ -728,7 +727,7 @@ int tl_mii_writereg(sc, frame)
 	if (minten)
 		tl_dio_setbit(sc, TL_NETSIO, TL_SIO_MINTEN);
 
-	splx(s);
+	crit_leave();
 
 	return(0);
 }
@@ -1408,9 +1407,8 @@ void tl_stats_update(xsc)
 	struct ifnet		*ifp;
 	struct tl_stats		tl_stats;
 	u_int32_t		*p;
-	int			s;
 
-	s = splnet();
+	crit_enter();
 
 	bzero(&tl_stats, sizeof(struct tl_stats));
 
@@ -1450,7 +1448,7 @@ void tl_stats_update(xsc)
 	if (!sc->tl_bitrate)
 		mii_tick(&sc->sc_mii);
 
-	splx(s);
+	crit_leave();
 	return;
 }
 
@@ -1645,9 +1643,8 @@ void tl_init(xsc)
 {
 	struct tl_softc		*sc = xsc;
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
-        int			s;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O.
@@ -1690,7 +1687,7 @@ void tl_init(xsc)
 		printf("%s: initialization failed: no memory for rx buffers\n",
 			sc->sc_dev.dv_xname);
 		tl_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1713,7 +1710,7 @@ void tl_init(xsc)
 	/* Send the RX go command */
 	CMD_SET(sc, TL_CMD_GO|TL_CMD_NES|TL_CMD_RT);
 
-	splx(s);
+	crit_leave();
 
 	/* Start the stats update counter */
 	timeout_set(&sc->tl_stats_tmo, tl_stats_update, sc);
@@ -1782,9 +1779,9 @@ int tl_ioctl(ifp, command, data)
 	struct tl_softc		*sc = ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *) data;
 	struct ifreq		*ifr = (struct ifreq *) data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1844,7 +1841,7 @@ int tl_ioctl(ifp, command, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 

@@ -1896,7 +1896,6 @@ zyd_rx_data(struct zyd_softc *sc, const uint8_t *buf, uint16_t len)
 	const struct zyd_plcphdr *plcp;
 	const struct zyd_rx_stat *stat;
 	struct mbuf *m;
-	int s;
 
 	if (len < ZYD_MIN_FRAGSZ) {
 		DPRINTFN(2, ("frame too short (length=%d)\n", len));
@@ -1967,7 +1966,7 @@ zyd_rx_data(struct zyd_softc *sc, const uint8_t *buf, uint16_t len)
 	}
 #endif
 
-	s = splnet();
+	crit_enter();
 	wh = mtod(m, struct ieee80211_frame *);
 	ni = ieee80211_find_rxnode(ic, wh);
 	rxi.rxi_flags = 0;
@@ -1978,7 +1977,7 @@ zyd_rx_data(struct zyd_softc *sc, const uint8_t *buf, uint16_t len)
 	/* node is no longer needed */
 	ieee80211_release_node(ic, ni);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2047,7 +2046,6 @@ zyd_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct zyd_softc *sc = data->sc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED)
@@ -2064,7 +2062,7 @@ zyd_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	/* update rate control statistics */
 	((struct zyd_node *)data->ni)->amn.amn_txcnt++;
@@ -2079,7 +2077,7 @@ zyd_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	ifp->if_flags &= ~IFF_OACTIVE;
 	zyd_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2291,9 +2289,9 @@ zyd_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2364,7 +2362,7 @@ zyd_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return error;
 }
@@ -2549,14 +2547,13 @@ zyd_amrr_timeout(void *arg)
 {
 	struct zyd_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_opmode == IEEE80211_M_STA)
 		zyd_iter_func(sc, ic->ic_bss);
 	else
 		ieee80211_iterate_nodes(ic, zyd_iter_func, sc);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->amrr_to, 1);
 }

@@ -72,7 +72,7 @@ ieee80211_send_eapol_key(struct ieee80211com *ic, struct mbuf *m,
 	struct ether_header *eh;
 	struct ieee80211_eapol_key *key;
 	u_int16_t info;
-	int s, len, error;
+	int len, error;
 
 	M_PREPEND(m, sizeof(struct ether_header), M_DONTWAIT);
 	if (m == NULL)
@@ -125,7 +125,7 @@ ieee80211_send_eapol_key(struct ieee80211com *ic, struct mbuf *m,
 		ieee80211_eapol_key_mic(key, ptk->kck);
 
 	len = m->m_pkthdr.len;
-	s = splnet();
+	crit_enter();
 #ifndef IEEE80211_STA_ONLY
 	/* start a 100ms timeout if an answer is expected from supplicant */
 	if (info & EAPOL_KEY_KEYACK)
@@ -137,7 +137,7 @@ ieee80211_send_eapol_key(struct ieee80211com *ic, struct mbuf *m,
 		if ((ifp->if_flags & IFF_OACTIVE) == 0)
 			(*ifp->if_start)(ifp);
 	}
-	splx(s);
+	crit_leave();
 
 	return error;
 }
@@ -151,12 +151,11 @@ ieee80211_eapol_timeout(void *arg)
 {
 	struct ieee80211_node *ni = arg;
 	struct ieee80211com *ic = ni->ni_ic;
-	int s;
 
 	DPRINTF(("no answer from station %s in state %d\n",
 	    ether_sprintf(ni->ni_macaddr), ni->ni_rsn_state));
 
-	s = splnet();
+	crit_enter();
 
 	switch (ni->ni_rsn_state) {
 	case RSNA_PTKSTART:
@@ -174,7 +173,7 @@ ieee80211_eapol_timeout(void *arg)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /*

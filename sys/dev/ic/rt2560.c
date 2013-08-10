@@ -34,6 +34,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -674,12 +675,11 @@ rt2560_next_scan(void *arg)
 	struct rt2560_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(ifp);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -699,16 +699,15 @@ rt2560_amrr_timeout(void *arg)
 {
 	struct rt2560_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_opmode == IEEE80211_M_STA)
 		rt2560_iter_func(sc, ic->ic_bss);
 #ifndef IEEE80211_STA_ONLY
 	else
 		ieee80211_iterate_nodes(ic, rt2560_iter_func, sc);
 #endif
-	splx(s);
+	crit_leave();
 
 	timeout_add_msec(&sc->amrr_to, 500);
 }
@@ -2017,9 +2016,9 @@ rt2560_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2080,7 +2079,7 @@ rt2560_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return error;
 }

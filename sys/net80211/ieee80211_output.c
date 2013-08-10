@@ -118,7 +118,7 @@ ieee80211_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 {
 	struct ieee80211_frame *wh;
 	struct m_tag *mtag;
-	int s, len, error = 0;
+	int len, error = 0;
 	u_short mflags;
 
 	/* Interface has to be up and running */
@@ -155,11 +155,11 @@ ieee80211_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 		 */
 		mflags = m->m_flags;
 		len = m->m_pkthdr.len;
-		s = splnet();
+		crit_enter();
 		IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 		if (error) {
 			/* mbuf is already freed */
-			splx(s);
+			crit_leave();
 			printf("%s: failed to queue raw tx frame\n",
 			    ifp->if_xname);
 			return (error);
@@ -169,7 +169,7 @@ ieee80211_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 			ifp->if_omcasts++;
 		if ((ifp->if_flags & IFF_OACTIVE) == 0)
 			(*ifp->if_start)(ifp);
-		splx(s);
+		crit_leave();
 
 		return (error);
 	}

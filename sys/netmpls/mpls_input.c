@@ -22,6 +22,7 @@
 #include <sys/mbuf.h>
 #include <sys/systm.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -69,13 +70,12 @@ void
 mplsintr(void)
 {
 	struct mbuf *m;
-	int s;
 
 	for (;;) {
 		/* Get next datagram of input queue */
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&mplsintrq, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			return;
 #ifdef DIAGNOSTIC
@@ -96,7 +96,7 @@ mpls_input(struct mbuf *m)
 	struct rtentry *rt = NULL;
 	struct rt_mpls *rt_mpls;
 	u_int8_t ttl;
-	int i, s, hasbos;
+	int i, hasbos;
 
 	if (!ISSET(ifp->if_xflags, IFXF_MPLS)) {
 		m_freem(m);
@@ -163,10 +163,10 @@ mpls_input(struct mbuf *m)
 do_v4:
 					if (mpls_ip_adjttl(m, ttl))
 						goto done;
-					s = splnet();
+					crit_enter();
 					IF_INPUT_ENQUEUE(&ipintrq, m);
 					schednetisr(NETISR_IP);
-					splx(s);
+					crit_leave();
 					goto done;
 				}
 				continue;
@@ -176,10 +176,10 @@ do_v4:
 do_v6:
 					if (mpls_ip6_adjttl(m, ttl))
 						goto done;
-					s = splnet();
+					crit_enter();
 					IF_INPUT_ENQUEUE(&ip6intrq, m);
 					schednetisr(NETISR_IPV6);
-					splx(s);
+					crit_leave();
 					goto done;
 				}
 				continue;
@@ -246,19 +246,19 @@ do_v6:
 			case AF_INET:
 				if (mpls_ip_adjttl(m, ttl))
 					break;
-				s = splnet();
+				crit_enter();
 				IF_INPUT_ENQUEUE(&ipintrq, m);
 				schednetisr(NETISR_IP);
-				splx(s);
+				crit_leave();
 				break;
 #ifdef INET6
 			case AF_INET6:
 				if (mpls_ip6_adjttl(m, ttl))
 					break;
-				s = splnet();
+				crit_enter();
 				IF_INPUT_ENQUEUE(&ip6intrq, m);
 				schednetisr(NETISR_IPV6);
-				splx(s);
+				crit_leave();
 				break;
 #endif
 			default:

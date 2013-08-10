@@ -1041,9 +1041,8 @@ se_tick(void *xsc)
 	struct se_softc *sc = xsc;
 	struct mii_data *mii;
 	struct ifnet *ifp = &sc->sc_ac.ac_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii = &sc->sc_mii;
 	mii_tick(mii);
 	if ((sc->sc_flags & SE_FLAG_LINK) == 0) {
@@ -1052,7 +1051,7 @@ se_tick(void *xsc)
 		    !IFQ_IS_EMPTY(&ifp->if_snd))
 			se_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_tmo, 1);
 }
@@ -1259,7 +1258,7 @@ se_init(struct ifnet *ifp)
 	uint16_t rxfilt;
 	int i;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1361,9 +1360,9 @@ se_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 #ifdef INET
 	struct ifaddr *ifa = (struct ifaddr *)data;
 #endif
-	int s, rc = 0;
+	int rc = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -1403,7 +1402,7 @@ se_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		rc = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return rc;
 }
 
@@ -1411,16 +1410,15 @@ void
 se_watchdog(struct ifnet *ifp)
 {
 	struct se_softc *sc = ifp->if_softc;
-	int s;
 
 	printf("%s: watchdog timeout\n", sc->sc_dev.dv_xname);
 	ifp->if_oerrors++;
 
-	s = splnet();
+	crit_enter();
 	se_init(ifp);
 	if (!IFQ_IS_EMPTY(&ifp->if_snd))
 		se_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 /*

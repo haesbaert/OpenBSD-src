@@ -795,9 +795,8 @@ otus_newstate_cb(struct otus_softc *sc, void *arg)
 	struct otus_cmd_newstate *cmd = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211_node *ni;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd->state) {
 	case IEEE80211_S_INIT:
@@ -836,7 +835,7 @@ otus_newstate_cb(struct otus_softc *sc, void *arg)
 	sc->sc_led_newstate(sc);
 	(void)sc->sc_newstate(ic, cmd->state, cmd->arg);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1021,7 +1020,6 @@ otus_cmd_rxeof(struct otus_softc *sc, uint8_t *buf, int len)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct otus_tx_cmd *cmd;
 	struct ar_cmd_hdr *hdr;
-	int s;
 
 	if (__predict_false(len < sizeof (*hdr))) {
 		DPRINTF(("cmd too small %d\n", len));
@@ -1063,13 +1061,13 @@ otus_cmd_rxeof(struct otus_softc *sc, uint8_t *buf, int len)
 		DPRINTF(("tx completed %s status=%d phy=0x%x\n",
 		    ether_sprintf(tx->macaddr), letoh16(tx->status),
 		    letoh32(tx->phy)));
-		s = splnet();
+		crit_enter();
 #ifdef notyet
 #ifndef IEEE80211_STA_ONLY
 		if (ic->ic_opmode != IEEE80211_M_STA) {
 			ni = ieee80211_find_node(ic, tx->macaddr);
 			if (__predict_false(ni == NULL)) {
-				splx(s);
+				crit_leave();
 				break;
 			}
 		} else
@@ -1081,7 +1079,7 @@ otus_cmd_rxeof(struct otus_softc *sc, uint8_t *buf, int len)
 		/* NB: we do not set the TX_MAC_RATE_PROBING flag. */
 		if (__predict_true(tx->status != 0))
 			on->amn.amn_retrycnt++;
-		splx(s);
+		crit_leave();
 		break;
 	}
 	case AR_EVT_TBTT:
@@ -1100,7 +1098,7 @@ otus_sub_rxeof(struct otus_softc *sc, uint8_t *buf, int len)
 	struct ieee80211_frame *wh;
 	struct mbuf *m;
 	uint8_t *plcp;
-	int s, mlen, align;
+	int mlen, align;
 
 	if (__predict_false(len < AR_PLCP_HDR_LEN)) {
 		DPRINTF(("sub-xfer too short %d\n", len));
@@ -1212,7 +1210,7 @@ otus_sub_rxeof(struct otus_softc *sc, uint8_t *buf, int len)
 	}
 #endif
 
-	s = splnet();
+	crit_enter();
 	ni = ieee80211_find_rxnode(ic, wh);
 	rxi.rxi_flags = 0;
 	rxi.rxi_rssi = tail->rssi;
@@ -1221,7 +1219,7 @@ otus_sub_rxeof(struct otus_softc *sc, uint8_t *buf, int len)
 
 	/* Node is no longer needed. */
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1277,23 +1275,22 @@ otus_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct otus_softc *sc = data->sc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	sc->tx_queued--;
 	if (__predict_false(status != USBD_NORMAL_COMPLETION)) {
 		DPRINTF(("TX status=%d\n", status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->data_tx_pipe);
 		ifp->if_oerrors++;
-		splx(s);
+		crit_leave();
 		return;
 	}
 	sc->sc_tx_timer = 0;
 	ifp->if_opackets++;
 	ifp->if_flags &= ~IFF_OACTIVE;
 	otus_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1498,14 +1495,14 @@ otus_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return ENXIO;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1560,7 +1557,7 @@ otus_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 
@@ -1618,9 +1615,8 @@ otus_updateedca_cb(struct otus_softc *sc, void *arg)
 #define AIFS(val)	((val) * 9 + 10)
 	struct ieee80211com *ic = &sc->sc_ic;
 	const struct ieee80211_edca_ac_params *edca;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	edca = (ic->ic_flags & IEEE80211_F_QOS) ?
 	    ic->ic_edca_ac : otus_edca_def;
@@ -1660,7 +1656,7 @@ otus_updateedca_cb(struct otus_softc *sc, void *arg)
 	    edca[EDCA_AC_VO].ac_txoplimit << 16 |
 	    edca[EDCA_AC_VI].ac_txoplimit);
 
-	splx(s);
+	crit_leave();
 
 	(void)otus_write_barrier(sc);
 #undef AIFS
@@ -2183,17 +2179,16 @@ otus_calibrate_to(void *arg)
 	struct otus_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211_node *ni;
-	int s;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 	ni = ic->ic_bss;
 	ieee80211_amrr_choose(&sc->amrr, ni, &((struct otus_node *)ni)->amn);
-	splx(s);
+	crit_leave();
 
 	if (!usbd_is_dying(sc->sc_udev))
 		timeout_add_sec(&sc->calib_to, 1);

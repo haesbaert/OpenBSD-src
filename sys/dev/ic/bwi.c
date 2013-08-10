@@ -7113,10 +7113,10 @@ bwi_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 	uint8_t chan;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -7173,7 +7173,7 @@ bwi_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -8201,14 +8201,13 @@ bwi_next_scan(void *xsc)
 	struct bwi_softc *sc = xsc;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -9322,9 +9321,8 @@ bwi_calibrate(void *xsc)
 {
 	struct bwi_softc *sc = xsc;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	if (ic->ic_state == IEEE80211_S_RUN) {
 		struct bwi_mac *mac;
@@ -9341,7 +9339,7 @@ bwi_calibrate(void *xsc)
 		timeout_add_sec(&sc->sc_calib_ch, 15);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 int

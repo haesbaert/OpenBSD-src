@@ -84,6 +84,7 @@
 #include <sys/malloc.h>
 #include <sys/ioctl.h> 
 #include <sys/errno.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>
@@ -421,9 +422,9 @@ smc91cxx_init(sc)
 	bus_space_tag_t bst = sc->sc_bst;
 	bus_space_handle_t bsh = sc->sc_bsh;
 	u_int16_t tmp;
-	int s, i;
+	int i;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * This resets the registers mostly to defaults, but doesn't
@@ -526,12 +527,12 @@ smc91cxx_init(sc)
 	 */
 	smc91cxx_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
  * Start output on an interface.
- * Must be called at splnet or interrupt level.
+ * Must be called at crit_enter or interrupt level.
  */
 void
 smc91cxx_start(ifp)
@@ -1039,9 +1040,9 @@ smc91cxx_ioctl(ifp, cmd, data)
 	struct smc91cxx_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1104,7 +1105,7 @@ smc91cxx_ioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1115,12 +1116,10 @@ void
 smc91cxx_reset(sc)
 	struct smc91cxx_softc *sc;
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	smc91cxx_stop(sc);
 	smc91cxx_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1207,9 +1206,9 @@ smc91cxx_activate(self, act)
 #if 0
 	struct smc91cxx_softc *sc = (struct smc91cxx_softc *)self;
 #endif
-	int rv = 0, s;
+	int rv = 0;
 
-	s = splnet();
+	crit_enter();
 	switch (act) {
 	case DVACT_DEACTIVATE:
 #if 0
@@ -1217,7 +1216,7 @@ smc91cxx_activate(self, act)
 #endif
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return(rv);
 }
 
@@ -1329,7 +1328,6 @@ smc91cxx_tick(arg)
 	void *arg;
 {
 	struct smc91cxx_softc *sc = arg;
-	int s;
 
 #ifdef DIAGNOSTIC
 	if ((sc->sc_flags & SMC_FLAGS_HAS_MII) == 0)
@@ -1339,9 +1337,9 @@ smc91cxx_tick(arg)
 	if ((sc->sc_dev.dv_flags & DVF_ACTIVE) == 0)
 		return;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_mii_timeout, 1);
 }

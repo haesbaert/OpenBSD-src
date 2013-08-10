@@ -55,6 +55,7 @@
 #include <sys/kernel.h>
 #include <sys/socket.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -1018,13 +1019,11 @@ void
 xe_reset(sc)
 	struct xe_softc *sc;
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	xe_stop(sc);
 	xe_full_reset(sc);
 	xe_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1064,11 +1063,10 @@ xe_init(sc)
 	struct xe_softc *sc;
 {
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int s;
 
 	DPRINTF(XED_CONFIG, ("xe_init\n"));
 
-	s = splnet();
+	crit_enter();
 
 	xe_set_address(sc);
 
@@ -1077,12 +1075,12 @@ xe_init(sc)
 
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
-	splx(s);
+	crit_leave();
 }
 
 /*
  * Start outputting on the interface.
- * Always called as splnet().
+ * Always called in critical section.
  */
 void
 xe_start(ifp)
@@ -1173,9 +1171,9 @@ xe_ioctl(ifp, command, data)
 	struct xe_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -1250,7 +1248,7 @@ xe_ioctl(ifp, command, data)
 		error = ENOTTY;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

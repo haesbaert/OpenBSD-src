@@ -48,6 +48,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <sys/device.h>
 #include <sys/socket.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>

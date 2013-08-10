@@ -32,6 +32,7 @@
 #include <sys/malloc.h>
 #include <sys/timeout.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>
@@ -1207,9 +1208,9 @@ vic_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct vic_softc *sc = (struct vic_softc *)ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1246,7 +1247,7 @@ vic_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1255,7 +1256,6 @@ vic_init(struct ifnet *ifp)
 {
 	struct vic_softc	*sc = (struct vic_softc *)ifp->if_softc;
 	int			q;
-	int			s;
 
 	sc->sc_data->vd_tx_curidx = 0;
 	sc->sc_data->vd_tx_nextidx = 0;
@@ -1273,7 +1273,7 @@ vic_init(struct ifnet *ifp)
 	bus_dmamap_sync(sc->sc_dmat, sc->sc_dma_map, 0, sc->sc_dma_size,
 	    BUS_DMASYNC_PREREAD | BUS_DMASYNC_PREWRITE);
 
-	s = splnet();
+	crit_enter();
 
 	vic_write(sc, VIC_DATA_ADDR, VIC_DMA_DVA(sc));
 	vic_write(sc, VIC_DATA_LENGTH, sc->sc_dma_size);
@@ -1284,7 +1284,7 @@ vic_init(struct ifnet *ifp)
 	vic_iff(sc);
 	vic_write(sc, VIC_CMD, VIC_CMD_INTR_ENABLE);
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick, 1);
 }
@@ -1293,9 +1293,8 @@ void
 vic_stop(struct ifnet *ifp)
 {
 	struct vic_softc *sc = (struct vic_softc *)ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	timeout_del(&sc->sc_tick);
 
@@ -1306,9 +1305,9 @@ vic_stop(struct ifnet *ifp)
 
 	/* XXX wait for tx to complete */
 	while (sc->sc_txpending > 0) {
-		splx(s);
+		crit_leave();
 		delay(1000);
-		s = splnet();
+		crit_enter();
 	}
 
 	sc->sc_data->vd_tx_stopped = 1;
@@ -1322,7 +1321,7 @@ vic_stop(struct ifnet *ifp)
 
 	vic_uninit_data(sc);
 
-	splx(s);
+	crit_leave();
 }
 
 struct mbuf *

@@ -308,7 +308,7 @@ cryptodev_op(struct csession *cse, struct crypt_op *cop, struct proc *p)
 {
 	struct cryptop *crp = NULL;
 	struct cryptodesc *crde = NULL, *crda = NULL;
-	int s, error;
+	int error;
 	u_int32_t hid;
 
 	if (cop->len > 64*1024-4)
@@ -432,11 +432,11 @@ cryptodev_op(struct csession *cse, struct crypt_op *cop, struct proc *p)
 	crp->crp_flags = CRYPTO_F_IOV;
 	crypto_dispatch(crp);
  processed:
-	s = splnet();
+	crit_enter();
 	while (!(crp->crp_flags & CRYPTO_F_DONE)) {
 		error = tsleep(cse, PSOCK, "crydev", 0);
 	}
-	splx(s);
+	crit_leave();
 	if (error) {
 		/* XXX can this happen?  if so, how do we recover? */
 		goto bail;

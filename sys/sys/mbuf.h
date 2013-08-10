@@ -229,7 +229,7 @@ struct mbuf {
 /*
  * Macros for tracking external storage associated with an mbuf.
  *
- * Note: add and delete reference must be called at splnet().
+ * Note: add and delete reference must be called at crit_enter().
  */
 #ifdef DEBUG
 #define MCLREFDEBUGN(m, file, line) do {				\
@@ -248,13 +248,13 @@ struct mbuf {
 #define	MCLISREFERENCED(m)	((m)->m_ext.ext_nextref != (m))
 
 #define	MCLADDREFERENCE(o, n)	do {					\
-		int ms = splnet();					\
+		crit_enter();						\
 		(n)->m_flags |= ((o)->m_flags & (M_EXT|M_CLUSTER));	\
 		(n)->m_ext.ext_nextref = (o)->m_ext.ext_nextref;	\
 		(n)->m_ext.ext_prevref = (o);				\
 		(o)->m_ext.ext_nextref = (n);				\
 		(n)->m_ext.ext_nextref->m_ext.ext_prevref = (n);	\
-		splx(ms);						\
+		crit_leave();						\
 		MCLREFDEBUGN((n), __FILE__, __LINE__);			\
 	} while (/* CONSTCOND */ 0)
 

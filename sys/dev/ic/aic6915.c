@@ -48,6 +48,7 @@
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <uvm/uvm_extern.h>
 
@@ -515,9 +516,9 @@ sf_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct sf_softc *sc = (struct sf_softc *)ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -565,7 +566,7 @@ sf_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	/* Try to get more packets going. */
 	sf_start(ifp);
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -855,12 +856,11 @@ void
 sf_tick(void *arg)
 {
 	struct sf_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
 	sf_stats_update(sc);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_mii_timeout, 1);
 }
@@ -949,7 +949,7 @@ sf_macreset(struct sf_softc *sc)
 /*
  * sf_init:		[ifnet interface function]
  *
- *	Initialize the interface.  Must be called at splnet().
+ *	Initialize the interface.  Must be called at critical_enter().
  */
 int
 sf_init(struct ifnet *ifp)

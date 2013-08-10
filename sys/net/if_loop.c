@@ -115,7 +115,7 @@
 #include <sys/errno.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -218,7 +218,7 @@ int
 looutput(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
     struct rtentry *rt)
 {
-	int s, isr;
+	int isr;
 	struct ifqueue *ifq = 0;
 
 	if ((m->m_flags & M_PKTHDR) == 0)
@@ -259,10 +259,10 @@ looutput(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 		afp = mtod(m, int32_t *);
 		*afp = (int32_t)dst->sa_family;
 
-	        s = splnet();
+	        crit_enter();
 		IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 		(*ifp->if_start)(ifp);
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 #endif /* ALTQ */
@@ -292,18 +292,18 @@ looutput(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 		m_freem(m);
 		return (EAFNOSUPPORT);
 	}
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
 		m_freem(m);
-		splx(s);
+		crit_leave();
 		return (ENOBUFS);
 	}
 	IF_ENQUEUE(ifq, m);
 	schednetisr(isr);
 	ifp->if_ipackets++;
 	ifp->if_ibytes += m->m_pkthdr.len;
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -314,12 +314,12 @@ lo_altqstart(struct ifnet *ifp)
 	struct ifqueue *ifq;
 	struct mbuf *m;
 	int32_t af, *afp;
-	int s, isr;
+	int isr;
 	
 	while (1) {
-		s = splnet();
+		crit_enter();
 		IFQ_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			return;
 
@@ -353,18 +353,18 @@ lo_altqstart(struct ifnet *ifp)
 			return;
 		}
 
-		s = splnet();
+		crit_enter();
 		if (IF_QFULL(ifq)) {
 			IF_DROP(ifq);
 			m_freem(m);
-			splx(s);
+			crit_leave();
 			return;
 		}
 		IF_ENQUEUE(ifq, m);
 		schednetisr(isr);
 		ifp->if_ipackets++;
 		ifp->if_ibytes += m->m_pkthdr.len;
-		splx(s);
+		crit_leave();
 	}
 }
 #endif /* ALTQ */
@@ -386,15 +386,15 @@ loioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 {
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	switch (cmd) {
 
 	case SIOCSIFADDR:
-		s = splnet();
+		crit_enter();
 		ifp->if_flags |= IFF_RUNNING;
 		if_up(ifp);		/* send up RTM_IFINFO */
-		splx(s);
+		crit_leave();
 
 		ifa = (struct ifaddr *)data;
 		if (ifa != 0)

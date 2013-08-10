@@ -636,9 +636,8 @@ em_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ifreq   *ifr = (struct ifreq *) data;
 	struct ifaddr  *ifa = (struct ifaddr *)data;
 	struct em_softc *sc = ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -694,7 +693,7 @@ em_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -740,9 +739,8 @@ em_init(void *arg)
 	struct em_softc *sc = arg;
 	struct ifnet   *ifp = &sc->interface_data.ac_if;
 	uint32_t	pba;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	INIT_DEBUGOUT("em_init: begin");
 
@@ -814,7 +812,7 @@ em_init(void *arg)
 	if (em_hardware_init(sc)) {
 		printf("%s: Unable to initialize the hardware\n", 
 		       sc->sc_dv.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	em_update_link_status(sc);
@@ -828,7 +826,7 @@ em_init(void *arg)
 		printf("%s: Could not setup transmit structures\n", 
 		       sc->sc_dv.dv_xname);
 		em_stop(sc, 0);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	em_initialize_transmit_unit(sc);
@@ -838,7 +836,7 @@ em_init(void *arg)
 		printf("%s: Could not setup receive structures\n", 
 		       sc->sc_dv.dv_xname);
 		em_stop(sc, 0);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	em_initialize_receive_unit(sc);
@@ -856,7 +854,7 @@ em_init(void *arg)
 	/* Don't reset the phy next time init gets called */
 	sc->hw.phy_reset_disable = TRUE;
 
-	splx(s);
+	crit_leave();
 }
 
 /*********************************************************************
@@ -1292,11 +1290,10 @@ void
 em_82547_move_tail(void *arg)
 {
 	struct em_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	em_82547_move_tail_locked(sc);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1434,11 +1431,10 @@ em_local_timer(void *arg)
 {
 	struct ifnet   *ifp;
 	struct em_softc *sc = arg;
-	int s;
 
 	ifp = &sc->interface_data.ac_if;
 
-	s = splnet();
+	crit_enter();
 
 	em_check_for_link(&sc->hw);
 	em_update_link_status(sc);
@@ -1453,7 +1449,7 @@ em_local_timer(void *arg)
 
 	timeout_add_sec(&sc->timer_handle, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void

@@ -621,8 +621,9 @@ in_ifinit(struct ifnet *ifp, struct in_ifaddr *ia, struct sockaddr_in *sin,
 {
 	u_int32_t i = sin->sin_addr.s_addr;
 	struct sockaddr_in oldaddr;
-	int s = splnet(), flags = RTF_UP, error = 0;
+	int flags = RTF_UP, error = 0;
 
+	crit_enter();
 	if (newaddr)
 		TAILQ_INSERT_TAIL(&in_ifaddr, ia, ia_list);
 
@@ -643,10 +644,10 @@ in_ifinit(struct ifnet *ifp, struct in_ifaddr *ia, struct sockaddr_in *sin,
 	if (ifp->if_ioctl &&
 	    (error = (*ifp->if_ioctl)(ifp, SIOCSIFADDR, (caddr_t)ia))) {
 		ia->ia_addr = oldaddr;
-		splx(s);
+		crit_leave();
 		goto out;
 	}
-	splx(s);
+	crit_leave();
 
 	/*
 	 * How should a packet be routed during

@@ -793,9 +793,9 @@ lemac_ifioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct lemac_softc *const sc = LEMAC_IFP_TO_SOFTC(ifp);
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -832,7 +832,7 @@ lemac_ifioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

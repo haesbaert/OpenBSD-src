@@ -198,14 +198,14 @@ m_reclaim(void *arg, int flags)
 {
 	struct domain *dp;
 	struct protosw *pr;
-	int s = splnet();
+	crit_enter();
 
 	for (dp = domains; dp; dp = dp->dom_next)
 		for (pr = dp->dom_protosw; pr < dp->dom_protoswNPROTOSW; pr++)
 			if (pr->pr_drain)
 				(*pr->pr_drain)();
 	mbstat.m_drain++;
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -215,13 +215,12 @@ struct mbuf *
 m_get(int nowait, int type)
 {
 	struct mbuf *m;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	m = pool_get(&mbpool, nowait == M_WAIT ? PR_WAITOK : PR_NOWAIT);
 	if (m)
 		mbstat.m_mtypes[type]++;
-	splx(s);
+	crit_leave();
 	if (m) {
 		m->m_type = type;
 		m->m_next = (struct mbuf *)NULL;
@@ -240,13 +239,12 @@ struct mbuf *
 m_gethdr(int nowait, int type)
 {
 	struct mbuf *m;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	m = pool_get(&mbpool, nowait == M_WAIT ? PR_WAITOK : PR_NOWAIT);
 	if (m)
 		mbstat.m_mtypes[type]++;
-	splx(s);
+	crit_leave();
 	if (m) {
 		m->m_type = type;
 
@@ -420,7 +418,6 @@ m_clget(struct mbuf *m, int how, struct ifnet *ifp, u_int pktlen)
 {
 	struct mbuf *m0 = NULL;
 	int pi;
-	int s;
 
 	pi = m_clpool(pktlen);
 #ifdef DIAGNOSTIC
@@ -428,17 +425,17 @@ m_clget(struct mbuf *m, int how, struct ifnet *ifp, u_int pktlen)
 		panic("m_clget: request for %u byte cluster", pktlen);
 #endif
 
-	s = splnet();
+	crit_enter();
 
 	if (ifp != NULL && m_cldrop(ifp, pi)) {
-		splx(s);
+		crit_leave();
 		return (NULL);
 	}
 
 	if (m == NULL) {
 		MGETHDR(m0, M_DONTWAIT, MT_DATA);
 		if (m0 == NULL) {
-			splx(s);
+			crit_leave();
 			return (NULL);
 		}
 		m = m0;
@@ -448,12 +445,12 @@ m_clget(struct mbuf *m, int how, struct ifnet *ifp, u_int pktlen)
 	if (!m->m_ext.ext_buf) {
 		if (m0)
 			m_freem(m0);
-		splx(s);
+		crit_leave();
 		return (NULL);
 	}
 	if (ifp != NULL)
 		m_clcount(ifp, pi);
-	splx(s);
+	crit_leave();
 
 	m->m_data = m->m_ext.ext_buf;
 	m->m_flags |= M_EXT|M_CLUSTER;
@@ -492,11 +489,10 @@ struct mbuf *
 m_free(struct mbuf *m)
 {
 	struct mbuf *n;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	n = m_free_unlocked(m);
-	splx(s);
+	crit_leave();
 
 	return (n);
 }
@@ -526,15 +522,14 @@ void
 m_freem(struct mbuf *m)
 {
 	struct mbuf *n;
-	int s;
 
 	if (m == NULL)
 		return;
-	s = splnet();
+	crit_enter();
 	do {
 		n = m_free_unlocked(m);
 	} while ((m = n) != NULL);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -572,9 +567,9 @@ m_defrag(struct mbuf *m, int how)
 	m->m_next = NULL;
 
 	if (m->m_flags & M_EXT) {
-		int s = splnet();
+		crit_enter();
 		m_extfree(m);
-		splx(s);
+		crit_leave();
 	}
 
 	/*

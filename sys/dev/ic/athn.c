@@ -36,6 +36,7 @@
 #include <sys/conf.h>
 #include <sys/device.h>
 #include <sys/stdint.h>	/* uintptr_t */
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -1232,9 +1233,8 @@ athn_calib_to(void *arg)
 	struct athn_softc *sc = arg;
 	struct athn_ops *ops = &sc->ops;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	/* Do periodic (every 4 minutes) PA calibration. */
 	if (AR_SREV_9285_11_OR_LATER(sc) &&
@@ -1267,7 +1267,7 @@ athn_calib_to(void *arg)
 			ieee80211_iterate_nodes(ic, athn_iter_func, sc);
 	}
 	timeout_add_msec(&sc->calib_to, 500);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2390,12 +2390,11 @@ athn_next_scan(void *arg)
 {
 	struct athn_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(&ic->ic_if);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2664,9 +2663,9 @@ athn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2728,7 +2727,7 @@ athn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

@@ -385,7 +385,7 @@ in6_pcbsetport(struct in6_addr *laddr, struct inpcb *inp, struct proc *p)
  * If don't have a local address for this socket yet,
  * then pick one.
  *
- * I believe this has to be called at splnet().
+ * I believe this has to be called at crit_enter().
  */
 int
 in6_pcbconnect(struct inpcb *inp, struct mbuf *nam)
@@ -475,7 +475,7 @@ in6_pcbconnect(struct inpcb *inp, struct mbuf *nam)
  * Also perform input-side security policy check
  *    once PCB to be notified has been located.
  *
- * Must be called at splnet.
+ * Must be called at crit_enter.
  */
 int
 in6_pcbnotify(struct inpcbtable *head, struct sockaddr_in6 *dst, 

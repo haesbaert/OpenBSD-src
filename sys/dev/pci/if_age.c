@@ -43,6 +43,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -286,11 +287,10 @@ age_detach(struct device *self, int flags)
 {
 	struct age_softc *sc = (struct age_softc *)self;
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	age_stop(sc);
-	splx(s);
+	crit_leave();
 
 	mii_detach(&sc->sc_miibus, MII_PHY_ANY, MII_OFFSET_ANY);
 
@@ -1047,9 +1047,9 @@ age_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct mii_data *mii = &sc->sc_miibus;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1090,7 +1090,7 @@ age_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1502,12 +1502,11 @@ age_tick(void *xsc)
 {
 	struct age_softc *sc = xsc;
 	struct mii_data *mii = &sc->sc_miibus;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(mii);
 	timeout_add_sec(&sc->age_tick_ch, 1);
-	splx(s);
+	crit_leave();
 }
 
 void

@@ -52,6 +52,7 @@
 #include <sys/timeout.h>
 #include <sys/pool.h>
 #include <sys/rwlock.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_arp.h>

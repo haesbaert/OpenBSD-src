@@ -98,6 +98,7 @@
 #include <sys/timeout.h>
 #include <sys/device.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -841,9 +842,9 @@ sk_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
 	struct mii_data *mii;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -884,7 +885,7 @@ sk_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1958,11 +1959,10 @@ sk_yukon_tick(void *xsc_if)
 {
 	struct sk_if_softc *sc_if = xsc_if;  
 	struct mii_data *mii = &sc_if->sk_mii;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(mii);
-	splx(s);
+	crit_leave();
 	timeout_add_sec(&sc_if->sk_tick_ch, 1);
 }
 
@@ -2458,11 +2458,10 @@ sk_init(void *xsc_if)
 	struct sk_softc		*sc = sc_if->sk_softc;
 	struct ifnet		*ifp = &sc_if->arpcom.ac_if;
 	struct mii_data		*mii = &sc_if->sk_mii;
-	int			s;
 
 	DPRINTFN(2, ("sk_init\n"));
 
-	s = splnet();
+	crit_enter();
 
 	/* Cancel pending I/O and free all RX/TX buffers. */
 	sk_stop(sc_if, 0);
@@ -2563,7 +2562,7 @@ sk_init(void *xsc_if)
 		printf("%s: initialization failed: no "
 		    "memory for rx buffers\n", sc_if->sk_dev.dv_xname);
 		sk_stop(sc_if, 0);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -2571,7 +2570,7 @@ sk_init(void *xsc_if)
 		printf("%s: initialization failed: no "
 		    "memory for tx buffers\n", sc_if->sk_dev.dv_xname);
 		sk_stop(sc_if, 0);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -2613,7 +2612,7 @@ sk_init(void *xsc_if)
 	if (SK_IS_YUKON(sc))
 		timeout_add_sec(&sc_if->sk_tick_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void

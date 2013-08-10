@@ -44,6 +44,7 @@
 #include <sys/systm.h>
 #include <sys/errno.h>
 #include <sys/time.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 
@@ -178,7 +179,6 @@ rmc_newclass(int pri, struct rm_ifdat *ifd, u_int nsecPerByte,
 {
 	struct rm_class	*cl;
 	struct rm_class	*peer;
-	int		 s;
 
 	if (pri >= RM_MAXPRIO)
 		return (NULL);
@@ -257,7 +257,7 @@ rmc_newclass(int pri, struct rm_ifdat *ifd, u_int nsecPerByte,
 	/*
 	 * put the class into the class tree
 	 */
-	s = splnet();
+	crit_enter();
 	if ((peer = ifd->active_[pri]) != NULL) {
 		/* find the last class at this pri */
 		cl->peer_ = peer;
@@ -289,7 +289,7 @@ rmc_newclass(int pri, struct rm_ifdat *ifd, u_int nsecPerByte,
 		ifd->alloc_[pri] += cl->allotment_;
 		rmc_wrr_set_weights(ifd);
 	}
-	splx(s);
+	crit_leave();
 	return (cl);
 }
 
@@ -299,12 +299,11 @@ rmc_modclass(struct rm_class *cl, u_int nsecPerByte, int maxq, u_int maxidle,
 {
 	struct rm_ifdat	*ifd;
 	u_int		 old_allotment;
-	int		 s;
 
 	ifd = cl->ifdat_;
 	old_allotment = cl->allotment_;
 
-	s = splnet();
+	crit_enter();
 	cl->allotment_ = RM_NS_PER_SEC / nsecPerByte; /* Bytes per sec */
 	cl->qthresh_ = 0;
 	cl->ns_per_byte_ = nsecPerByte;
@@ -338,7 +337,7 @@ rmc_modclass(struct rm_class *cl, u_int nsecPerByte, int maxq, u_int maxidle,
 		ifd->alloc_[cl->pri_] += cl->allotment_ - old_allotment;
 		rmc_wrr_set_weights(ifd);
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -491,14 +490,13 @@ void
 rmc_delete_class(struct rm_ifdat *ifd, struct rm_class *cl)
 {
 	struct rm_class	*p, *head, *previous;
-	int		 s;
 
 	ASSERT(cl->children_ == NULL);
 
 	if (cl->sleeping_)
 		CALLOUT_STOP(&cl->callout_);
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Free packets in the packet queue.
 	 * XXX - this may not be a desired behavior.  Packets should be
@@ -571,7 +569,7 @@ rmc_delete_class(struct rm_ifdat *ifd, struct rm_class *cl)
 	rmc_depth_recompute(ifd->root_);
 #endif
 
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Free the class structure.
@@ -1441,9 +1439,8 @@ static void
 rmc_restart(struct rm_class *cl)
 {
 	struct rm_ifdat	*ifd = cl->ifdat_;
-	int		 s;
 
-	s = splnet();
+	crit_enter();
 	if (cl->sleeping_) {
 		cl->sleeping_ = 0;
 		cl->undertime_.tv_sec = 0;
@@ -1453,7 +1450,7 @@ rmc_restart(struct rm_class *cl)
 			(ifd->restart)(ifd->ifq_);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*

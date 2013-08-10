@@ -201,9 +201,9 @@ ste_mii_send(struct ste_softc *sc, u_int32_t bits, int cnt)
 int
 ste_mii_readreg(struct ste_softc *sc, struct ste_mii_frame *frame)
 {
-	int		ack, i, s;
+	int		ack, i;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Set up frame for RX.
@@ -278,7 +278,7 @@ fail:
 	MII_SET(STE_PHYCTL_MCLK);
 	DELAY(1);
 
-	splx(s);
+	crit_leave();
 
 	if (ack)
 		return(1);
@@ -291,9 +291,7 @@ fail:
 int
 ste_mii_writereg(struct ste_softc *sc, struct ste_mii_frame *frame)
 {
-	int		s;
-
-	s = splnet();
+	crit_enter();
 	/*
 	 * Set up frame for TX.
 	 */
@@ -327,7 +325,7 @@ ste_mii_writereg(struct ste_softc *sc, struct ste_mii_frame *frame)
 	 */
 	MII_CLR(STE_PHYCTL_MDIR);
 
-	splx(s);
+	crit_leave();
 
 	return(0);
 }
@@ -780,9 +778,8 @@ ste_stats_update(void *xsc)
 	struct ste_softc	*sc;
 	struct ifnet		*ifp;
 	struct mii_data		*mii;
-	int			s;
 
-	s = splnet();
+	crit_enter();
 
 	sc = xsc;
 	ifp = &sc->arpcom.ac_if;
@@ -808,7 +805,7 @@ ste_stats_update(void *xsc)
 	}
 
 	timeout_add_sec(&sc->sc_stats_tmo, 1);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1046,9 +1043,9 @@ ste_init(void *xsc)
 	struct ste_softc	*sc = (struct ste_softc *)xsc;
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
 	struct mii_data		*mii;
-	int			i, s;
+	int			i;
 
-	s = splnet();
+	crit_enter();
 
 	ste_stop(sc);
 
@@ -1064,7 +1061,7 @@ ste_init(void *xsc)
 		printf("%s: initialization failed: no "
 		    "memory for RX buffers\n", sc->sc_dev.dv_xname);
 		ste_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1128,7 +1125,7 @@ ste_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_set(&sc->sc_stats_tmo, ste_stats_update, sc);
 	timeout_add_sec(&sc->sc_stats_tmo, 1);
@@ -1208,9 +1205,9 @@ ste_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ste_softc	*sc = ifp->if_softc;
 	struct ifaddr		*ifa = (struct ifaddr *) data;
 	struct ifreq		*ifr = (struct ifreq *) data;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1252,7 +1249,7 @@ ste_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return(error);
 }
 

@@ -68,6 +68,7 @@
 #include <sys/queue.h>
 #include <sys/timeout.h>
 #include <sys/pool.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -859,9 +860,9 @@ oce_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct oce_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -907,7 +908,7 @@ oce_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -1020,14 +1021,13 @@ void
 oce_tick(void *arg)
 {
 	struct oce_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	if (oce_update_stats(sc) == 0)
 		timeout_add_sec(&sc->sc_tick, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1826,14 +1826,14 @@ oce_refill_rx(void *arg)
 {
 	struct oce_softc *sc = arg;
 	struct oce_rq *rq;
-	int i, s;
+	int i;
 
-	s = splnet();
+	crit_enter();
 	OCE_RQ_FOREACH(sc, rq, i) {
 		if (!oce_alloc_rx_bufs(rq))
 			timeout_add(&sc->sc_rxrefill, 5);
 	}
-	splx(s);
+	crit_leave();
 }
 
 /* Handle the Completion Queue for the Mailbox/Async notifications */

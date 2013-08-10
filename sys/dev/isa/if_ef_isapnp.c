@@ -341,9 +341,9 @@ efioctl(ifp, cmd, data)
 	struct ef_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -388,7 +388,7 @@ efioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -399,9 +399,9 @@ efinit(sc)
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int i, s;
+	int i;
 
-	s = splnet();
+	crit_enter();
 
 	efstop(sc);
 
@@ -457,7 +457,7 @@ efinit(sc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_tmo, 1);
 
@@ -468,12 +468,10 @@ void
 efreset(sc)
 	struct ef_softc *sc;
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	efstop(sc);
 	efinit(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -840,9 +838,9 @@ ef_miibus_readreg(dev, phy, reg)
 	int phy, reg;
 {
 	struct ef_softc *sc = (struct ef_softc *)dev;
-	int i, ack, s, val = 0;
+	int i, ack, val = 0;
 
-	s = splnet();
+	crit_enter();
 
 	GO_WINDOW(4);
 	bus_space_write_2(sc->sc_iot, sc->sc_ioh, EP_W4_CTRLR_STATUS, 0);
@@ -902,7 +900,7 @@ ef_miibus_readreg(dev, phy, reg)
 	MII_SET(sc, EF_MII_CLK);
 	DELAY(1);
 
-	splx(s);
+	crit_leave();
 
 	return (val);
 }
@@ -913,9 +911,9 @@ ef_miibus_writereg(dev, phy, reg, val)
 	int phy, reg, val;
 {
 	struct ef_softc *sc = (struct ef_softc *)dev;
-	int s, i;
+	int i;
 
-	s = splnet();
+	crit_enter();
 
 	GO_WINDOW(4);
 	bus_space_write_2(sc->sc_iot, sc->sc_ioh, EP_W4_CTRLR_STATUS, 0);
@@ -942,7 +940,7 @@ ef_miibus_writereg(dev, phy, reg, val)
 	for (i = 0x8000; i; i >>= 1)
 		ef_mii_writeb(sc, (val & i) ? 1 : 0);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -972,9 +970,8 @@ ef_miibus_statchg(self)
 	struct device *self;
 {
 	struct ef_softc *sc = (struct ef_softc *)self;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	GO_WINDOW(3);
 	/* Set duplex bit appropriately */
 	if ((sc->sc_mii.mii_media_active & IFM_GMASK) == IFM_FDX)
@@ -984,7 +981,7 @@ ef_miibus_statchg(self)
 		bus_space_write_1(sc->sc_iot, sc->sc_ioh,
 		    EP_W3_MAC_CONTROL, 0x00);
 	GO_WINDOW(7);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -992,10 +989,9 @@ ef_tick(v)
 	void *v;
 {
 	struct ef_softc *sc = v;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 	timeout_add_sec(&sc->sc_tick_tmo, 1);
 }

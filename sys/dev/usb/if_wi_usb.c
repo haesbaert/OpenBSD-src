@@ -1094,19 +1094,17 @@ wi_usb_txeof(struct usbd_xfer *xfer, void *priv,
 	struct wi_usb_chain	*c = priv;
 	struct wi_usb_softc	*sc = c->wi_usb_sc;
 
-	int			s;
-
 	if (sc->wi_usb_dying)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10,("%s: %s: enter status=%d\n", sc->wi_usb_dev.dv_xname,
 		    __func__, status));
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		printf("%s: usb error on tx: %s\n", sc->wi_usb_dev.dv_xname,
@@ -1118,11 +1116,11 @@ wi_usb_txeof(struct usbd_xfer *xfer, void *priv,
 			if (--sc->wi_usb_refcnt < 0)
 				usb_detach_wakeup(&sc->wi_usb_dev);
 		}
-		splx(s);
+		crit_leave();
 		return;
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1139,20 +1137,19 @@ wi_usb_txeof_frm(struct usbd_xfer *xfer, void *priv,
 	struct wi_softc		*wsc = &sc->sc_wi;
 	struct ifnet		*ifp = &wsc->sc_ic.ic_if;
 
-	int			s;
 	int			err = 0;
 
 	if (sc->wi_usb_dying)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10,("%s: %s: enter status=%d\n", sc->wi_usb_dev.dv_xname,
 		    __func__, status));
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		printf("%s: usb error on tx: %s\n", sc->wi_usb_dev.dv_xname,
@@ -1164,7 +1161,7 @@ wi_usb_txeof_frm(struct usbd_xfer *xfer, void *priv,
 			if (--sc->wi_usb_refcnt < 0)
 				usb_detach_wakeup(&sc->wi_usb_dev);
 		}
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1178,7 +1175,7 @@ wi_usb_txeof_frm(struct usbd_xfer *xfer, void *priv,
 	if (!IFQ_IS_EMPTY(&ifp->if_snd))
 		wi_start_usb(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1631,11 +1628,10 @@ void
 wi_usb_txfrm(struct wi_usb_softc *sc, wi_usb_usbin *uin, int total_len)
 {
 	u_int16_t		status;
-	int 			s;
 	struct wi_softc		*wsc = &sc->sc_wi;
 	struct ifnet		*ifp = &wsc->sc_ic.ic_if;
 
-	s = splnet();
+	crit_enter();
 	status = letoh16(uin->type); /* XXX -- type == status */
 
 
@@ -1653,17 +1649,15 @@ wi_usb_txfrm(struct wi_usb_softc *sc, wi_usb_usbin *uin, int total_len)
 	    sc->wi_usb_dev.dv_xname, __func__, status));
 	}
 
-	splx(s);
+	crit_leave();
 }
 void
 wi_usb_rxfrm(struct wi_usb_softc *sc, wi_usb_usbin *uin, int total_len)
 {
-	int s;
-
 	DPRINTFN(5,("%s: %s: enter len=%d\n",
 	    sc->wi_usb_dev.dv_xname, __func__, total_len));
 
-	s = splnet();
+	crit_enter();
 
 	sc->wi_rxframe = (void *)uin;
 
@@ -1671,7 +1665,7 @@ wi_usb_rxfrm(struct wi_usb_softc *sc, wi_usb_usbin *uin, int total_len)
 
 	sc->wi_rxframe = NULL;
 
-	splx(s);
+	crit_leave();
 
 }
 
@@ -1688,12 +1682,11 @@ wi_start_usb(struct ifnet *ifp)
 {
 	struct wi_softc		*wsc;
 	struct wi_usb_softc	*sc;
-	int s;
 
 	wsc = ifp->if_softc;
 	sc  = wsc->wi_usb_cdata;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(5,("%s: %s:\n",
 	    sc->wi_usb_dev.dv_xname, __func__));
@@ -1707,7 +1700,7 @@ wi_start_usb(struct ifnet *ifp)
 			wakeup(sc->wi_thread_info);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 /* 
@@ -1736,10 +1729,8 @@ wi_inquire_usb(void *xsc)
 {
 	struct wi_softc		*wsc = xsc;
 	struct wi_usb_softc	*sc = wsc->wi_usb_cdata;
-	int s;
 
-
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(2,("%s: %s:\n",
 	    sc->wi_usb_dev.dv_xname, __func__));
@@ -1748,7 +1739,7 @@ wi_inquire_usb(void *xsc)
 
 	if (sc->wi_thread_info->idle)
 		wakeup(sc->wi_thread_info);
-	splx(s);
+	crit_leave();
 }
 
 /* 
@@ -1761,12 +1752,11 @@ wi_watchdog_usb(struct ifnet *ifp)
 {
 	struct wi_softc		*wsc;
 	struct wi_usb_softc	*sc;
-	int s;
 
 	wsc = ifp->if_softc;
 	sc = wsc->wi_usb_cdata;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(5,("%s: %s: ifp %x\n",
 	    sc->wi_usb_dev.dv_xname, __func__, ifp));
@@ -1775,7 +1765,7 @@ wi_watchdog_usb(struct ifnet *ifp)
 
 	if (sc->wi_thread_info->idle)
 		wakeup(sc->wi_thread_info);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1863,11 +1853,11 @@ wi_usb_thread(void *arg)
 		wi_usb_ctl_unlock(sc);
 
 		if (wi_thread_info->status == 0) {
-			int s = splnet();
+			crit_enter();
 			wi_thread_info->idle = 1;
 			tsleep(wi_thread_info, PRIBIO, "wiIDL", 0);
 			wi_thread_info->idle = 0;
-			splx(s);
+			crit_leave();
 		}
 	}
 }
@@ -1875,29 +1865,25 @@ wi_usb_thread(void *arg)
 int
 wi_usb_tx_lock_try(struct wi_usb_softc *sc)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10,("%s: %s: enter\n", sc->wi_usb_dev.dv_xname, __func__));
 
 	if (sc->wi_lock != 0) {
-		splx(s);
+		crit_leave();
 		return 0; /* failed to aquire lock */
 	}
 
 	sc->wi_lock = 1;
 
-	splx(s);
+	crit_leave();
 
 	return 1;
 }
 void
 wi_usb_tx_lock(struct wi_usb_softc *sc)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 
 	again:
 	DPRINTFN(10,("%s: %s: enter\n", sc->wi_usb_dev.dv_xname, __func__));
@@ -1913,7 +1899,7 @@ wi_usb_tx_lock(struct wi_usb_softc *sc)
 		goto again;
 	sc->wi_lock = 1;
 
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -1922,8 +1908,7 @@ wi_usb_tx_lock(struct wi_usb_softc *sc)
 void
 wi_usb_tx_unlock(struct wi_usb_softc *sc)
 {
-	int s;
-	s = splnet();
+	crit_enter();
 
 	sc->wi_lock = 0;
 
@@ -1936,15 +1921,13 @@ wi_usb_tx_unlock(struct wi_usb_softc *sc)
 		wakeup(&sc->wi_lock);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
 wi_usb_ctl_lock(struct wi_usb_softc *sc)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 
 	again:
 	DPRINTFN(10,("%s: %s: enter\n", sc->wi_usb_dev.dv_xname,
@@ -1954,7 +1937,7 @@ wi_usb_ctl_lock(struct wi_usb_softc *sc)
 		if (curproc == sc->wi_curproc) {
 			/* allow recursion */
 			sc->wi_ctllock++;
-			splx(s);
+			crit_leave();
 			return;
 		}
 		sc->wi_ctllockwait++;
@@ -1968,7 +1951,7 @@ wi_usb_ctl_lock(struct wi_usb_softc *sc)
 	sc->wi_ctllock++;
 	sc->wi_curproc = curproc;
 
-	splx(s);
+	crit_leave();
 
 	return;
 
@@ -1977,9 +1960,7 @@ wi_usb_ctl_lock(struct wi_usb_softc *sc)
 void
 wi_usb_ctl_unlock(struct wi_usb_softc *sc)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 
 	sc->wi_ctllock--;
 
@@ -1993,5 +1974,5 @@ wi_usb_ctl_unlock(struct wi_usb_softc *sc)
 		wakeup(&sc->wi_ctllock);
 	}
 
-	splx(s);
+	crit_leave();
 }

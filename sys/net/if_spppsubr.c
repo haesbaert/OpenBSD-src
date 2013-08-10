@@ -481,7 +481,6 @@ sppp_input(struct ifnet *ifp, struct mbuf *m)
 	struct sppp *sp = (struct sppp *)ifp;
 	struct timeval tv;
 	int debug = ifp->if_flags & IFF_DEBUG;
-	int s;
 
 	if (ifp->if_flags & IFF_UP) {
 		/* Count received bytes, add hardware framing */
@@ -651,11 +650,11 @@ sppp_input(struct ifnet *ifp, struct mbuf *m)
 		goto drop;
 
 	/* Check queue. */
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL (inq)) {
 		/* Queue overflow. */
 		IF_DROP(inq);
-		splx(s);
+		crit_leave();
 		if (debug)
 			log(LOG_DEBUG, SPP_FMT "protocol queue overflow\n",
 				SPP_ARGS(ifp));
@@ -664,7 +663,7 @@ sppp_input(struct ifnet *ifp, struct mbuf *m)
 		goto drop;
 	}
 	IF_ENQUEUE(inq, m);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -678,7 +677,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 	struct ppp_header *h;
 	struct ifqueue *ifq = NULL;
 	struct timeval tv;
-	int s, len, rv = 0;
+	int len, rv = 0;
 	u_int16_t protocol;
 
 #ifdef DIAGNOSTIC
@@ -690,7 +689,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 	}
 #endif
 
-	s = splnet();
+	crit_enter();
 
 	getmicrouptime(&tv);
 	sp->pp_last_activity = tv.tv_sec;
@@ -698,7 +697,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 	if ((ifp->if_flags & IFF_UP) == 0 ||
 	    (ifp->if_flags & (IFF_RUNNING | IFF_AUTO)) == 0) {
 		m_freem (m);
-		splx (s);
+		crit_leave();
 		return (ENETDOWN);
 	}
 
@@ -708,9 +707,9 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 		 * to start LCP for it.
 		 */
 		ifp->if_flags |= IFF_RUNNING;
-		splx(s);
+		crit_leave();
 		lcp.Open(sp);
-		s = splnet();
+		crit_enter();
 	}
 
 #ifdef INET
@@ -746,7 +745,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 			u_int8_t proto = ip->ip_p;
 
 			m_freem(m);
-			splx(s);
+			crit_leave();
 			if(proto == IPPROTO_TCP)
 				return (EADDRNOTAVAIL);
 			else
@@ -766,7 +765,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 			log(LOG_DEBUG, SPP_FMT "no memory for transmit header\n",
 				SPP_ARGS(ifp));
 		++ifp->if_oerrors;
-		splx (s);
+		crit_leave();
 		return (ENOBUFS);
 	}
 	/*
@@ -827,7 +826,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 	default:
 		m_freem(m);
 		++ifp->if_oerrors;
-		splx(s);
+		crit_leave();
 		return (EAFNOSUPPORT);
 	}
 
@@ -839,7 +838,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 				    "no memory for transmit header\n",
 				    SPP_ARGS(ifp));
 			++ifp->if_oerrors;
-			splx(s);
+			crit_leave();
 			return (ENOBUFS);
 		}
 		*mtod(m, u_int16_t *) = protocol;
@@ -868,7 +867,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 
 	if (rv != 0) {
 		++ifp->if_oerrors;
-		splx (s);
+		crit_leave();
 		return (rv);
 	}
 
@@ -881,7 +880,7 @@ sppp_output(struct ifnet *ifp, struct mbuf *m,
 	 * according to RFC 1333.
 	 */
 	ifp->if_obytes += len + sp->pp_framebytes;
-	splx (s);
+	crit_leave();
 	return (0);
 }
 
@@ -981,12 +980,12 @@ int
 sppp_isempty(struct ifnet *ifp)
 {
 	struct sppp *sp = (struct sppp*) ifp;
-	int empty, s;
+	int empty;
 
-	s = splnet();
+	crit_enter();
 	empty = IF_IS_EMPTY(&sp->pp_cpq) &&
 		IFQ_IS_EMPTY(&sp->pp_if.if_snd);
-	splx(s);
+	crit_leave();
 	return (empty);
 }
 
@@ -998,9 +997,8 @@ sppp_dequeue(struct ifnet *ifp)
 {
 	struct sppp *sp = (struct sppp*) ifp;
 	struct mbuf *m;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Process only the control protocol queue until we have at
 	 * least one NCP open.
@@ -1012,7 +1010,7 @@ sppp_dequeue(struct ifnet *ifp)
 	    (sppp_ncp_check(sp) || (sp->pp_flags & PP_CISCO) != 0)) {
 		IFQ_DEQUEUE (&sp->pp_if.if_snd, m);
 	}
-	splx(s);
+	crit_leave();
 	return m;
 }
 
@@ -1024,16 +1022,15 @@ sppp_pick(struct ifnet *ifp)
 {
 	struct sppp *sp = (struct sppp*)ifp;
 	struct mbuf *m;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	IF_POLL(&sp->pp_cpq, m);
 	if (m == NULL &&
 	    (sp->pp_phase == PHASE_NETWORK ||
 	     (sp->pp_flags & PP_CISCO) != 0)) {
 		IFQ_POLL(&sp->pp_if.if_snd, m);
 	}
-	splx (s);
+	crit_leave();
 	return (m);
 }
 
@@ -1045,9 +1042,9 @@ sppp_ioctl(struct ifnet *ifp, u_long cmd, void *data)
 {
 	struct ifreq *ifr = (struct ifreq*) data;
 	struct sppp *sp = (struct sppp*) ifp;
-	int s, rv, going_up, going_down, newmode;
+	int rv, going_up, going_down, newmode;
 
-	s = splnet();
+	crit_enter();
 	rv = 0;
 	switch (cmd) {
 	case SIOCAIFADDR:
@@ -1090,7 +1087,7 @@ sppp_ioctl(struct ifnet *ifp, u_long cmd, void *data)
 		if (ifr->ifr_mtu < 128 ||
 		    (sp->lcp.their_mru > 0 &&
 		     ifr->ifr_mtu > sp->lcp.their_mru)) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		ifp->if_mtu = ifr->ifr_mtu;
@@ -1101,7 +1098,7 @@ sppp_ioctl(struct ifnet *ifp, u_long cmd, void *data)
 		if (*(short*)data < 128 ||
 		    (sp->lcp.their_mru > 0 &&
 		     *(short*)data > sp->lcp.their_mru)) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		ifp->if_mtu = *(short*)data;
@@ -1137,7 +1134,7 @@ sppp_ioctl(struct ifnet *ifp, u_long cmd, void *data)
 	default:
 		rv = ENOTTY;
 	}
-	splx(s);
+	crit_leave();
 	return rv;
 }
 
@@ -1903,9 +1900,8 @@ HIDE void
 sppp_to_event(const struct cp *cp, struct sppp *sp)
 {
 	STDDCL;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (debug)
 		log(LOG_DEBUG, SPP_FMT "%s TO(%s) rst_counter = %d\n",
 		    SPP_ARGS(ifp), cp->name,
@@ -1951,7 +1947,7 @@ sppp_to_event(const struct cp *cp, struct sppp *sp)
 			break;
 		}
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -3732,7 +3728,7 @@ sppp_chap_input(struct sppp *sp, struct mbuf *m)
 {
 	STDDCL;
 	struct lcp_header *h;
-	int len, x;
+	int len;
 	u_char *value, *name, digest[AUTHCHALEN], dsize;
 	int value_len, name_len;
 	MD5_CTX ctx;
@@ -3809,7 +3805,7 @@ sppp_chap_input(struct sppp *sp, struct mbuf *m)
 			}
 			addlog("\n");
 		}
-		x = splnet();
+		crit_enter();
 		sp->pp_flags &= ~PP_NEEDAUTH;
 		if (sp->myauth.proto == PPP_CHAP &&
 		    (sp->lcp.opts & (1 << LCP_OPT_AUTH_PROTO)) &&
@@ -3819,10 +3815,10 @@ sppp_chap_input(struct sppp *sp, struct mbuf *m)
 			 * complete yet.  Leave it to tlu to proceed
 			 * to network phase.
 			 */
-			splx(x);
+			crit_leave();
 			break;
 		}
-		splx(x);
+		crit_leave();
 		sppp_phase_network(sp);
 		break;
 
@@ -3985,9 +3981,8 @@ sppp_chap_TO(void *cookie)
 {
 	struct sppp *sp = (struct sppp *)cookie;
 	STDDCL;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (debug)
 		log(LOG_DEBUG, SPP_FMT "chap TO(%s) rst_counter = %d\n",
 		    SPP_ARGS(ifp),
@@ -4016,14 +4011,14 @@ sppp_chap_TO(void *cookie)
 			break;
 		}
 
-	splx(s);
+	crit_leave();
 }
 
 HIDE void
 sppp_chap_tlu(struct sppp *sp)
 {
 	STDDCL;
-	int i = 0, x;
+	int i = 0;
 
 	i = 0;
 	sp->rst_counter[IDX_CHAP] = sp->lcp.max_configure;
@@ -4059,7 +4054,7 @@ sppp_chap_tlu(struct sppp *sp)
 			addlog("re-challenging suppressed\n");
 	}
 
-	x = splnet();
+	crit_enter();
 	/* indicate to LCP that we need to be closed down */
 	sp->lcp.protos |= (1 << IDX_CHAP);
 
@@ -4069,10 +4064,10 @@ sppp_chap_tlu(struct sppp *sp)
 		 * complete yet.  Defer the transition to network
 		 * phase.
 		 */
-		splx(x);
+		crit_leave();
 		return;
 	}
-	splx(x);
+	crit_leave();
 
 	/*
 	 * If we are already in phase network, we are done here.  This
@@ -4134,7 +4129,7 @@ sppp_pap_input(struct sppp *sp, struct mbuf *m)
 {
 	STDDCL;
 	struct lcp_header *h;
-	int len, x;
+	int len;
 	u_char *name, *passwd, mlen;
 	int name_len, passwd_len;
 
@@ -4222,7 +4217,7 @@ sppp_pap_input(struct sppp *sp, struct mbuf *m)
 			}
 			addlog("\n");
 		}
-		x = splnet();
+		crit_enter();
 		sp->pp_flags &= ~PP_NEEDAUTH;
 		if (sp->myauth.proto == PPP_PAP &&
 		    (sp->lcp.opts & (1 << LCP_OPT_AUTH_PROTO)) &&
@@ -4232,10 +4227,10 @@ sppp_pap_input(struct sppp *sp, struct mbuf *m)
 			 * complete yet.  Leave it to tlu to proceed
 			 * to network phase.
 			 */
-			splx(x);
+			crit_leave();
 			break;
 		}
-		splx(x);
+		crit_leave();
 		sppp_phase_network(sp);
 		break;
 
@@ -4321,9 +4316,8 @@ sppp_pap_TO(void *cookie)
 {
 	struct sppp *sp = (struct sppp *)cookie;
 	STDDCL;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (debug)
 		log(LOG_DEBUG, SPP_FMT "pap TO(%s) rst_counter = %d\n",
 		    SPP_ARGS(ifp),
@@ -4347,7 +4341,7 @@ sppp_pap_TO(void *cookie)
 			break;
 		}
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -4372,7 +4366,6 @@ HIDE void
 sppp_pap_tlu(struct sppp *sp)
 {
 	STDDCL;
-	int x;
 
 	sp->rst_counter[IDX_PAP] = sp->lcp.max_configure;
 
@@ -4380,7 +4373,7 @@ sppp_pap_tlu(struct sppp *sp)
 		log(LOG_DEBUG, SPP_FMT "%s tlu\n",
 		    SPP_ARGS(ifp), pap.name);
 
-	x = splnet();
+	crit_enter();
 	/* indicate to LCP that we need to be closed down */
 	sp->lcp.protos |= (1 << IDX_PAP);
 
@@ -4390,10 +4383,10 @@ sppp_pap_tlu(struct sppp *sp)
 		 * complete yet.  Defer the transition to network
 		 * phase.
 		 */
-		splx(x);
+		crit_leave();
 		return;
 	}
-	splx(x);
+	crit_leave();
 	sppp_phase_network(sp);
 }
 
@@ -4534,10 +4527,9 @@ HIDE void
 sppp_keepalive(void *dummy)
 {
 	struct sppp *sp;
-	int s;
 	struct timeval tv;
 
-	s = splnet();
+	crit_enter();
 	getmicrouptime(&tv);
 	for (sp=spppq; sp; sp=sp->pp_next) {
 		struct ifnet *ifp = &sp->pp_if;
@@ -4593,7 +4585,7 @@ sppp_keepalive(void *dummy)
 				sp->lcp.echoid, 4, &nmagic);
 		}
 	}
-	splx(s);
+	crit_leave();
 #if defined (__FreeBSD__)
 	keepalive_ch = timeout(sppp_keepalive, 0, hz * 10);
 #endif
@@ -4881,7 +4873,7 @@ sppp_gen_ip6_addr(struct sppp *sp, struct in6_addr *addr)
 }
 
 /*
- * Set my IPv6 address.  Must be called at splnet.
+ * Set my IPv6 address.  Must be called at crit_enter.
  */
 HIDE void
 sppp_set_ip6_addr(struct sppp *sp, const struct in6_addr *src)

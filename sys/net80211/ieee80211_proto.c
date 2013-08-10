@@ -502,11 +502,10 @@ void
 ieee80211_gtk_rekey_timeout(void *arg)
 {
 	struct ieee80211com *ic = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	ieee80211_setkeys(ic);
-	splx(s);
+	crit_leave();
 
 	/* re-schedule a GTK rekeying after 3600s */
 	timeout_add_sec(&ic->ic_rsn_timeout, 3600);
@@ -517,15 +516,14 @@ ieee80211_sa_query_timeout(void *arg)
 {
 	struct ieee80211_node *ni = arg;
 	struct ieee80211com *ic = ni->ni_ic;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (++ni->ni_sa_query_count >= 3) {
 		ni->ni_flags &= ~IEEE80211_NODE_SA_QUERY;
 		ni->ni_flags |= IEEE80211_NODE_SA_QUERY_FAILED;
 	} else	/* retry SA Query Request */
 		ieee80211_sa_query_request(ic, ni);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -560,9 +558,8 @@ ieee80211_tx_ba_timeout(void *arg)
 	struct ieee80211_node *ni = ba->ba_ni;
 	struct ieee80211com *ic = ni->ni_ic;
 	u_int8_t tid;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ba->ba_state == IEEE80211_BA_REQUESTED) {
 		/* MLME-ADDBA.confirm(TIMEOUT) */
 		ba->ba_state = IEEE80211_BA_INIT;
@@ -573,7 +570,7 @@ ieee80211_tx_ba_timeout(void *arg)
 		ieee80211_delba_request(ic, ni, IEEE80211_REASON_TIMEOUT,
 		    1, tid);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -583,15 +580,14 @@ ieee80211_rx_ba_timeout(void *arg)
 	struct ieee80211_node *ni = ba->ba_ni;
 	struct ieee80211com *ic = ni->ni_ic;
 	u_int8_t tid;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	/* Block Ack inactivity timeout */
 	tid = ((caddr_t)ba - (caddr_t)ni->ni_rx_ba) / sizeof(*ba);
 	ieee80211_delba_request(ic, ni, IEEE80211_REASON_TIMEOUT, 0, tid);
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -769,9 +765,6 @@ ieee80211_newstate(struct ieee80211com *ic, enum ieee80211_state nstate,
 	struct ieee80211_node *ni;
 	enum ieee80211_state ostate;
 	u_int rate;
-#ifndef IEEE80211_STA_ONLY
-	int s;
-#endif
 
 	ostate = ic->ic_state;
 	DPRINTF(("%s -> %s\n", ieee80211_state_name[ostate],
@@ -800,7 +793,7 @@ ieee80211_newstate(struct ieee80211com *ic, enum ieee80211_state nstate,
 				break;
 #ifndef IEEE80211_STA_ONLY
 			case IEEE80211_M_HOSTAP:
-				s = splnet();
+				crit_enter();
 				RB_FOREACH(ni, ieee80211_tree, &ic->ic_tree) {
 					if (ni->ni_associd == 0)
 						continue;
@@ -808,7 +801,7 @@ ieee80211_newstate(struct ieee80211com *ic, enum ieee80211_state nstate,
 					    IEEE80211_FC0_SUBTYPE_DISASSOC,
 					    IEEE80211_REASON_ASSOC_LEAVE);
 				}
-				splx(s);
+				crit_leave();
 				break;
 #endif
 			default:
@@ -826,13 +819,13 @@ ieee80211_newstate(struct ieee80211com *ic, enum ieee80211_state nstate,
 				break;
 #ifndef IEEE80211_STA_ONLY
 			case IEEE80211_M_HOSTAP:
-				s = splnet();
+				crit_enter();
 				RB_FOREACH(ni, ieee80211_tree, &ic->ic_tree) {
 					IEEE80211_SEND_MGMT(ic, ni,
 					    IEEE80211_FC0_SUBTYPE_DEAUTH,
 					    IEEE80211_REASON_AUTH_LEAVE);
 				}
-				splx(s);
+				crit_leave();
 				break;
 #endif
 			default:

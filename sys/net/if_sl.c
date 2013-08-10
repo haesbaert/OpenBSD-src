@@ -72,7 +72,7 @@
 #include <sys/kernel.h>
 #include <sys/conf.h>
 #include <sys/systm.h>
-
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -196,7 +196,6 @@ sl_clone_create(ifc, unit)
 	int unit;
 {
 	struct sl_softc *sc;
-	int s;
 
 	sc = malloc(sizeof(*sc), M_DEVBUF, M_NOWAIT|M_ZERO);
 	if (!sc)
@@ -220,9 +219,9 @@ sl_clone_create(ifc, unit)
 #if NBPFILTER > 0
 	bpfattach(&sc->sc_bpf, &sc->sc_if, DLT_SLIP, SLIP_HDRLEN);
 #endif
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&sl_softc_list, sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -232,14 +231,13 @@ sl_clone_destroy(ifp)
 	struct ifnet *ifp;
 {
 	struct sl_softc *sc = ifp->if_softc;
-	int s;
 
 	if (sc->sc_ttyp != NULL)
 		return (EBUSY);
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	if_detach(ifp);
 
@@ -436,6 +434,7 @@ sloutput(ifp, m, dst, rtp)
 		m_freem(m);
 		return (ENETRESET);		/* XXX ? */
 	}
+	crit_enter();
 	s = spltty();
 	if (sc->sc_oqlen && sc->sc_ttyp->t_outq.c_cc == sc->sc_oqlen) {
 		struct timeval tv, tm;
@@ -449,19 +448,19 @@ sloutput(ifp, m, dst, rtp)
 		}
 	}
 
-	(void) splnet();
 	IFQ_ENQUEUE(&sc->sc_if.if_snd, m, NULL, error);
 	if (error) {
+		crit_leave();
 		splx(s);
 		sc->sc_if.if_oerrors++;
 		return (error);
 	}
 
-	(void) spltty();
 	getmicrotime(&sc->sc_lastpacket);
 	if ((sc->sc_oqlen = sc->sc_ttyp->t_outq.c_cc) == 0)
 		slstart(sc->sc_ttyp);
 	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -478,7 +477,6 @@ slstart(tp)
 	struct mbuf *m;
 	u_char *cp;
 	struct ip *ip;
-	int s;
 	struct mbuf *m2;
 #if NBPFILTER > 0
 	u_char bpfbuf[SLMTU + SLIP_HDRLEN];
@@ -514,13 +512,13 @@ slstart(tp)
 		/*
 		 * Get a packet and send it to the interface.
 		 */
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&sc->sc_fastq, m);
 		if (m)
 			sc->sc_if.if_omcasts++;		/* XXX */
 		else
 			IFQ_DEQUEUE(&sc->sc_if.if_snd, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			return;
 
@@ -703,7 +701,6 @@ slinput(c, tp)
 	struct sl_softc *sc;
 	struct mbuf *m;
 	int len;
-	int s;
 #if NBPFILTER > 0
 	u_char chdr[CHDR_LEN];
 #endif
@@ -840,9 +837,9 @@ slinput(c, tp)
 			hp[SLX_DIR] = SLIPDIR_IN;
 			memcpy(&hp[SLX_CHDR], chdr, CHDR_LEN);
 
-			s = splnet();
+			crit_enter();
 			bpf_mtap(sc->sc_bpf, m, BPF_DIRECTION_IN);
-			splx(s);
+			crit_leave();
 
 			m_adj(m, SLIP_HDRLEN);
 		}
@@ -850,7 +847,7 @@ slinput(c, tp)
 
 		sc->sc_if.if_ipackets++;
 		getmicrotime(&sc->sc_lastpacket);
-		s = splnet();
+		crit_enter();
 		if (IF_QFULL(&ipintrq)) {
 			IF_DROP(&ipintrq);
 			sc->sc_if.if_ierrors++;
@@ -862,7 +859,7 @@ slinput(c, tp)
 			IF_ENQUEUE(&ipintrq, m);
 			schednetisr(NETISR_IP);
 		}
-		splx(s);
+		crit_leave();
 		goto newpack;
 	}
 	if (sc->sc_mp < sc->sc_ep) {
@@ -893,8 +890,10 @@ slioctl(ifp, cmd, data)
 {
 	struct sl_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s = splnet(), error = 0;
+	int error = 0;
 	struct sl_stats *slsp;
+
+	crit_enter();
 
 	switch (cmd) {
 
@@ -937,6 +936,6 @@ slioctl(ifp, cmd, data)
 	default:
 		error = ENOTTY;
 	}
-	splx(s);
+	crit_leave();
 	return (error);
 }

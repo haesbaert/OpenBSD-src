@@ -49,6 +49,7 @@
 #include <sys/malloc.h>
 #include <sys/ioctl.h>
 #include <sys/errno.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -341,9 +342,8 @@ hme_tick(arg)
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	bus_space_tag_t t = sc->sc_bustag;
 	bus_space_handle_t mac = sc->sc_mac;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Unload collision counters
 	 */
@@ -369,7 +369,7 @@ hme_tick(arg)
 		hme_fill_rx_ring(sc);
 
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_ch, 1);
 }
@@ -378,11 +378,9 @@ void
 hme_reset(sc)
 	struct hme_softc *sc;
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	hme_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1307,9 +1305,9 @@ hme_ioctl(ifp, cmd, data)
 	struct hme_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1352,7 +1350,7 @@ hme_ioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

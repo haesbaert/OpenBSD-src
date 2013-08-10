@@ -407,14 +407,13 @@ void
 pfsyncstart(struct ifnet *ifp)
 {
 	struct mbuf *m;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	while ((m = pfsync_if_dequeue(ifp)) != NULL) {
 		IF_DROP(&ifp->if_snd);
 		m_freem(m);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1270,7 +1269,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct pfsyncreq pfsyncr;
 	struct ifnet    *sifp;
 	struct ip *ip;
-	int s, error;
+	int error;
 
 	switch (cmd) {
 #if 0
@@ -1279,7 +1278,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	case SIOCSIFDSTADDR:
 #endif
 	case SIOCSIFFLAGS:
-		s = splnet();
+		crit_enter();
 		if ((ifp->if_flags & IFF_RUNNING) == 0 &&
 		    (ifp->if_flags & IFF_UP)) {
 			ifp->if_flags |= IFF_RUNNING;
@@ -1301,18 +1300,18 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 
 			pfsync_cancel_full_update(sc);
 		}
-		splx(s);
+		crit_leave();
 		break;
 	case SIOCSIFMTU:
 		if (!sc->sc_sync_if ||
 		    ifr->ifr_mtu <= PFSYNC_MINPKT ||
 		    ifr->ifr_mtu > sc->sc_sync_if->if_mtu)
 			return (EINVAL);
-		s = splnet();
+		crit_enter();
 		if (ifr->ifr_mtu < ifp->if_mtu)
 			pfsync_sendout();
 		ifp->if_mtu = ifr->ifr_mtu;
-		splx(s);
+		crit_leave();
 		break;
 	case SIOCGETPFSYNC:
 		bzero(&pfsyncr, sizeof(pfsyncr));
@@ -1331,7 +1330,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		if ((error = copyin(ifr->ifr_data, &pfsyncr, sizeof(pfsyncr))))
 			return (error);
 
-		s = splnet();
+		crit_enter();
 
 		if (pfsyncr.pfsyncr_syncpeer.s_addr == 0)
 			sc->sc_sync_peer.s_addr = INADDR_PFSYNC_GROUP;
@@ -1340,7 +1339,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			    pfsyncr.pfsyncr_syncpeer.s_addr;
 
 		if (pfsyncr.pfsyncr_maxupdates > 255) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 		sc->sc_maxupdates = pfsyncr.pfsyncr_maxupdates;
@@ -1358,12 +1357,12 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 				    --imo->imo_num_memberships]);
 				imo->imo_multicast_ifp = NULL;
 			}
-			splx(s);
+			crit_leave();
 			break;
 		}
 
 		if ((sifp = ifunit(pfsyncr.pfsyncr_syncdev)) == NULL) {
-			splx(s);
+			crit_leave();
 			return (EINVAL);
 		}
 
@@ -1390,7 +1389,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 
 			if (!(sc->sc_sync_if->if_flags & IFF_MULTICAST)) {
 				sc->sc_sync_if = NULL;
-				splx(s);
+				crit_leave();
 				return (EADDRNOTAVAIL);
 			}
 
@@ -1399,7 +1398,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			if ((imo->imo_membership[0] =
 			    in_addmulti(&addr, sc->sc_sync_if)) == NULL) {
 				sc->sc_sync_if = NULL;
-				splx(s);
+				crit_leave();
 				return (ENOBUFS);
 			}
 			imo->imo_num_memberships++;
@@ -1425,7 +1424,7 @@ pfsyncioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		    pfsync_syncdev_state, sc);
 
 		pfsync_request_full_update(sc);
-		splx(s);
+		crit_leave();
 
 		break;
 

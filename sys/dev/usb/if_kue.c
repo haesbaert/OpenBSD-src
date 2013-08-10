@@ -414,7 +414,6 @@ void
 kue_attachhook(void *xsc)
 {
 	struct kue_softc *sc = xsc;
-	int			s;
 	struct ifnet		*ifp;
 	struct usbd_device	*dev = sc->kue_udev;
 	struct usbd_interface	*iface;
@@ -482,7 +481,7 @@ kue_attachhook(void *xsc)
 		return;
 	}
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * A KLSI chip was detected. Inform the world.
@@ -509,7 +508,7 @@ kue_attachhook(void *xsc)
 	ether_ifattach(ifp);
 
 	sc->kue_attached = 1;
-	splx(s);
+	crit_leave();
 
 }
 
@@ -704,7 +703,6 @@ kue_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct ifnet		*ifp = GET_IFP(sc);
 	struct mbuf		*m;
 	int			total_len = 0;
-	int			s;
 
 	DPRINTFN(10,("%s: %s: enter status=%d\n", sc->kue_dev.dv_xname,
 		     __func__, status));
@@ -757,7 +755,7 @@ kue_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	m->m_pkthdr.rcvif = ifp;
 
-	s = splnet();
+	crit_enter();
 
 	/* XXX ugly */
 	if (kue_newbuf(sc, c, NULL) == ENOBUFS) {
@@ -780,7 +778,7 @@ kue_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    __func__, m->m_len));
 	ether_input_mbuf(ifp, m);
  done1:
-	splx(s);
+	crit_leave();
 
  done:
 
@@ -805,12 +803,11 @@ kue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct kue_chain	*c = priv;
 	struct kue_softc	*sc = c->kue_sc;
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			s;
 
 	if (sc->kue_dying)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10,("%s: %s: enter status=%d\n", sc->kue_dev.dv_xname,
 		    __func__, status));
@@ -820,7 +817,7 @@ kue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -828,7 +825,7 @@ kue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->kue_ep[KUE_ENDPT_TX]);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -840,7 +837,7 @@ kue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		kue_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -934,7 +931,6 @@ kue_init(void *xsc)
 {
 	struct kue_softc	*sc = xsc;
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			s;
 	u_char			*eaddr;
 
 	DPRINTFN(5,("%s: %s: enter\n", sc->kue_dev.dv_xname,__func__));
@@ -942,7 +938,7 @@ kue_init(void *xsc)
 	if (ifp->if_flags & IFF_RUNNING)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	eaddr = sc->arpcom.ac_enaddr;
 	/* Set MAC address */
@@ -969,14 +965,14 @@ kue_init(void *xsc)
 	/* Init TX ring. */
 	if (kue_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n", sc->kue_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Init RX ring. */
 	if (kue_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n", sc->kue_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -985,7 +981,7 @@ kue_init(void *xsc)
 
 	if (sc->kue_ep[KUE_ENDPT_RX] == NULL) {
 		if (kue_open_pipes(sc)) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 	}
@@ -993,7 +989,7 @@ kue_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1042,7 +1038,7 @@ kue_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 {
 	struct kue_softc	*sc = ifp->if_softc;
 	struct ifaddr 		*ifa = (struct ifaddr *)data;
-	int			s, error = 0;
+	int			error = 0;
 
 	DPRINTFN(5,("%s: %s: enter\n", sc->kue_dev.dv_xname,__func__));
 
@@ -1056,7 +1052,7 @@ kue_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	}
 #endif
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1106,7 +1102,7 @@ kue_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

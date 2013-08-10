@@ -55,6 +55,7 @@
 #include <sys/socket.h>
 #include <sys/systm.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 

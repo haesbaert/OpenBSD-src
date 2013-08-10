@@ -864,7 +864,7 @@ wi_inquire(void *xsc)
 {
 	struct wi_softc		*sc;
 	struct ifnet		*ifp;
-	int s, rv;
+	int rv;
 
 	sc = xsc;
 	ifp = &sc->sc_ic.ic_if;
@@ -875,9 +875,9 @@ wi_inquire(void *xsc)
 	if (ifp->if_flags & IFF_OACTIVE)
 		return;
 
-	s = splnet();
+	crit_enter();
 	rv = wi_cmd(sc, WI_CMD_INQUIRE, WI_INFO_COUNTERS, 0, 0);
-	splx(s);
+	crit_leave();
 	if (rv)
 		printf(WI_PRT_FMT ": wi_cmd failed with %d\n", WI_PRT_ARG(sc),
 		    rv);
@@ -1539,7 +1539,7 @@ wi_setdef(struct wi_softc *sc, struct wi_req *wreq)
 STATIC int
 wi_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 {
-	int			s, error = 0, i, j, len;
+	int			error = 0, i, j, len;
 	struct wi_softc		*sc = ifp->if_softc;
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct proc		*p = curproc;
@@ -1552,7 +1552,7 @@ wi_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ieee80211_nodereq_all	*na;
 	struct ieee80211_bssid		*bssid;
 
-	s = splnet();
+	crit_enter();
 	if (!(sc->wi_flags & WI_FLAGS_ATTACHED)) {
 		error = ENODEV;
 		goto fail;
@@ -1565,7 +1565,7 @@ wi_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	while ((sc->wi_flags & WI_FLAGS_BUSY) && error == 0)
 		error = tsleep(&sc->wi_flags, PCATCH, "wiioc", 0);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return error;
 	}
 	sc->wi_flags |= WI_FLAGS_BUSY;
@@ -2039,7 +2039,7 @@ wi_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 fail:
 	sc->wi_flags &= ~WI_FLAGS_BUSY;
 	wakeup(&sc->wi_flags);
-	splx(s);
+	crit_leave();
 	return(error);
 }
 
@@ -2086,7 +2086,6 @@ STATIC void
 wi_init_io(struct wi_softc *sc)
 {
 	struct ifnet		*ifp = &sc->sc_ic.ic_ac.ac_if;
-	int			s;
 	struct wi_ltv_macaddr	mac;
 	int			id = 0;
 
@@ -2095,7 +2094,7 @@ wi_init_io(struct wi_softc *sc)
 
 	DPRINTF(WID_INIT, ("wi_init: sc %p\n", sc));
 
-	s = splnet();
+	crit_enter();
 
 	if (ifp->if_flags & IFF_RUNNING)
 		wi_stop(sc);
@@ -2224,7 +2223,7 @@ wi_init_io(struct wi_softc *sc)
 
         wihap_init(sc);
 
-	splx(s);
+	crit_leave();
 
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;

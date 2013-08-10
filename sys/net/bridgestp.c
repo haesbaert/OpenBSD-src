@@ -363,7 +363,7 @@ bstp_transmit_tcn(struct bstp_state *bs, struct bstp_port *bp)
 	struct ifnet *ifp = bp->bp_ifp;
 	struct ether_header *eh;
 	struct mbuf *m;
-	int s, len, error;
+	int len, error;
 
 	if (ifp == NULL || (ifp->if_flags & IFF_RUNNING) == 0)
 		return;
@@ -388,7 +388,7 @@ bstp_transmit_tcn(struct bstp_state *bs, struct bstp_port *bp)
 	bpdu.tbu_bpdutype = BSTP_MSGTYPE_TCN;
 	bcopy(&bpdu, mtod(m, caddr_t) + sizeof(*eh), sizeof(bpdu));
 
-	s = splnet();
+	crit_enter();
 	bp->bp_txcount++;
 	len = m->m_pkthdr.len;
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
@@ -397,7 +397,7 @@ bstp_transmit_tcn(struct bstp_state *bs, struct bstp_port *bp)
 		ifp->if_omcasts++;
 		if_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -479,9 +479,9 @@ bstp_send_bpdu(struct bstp_state *bs, struct bstp_port *bp,
 	struct ifnet *ifp = bp->bp_ifp;
 	struct mbuf *m;
 	struct ether_header *eh;
-	int s, len, error;
+	int len, error;
 
-	s = splnet();
+	crit_enter();
 	if (ifp == NULL || (ifp->if_flags & IFF_RUNNING) == 0)
 		goto done;
 
@@ -536,7 +536,7 @@ bstp_send_bpdu(struct bstp_state *bs, struct bstp_port *bp,
 		if_start(ifp);
 	}
  done:
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1614,7 +1614,7 @@ bstp_notify_rtage(void *arg, int pending)
 	struct bstp_port *bp = (struct bstp_port *)arg;
 	int age = 0;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	switch (bp->bp_protover) {
 	case BSTP_PROTO_STP:
@@ -1640,12 +1640,11 @@ bstp_ifstate(void *arg)
 	struct bridge_iflist *p;
 	struct bstp_port *bp;
 	struct bstp_state *bs;
-	int s;
 
 	if (ifp->if_type == IFT_BRIDGE)
 		return;
 
-	s = splnet();
+	crit_enter();
 	if ((p = (struct bridge_iflist *)ifp->if_bridgeport) == NULL)
 		goto done;
 	if ((p->bif_flags & IFBIF_STP) == 0)
@@ -1659,7 +1658,7 @@ bstp_ifstate(void *arg)
 	bstp_ifupdstatus(bs, bp);
 	bstp_update_state(bs, bp);
  done:
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1708,11 +1707,10 @@ bstp_tick(void *arg)
 {
 	struct bstp_state *bs = (struct bstp_state *)arg;
 	struct bstp_port *bp;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if ((bs->bs_ifflags & IFF_RUNNING) == 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1752,7 +1750,7 @@ bstp_tick(void *arg)
 	if (bs->bs_ifp->if_flags & IFF_RUNNING)
 		timeout_add_sec(&bs->bs_bstptimeout, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1927,9 +1925,8 @@ struct bstp_state *
 bstp_create(struct ifnet *ifp)
 {
 	struct bstp_state *bs;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	bs = malloc(sizeof(*bs), M_DEVBUF, M_WAITOK|M_ZERO);
 	LIST_INIT(&bs->bs_bplist);
 
@@ -1945,7 +1942,7 @@ bstp_create(struct ifnet *ifp)
 
 	getmicrotime(&bs->bs_last_tc_time);
 
-	splx(s);
+	crit_leave();
 
 	return (bs);
 }

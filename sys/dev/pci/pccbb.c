@@ -49,6 +49,7 @@
 #include <sys/device.h>
 #include <sys/malloc.h>
 #include <sys/task.h>
+#include <sys/proc.h>
 
 #include <machine/intr.h>
 #include <machine/bus.h>
@@ -959,6 +960,7 @@ pccbbintr_function(struct pccbb_softc *sc)
 		 * IPL_XXX may use the same value.  It depends on the
 		 * implementation.
 		 */
+		crit_enter();
 		splchanged = 1;
 #if 0
 		if (pil->pil_level == IPL_SERIAL) {
@@ -979,8 +981,6 @@ pccbbintr_function(struct pccbb_softc *sc)
 		} else if (pil->pil_level == IPL_SOFTSERIAL) {
 			s = splsoftserial();
 #endif
-		} else if (pil->pil_level == IPL_NET) {
-			s = splnet();
 		} else {
 			splchanged = 0;
 			/* XXX: ih lower than IPL_BIO runs w/ IPL_BIO. */
@@ -993,6 +993,7 @@ pccbbintr_function(struct pccbb_softc *sc)
 		if (splchanged != 0) {
 			splx(s);
 		}
+		crit_leave();
 
 		retval = retval == 1 ? 1 :
 		    retval == 0 ? val : val != 0 ? val : retval;
@@ -1260,9 +1261,7 @@ cb_pcmcia_poll(void *arg)
 	timeout_set(&cb_poll_timeout, cb_pcmcia_poll, arg);
 	timeout_add(&cb_poll_timeout, hz / 10);
 	switch (poll->level) {
-	case IPL_NET:
-		s = splnet();
-		break;
+	case IPL_NET:			/* fallthrough */
 	case IPL_BIO:
 		crit_enter();
 		break;
@@ -1290,7 +1289,7 @@ cb_pcmcia_poll(void *arg)
 #endif
 		}
 	}
-	if (poll->level == IPL_BIO)
+	if (poll->level == IPL_BIO || poll->level == IPL_NET)
 		crit_leave();
 	else
 		splx(s);
@@ -2410,9 +2409,7 @@ pccbb_pcmcia_poll(void *arg)
 	timeout_set(&pccbb_poll_timeout, pccbb_pcmcia_poll, arg);
 	timeout_add_sec(&pccbb_poll_timeout, 2);
 	switch (poll->level) {
-	case IPL_NET:
-		s = splnet();
-		break;
+	case IPL_NET:			/* fallthrough */
 	case IPL_BIO:
 		crit_enter();
 		break;
@@ -2441,7 +2438,7 @@ pccbb_pcmcia_poll(void *arg)
 #endif
 		}
 	}
-	if (poll->level == IPL_BIO)
+	if (poll->level == IPL_BIO || poll->level == IPL_NET)
 		crit_leave();
 	else
 		splx(s);

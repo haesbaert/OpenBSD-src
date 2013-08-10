@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/ioctl.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -120,12 +121,11 @@ void
 vetherstart(struct ifnet *ifp)
 {
 	struct mbuf		*m;
-	int			 s;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IFQ_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			return;

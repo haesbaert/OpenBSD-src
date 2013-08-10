@@ -32,6 +32,7 @@
 #include <sys/conf.h>
 #include <sys/device.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -357,14 +358,13 @@ iwi_resume(void *arg1, void *arg2)
 	struct iwi_softc *sc = arg1;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
 	pcireg_t data;
-	int s;
 
 	/* clear device specific PCI configuration register 0x41 */
 	data = pci_conf_read(sc->sc_pct, sc->sc_pcitag, 0x40);
 	data &= ~0x0000ff00;
 	pci_conf_write(sc->sc_pct, sc->sc_pcitag, 0x40, data);
 
-	s = splnet();
+	crit_enter();
 	while (sc->sc_flags & IWI_FLAG_BUSY)
 		tsleep(&sc->sc_flags, 0, "iwipwr", 0);
 	sc->sc_flags |= IWI_FLAG_BUSY;
@@ -374,7 +374,7 @@ iwi_resume(void *arg1, void *arg2)
 
 	sc->sc_flags &= ~IWI_FLAG_BUSY;
 	wakeup(&sc->sc_flags);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1466,9 +1466,9 @@ iwi_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 	/*
 	 * Prevent processes from entering this function while another
 	 * process is tsleep'ing in it.
@@ -1476,7 +1476,7 @@ iwi_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	while ((sc->sc_flags & IWI_FLAG_BUSY) && error == 0)
 		error = tsleep(&sc->sc_flags, PCATCH, "iwiioc", 0);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return error;
 	}
 	sc->sc_flags |= IWI_FLAG_BUSY;
@@ -1535,7 +1535,7 @@ iwi_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 
 	sc->sc_flags &= ~IWI_FLAG_BUSY;
 	wakeup(&sc->sc_flags);
-	splx(s);
+	crit_leave();
 	return error;
 }
 

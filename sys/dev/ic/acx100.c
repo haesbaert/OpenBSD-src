@@ -56,6 +56,7 @@
 #include <sys/endian.h>
 #include <sys/socket.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 

@@ -99,7 +99,6 @@ int
 gre_input2(struct mbuf *m, int hlen, u_char proto)
 {
 	struct greip *gip;
-	int s;
 	struct ifqueue *ifq;
 	struct gre_softc *sc;
 	u_short flags;
@@ -207,9 +206,9 @@ gre_input2(struct mbuf *m, int hlen, u_char proto)
 	pf_pkt_addr_changed(m);
 #endif
 
-	s = splnet();		/* possible */
+	crit_enter();		/* possible */
 	IF_INPUT_ENQUEUE(ifq, m);
-	splx(s);
+	crit_leave();
 
 	return (1);	/* packet is done, no further processing needed */
 }
@@ -271,7 +270,7 @@ gre_mobile_input(struct mbuf *m, ...)
 	struct mobip_h *mip;
 	struct ifqueue *ifq;
 	struct gre_softc *sc;
-	int hlen, s;
+	int hlen;
 	va_list ap;
 	u_char osrc = 0;
 	int msiz;
@@ -344,9 +343,9 @@ gre_mobile_input(struct mbuf *m, ...)
 		bpf_mtap_af(sc->sc_if.if_bpf, AF_INET, m, BPF_DIRECTION_IN);
 #endif
 
-	s = splnet();       /* possible */
+	crit_enter();       /* possible */
 	IF_INPUT_ENQUEUE(ifq, m);
-	splx(s);
+	crit_leave();
 }
 
 /*

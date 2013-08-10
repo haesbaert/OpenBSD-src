@@ -46,10 +46,11 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
 #include <machine/bus.h>
-#include <machine/intr.h>	/* splnet */
+#include <machine/intr.h>
 
 #include <uvm/uvm_extern.h>
 
@@ -1865,7 +1866,7 @@ rtw_intr(void *arg)
 	return 1;
 }
 
-/* Must be called at splnet. */
+/* Must be called at crit_enter. */
 void
 rtw_stop(struct ifnet *ifp, int disable)
 {
@@ -2364,7 +2365,7 @@ allmulti:
 	return;
 }
 
-/* Must be called at splnet. */
+/* Must be called at crit_enter. */
 int
 rtw_init(struct ifnet *ifp)
 {
@@ -2564,11 +2565,11 @@ rtw_led_set(struct rtw_led_state *ls, struct rtw_regs *regs, u_int hwverid)
 void
 rtw_led_fastblink(void *arg)
 {
-	int ostate, s;
+	int ostate;
 	struct rtw_softc *sc = (struct rtw_softc *)arg;
 	struct rtw_led_state *ls = &sc->sc_led_state;
 
-	s = splnet();
+	crit_enter();
 	ostate = ls->ls_state;
 	ls->ls_state ^= ls->ls_event;
 
@@ -2582,7 +2583,7 @@ rtw_led_fastblink(void *arg)
 
 	if (ostate != ls->ls_state)
 		rtw_led_set(ls, &sc->sc_regs, sc->sc_hwverid);
-	splx(s);
+	crit_leave();
 
 	timeout_add_msec(&ls->ls_fast_ch, RTW_LED_FAST_MSEC);
 }
@@ -2590,14 +2591,13 @@ rtw_led_fastblink(void *arg)
 void
 rtw_led_slowblink(void *arg)
 {
-	int s;
 	struct rtw_softc *sc = (struct rtw_softc *)arg;
 	struct rtw_led_state *ls = &sc->sc_led_state;
 
-	s = splnet();
+	crit_enter();
 	ls->ls_state ^= RTW_LED_S_SLOW;
 	rtw_led_set(ls, &sc->sc_regs, sc->sc_hwverid);
-	splx(s);
+	crit_leave();
 	timeout_add_msec(&ls->ls_slow_ch, RTW_LED_SLOW_MSEC);
 }
 
@@ -2615,9 +2615,9 @@ rtw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int rc = 0, s;
+	int rc = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2662,7 +2662,7 @@ rtw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 	return rc;
 }
 
@@ -3373,13 +3373,12 @@ rtw_next_scan(void *arg)
 	struct rtw_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	/* don't call rtw_start w/o network interrupts blocked */
-	s = splnet();
+	crit_enter();
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(ifp);
-	splx(s);
+	crit_leave();
 }
 
 void

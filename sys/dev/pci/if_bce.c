@@ -46,6 +46,7 @@
 #include <sys/kernel.h>
 #include <sys/device.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -466,9 +467,9 @@ bce_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct bce_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *) data;
 	struct ifreq *ifr = (struct ifreq *) data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -517,7 +518,7 @@ bce_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		bce_start(ifp);
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -1365,11 +1366,10 @@ void
 bce_tick(void *v)
 {
 	struct bce_softc *sc = v;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->bce_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->bce_timeout, 1);
 }

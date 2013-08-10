@@ -33,6 +33,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -540,9 +541,9 @@ nfe_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct nfe_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -582,7 +583,7 @@ nfe_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -1795,11 +1796,10 @@ void
 nfe_tick(void *arg)
 {
 	struct nfe_softc *sc = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_mii);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->sc_tick_ch, 1);
 }

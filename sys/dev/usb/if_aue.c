@@ -713,7 +713,6 @@ aue_attach(struct device *parent, struct device *self, void *aux)
 {
 	struct aue_softc	*sc = (struct aue_softc *)self;
 	struct usb_attach_arg	*uaa = aux;
-	int			s;
 	u_char			eaddr[ETHER_ADDR_LEN];
 	struct ifnet		*ifp;
 	struct mii_data		*mii;
@@ -783,7 +782,7 @@ aue_attach(struct device *parent, struct device *self, void *aux)
 	}
 
 
-	s = splnet();
+	crit_enter();
 
 	/* Reset the adapter. */
 	aue_reset(sc);
@@ -835,7 +834,7 @@ aue_attach(struct device *parent, struct device *self, void *aux)
 
 	timeout_set(&sc->aue_stat_ch, aue_tick, sc);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1046,7 +1045,6 @@ aue_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct mbuf		*m;
 	u_int32_t		total_len;
 	struct aue_rxpkt	r;
-	int			s;
 
 	DPRINTFN(10,("%s: %s: enter\n", sc->aue_dev.dv_xname,__func__));
 
@@ -1097,7 +1095,7 @@ aue_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	m->m_pkthdr.rcvif = ifp;
 
-	s = splnet();
+	crit_enter();
 
 	/* XXX ugly */
 	if (aue_newbuf(sc, c, NULL) == ENOBUFS) {
@@ -1120,7 +1118,7 @@ aue_rxeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    __func__, m->m_len));
 	ether_input_mbuf(ifp, m);
  done1:
-	splx(s);
+	crit_leave();
 
  done:
 
@@ -1146,12 +1144,11 @@ aue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct aue_chain	*c = priv;
 	struct aue_softc	*sc = c->aue_sc;
 	struct ifnet		*ifp = GET_IFP(sc);
-	int			s;
 
 	if (usbd_is_dying(sc->aue_udev))
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	DPRINTFN(10,("%s: %s: enter status=%d\n", sc->aue_dev.dv_xname,
 		    __func__, status));
@@ -1161,7 +1158,7 @@ aue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 
 	if (status != USBD_NORMAL_COMPLETION) {
 		if (status == USBD_NOT_STARTED || status == USBD_CANCELLED) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 		ifp->if_oerrors++;
@@ -1169,7 +1166,7 @@ aue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		    usbd_errstr(status));
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(sc->aue_ep[AUE_ENDPT_TX]);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1181,7 +1178,7 @@ aue_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	if (IFQ_IS_EMPTY(&ifp->if_snd) == 0)
 		aue_start(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1207,7 +1204,6 @@ aue_tick_task(void *xsc)
 	struct aue_softc	*sc = xsc;
 	struct ifnet		*ifp;
 	struct mii_data		*mii;
-	int			s;
 
 	DPRINTFN(15,("%s: %s: enter\n", sc->aue_dev.dv_xname,__func__));
 
@@ -1219,7 +1215,7 @@ aue_tick_task(void *xsc)
 	if (mii == NULL)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	mii_tick(mii);
 	if (!sc->aue_link && mii->mii_media_status & IFM_ACTIVE &&
@@ -1233,7 +1229,7 @@ aue_tick_task(void *xsc)
 
 	timeout_add_sec(&sc->aue_stat_ch, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1337,7 +1333,7 @@ aue_init(void *xsc)
 	struct aue_softc	*sc = xsc;
 	struct ifnet		*ifp = GET_IFP(sc);
 	struct mii_data		*mii = GET_MII(sc);
-	int			i, s;
+	int			i;
 	u_char			*eaddr;
 
 	DPRINTFN(5,("%s: %s: enter\n", sc->aue_dev.dv_xname, __func__));
@@ -1348,7 +1344,7 @@ aue_init(void *xsc)
 	if (ifp->if_flags & IFF_RUNNING)
 		return;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1368,14 +1364,14 @@ aue_init(void *xsc)
 	/* Init TX ring. */
 	if (aue_tx_list_init(sc) == ENOBUFS) {
 		printf("%s: tx list init failed\n", sc->aue_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
 	/* Init RX ring. */
 	if (aue_rx_list_init(sc) == ENOBUFS) {
 		printf("%s: rx list init failed\n", sc->aue_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1391,7 +1387,7 @@ aue_init(void *xsc)
 
 	if (sc->aue_ep[AUE_ENDPT_RX] == NULL) {
 		if (aue_openpipes(sc)) {
-			splx(s);
+			crit_leave();
 			return;
 		}
 	}
@@ -1399,7 +1395,7 @@ aue_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->aue_stat_ch, 1);
 }
@@ -1500,12 +1496,12 @@ aue_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ifaddr 		*ifa = (struct ifaddr *)data;
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct mii_data		*mii;
-	int			s, error = 0;
+	int			error = 0;
 
 	if (usbd_is_dying(sc->aue_udev))
 		return (EIO);
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1557,7 +1553,7 @@ aue_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

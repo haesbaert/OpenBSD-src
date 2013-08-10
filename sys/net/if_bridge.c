@@ -188,7 +188,7 @@ bridge_clone_create(struct if_clone *ifc, int unit)
 {
 	struct bridge_softc *sc;
 	struct ifnet *ifp;
-	int i, s;
+	int i;
 
 	sc = malloc(sizeof(*sc), M_DEVBUF, M_NOWAIT|M_ZERO);
 	if (!sc)
@@ -229,9 +229,9 @@ bridge_clone_create(struct if_clone *ifc, int unit)
 	    DLT_EN10MB, ETHER_HDR_LEN);
 #endif
 
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&bridge_list, sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -241,7 +241,6 @@ bridge_clone_destroy(struct ifnet *ifp)
 {
 	struct bridge_softc *sc = ifp->if_softc;
 	struct bridge_iflist *bif;
-	int s;
 
 	bridge_stop(sc);
 	bridge_rtflush(sc, IFBF_FLUSHALL);
@@ -252,9 +251,9 @@ bridge_clone_destroy(struct ifnet *ifp)
 		free(bif, M_DEVBUF);
 	}
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	bstp_destroy(sc->sc_stp);
 	if_detach(ifp);
@@ -295,9 +294,9 @@ bridge_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct bridge_iflist *p;
 	struct bstp_port *bp;
 	struct bstp_state *bs = sc->sc_stp;
-	int error = 0, s;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 	switch (cmd) {
 	case SIOCBRDGADD:
 		if ((error = suser(curproc, 0)) != 0)
@@ -683,7 +682,7 @@ bridge_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	if (!error)
 		error = bstp_ioctl(ifp, cmd, data);
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -952,7 +951,7 @@ bridge_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *sa,
 	struct bridge_rtnode *dst_p = NULL;
 	struct ether_addr *dst;
 	struct bridge_softc *sc;
-	int s, error, len;
+	int error, len;
 #ifdef IPSEC
 	struct m_tag *mtag;
 #endif /* IPSEC */
@@ -1075,9 +1074,9 @@ bridge_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *sa,
 				mc = m1;
 			}
 
-			s = splnet();
+			crit_enter();
 			error = bridge_ifenqueue(sc, dst_if, mc);
-			splx(s);
+			crit_leave();
 			if (error)
 				continue;
 		}
@@ -1096,9 +1095,9 @@ sendunicast:
 		m_freem(m);
 		return (ENETDOWN);
 	}
-	s = splnet();
+	crit_enter();
 	bridge_ifenqueue(sc, dst_if, m);
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -1118,13 +1117,12 @@ bridgeintr(void)
 {
 	struct bridge_softc *sc;
 	struct mbuf *m;
-	int s;
 
 	LIST_FOREACH(sc, &bridge_list, sc_list) {
 		for (;;) {
-			s = splnet();
+			crit_enter();
 			IF_DEQUEUE(&sc->sc_if.if_snd, m);
-			splx(s);
+			crit_leave();
 			if (m == NULL)
 				break;
 			bridgeintr_frame(sc, m);
@@ -1138,7 +1136,7 @@ bridgeintr(void)
 void
 bridgeintr_frame(struct bridge_softc *sc, struct mbuf *m)
 {
-	int s, len;
+	int len;
 	struct ifnet *src_if, *dst_if;
 	struct bridge_iflist *ifl;
 	struct bridge_rtnode *dst_p;
@@ -1296,9 +1294,9 @@ bridgeintr_frame(struct bridge_softc *sc, struct mbuf *m)
 	if ((len - ETHER_HDR_LEN) > dst_if->if_mtu)
 		bridge_fragment(sc, dst_if, &eh, m);
 	else {
-		s = splnet();
+		crit_enter();
 		bridge_ifenqueue(sc, dst_if, m);
-		splx(s);
+		crit_leave();
 	}
 }
 
@@ -1310,7 +1308,6 @@ struct mbuf *
 bridge_input(struct ifnet *ifp, struct ether_header *eh, struct mbuf *m)
 {
 	struct bridge_softc *sc;
-	int s;
 	struct bridge_iflist *ifl, *srcifl;
 	struct arpcom *ac;
 	struct mbuf *mc;
@@ -1379,14 +1376,14 @@ bridge_input(struct ifnet *ifp, struct ether_header *eh, struct mbuf *m)
 		if (mc == NULL)
 			return (m);
 		bcopy(eh, mtod(mc, caddr_t), ETHER_HDR_LEN);
-		s = splnet();
+		crit_enter();
 		if (IF_QFULL(&sc->sc_if.if_snd)) {
 			m_freem(mc);
-			splx(s);
+			crit_leave();
 			return (m);
 		}
 		IF_ENQUEUE(&sc->sc_if.if_snd, mc);
-		splx(s);
+		crit_leave();
 		schednetisr(NETISR_BRIDGE);
 		if (ifp->if_type == IFT_GIF) {
 			TAILQ_FOREACH(ifl, &sc->sc_iflist, next) {
@@ -1480,14 +1477,14 @@ bridge_input(struct ifnet *ifp, struct ether_header *eh, struct mbuf *m)
 	if (m == NULL)
 		return (NULL);
 	bcopy(eh, mtod(m, caddr_t), ETHER_HDR_LEN);
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(&sc->sc_if.if_snd)) {
 		m_freem(m);
-		splx(s);
+		crit_leave();
 		return (NULL);
 	}
 	IF_ENQUEUE(&sc->sc_if.if_snd, m);
-	splx(s);
+	crit_leave();
 	schednetisr(NETISR_BRIDGE);
 	return (NULL);
 }
@@ -1503,7 +1500,7 @@ bridge_broadcast(struct bridge_softc *sc, struct ifnet *ifp,
 	struct bridge_iflist *p;
 	struct mbuf *mc;
 	struct ifnet *dst_if;
-	int len, s, used = 0;
+	int len, used = 0;
 
 	TAILQ_FOREACH(p, &sc->sc_iflist, next) {
 		/*
@@ -1592,9 +1589,9 @@ bridge_broadcast(struct bridge_softc *sc, struct ifnet *ifp,
 		if ((len - ETHER_HDR_LEN) > dst_if->if_mtu)
 			bridge_fragment(sc, dst_if, eh, mc);
 		else {
-			s = splnet();
+			crit_enter();
 			bridge_ifenqueue(sc, dst_if, mc);
-			splx(s);
+			crit_leave();
 		}
 	}
 
@@ -1653,7 +1650,7 @@ bridge_span(struct bridge_softc *sc, struct ether_header *eh,
 	struct bridge_iflist *p;
 	struct ifnet *ifp;
 	struct mbuf *mc, *m;
-	int s, error;
+	int error;
 
 	if (TAILQ_EMPTY(&sc->sc_spanlist))
 		return;
@@ -1689,9 +1686,9 @@ bridge_span(struct bridge_softc *sc, struct ether_header *eh,
 			continue;
 		}
 
-		s = splnet();
+		crit_enter();
 		error = bridge_ifenqueue(sc, ifp, mc);
-		splx(s);
+		crit_leave();
 		if (error)
 			continue;
 	}
@@ -2612,7 +2609,7 @@ bridge_fragment(struct bridge_softc *sc, struct ifnet *ifp,
 {
 	struct llc llc;
 	struct mbuf *m0;
-	int s, error = 0;
+	int error = 0;
 	int hassnap = 0;
 #ifdef INET
 	u_int16_t etype;
@@ -2632,9 +2629,9 @@ bridge_fragment(struct bridge_softc *sc, struct ifnet *ifp,
 			len += ETHER_VLAN_ENCAP_LEN;
 		if ((ifp->if_capabilities & IFCAP_VLAN_MTU) &&
 		    (len - sizeof(struct ether_vlan_header) <= ifp->if_mtu)) {
-			s = splnet();
+			crit_enter();
 			bridge_ifenqueue(sc, ifp, m);
-			splx(s);
+			crit_leave();
 			return;
 		}
 		goto dropit;
@@ -2702,13 +2699,13 @@ bridge_fragment(struct bridge_softc *sc, struct ifnet *ifp,
 				continue;
 			}
 			bcopy(eh, mtod(m, caddr_t), sizeof(*eh));
-			s = splnet();
+			crit_enter();
 			error = bridge_ifenqueue(sc, ifp, m);
 			if (error) {
-				splx(s);
+				crit_leave();
 				continue;
 			}
-			splx(s);
+			crit_leave();
 		} else
 			m_freem(m);
 	}

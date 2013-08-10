@@ -1136,17 +1136,16 @@ urtwn_next_scan(void *arg)
 {
 	struct urtwn_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(&ic->ic_if);
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 }
@@ -1172,9 +1171,8 @@ urtwn_newstate_cb(struct urtwn_softc *sc, void *arg)
 	struct ieee80211_node *ni;
 	enum ieee80211_state ostate;
 	uint32_t reg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	ostate = ic->ic_state;
 	DPRINTF(("newstate %d -> %d\n", ostate, cmd->state));
 
@@ -1321,7 +1319,7 @@ urtwn_newstate_cb(struct urtwn_softc *sc, void *arg)
 		break;
 	}
 	(void)sc->sc_newstate(ic, cmd->state, cmd->arg);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1343,9 +1341,9 @@ urtwn_updateedca_cb(struct urtwn_softc *sc, void *arg)
 	};
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211_edca_ac_params *ac;
-	int s, aci, aifs, slottime;
+	int aci, aifs, slottime;
 
-	s = splnet();
+	crit_enter();
 	slottime = (ic->ic_flags & IEEE80211_F_SHSLOT) ? 9 : 20;
 	for (aci = 0; aci < EDCA_NUM_AC; aci++) {
 		ac = &ic->ic_edca_ac[aci];
@@ -1357,7 +1355,7 @@ urtwn_updateedca_cb(struct urtwn_softc *sc, void *arg)
 		    SM(R92C_EDCA_PARAM_ECWMAX, ac->ac_ecwmax) |
 		    SM(R92C_EDCA_PARAM_AIFS, aifs));
 	}
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1540,7 +1538,7 @@ urtwn_rx_frame(struct urtwn_softc *sc, uint8_t *buf, int pktlen)
 	struct mbuf *m;
 	uint8_t rate;
 	int8_t rssi = 0;
-	int s, infosz;
+	int infosz;
 
 	stat = (struct r92c_rx_stat *)buf;
 	rxdw0 = letoh32(stat->rxdw0);
@@ -1591,7 +1589,7 @@ urtwn_rx_frame(struct urtwn_softc *sc, uint8_t *buf, int pktlen)
 	memcpy(mtod(m, uint8_t *), wh, pktlen);
 	m->m_pkthdr.len = m->m_len = pktlen;
 
-	s = splnet();
+	crit_enter();
 #if NBPFILTER > 0
 	if (__predict_false(sc->sc_drvbpf != NULL)) {
 		struct urtwn_rx_radiotap_header *tap = &sc->sc_rxtap;
@@ -1642,7 +1640,7 @@ urtwn_rx_frame(struct urtwn_softc *sc, uint8_t *buf, int pktlen)
 	ieee80211_input(ifp, m, ni, &rxi);
 	/* Node is no longer needed. */
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1718,9 +1716,8 @@ urtwn_txeof(struct usbd_xfer *xfer, void *priv,
 	struct urtwn_tx_data *data = priv;
 	struct urtwn_softc *sc = data->sc;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	/* Put this Tx buffer back to our free list. */
 	TAILQ_INSERT_TAIL(&sc->tx_free_list, data, next);
 
@@ -1729,7 +1726,7 @@ urtwn_txeof(struct usbd_xfer *xfer, void *priv,
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(data->pipe);
 		ifp->if_oerrors++;
-		splx(s);
+		crit_leave();
 		return;
 	}
 	sc->sc_tx_timer = 0;
@@ -1740,7 +1737,7 @@ urtwn_txeof(struct usbd_xfer *xfer, void *priv,
 		ifp->if_flags &= ~IFF_OACTIVE;
 		urtwn_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1978,14 +1975,14 @@ urtwn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return ENXIO;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2036,7 +2033,7 @@ urtwn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		}
 		error = 0;
 	}
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 

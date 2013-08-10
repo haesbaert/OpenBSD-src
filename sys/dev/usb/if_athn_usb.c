@@ -326,7 +326,7 @@ athn_usb_attachhook(void *xsc)
 	struct athn_ops *ops = &sc->ops;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s, i, error;
+	int i, error;
 
 	/* Load firmware. */
 	error = athn_usb_load_firmware(usc);
@@ -341,10 +341,10 @@ athn_usb_attachhook(void *xsc)
 		return;
 
 	/* We're now ready to attach the bus agnostic driver. */
-	s = splnet();
+	crit_enter();
 	error = athn_attach(sc);
 	if (error != 0) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	usc->sc_athn_attached = 1;
@@ -370,7 +370,7 @@ athn_usb_attachhook(void *xsc)
 		ic->ic_max_nnodes = AR_USB_MAX_STA;
 
 	ops->rx_enable = athn_usb_rx_enable;
-	splx(s);
+	crit_leave();
 
 	/* Reset HW key cache entries. */
 	for (i = 0; i < sc->kc_entries; i++)
@@ -1007,11 +1007,11 @@ athn_usb_newstate_cb(struct athn_usb_softc *usc, void *arg)
 	enum ieee80211_state ostate;
 	uint32_t reg, imask;
 	uint8_t sta_index;
-	int s, error;
+	int error;
 
 	timeout_del(&sc->calib_to);
 
-	s = splnet();
+	crit_enter();
 	ostate = ic->ic_state;
 	DPRINTF(("newstate %d -> %d\n", ostate, cmd->state));
 
@@ -1071,7 +1071,7 @@ athn_usb_newstate_cb(struct athn_usb_softc *usc, void *arg)
 		break;
 	}
 	(void)sc->sc_newstate(ic, cmd->state, cmd->arg);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1093,14 +1093,13 @@ athn_usb_newassoc_cb(struct athn_usb_softc *usc, void *arg)
 {
 	struct ieee80211com *ic = &usc->sc_sc.sc_ic;
 	struct ieee80211_node *ni = *(void **)arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	/* NB: Node may have left before we got scheduled. */
 	if (ni->ni_associd != 0)
 		(void)athn_usb_create_node(usc, ni);
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 #endif
 }
 
@@ -1306,11 +1305,9 @@ athn_usb_updateedca(struct ieee80211com *ic)
 void
 athn_usb_updateedca_cb(struct athn_usb_softc *usc, void *arg)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	athn_updateedca(&usc->sc_sc.sc_ic);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1326,11 +1323,9 @@ athn_usb_updateslot(struct ieee80211com *ic)
 void
 athn_usb_updateslot_cb(struct athn_usb_softc *usc, void *arg)
 {
-	int s;
-
-	s = splnet();
+	crit_enter();
 	athn_updateslot(&usc->sc_sc.sc_ic);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1357,13 +1352,12 @@ athn_usb_set_key_cb(struct athn_usb_softc *usc, void *arg)
 {
 	struct ieee80211com *ic = &usc->sc_sc.sc_ic;
 	struct athn_usb_cmd_key *cmd = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	athn_set_key(ic, cmd->ni, cmd->key);
 	if (cmd->ni != NULL)
 		ieee80211_release_node(ic, cmd->ni);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1388,13 +1382,12 @@ athn_usb_delete_key_cb(struct athn_usb_softc *usc, void *arg)
 {
 	struct ieee80211com *ic = &usc->sc_sc.sc_ic;
 	struct athn_usb_cmd_key *cmd = arg;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	athn_delete_key(ic, cmd->ni, cmd->key);
 	if (cmd->ni != NULL)
 		ieee80211_release_node(ic, cmd->ni);
-	splx(s);
+	crit_leave();
 }
 
 #ifndef IEEE80211_STA_ONLY
@@ -1665,7 +1658,6 @@ athn_usb_rx_frame(struct athn_usb_softc *usc, struct mbuf *m)
 	struct ar_htc_frame_hdr *htc;
 	struct ar_rx_status *rs;
 	uint16_t datalen;
-	int s;
 
 	if (__predict_false(m->m_len < sizeof(*htc)))
 		goto skip;
@@ -1696,7 +1688,7 @@ athn_usb_rx_frame(struct athn_usb_softc *usc, struct mbuf *m)
 	m_adj(m, sizeof(*rs));	/* Strip Rx status. */
 	m->m_pkthdr.rcvif = ifp;
 
-	s = splnet();
+	crit_enter();
 
 	/* Grab a reference to the source node. */
 	wh = mtod(m, struct ieee80211_frame *);
@@ -1725,7 +1717,7 @@ athn_usb_rx_frame(struct athn_usb_softc *usc, struct mbuf *m)
 
 	/* Node is no longer needed. */
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 	return;
  skip:
 	m_freem(m);
@@ -1847,9 +1839,8 @@ athn_usb_txeof(struct usbd_xfer *xfer, void *priv,
 	struct athn_usb_softc *usc = data->sc;
 	struct athn_softc *sc = &usc->sc_sc;
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	/* Put this Tx buffer back to our free list. */
 	TAILQ_INSERT_TAIL(&usc->tx_free_list, data, next);
 
@@ -1858,7 +1849,7 @@ athn_usb_txeof(struct usbd_xfer *xfer, void *priv,
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(usc->tx_data_pipe);
 		ifp->if_oerrors++;
-		splx(s);
+		crit_leave();
 		/* XXX Why return? */
 		return;
 	}
@@ -1870,7 +1861,7 @@ athn_usb_txeof(struct usbd_xfer *xfer, void *priv,
 		ifp->if_flags &= ~IFF_OACTIVE;
 		ifp->if_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2066,9 +2057,9 @@ athn_usb_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2121,7 +2112,7 @@ athn_usb_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			error = athn_usb_init(ifp);
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

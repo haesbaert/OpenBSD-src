@@ -77,6 +77,7 @@
 #include <sys/timeout.h>
 #include <sys/kernel.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -171,13 +172,12 @@ ip6_init2(void *dummy)
 void
 ip6intr(void)
 {
-	int s;
 	struct mbuf *m;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&ip6intrq, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			return;
 		ip6_input(m);

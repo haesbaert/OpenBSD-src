@@ -188,9 +188,9 @@ art_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct channel_softc	*cc = ifp->if_softc;
 	struct art_softc	*ac = (struct art_softc *)cc->cc_parent;
 	u_int32_t		 tsmap;
-	int			 s, rv = 0;
+	int			 rv = 0;
 
-	s = splnet();
+	crit_enter();
 	switch (command) {
 	case SIOCSIFADDR:
 		if ((rv = musycc_init_channel(cc, ac->art_slot)))
@@ -252,7 +252,7 @@ art_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		rv = sppp_ioctl(ifp, command, data);
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return (rv);
 }
 

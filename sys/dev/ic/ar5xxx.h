@@ -40,6 +40,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/errno.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
 #include <machine/bus.h>

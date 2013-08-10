@@ -119,7 +119,7 @@ Mode of operation:
    shall have the I (IE_CMD_INTR) bit set in the command.  This way,
    when an interrupt arrives at i82596_intr(), it is immediately possible
    to tell what precisely caused it.  ANY OTHER command-sending
-   routines should run at splnet(), and should post an acknowledgement
+   routines should run at crit_enter(), and should post an acknowledgement
    to every interrupt they generate.
 
    To save the expense of shipping a command to 82596 every time we
@@ -1364,7 +1364,7 @@ i82596_reset(sc, hard)
 	struct ie_softc *sc;
 	int hard;
 {
-	int s = splnet();
+	crit_enter();
 
 #ifdef I82596_DEBUG
 	if (hard)
@@ -1402,7 +1402,7 @@ i82596_reset(sc, hard)
 				break;
 	}
 
-	splx(s);
+	crit_leavE();
 }
 
 void
@@ -1707,7 +1707,7 @@ ie_ia_setup(sc, cmdbuf)
 
 /*
  * Run the multicast setup command.
- * Called at splnet().
+ * Called at crit_enter().
  */
 int
 ie_mc_setup(sc, cmdbuf)
@@ -1753,7 +1753,7 @@ ie_mc_setup(sc, cmdbuf)
  * includes executing the CONFIGURE, IA-SETUP, and MC-SETUP commands, starting
  * the receiver unit, and clearing interrupts.
  *
- * THIS ROUTINE MUST BE CALLED AT splnet() OR HIGHER.
+ * THIS ROUTINE MUST BE CALLED AT crit_enter() OR HIGHER.
  */
 int
 i82596_init(sc)
@@ -1872,9 +1872,9 @@ i82596_ioctl(ifp, cmd, data)
 	struct ie_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(cmd) {
 	case SIOCSIFADDR:
@@ -1941,7 +1941,7 @@ i82596_ioctl(ifp, cmd, data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

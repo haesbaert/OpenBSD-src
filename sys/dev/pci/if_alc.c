@@ -42,6 +42,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -902,11 +903,10 @@ alc_detach(struct device *self, int flags)
 {
 	struct alc_softc *sc = (struct alc_softc *)self;
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	alc_stop(sc);
-	splx(s);
+	crit_leave();
 
 	mii_detach(&sc->sc_miibus, MII_PHY_ANY, MII_OFFSET_ANY);
 
@@ -1457,9 +1457,9 @@ alc_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct mii_data *mii = &sc->sc_miibus;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1500,7 +1500,7 @@ alc_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2037,14 +2037,13 @@ alc_tick(void *xsc)
 {
 	struct alc_softc *sc = xsc;
 	struct mii_data *mii = &sc->sc_miibus;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(mii);
 	alc_stats_update(sc);
 
 	timeout_add_sec(&sc->alc_tick_ch, 1);
-	splx(s);
+	crit_leave();
 }
 
 void

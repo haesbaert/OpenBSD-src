@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/mbuf.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_enc.h>
@@ -131,18 +132,17 @@ int
 enc_clone_destroy(struct ifnet *ifp)
 {
 	struct enc_softc	*sc = ifp->if_softc;
-	int			 s;
 
 	/* Protect users from removing enc0 */
 	if (sc->sc_unit == 0)
 		return (EPERM);
 
-	s = splnet();
+	crit_enter();
 	enc_allifps[sc->sc_unit] = NULL;
 	enc_unsetif(ifp);
 	if_detach(ifp);
 	free(sc, M_DEVBUF);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

@@ -60,6 +60,7 @@
 #include <sys/vnode.h>
 #include <sys/poll.h>
 #include <sys/selinfo.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -124,7 +125,7 @@ struct pppx_dev {
 	struct selinfo		pxd_wsel;
 	struct mutex		pxd_wsel_mtx;
 
-	/* queue of packets for userland to service - protected by splnet */
+	/* queue of packets for userland to service - protected by critical section */
 	struct ifqueue		pxd_svcq;
 	int			pxd_waiting;
 	LIST_HEAD(,pppx_if)	pxd_pxis;
@@ -274,30 +275,30 @@ pppxread(dev_t dev, struct uio *uio, int ioflag)
 	struct pppx_dev *pxd = pppx_dev2pxd(dev);
 	struct mbuf *m, *m0;
 	int error = 0;
-	int len, s;
+	int len;
 
 	if (!pxd)
 		return (ENXIO);
 
-	s = splnet();
+	crit_enter();
 	for (;;) {
 		IF_DEQUEUE(&pxd->pxd_svcq, m0);
 		if (m0 != NULL)
 			break;
 
 		if (ISSET(ioflag, IO_NDELAY)) {
-			splx(s);
+			crit_leave();
 			return (EWOULDBLOCK);
 		}
 
 		pxd->pxd_waiting = 1;
 		error = tsleep(pxd, (PZERO + 1)|PCATCH, "pppxread", 0);
 		if (error != 0) {
-			splx(s);
+			crit_leave();
 			return (error);
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	while (m0 != NULL && uio->uio_resid > 0 && error == 0) {
 		len = min(uio->uio_resid, m0->m_len);
@@ -321,7 +322,7 @@ pppxwrite(dev_t dev, struct uio *uio, int ioflag)
 	struct mbuf *top, **mp, *m;
 	struct ifqueue *ifq;
 	int tlen, mlen;
-	int isr, s, error = 0;
+	int isr, error = 0;
 
 	if (uio->uio_resid < sizeof(*th) || uio->uio_resid > MCLBYTES)
 		return (EMSGSIZE);
@@ -398,16 +399,16 @@ pppxwrite(dev_t dev, struct uio *uio, int ioflag)
 		return (EAFNOSUPPORT);
 	}
 
-	s = splnet();
+	crit_enter();
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
-		splx(s);
+		crit_leave();
 		m_freem(top);
 		return (ENOBUFS);
 	}
 	IF_ENQUEUE(ifq, top);
 	schednetisr(isr);
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -475,13 +476,13 @@ int
 pppxpoll(dev_t dev, int events, struct proc *p)
 {
 	struct pppx_dev *pxd = pppx_dev2pxd(dev);
-	int s, revents = 0;
+	int revents = 0;
 
 	if (events & (POLLIN | POLLRDNORM)) {
-		s = splnet();
+		crit_enter();
 		if (!IF_IS_EMPTY(&pxd->pxd_svcq))
 			revents |= events & (POLLIN | POLLRDNORM);
-		splx(s);
+		crit_leave();
 	}
 	if (events & (POLLOUT | POLLWRNORM))
 		revents |= events & (POLLOUT | POLLWRNORM);
@@ -543,19 +544,19 @@ int
 filt_pppx_read(struct knote *kn, long hint)
 {
 	struct pppx_dev *pxd = (struct pppx_dev *)kn->kn_hook;
-	int s, event = 0;
+	int event = 0;
 
 	if (ISSET(kn->kn_status, KN_DETACHED)) {
 		kn->kn_data = 0;
 		return (1);
 	}
 
-	s = splnet();
+	crit_enter();
 	if (!IF_IS_EMPTY(&pxd->pxd_svcq)) {
 		event = 1;
 		kn->kn_data = IF_LEN(&pxd->pxd_svcq);
 	}
-	splx(s);
+	crit_leave();
 
 	return (event);
 }
@@ -586,7 +587,6 @@ pppxclose(dev_t dev, int flags, int mode, struct proc *p)
 {
 	struct pppx_dev *pxd;
 	struct pppx_if	*pxi;
-	int s;
 
 	rw_enter_write(&pppx_devs_lk);
 
@@ -598,9 +598,9 @@ pppxclose(dev_t dev, int flags, int mode, struct proc *p)
 
 	LIST_REMOVE(pxd, pxd_entry);
 
-	s = splnet();
+	crit_enter();
 	IF_PURGE(&pxd->pxd_svcq);
-	splx(s);
+	crit_leave();
 
 	free(pxd, M_DEVBUF);
 
@@ -628,7 +628,7 @@ pppx_if_next_unit(void)
 
 	rw_assert_wrlock(&pppx_ifs_lk);
 
-	/* this is safe without splnet since we're not modifying it */
+	/* this is safe without crit_enter since we're not modifying it */
 	do {
 		int found = 0;
 		RB_FOREACH(pxi, pppx_ifs, &pppx_ifs) {
@@ -670,7 +670,7 @@ pppx_add_session(struct pppx_dev *pxd, struct pipex_session_req *req)
 	struct pipex_session *session;
 	struct pipex_hash_head *chain;
 	struct ifnet *ifp;
-	int unit, s, error = 0;
+	int unit, error = 0;
 	struct in_ifaddr *ia;
 	struct sockaddr_in ifaddr;
 #ifdef PIPEX_PPPOE
@@ -835,7 +835,7 @@ pppx_add_session(struct pppx_dev *pxd, struct pipex_session_req *req)
 	pxi->pxi_key.pxik_session_id = req->pr_session_id;
 	pxi->pxi_key.pxik_protocol = req->pr_protocol;
 
-	/* this is safe without splnet since we're not modifying it */
+	/* this is safe without crit_enter since we're not modifying it */
 	if (RB_FIND(pppx_ifs, &pppx_ifs, pxi) != NULL) {
 		pool_put(pppx_if_pl, pxi);
 		error = EADDRINUSE;
@@ -854,7 +854,7 @@ pppx_add_session(struct pppx_dev *pxd, struct pipex_session_req *req)
 	ifp->if_softc = pxi;
 	/* ifp->if_rdomain = req->pr_rdomain; */
 
-	s = splnet();
+	crit_enter();
 
 	/* hook up pipex context */
 	chain = PIPEX_ID_HASHTABLE(session->session_id);
@@ -922,7 +922,7 @@ pppx_add_session(struct pppx_dev *pxd, struct pipex_session_req *req)
 	} else {
 		dohooks(ifp->if_addrhooks, 0);
 	}
-	splx(s);
+	crit_leave();
 
 out:
 	rw_exit_write(&pppx_ifs_lk);
@@ -966,12 +966,11 @@ pppx_if_destroy(struct pppx_dev *pxd, struct pppx_if *pxi)
 {
 	struct ifnet *ifp;
 	struct pipex_session *session;
-	int s;
 
 	session = &pxi->pxi_session;
 	ifp = &pxi->pxi_if;
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(session, id_chain);
 	LIST_REMOVE(session, session_list);
 	switch (session->protocol) {
@@ -985,7 +984,7 @@ pppx_if_destroy(struct pppx_dev *pxd, struct pppx_if *pxi)
 	/* if final session is destroyed, stop timer */
 	if (LIST_EMPTY(&pipex_session_list))
 		pipex_timer_stop();
-	splx(s);
+	crit_leave();
 
 	if_detach(ifp);
 
@@ -1003,7 +1002,7 @@ pppx_if_start(struct ifnet *ifp)
 {
 	struct pppx_if *pxi = (struct pppx_if *)ifp->if_softc;
 	struct mbuf *m;
-	int proto, s;
+	int proto;
 
 	if (ISSET(ifp->if_flags, IFF_OACTIVE))
 		return;
@@ -1011,9 +1010,9 @@ pppx_if_start(struct ifnet *ifp)
 		return;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IFQ_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			break;
@@ -1048,7 +1047,7 @@ pppx_if_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
     struct rtentry *rt)
 {
 	int error = 0;
-	int proto, s;
+	int proto;
 
 	if (!ISSET(ifp->if_flags, IFF_UP)) {
 		m_freem(m);
@@ -1073,14 +1072,14 @@ pppx_if_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 	}
 	*mtod(m, int *) = proto;
 
-	s = splnet();
+	crit_enter();
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 	if (error) {
-		splx(s);
+		crit_leave();
 		goto out;
 	}
 	if_start(ifp);
-	splx(s);
+	crit_leave();
 
 out:
 	if (error)

@@ -48,6 +48,7 @@
 #include <sys/errno.h>
 #include <sys/device.h>
 #include <sys/gpio.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 

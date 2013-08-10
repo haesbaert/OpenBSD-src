@@ -834,7 +834,8 @@ int
 ah4_input_cb(struct mbuf *m, ...)
 {
 	struct ifqueue *ifq = &ipintrq;
-	int s = splnet();
+
+	crit_enter();
 
 	/*
 	 * Interface pointer is already in first mbuf; chop off the
@@ -844,7 +845,7 @@ ah4_input_cb(struct mbuf *m, ...)
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
 		ahstat.ahs_qfull++;
-		splx(s);
+		crit_leave();
 
 		m_freem(m);
 		DPRINTF(("ah4_input_cb(): dropped packet because of full "
@@ -854,7 +855,7 @@ ah4_input_cb(struct mbuf *m, ...)
 
 	IF_ENQUEUE(ifq, m);
 	schednetisr(NETISR_IP);
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -890,7 +891,7 @@ int
 esp4_input_cb(struct mbuf *m, ...)
 {
 	struct ifqueue *ifq = &ipintrq;
-	int s = splnet();
+	crit_enter();
 
 	/*
 	 * Interface pointer is already in first mbuf; chop off the
@@ -899,7 +900,7 @@ esp4_input_cb(struct mbuf *m, ...)
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
 		espstat.esps_qfull++;
-		splx(s);
+		crit_leave();
 
 		m_freem(m);
 		DPRINTF(("esp4_input_cb(): dropped packet because of full "
@@ -909,7 +910,7 @@ esp4_input_cb(struct mbuf *m, ...)
 
 	IF_ENQUEUE(ifq, m);
 	schednetisr(NETISR_IP);
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -932,7 +933,7 @@ int
 ipcomp4_input_cb(struct mbuf *m, ...)
 {
 	struct ifqueue *ifq = &ipintrq;
-	int s = splnet();
+	crit_enter();
 
 	/*
 	 * Interface pointer is already in first mbuf; chop off the
@@ -941,7 +942,7 @@ ipcomp4_input_cb(struct mbuf *m, ...)
 	if (IF_QFULL(ifq)) {
 		IF_DROP(ifq);
 		ipcompstat.ipcomps_qfull++;
-		splx(s);
+		crit_leave();
 
 		m_freem(m);
 		DPRINTF(("ipcomp4_input_cb(): dropped packet because of full IP queue\n"));
@@ -950,7 +951,7 @@ ipcomp4_input_cb(struct mbuf *m, ...)
 
 	IF_ENQUEUE(ifq, m);
 	schednetisr(NETISR_IP);
-	splx(s);
+	crit_leave();
 
 	return 0;
 }

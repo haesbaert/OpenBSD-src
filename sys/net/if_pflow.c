@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #include <sys/kernel.h>
 #include <sys/sysctl.h>
+#include <sys/proc.h>
 #include <dev/rndvar.h>
 
 #include <net/if.h>
@@ -361,9 +362,8 @@ int
 pflow_clone_destroy(struct ifnet *ifp)
 {
 	struct pflow_softc	*sc = ifp->if_softc;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	if (timeout_initialized(&sc->sc_tmo))
 		timeout_del(&sc->sc_tmo);
 	if (timeout_initialized(&sc->sc_tmo6))
@@ -375,7 +375,7 @@ pflow_clone_destroy(struct ifnet *ifp)
 	SLIST_REMOVE(&pflowif_list, sc, pflow_softc, sc_next);
 	free(sc->sc_imo.imo_membership, M_IPMOPTS);
 	free(sc, M_DEVBUF);
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -386,13 +386,12 @@ void
 pflowstart(struct ifnet *ifp)
 {
 	struct mbuf	*m;
-	int		 s;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IF_DROP(&ifp->if_snd);
 		IF_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			return;
@@ -416,7 +415,7 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct pflow_softc	*sc = ifp->if_softc;
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct pflowreq		 pflowr;
-	int			 s, error;
+	int			 error;
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -432,13 +431,13 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			sc->sc_gcounter=pflowstats.pflow_flows;
 			/* send templates on startup */
 			if (sc->sc_version == PFLOW_PROTO_9) {
-				s = splnet();
+				crit_enter();
 				pflow_sendout_v9_tmpl(sc);
-				splx(s);
+				crit_leave();
 			} else if (sc->sc_version == PFLOW_PROTO_10) {
-				s = splnet();
+				crit_enter()
 				pflow_sendout_ipfix_tmpl(sc);
-				splx(s);
+				crit_leave();
 			}
 		} else
 			ifp->if_flags &= ~IFF_RUNNING;
@@ -448,11 +447,11 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			return (EINVAL);
 		if (ifr->ifr_mtu > MCLBYTES)
 			ifr->ifr_mtu = MCLBYTES;
-		s = splnet();
+		crit_enter();
 		if (ifr->ifr_mtu < ifp->if_mtu)
 			pflow_flush(sc);
 		pflow_setmtu(sc, ifr->ifr_mtu);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCGETPFLOW:
@@ -484,7 +483,7 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 				return(EINVAL);
 			}
 		}
-		s = splnet();
+		crit_enter();
 
 		pflow_flush(sc);
 
@@ -501,7 +500,7 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		pflow_setmtu(sc, ETHERMTU);
 		pflow_init_timeouts(sc);
 
-		splx(s);
+		crit_leave();
 
 		if ((ifp->if_flags & IFF_UP) &&
 		    sc->sc_receiver_ip.s_addr != INADDR_ANY &&
@@ -939,12 +938,12 @@ export_pflow_if(struct pf_state *st, struct pf_state_key *sk,
 int
 copy_flow_to_m(struct pflow_flow *flow, struct pflow_softc *sc)
 {
-	int		s, ret = 0;
+	int		ret = 0;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_mbuf == NULL) {
 		if ((sc->sc_mbuf = pflow_get_mbuf(sc, 0)) == NULL) {
-			splx(s);
+			crit_leave();
 			return (ENOBUFS);
 		}
 	}
@@ -960,16 +959,16 @@ copy_flow_to_m(struct pflow_flow *flow, struct pflow_softc *sc)
 	if (sc->sc_count >= sc->sc_maxcount)
 		ret = pflow_sendout_v5(sc);
 
-	splx(s);
+	crit_leave();
 	return(ret);
 }
 
 int
 copy_flow_v9_4_to_m(struct pflow_v9_flow4 *flow, struct pflow_softc *sc)
 {
-	int		s, ret = 0;
+	int		ret = 0;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_mbuf == NULL) {
 		if ((sc->sc_mbuf =
 		    pflow_get_mbuf(sc, PFLOW_V9_TMPL_IPV4_ID)) == NULL) {
@@ -1051,20 +1050,20 @@ copy_flow_ipfix_4_to_m(struct pflow_ipfix_flow4 *flow, struct pflow_softc *sc)
 
 	if (sc->sc_count4 >= sc->sc_maxcount4)
 		ret = pflow_sendout_ipfix(sc, AF_INET);
-	splx(s);
+	crit_leave();
 	return(ret);
 }
 
 int
 copy_flow_ipfix_6_to_m(struct pflow_ipfix_flow6 *flow, struct pflow_softc *sc)
 {
-	int		s, ret = 0;
+	int		ret = 0;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_mbuf6 == NULL) {
 		if ((sc->sc_mbuf6 =
 		    pflow_get_mbuf(sc, PFLOW_IPFIX_TMPL_IPV6_ID)) == NULL) {
-			splx(s);
+			crit_leave();
 			return (ENOBUFS);
 		}
 		sc->sc_count6 = 0;
@@ -1082,7 +1081,7 @@ copy_flow_ipfix_6_to_m(struct pflow_ipfix_flow6 *flow, struct pflow_softc *sc)
 	if (sc->sc_count6 >= sc->sc_maxcount6)
 		ret = pflow_sendout_ipfix(sc, AF_INET6);
 
-	splx(s);
+	crit_leave();
 	return(ret);
 }
 
@@ -1201,9 +1200,8 @@ void
 pflow_timeout(void *v)
 {
 	struct pflow_softc	*sc = v;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	switch (sc->sc_version) {
 	case PFLOW_PROTO_5:
 		pflow_sendout_v5(sc);
@@ -1217,16 +1215,15 @@ pflow_timeout(void *v)
 	default: /* NOTREACHED */
 		break;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
 pflow_timeout6(void *v)
 {
 	struct pflow_softc	*sc = v;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	switch (sc->sc_version) {
 	case PFLOW_PROTO_9:
 		pflow_sendout_v9(sc, AF_INET6);
@@ -1237,24 +1234,23 @@ pflow_timeout6(void *v)
 	default: /* NOTREACHED */
 		break;
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
 pflow_timeout_tmpl(void *v)
 {
 	struct pflow_softc	*sc = v;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_version == PFLOW_PROTO_9)
 		pflow_sendout_v9_tmpl(sc);
 	else if (sc->sc_version == PFLOW_PROTO_10)
 		pflow_sendout_ipfix_tmpl(sc);
-	splx(s);
+	crit_leave();
 }
 
-/* This must be called in splnet() */
+/* This must be called in crit_enter() */
 void
 pflow_flush(struct pflow_softc *sc)
 {
@@ -1276,7 +1272,7 @@ pflow_flush(struct pflow_softc *sc)
 }
 
 
-/* This must be called in splnet() */
+/* This must be called in crit_enter() */
 int
 pflow_sendout_v5(struct pflow_softc *sc)
 {
@@ -1310,7 +1306,7 @@ pflow_sendout_v5(struct pflow_softc *sc)
 	return (pflow_sendout_mbuf(sc, m));
 }
 
-/* This must be called in splnet() */
+/* This must be called in crit_enter() */
 int
 pflow_sendout_v9(struct pflow_softc *sc, sa_family_t af)
 {
@@ -1425,7 +1421,7 @@ pflow_sendout_ipfix(struct pflow_softc *sc, sa_family_t af)
 	return (pflow_sendout_mbuf(sc, m));
 }
 
-/* This must be called in splnet() */
+/* This must be called in crit_enter() */
 int
 pflow_sendout_v9_tmpl(struct pflow_softc *sc)
 {

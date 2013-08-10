@@ -89,7 +89,7 @@ divert6_output(struct mbuf *m, ...)
 	struct sockaddr_in6 *sin6;
 	struct socket *so;
 	struct ifaddr *ifa;
-	int s, error = 0, p_hdrlen = 0, nxt = 0, off;
+	int error = 0, p_hdrlen = 0, nxt = 0, off;
 	va_list ap;
 	struct ip6_hdr *ip6;
 	u_int16_t csum = 0;
@@ -175,10 +175,10 @@ divert6_output(struct mbuf *m, ...)
 
 		inq = &ip6intrq;
 
-		s = splnet();
+		crit_enter();
 		IF_INPUT_ENQUEUE(inq, m);
 		schednetisr(NETISR_IPV6);
-		splx(s);
+		crit_leave();
 	} else {
 		error = ip6_output(m, NULL, &inp->inp_route6,
 		    ((so->so_options & SO_DONTROUTE) ? IP_ROUTETOIF : 0)

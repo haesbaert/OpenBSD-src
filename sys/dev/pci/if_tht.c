@@ -38,6 +38,7 @@
 #include <sys/queue.h>
 #include <sys/rwlock.h>
 #include <sys/time.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 
@@ -870,10 +871,10 @@ tht_ioctl(struct ifnet *ifp, u_long cmd, caddr_t addr)
 	struct tht_softc		*sc = ifp->if_softc;
 	struct ifaddr			*ifa = (struct ifaddr *)addr;
 	struct ifreq			*ifr = (struct ifreq *)addr;
-	int				s, error = 0;
+	int				error = 0;
 
 	rw_enter_write(&sc->sc_lock);
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -912,7 +913,7 @@ tht_ioctl(struct ifnet *ifp, u_long cmd, caddr_t addr)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	rw_exit_write(&sc->sc_lock);
 
 	return (error);

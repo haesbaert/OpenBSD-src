@@ -80,8 +80,8 @@ extern int cbqtrace_count;
 	} \
 }
 
-#define	LOCK_TRACE()	splnet()
-#define	UNLOCK_TRACE(x)	splx(x)
+#define	LOCK_TRACE()	crit_enter()
+#define	UNLOCK_TRACE(x)	crit_leave()
 
 #define	CBQTRACE(func, act, obj) {		\
 	int __s = LOCK_TRACE();			\

@@ -32,6 +32,7 @@
 #include <sys/timeout.h>
 #include <sys/device.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/intr.h>

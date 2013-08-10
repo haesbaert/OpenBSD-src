@@ -142,20 +142,18 @@ int
 altq_enable(ifq)
 	struct ifaltq *ifq;
 {
-	int s;
-
 	if (!ALTQ_IS_READY(ifq))
 		return ENXIO;
 	if (ALTQ_IS_ENABLED(ifq))
 		return 0;
 
-	s = splnet();
+	crit_enter();
 	IFQ_PURGE(ifq);
 	ASSERT(ifq->ifq_len == 0);
 	ifq->altq_flags |= ALTQF_ENABLED;
 	if (ifq->altq_clfier != NULL)
 		ifq->altq_flags |= ALTQF_CLASSIFY;
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -164,16 +162,14 @@ int
 altq_disable(ifq)
 	struct ifaltq *ifq;
 {
-	int s;
-
 	if (!ALTQ_IS_ENABLED(ifq))
 		return 0;
 
-	s = splnet();
+	crit_enter();
 	IFQ_PURGE(ifq);
 	ASSERT(ifq->ifq_len == 0);
 	ifq->altq_flags &= ~(ALTQF_ENABLED|ALTQF_CLASSIFY);
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -306,10 +302,10 @@ oldtbr_timeout(arg)
 	void *arg;
 {
 	struct ifnet *ifp;
-	int active, s;
+	int active;
 
 	active = 0;
-	s = splnet();
+	crit_enter();
 	for (ifp = TAILQ_FIRST(&ifnet); ifp; ifp = TAILQ_NEXT(ifp, if_list)) {
 		if (!OLDTBR_IS_ENABLED(&ifp->if_snd))
 			continue;
@@ -317,7 +313,7 @@ oldtbr_timeout(arg)
 		if (!IFQ_IS_EMPTY(&ifp->if_snd) && ifp->if_start != NULL)
 			if_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 	if (active > 0)
 		CALLOUT_RESET(&oldtbr_callout, 1, oldtbr_timeout, NULL);
 	else
@@ -388,7 +384,7 @@ int
 altq_pfdetach(struct pf_altq *a)
 {
 	struct ifnet *ifp;
-	int s, error = 0;
+	int error = 0;
 
 	if ((ifp = ifunit(a->ifname)) == NULL)
 		return (EINVAL);
@@ -397,12 +393,12 @@ altq_pfdetach(struct pf_altq *a)
 	if (a->altq_disc == NULL || a->altq_disc != ifp->if_snd.altq_disc)
 		return (0);
 
-	s = splnet();
+	crit_enter();
 	if (ALTQ_IS_ENABLED(&ifp->if_snd))
 		error = altq_disable(&ifp->if_snd);
 	if (error == 0)
 		error = altq_detach(&ifp->if_snd);
-	splx(s);
+	crit_leave();
 
 	return (error);
 }

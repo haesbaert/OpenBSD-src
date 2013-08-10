@@ -58,6 +58,7 @@
 #include <sys/socket.h>
 #include <sys/mbuf.h>
 #include <sys/ioctl.h>
+#include <sys/proc.h>
 
 #include <dev/pcmcia/if_cnwreg.h>
 
@@ -774,9 +775,9 @@ cnw_ioctl(ifp, cmd, data)
 {
 	struct cnw_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -814,7 +815,7 @@ cnw_ioctl(ifp, cmd, data)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

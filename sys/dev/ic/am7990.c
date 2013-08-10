@@ -455,7 +455,7 @@ am7990_intr(void *arg)
  * Setup output on interface.
  * Get another datagram to send off of the interface queue, and map it to the
  * interface before starting the output.
- * Called only at splnet or interrupt level.
+ * Called only at crit_enter() or interrupt level.
  */
 void
 am7990_start(struct ifnet *ifp)

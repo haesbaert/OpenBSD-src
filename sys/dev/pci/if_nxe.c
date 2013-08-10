@@ -1019,10 +1019,10 @@ nxe_ioctl(struct ifnet *ifp, u_long cmd, caddr_t addr)
 	struct nxe_softc		*sc = ifp->if_softc;
 	struct ifaddr			*ifa = (struct ifaddr *)addr;
 	struct ifreq			*ifr = (struct ifreq *)addr;
-	int				s, error = 0;
+	int				error = 0;
 
 	rw_enter_write(&sc->sc_lock);
-	s = splnet();
+	crit_enter();
 
 	timeout_del(&sc->sc_tick);
 
@@ -1067,7 +1067,7 @@ nxe_ioctl(struct ifnet *ifp, u_long cmd, caddr_t addr)
 
 	nxe_tick(sc);
 
-	splx(s);
+	crit_leave();
 	rw_exit_write(&sc->sc_lock);
 	return (error);
 }
@@ -1808,14 +1808,13 @@ nxe_tick(void *xsc)
 	struct nxe_softc		*sc = xsc;
 	u_int32_t			temp;
 	int				window;
-	int				s;
 
-	s = splnet();
+	crit_enter();
 	window = nxe_crb_set(sc, 1);
 	temp = nxe_crb_read(sc, NXE_1_SW_TEMP);
 	nxe_link_state(sc);
 	nxe_crb_set(sc, window);
-	splx(s);
+	crit_leave();
 
 	sc->sc_sensor.value = NXE_1_SW_TEMP_VAL(temp) * 1000000 + 273150000;
 	sc->sc_sensor.flags = 0;

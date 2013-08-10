@@ -1014,12 +1014,11 @@ sorflush(struct socket *so)
 {
 	struct sockbuf *sb = &so->so_rcv;
 	struct protosw *pr = so->so_proto;
-	int s;
 	struct sockbuf asb;
 
 	sb->sb_flags |= SB_NOINTR;
 	(void) sblock(sb, M_WAITOK);
-	s = splnet();
+	crit_enter();
 	socantrcvmore(so);
 	sbunlock(sb);
 	asb = *sb;
@@ -1029,7 +1028,7 @@ sorflush(struct socket *so)
 		sb->sb_sel.si_note = asb.sb_sel.si_note;
 		sb->sb_flags = SB_KNOTE;
 	}
-	splx(s);
+	crit_leave();
 	if (pr->pr_flags & PR_RIGHTS && pr->pr_domain->dom_dispose)
 		(*pr->pr_domain->dom_dispose)(asb.sb_mb);
 	sbrelease(&asb);
@@ -1775,7 +1774,6 @@ soo_kqfilter(struct file *fp, struct knote *kn)
 {
 	struct socket *so = kn->kn_fp->f_data;
 	struct sockbuf *sb;
-	int s;
 
 	switch (kn->kn_filter) {
 	case EVFILT_READ:
@@ -1793,10 +1791,10 @@ soo_kqfilter(struct file *fp, struct knote *kn)
 		return (EINVAL);
 	}
 
-	s = splnet();
+	crit_enter();
 	SLIST_INSERT_HEAD(&sb->sb_sel.si_note, kn, kn_selnext);
 	sb->sb_flags |= SB_KNOTE;
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -1804,12 +1802,12 @@ void
 filt_sordetach(struct knote *kn)
 {
 	struct socket *so = kn->kn_fp->f_data;
-	int s = splnet();
+	crit_enter();
 
 	SLIST_REMOVE(&so->so_rcv.sb_sel.si_note, kn, knote, kn_selnext);
 	if (SLIST_EMPTY(&so->so_rcv.sb_sel.si_note))
 		so->so_rcv.sb_flags &= ~SB_KNOTE;
-	splx(s);
+	crit_leave();
 }
 
 /*ARGSUSED*/
@@ -1839,12 +1837,12 @@ void
 filt_sowdetach(struct knote *kn)
 {
 	struct socket *so = kn->kn_fp->f_data;
-	int s = splnet();
+	crit_enter();
 
 	SLIST_REMOVE(&so->so_snd.sb_sel.si_note, kn, knote, kn_selnext);
 	if (SLIST_EMPTY(&so->so_snd.sb_sel.si_note))
 		so->so_snd.sb_flags &= ~SB_KNOTE;
-	splx(s);
+	crit_leave();
 }
 
 /*ARGSUSED*/

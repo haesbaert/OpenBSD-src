@@ -49,6 +49,7 @@
 #include <sys/device.h>
 #include <sys/timeout.h>
 #include <sys/socket.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
  
@@ -290,11 +291,10 @@ et_detach(struct device *self, int flags)
 {
 	struct et_softc *sc = (struct et_softc *)self;
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	et_stop(sc);
-	splx(s);
+	crit_leave();
 
 	mii_detach(&sc->sc_miibus, MII_PHY_ANY, MII_OFFSET_ANY);
 
@@ -956,9 +956,9 @@ int
 et_init(struct ifnet *ifp)
 {
 	struct et_softc *sc = ifp->if_softc;
-	int error, i, s;
+	int error, i;
 
-	s = splnet();
+	crit_enter();
 
 	et_stop(sc);
 
@@ -1003,7 +1003,7 @@ back:
 	if (error)
 		et_stop(sc);
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1014,9 +1014,9 @@ et_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct et_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1066,7 +1066,7 @@ et_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return error;
 }
 
@@ -1958,23 +1958,21 @@ void
 et_txtick(void *xsc)
 {
 	struct et_softc *sc = xsc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	et_txeof(sc);
-	splx(s);
+	crit_leave();
 }
 
 void
 et_tick(void *xsc)
 {
 	struct et_softc *sc = xsc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	mii_tick(&sc->sc_miibus);
 	timeout_add_sec(&sc->sc_tick, 1);
-	splx(s);
+	crit_leave();
 }
 
 int

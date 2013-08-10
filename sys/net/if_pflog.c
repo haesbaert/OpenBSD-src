@@ -139,7 +139,6 @@ pflog_clone_create(struct if_clone *ifc, int unit)
 {
 	struct ifnet *ifp;
 	struct pflog_softc *pflogif;
-	int s;
 
 	if ((pflogif = malloc(sizeof(*pflogif),
 	    M_DEVBUF, M_NOWAIT|M_ZERO)) == NULL)
@@ -163,14 +162,14 @@ pflog_clone_create(struct if_clone *ifc, int unit)
 	bpfattach(&pflogif->sc_if.if_bpf, ifp, DLT_PFLOG, PFLOG_HDRLEN);
 #endif
 
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&pflogif_list, pflogif, sc_list);
 	if (unit + 1 > npflogifs && pflogifs_resize(unit + 1) != 0) {
-		splx(s);
+		crit_leave();
 		return (ENOMEM);
 	}
 	pflogifs[unit] = ifp;
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -179,9 +178,9 @@ int
 pflog_clone_destroy(struct ifnet *ifp)
 {
 	struct pflog_softc	*pflogif = ifp->if_softc;
-	int			 s, i;
+	int			 i;
 
-	s = splnet();
+	crit_enter();
 	pflogifs[pflogif->sc_unit] = NULL;
 	LIST_REMOVE(pflogif, sc_list);
 
@@ -189,7 +188,7 @@ pflog_clone_destroy(struct ifnet *ifp)
 		; /* nothing */
 	if (i < npflogifs)
 		pflogifs_resize(i);	/* error harmless here */
-	splx(s);
+	crit_leave();
 
 	if_detach(ifp);
 	free(pflogif, M_DEVBUF);
@@ -203,13 +202,12 @@ void
 pflogstart(struct ifnet *ifp)
 {
 	struct mbuf *m;
-	int s;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IF_DROP(&ifp->if_snd);
 		IF_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			return;

@@ -215,7 +215,6 @@ pppoe_clone_create(struct if_clone *ifc, int unit)
 {
 	struct pppoe_softc *sc, *tmpsc;
 	u_int32_t unique;
-	int s;
 
         sc = malloc(sizeof(*sc), M_DEVBUF, M_WAITOK|M_CANFAIL|M_ZERO);
         if (sc == NULL)
@@ -252,7 +251,7 @@ pppoe_clone_create(struct if_clone *ifc, int unit)
 	bpfattach(&sc->sc_sppp.pp_if.if_bpf, &sc->sc_sppp.pp_if, DLT_PPP_ETHER, 0);
 #endif
 	
-	s = splnet();
+	crit_enter();
 retry:
 	unique = arc4random();
 	LIST_FOREACH(tmpsc, &pppoe_softc_list, sc_list)
@@ -260,7 +259,7 @@ retry:
 			goto retry;
 	sc->sc_unique = unique;
 	LIST_INSERT_HEAD(&pppoe_softc_list, sc, sc_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -270,12 +269,11 @@ int
 pppoe_clone_destroy(struct ifnet *ifp)
 {
 	struct pppoe_softc *sc = ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(sc, sc_list);
 	timeout_del(&sc->sc_timeout);
-	splx(s);
+	crit_leave();
 	
 	sppp_detach(&sc->sc_sppp.pp_if);
 	if_detach(ifp);
@@ -363,23 +361,22 @@ void
 pppoeintr(void)
 {
 	struct mbuf *m;
-	int s;
 
 	CRIT_ASSERT();
 	
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&pppoediscinq, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			break;
 		pppoe_disc_input(m);
 	}
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IF_DEQUEUE(&pppoeinq, m);
-		splx(s);
+		crit_leave();
 		if (m == NULL)
 			break;
 		pppoe_data_input(m);
@@ -1141,7 +1138,7 @@ static void
 pppoe_timeout(void *arg)
 {
 	struct pppoe_softc *sc = (struct pppoe_softc *)arg;
-	int x, retry_wait, err;
+	int retry_wait, err;
 
 	PPPOEDEBUG(("%s: timeout\n", sc->sc_sppp.pp_if.if_xname));
 
@@ -1160,7 +1157,7 @@ pppoe_timeout(void *arg)
 		/* initialize for quick retry mode */
 		retry_wait = PPPOE_DISC_TIMEOUT * (1 + sc->sc_padi_retried);
 
-		x = splnet();
+		crit_enter();
 		sc->sc_padi_retried++;
 		if (sc->sc_padi_retried >= PPPOE_DISC_MAXPADI) {
 			if ((sc->sc_sppp.pp_if.if_flags & IFF_LINK1) == 0) {
@@ -1168,7 +1165,7 @@ pppoe_timeout(void *arg)
 				retry_wait = PPPOE_SLOW_RETRY;
 			} else {
 				pppoe_abort_connect(sc);
-				splx(x);
+				crit_leave();
 				return;
 			}
 		}
@@ -1178,11 +1175,11 @@ pppoe_timeout(void *arg)
 			    sc->sc_sppp.pp_if.if_xname, err));
 		}
 		timeout_add(&sc->sc_timeout, retry_wait);
-		splx(x);
+		crit_leave();
 		
 		break;
 	case PPPOE_STATE_PADR_SENT:
-		x = splnet();
+		crit_enter();
 		sc->sc_padr_retried++;
 		if (sc->sc_padr_retried >= PPPOE_DISC_MAXPADR) {
 			memcpy(&sc->sc_dest, etherbroadcastaddr,
@@ -1195,7 +1192,7 @@ pppoe_timeout(void *arg)
 			}
 			timeout_add(&sc->sc_timeout,
 			    PPPOE_DISC_TIMEOUT * (1 + sc->sc_padi_retried));
-			splx(x);
+			crit_leave();
 			return;
 		}
 		if ((err = pppoe_send_padr(sc)) != 0) {
@@ -1205,7 +1202,7 @@ pppoe_timeout(void *arg)
 		}
 		timeout_add(&sc->sc_timeout,
 		    PPPOE_DISC_TIMEOUT * (1 + sc->sc_padr_retried));
-		splx(x);
+		crit_leave();
 	
 		break;
 	case PPPOE_STATE_CLOSING:
@@ -1220,7 +1217,7 @@ pppoe_timeout(void *arg)
 static int
 pppoe_connect(struct pppoe_softc *sc)
 {
-	int x, err;
+	int err;
 
 	if (sc->sc_state != PPPOE_STATE_INITIAL)
 		return (EBUSY);
@@ -1230,7 +1227,7 @@ pppoe_connect(struct pppoe_softc *sc)
 	if ((sc->sc_sppp.pp_if.if_flags & IFF_PASSIVE))
 		return (0);
 #endif
-	x = splnet();
+	crit_enter();
 	
 	/* save state, in case we fail to send PADI */
 	sc->sc_state = PPPOE_STATE_PADI_SENT;
@@ -1241,7 +1238,7 @@ pppoe_connect(struct pppoe_softc *sc)
 		    sc->sc_sppp.pp_if.if_xname, err));
 	
 	timeout_add(&sc->sc_timeout, PPPOE_DISC_TIMEOUT);
-	splx(x);
+	crit_leave();
 	
 	return (err);
 }
@@ -1250,9 +1247,9 @@ pppoe_connect(struct pppoe_softc *sc)
 static int
 pppoe_disconnect(struct pppoe_softc *sc)
 {
-	int err, x;
+	int err;
 
-	x = splnet();
+	crit_enter();
 
 	if (sc->sc_state < PPPOE_STATE_SESSION)
 		err = EBUSY;
@@ -1287,7 +1284,7 @@ pppoe_disconnect(struct pppoe_softc *sc)
 	/* notify upper layer */
 	sc->sc_sppp.pp_down(&sc->sc_sppp);
 
-	splx(x);
+	crit_leave();
 
 	return (err);
 }

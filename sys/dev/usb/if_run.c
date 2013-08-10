@@ -1549,9 +1549,8 @@ run_newstate_cb(struct run_softc *sc, void *arg)
 	struct ieee80211_node *ni;
 	uint32_t tmp, sta[3];
 	uint8_t wcid;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	ostate = ic->ic_state;
 
 	if (ostate == IEEE80211_S_RUN) {
@@ -1620,7 +1619,7 @@ run_newstate_cb(struct run_softc *sc, void *arg)
 		break;
 	}
 	(void)sc->sc_newstate(ic, cmd->state, cmd->arg);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -1635,9 +1634,9 @@ void
 run_updateedca_cb(struct run_softc *sc, void *arg)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
-	int s, aci;
+	int aci;
 
-	s = splnet();
+	crit_enter();
 	/* update MAC TX configuration registers */
 	for (aci = 0; aci < EDCA_NUM_AC; aci++) {
 		run_write(sc, RT2860_EDCA_AC_CFG(aci),
@@ -1669,7 +1668,7 @@ run_updateedca_cb(struct run_softc *sc, void *arg)
 	run_write(sc, RT2860_WMM_TXOP1_CFG,
 	    ic->ic_edca_ac[EDCA_AC_VO].ac_txoplimit << 16 |
 	    ic->ic_edca_ac[EDCA_AC_VI].ac_txoplimit);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1829,7 +1828,7 @@ run_calibrate_cb(struct run_softc *sc, void *arg)
 {
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
 	uint32_t sta[3];
-	int s, error;
+	int error;
 
 	/* read statistic counters (clear on read) and update AMRR state */
 	error = run_read_region_1(sc, RT2860_TX_STA_CNT0, (uint8_t *)sta,
@@ -1841,7 +1840,7 @@ run_calibrate_cb(struct run_softc *sc, void *arg)
 	    letoh32(sta[1]) >> 16, letoh32(sta[1]) & 0xffff,
 	    letoh32(sta[0]) & 0xffff));
 
-	s = splnet();
+	crit_enter();
 	/* count failed TX as errors */
 	ifp->if_oerrors += letoh32(sta[0]) & 0xffff;
 
@@ -1854,7 +1853,7 @@ run_calibrate_cb(struct run_softc *sc, void *arg)
 	    (letoh32(sta[1]) & 0xffff);		/* successful TX count */
 
 	ieee80211_amrr_choose(&sc->amrr, sc->sc_ic.ic_bss, &sc->amn);
-	splx(s);
+	crit_leave();
 
 skip:
 	if (!usbd_is_dying(sc->sc_udev))
@@ -1934,7 +1933,6 @@ run_rx_frame(struct run_softc *sc, uint8_t *buf, int dmalen)
 	uint32_t flags;
 	uint16_t len, phy;
 	uint8_t ant, rssi;
-	int s;
 
 	rxwi = (struct rt2860_rxwi *)buf;
 	len = letoh16(rxwi->len) & 0xfff;
@@ -2041,7 +2039,7 @@ run_rx_frame(struct run_softc *sc, uint8_t *buf, int dmalen)
 	}
 #endif
 
-	s = splnet();
+	crit_enter();
 	ni = ieee80211_find_rxnode(ic, wh);
 	rxi.rxi_rssi = rssi;
 	rxi.rxi_tstamp = 0;	/* unused */
@@ -2049,7 +2047,7 @@ run_rx_frame(struct run_softc *sc, uint8_t *buf, int dmalen)
 
 	/* node is no longer needed */
 	ieee80211_release_node(ic, ni);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2109,9 +2107,8 @@ run_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	struct run_softc *sc = data->sc;
 	struct run_tx_ring *txq = &sc->txq[data->qid];
 	struct ifnet *ifp = &sc->sc_ic.ic_if;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	txq->queued--;
 	sc->qfullmsk &= ~(1 << data->qid);
 
@@ -2120,7 +2117,7 @@ run_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 		if (status == USBD_STALLED)
 			usbd_clear_endpoint_stall_async(txq->pipeh);
 		ifp->if_oerrors++;
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -2128,7 +2125,7 @@ run_txeof(struct usbd_xfer *xfer, void *priv, usbd_status status)
 	ifp->if_opackets++;
 	ifp->if_flags &= ~IFF_OACTIVE;
 	run_start(ifp);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2335,14 +2332,14 @@ run_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 
 	if (usbd_is_dying(sc->sc_udev))
 		return ENXIO;
 
 	usbd_ref_incr(sc->sc_udev);
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -2402,7 +2399,7 @@ run_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	usbd_ref_decr(sc->sc_udev);
 

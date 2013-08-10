@@ -317,9 +317,9 @@ xl_mii_send(struct xl_softc *sc, u_int32_t bits, int cnt)
 int
 xl_mii_readreg(struct xl_softc *sc, struct xl_mii_frame *frame)
 {
-	int	i, ack, s;
+	int	i, ack;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Set up frame for RX.
@@ -389,7 +389,7 @@ fail:
 	MII_CLR(XL_MII_CLK);
 	MII_SET(XL_MII_CLK);
 
-	splx(s);
+	crit_leave();
 
 	if (ack)
 		return (1);
@@ -402,9 +402,7 @@ fail:
 int
 xl_mii_writereg(struct xl_softc *sc, struct xl_mii_frame *frame)
 {
-	int	s;
-
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Set up frame for TX.
@@ -442,7 +440,7 @@ xl_mii_writereg(struct xl_softc *sc, struct xl_mii_frame *frame)
 	 */
 	MII_CLR(XL_MII_DIR);
 
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1908,10 +1906,10 @@ xl_init(void *xsc)
 {
 	struct xl_softc		*sc = xsc;
 	struct ifnet		*ifp = &sc->sc_arpcom.ac_if;
-	int			s, i;
+	int			i;
 	struct mii_data		*mii = NULL;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1951,7 +1949,7 @@ xl_init(void *xsc)
 		printf("%s: initialization failed: no "
 			"memory for rx buffers\n", sc->sc_dev.dv_xname);
 		xl_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -2084,7 +2082,7 @@ xl_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->xl_stsup_tmo, 1);
 }
@@ -2208,10 +2206,10 @@ xl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct xl_softc *sc = ifp->if_softc;
 	struct ifreq *ifr = (struct ifreq *)data;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 	struct mii_data *mii = NULL;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -2258,7 +2256,7 @@ xl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2392,12 +2390,13 @@ xl_attach(struct xl_softc *sc)
 	u_int8_t enaddr[ETHER_ADDR_LEN];
 	u_int16_t		xcvr[2];
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
-	int i, media = IFM_ETHER|IFM_100_TX|IFM_FDX;
+	int media = IFM_ETHER|IFM_100_TX|IFM_FDX;
 	struct ifmedia *ifm;
+	int i;
 
-	i = splnet();
+	crit_enter();
 	xl_reset(sc);
-	splx(i);
+	crit_leave();
 
 	/*
 	 * Get station address from the EEPROM.
@@ -2569,9 +2568,9 @@ xl_attach(struct xl_softc *sc)
 	 */
 	if (sc->xl_xcvr == XL_XCVR_AUTO) {
 		xl_choose_xcvr(sc, 0);
-		i = splnet();
+		crit_enter();
 		xl_reset(sc);
-		splx(i);
+		crit_leave();
 	}
 
 	if (sc->xl_media & XL_MEDIAOPT_BT) {

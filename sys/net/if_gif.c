@@ -37,6 +37,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/syslog.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -92,7 +93,6 @@ int
 gif_clone_create(struct if_clone *ifc, int unit)
 {
 	struct gif_softc *sc;
-	int s;
 
 	sc = malloc(sizeof(*sc), M_DEVBUF, M_NOWAIT|M_ZERO);
 	if (!sc)
@@ -115,9 +115,9 @@ gif_clone_create(struct if_clone *ifc, int unit)
 #if NBPFILTER > 0
 	bpfattach(&sc->gif_if.if_bpf, &sc->gif_if, DLT_LOOP, sizeof(u_int32_t));
 #endif
-	s = splnet();
+	crit_enter();
 	LIST_INSERT_HEAD(&gif_softc_list, sc, gif_list);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -126,11 +126,10 @@ int
 gif_clone_destroy(struct ifnet *ifp)
 {
 	struct gif_softc *sc = ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	LIST_REMOVE(sc, gif_list);
-	splx(s);
+	crit_leave();
 
 	if_detach(ifp);
 
@@ -149,12 +148,11 @@ gif_start(struct ifnet *ifp)
 {
 	struct gif_softc *sc = (struct gif_softc*)ifp;
 	struct mbuf *m;
-	int s;
 
 	while (1) {
-		s = splnet();
+		crit_enter();
 		IFQ_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			break;
@@ -290,7 +288,6 @@ gif_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 {
 	struct gif_softc *sc = (struct gif_softc*)ifp;
 	int error = 0;
-	int s;
 
 	if (!(ifp->if_flags & IFF_UP) ||
 	    sc->gif_psrc == NULL || sc->gif_pdst == NULL ||
@@ -335,16 +332,16 @@ gif_output(struct ifnet *ifp, struct mbuf *m, struct sockaddr *dst,
 	/*
 	 * Queue message on interface, and start output.
 	 */
-	s = splnet();
+	crit_enter();
 	IFQ_ENQUEUE(&ifp->if_snd, m, NULL, error);
 	if (error) {
 		/* mbuf is already freed */
-		splx(s);
+		crit_leave();
 		goto end;
 	}
 	ifp->if_obytes += m->m_pkthdr.len;
 	if_start(ifp);
-	splx(s);
+	crit_leave();
 
 end:
 	if (error)
@@ -360,7 +357,6 @@ gif_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	int error = 0, size;
 	struct sockaddr *dst, *src;
 	struct sockaddr *sa;
-	int s;
 	struct gif_softc *sc2;
 
 	switch (cmd) {
@@ -511,10 +507,10 @@ gif_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		bcopy((caddr_t)dst, (caddr_t)sa, dst->sa_len);
 		sc->gif_pdst = sa;
 
-		s = splnet();
+		crit_enter();
 		ifp->if_flags |= IFF_RUNNING;
 		if_up(ifp);		/* send up RTM_IFINFO */
-		splx(s);
+		crit_leave();
 
 		error = 0;
 		break;

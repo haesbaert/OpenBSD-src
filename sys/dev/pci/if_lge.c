@@ -983,9 +983,8 @@ lge_tick(void *xsc)
 	struct lge_softc	*sc = xsc;
 	struct mii_data		*mii = &sc->lge_mii;
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
-	int			s;
 
-	s = splnet();
+	crit_enter();
 
 	CSR_WRITE_4(sc, LGE_STATSIDX, LGE_STATS_SINGLE_COLL_PKTS);
 	ifp->if_collisions += CSR_READ_4(sc, LGE_STATSVAL);
@@ -1004,7 +1003,7 @@ lge_tick(void *xsc)
 
 	timeout_add_sec(&sc->lge_timeout, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1174,9 +1173,8 @@ lge_init(void *xsc)
 {
 	struct lge_softc	*sc = xsc;
 	struct ifnet		*ifp = &sc->arpcom.ac_if;
-	int			s;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -1193,7 +1191,7 @@ lge_init(void *xsc)
 		printf("%s: initialization failed: no "
 		       "memory for rx buffers\n", sc->sc_dv.dv_xname);
 		lge_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1290,7 +1288,7 @@ lge_init(void *xsc)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&sc->lge_timeout, 1);
 }
@@ -1336,9 +1334,9 @@ lge_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct ifaddr		*ifa = (struct ifaddr *) data;
 	struct ifreq		*ifr = (struct ifreq *) data;
 	struct mii_data		*mii;
-	int			s, error = 0;
+	int			error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch(command) {
 	case SIOCSIFADDR:
@@ -1396,7 +1394,7 @@ lge_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 

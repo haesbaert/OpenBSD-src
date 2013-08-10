@@ -511,7 +511,7 @@ musycc_init_channel(struct channel_softc *cc, char slot)
 {
 	struct musycc_group	*mg;
 	struct ifnet		*ifp = cc->cc_ifp;
-	int			 nslots, rv, s;
+	int			 nslots, rv;
 
 	if (cc->cc_state == CHAN_FLOAT)
 		return (ENOTTY);
@@ -531,7 +531,7 @@ musycc_init_channel(struct channel_softc *cc, char slot)
 		}
 	}
 
-	s = splnet();
+	crit_enter();
 	/* setup timeslot map */
 	nslots = musycc_set_tsmap(mg, cc, slot);
 	if (nslots == -1) {
@@ -559,7 +559,7 @@ musycc_init_channel(struct channel_softc *cc, char slot)
 	ifp->if_flags &= ~IFF_OACTIVE;
 
 	cc->cc_state = CHAN_TRANSIENT;
-	splx(s);
+	crit_leave();
 
 	musycc_dump_group(3, mg);
 	musycc_activate_channel(mg, cc->cc_channel);
@@ -572,7 +572,7 @@ musycc_init_channel(struct channel_softc *cc, char slot)
 	return (0);
 
 fail:
-	splx(s);
+	crit_leave();
 	cc->cc_state = CHAN_IDLE; /* force idle state */
 	musycc_free_channel(mg, cc->cc_channel);
 	return (rv);
@@ -615,12 +615,12 @@ void
 musycc_free_channel(struct musycc_group *mg, int chan)
 {
 	u_int64_t	mask = ULLONG_MAX;
-	int		i, idx, s, slots;
+	int		i, idx, slots;
 
 	ACCOOM_PRINTF(2, ("%s: musycc_free_channel\n",
 	    mg->mg_channels[chan]->cc_ifp->if_xname));
 
-	s = splnet();
+	crit_enter();
 	/* Clear the timeout timer. */
 	mg->mg_channels[chan]->cc_ifp->if_timer = 0;
 
@@ -650,7 +650,7 @@ musycc_free_channel(struct musycc_group *mg, int chan)
 	musycc_list_rx_free(mg, chan);
 	musycc_list_tx_free(mg, chan);
 
-	splx(s);
+	crit_leave();
 
 	/* update chip info with sreq */
 	musycc_sreq(mg, chan, MUSYCC_SREQ_SET(24), MUSYCC_SREQ_BOTH,
@@ -705,7 +705,7 @@ musycc_dma_get(struct musycc_group *mg)
 {
 	struct dma_desc	*dd;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	if (mg->mg_freecnt == 0)
 		return (NULL);
@@ -722,7 +722,7 @@ musycc_dma_get(struct musycc_group *mg)
 void
 musycc_dma_free(struct musycc_group *mg, struct dma_desc *dd)
 {
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	dd->nextdesc = mg->mg_freelist;
 	mg->mg_freelist = dd;
@@ -741,7 +741,7 @@ musycc_list_tx_init(struct musycc_group *mg, int c, int size)
 	bus_addr_t		 base;
 	int			 i;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 	ACCOOM_PRINTF(2, ("musycc_list_tx_init\n"));
 	md = &mg->mg_dma_d[c];
 	md->tx_pend = NULL;
@@ -796,7 +796,7 @@ musycc_list_rx_init(struct musycc_group *mg, int c, int size)
 	bus_addr_t		 base;
 	int			 i;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 	ACCOOM_PRINTF(2, ("musycc_list_rx_init\n"));
 	md = &mg->mg_dma_d[c];
 	md->rx_cnt = size;
@@ -845,7 +845,7 @@ musycc_list_tx_free(struct musycc_group *mg, int c)
 
 	md = &mg->mg_dma_d[c];
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 	ACCOOM_PRINTF(2, ("musycc_list_tx_free\n"));
 	dd = md->tx_pend;
 	do {
@@ -876,7 +876,7 @@ musycc_list_rx_free(struct musycc_group *mg, int c)
 
 	md = &mg->mg_dma_d[c];
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 	ACCOOM_PRINTF(2, ("musycc_list_rx_free\n"));
 	dd = md->rx_prod;
 	do {
@@ -903,9 +903,7 @@ musycc_list_rx_free(struct musycc_group *mg, int c)
 void
 musycc_reinit_dma(struct musycc_group *mg, int c)
 {
-	int	s;
-
-	s = splnet();
+	crit_enter();
 
 	musycc_list_tx_free(mg, c);
 	musycc_list_rx_free(mg, c);
@@ -917,7 +915,7 @@ musycc_reinit_dma(struct musycc_group *mg, int c)
 		    mg->mg_channels[c]->cc_ifp->if_xname);
 		musycc_free_channel(mg, c);
 	}
-	splx(s);
+	crit_leave();
 
 	musycc_activate_channel(mg, c);
 }
@@ -988,7 +986,7 @@ musycc_encap(struct musycc_group *mg, struct mbuf *m_head, int c)
 	u_int32_t	 status;
 	int		 i;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	map = mg->mg_tx_sparemap;
 	if (bus_dmamap_load_mbuf(mg->mg_dmat, map, m_head,
@@ -1077,7 +1075,6 @@ musycc_start(struct ifnet *ifp)
 	struct musycc_group	*mg;
 	struct channel_softc	*cc;
 	struct mbuf		*m = NULL;
-	int			s;
 
 	cc = ifp->if_softc;
 	mg = cc->cc_group;
@@ -1090,7 +1087,7 @@ musycc_start(struct ifnet *ifp)
 	if (sppp_isempty(ifp))
 		return;
 
-	s = splnet();
+	crit_enter();
 	while ((m = sppp_pick(ifp)) != NULL) {
 		if (musycc_encap(mg, m, cc->cc_channel)) {
 			ifp->if_flags |= IFF_OACTIVE;
@@ -1105,7 +1102,7 @@ musycc_start(struct ifnet *ifp)
 		/* now we are committed to transmit the packet */
 		sppp_dequeue(ifp);
 	}
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Set a timeout in case the chip goes out to lunch.

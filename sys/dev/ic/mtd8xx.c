@@ -578,9 +578,9 @@ mtd_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct mtd_softc *sc = ifp->if_softc;
 	struct ifaddr *ifa = (struct ifaddr *)data;
 	struct ifreq *ifr = (struct ifreq *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -619,7 +619,7 @@ mtd_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -628,9 +628,8 @@ static void
 mtd_init(struct ifnet *ifp)
 {
 	struct mtd_softc *sc = ifp->if_softc;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	/*
 	 * Cancel pending I/O and free all RX/TX buffers.
@@ -662,7 +661,7 @@ mtd_init(struct ifnet *ifp)
 	if (mtd_list_rx_init(sc)) {
 		printf("%s: can't allocate memeory for rx buffers\n",
 		    sc->sc_dev.dv_xname);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	mtd_list_tx_init(sc);
@@ -684,7 +683,7 @@ mtd_init(struct ifnet *ifp)
 
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
-	splx(s);
+	crit_leave();
 }
 
 

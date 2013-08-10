@@ -940,10 +940,10 @@ malo_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifaddr *ifa;
 	struct ifreq *ifr;
-	int s, error = 0;
+	int error = 0;
 	uint8_t chan;
 
-	s = splnet();
+	crit_enter();
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -1000,7 +1000,7 @@ malo_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -1304,16 +1304,15 @@ malo_next_scan(void *arg)
 	struct malo_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = &ic->ic_if;
-	int s;
 
 	DPRINTF(1, "%s: %s\n", ifp->if_xname, __func__);
 
-	s = splnet();
+	crit_enter();
 
 	if (ic->ic_state == IEEE80211_S_SCAN)
 		ieee80211_next_scan(ifp);
 
-	splx(s);
+	crit_leave();
 }
 
 void

@@ -318,13 +318,13 @@ fxp_resume(void *arg1, void *arg2)
 {
 	struct fxp_softc *sc = arg1;
 
-	int s = splnet();
+	crit_enter();
 
 	/* force reload of the microcode */
 	sc->sc_flags &= ~FXPF_UCODELOADED;
 
 	fxp_init(sc);
-	splx(s);
+	crit_leave();
 }
 
 /*************************************************************
@@ -964,7 +964,6 @@ fxp_stats_update(void *arg)
 	struct fxp_softc *sc = arg;
 	struct ifnet *ifp = &sc->sc_arpcom.ac_if;
 	struct fxp_stats *sp = &sc->sc_ctrl->stats;
-	int s;
 
 	FXP_STATS_SYNC(sc, BUS_DMASYNC_POSTREAD|BUS_DMASYNC_POSTWRITE);
 	ifp->if_opackets += letoh32(sp->tx_good);
@@ -988,7 +987,7 @@ fxp_stats_update(void *arg)
 		if (tx_threshold < 192)
 			tx_threshold += 64;
 	}
-	s = splnet();
+	crit_enter();
 	/*
 	 * If we haven't received any packets in FXP_MAX_RX_IDLE seconds,
 	 * then assume the receiver has locked up and attempt to clear
@@ -1002,7 +1001,7 @@ fxp_stats_update(void *arg)
 	if (sc->rx_idle_secs > FXP_MAX_RX_IDLE) {
 		sc->rx_idle_secs = 0;
 		fxp_init(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	/*
@@ -1035,7 +1034,7 @@ fxp_stats_update(void *arg)
 	/* Tick the MII clock. */
 	mii_tick(&sc->sc_mii);
 
-	splx(s);
+	crit_leave();
 	/*
 	 * Schedule another timeout one second from now.
 	 */
@@ -1131,7 +1130,7 @@ fxp_stop(struct fxp_softc *sc, int drain, int softonly)
 		for (i = 0; i < FXP_NRFABUFS_MIN; i++) {
 			if (fxp_add_rfabuf(sc, NULL) != 0) {
 				/*
-				 * This "can't happen" - we're at splnet()
+				 * This "can't happen" - we're at crit_enter()
 				 * and we just freed all the buffers we need
 				 * above.
 				 */
@@ -1179,7 +1178,7 @@ fxp_init(void *xsc)
 	bus_dmamap_t rxmap;
 	int i, prm, save_bf, lrxen, allm, bufs;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	/*
 	 * Cancel any pending I/O
@@ -1647,9 +1646,9 @@ fxp_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 	struct fxp_softc *sc = ifp->if_softc;
 	struct ifreq *ifr = (struct ifreq *)data;
 	struct ifaddr *ifa = (struct ifaddr *)data;
-	int s, error = 0;
+	int error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -1689,7 +1688,7 @@ fxp_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -1705,7 +1704,7 @@ fxp_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
  * of it. We then can do 'CU_START' on the mcsetup descriptor and have it
  * lead into the regular TxCB ring when it completes.
  *
- * This function must be called at splnet.
+ * This function must be called at crit_enter.
  */
 void
 fxp_mc_setup(struct fxp_softc *sc, int doit)
@@ -1717,7 +1716,7 @@ fxp_mc_setup(struct fxp_softc *sc, int doit)
 	struct ether_multi *enm;
 	int i, nmcasts = 0;
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	ifp->if_flags &= ~IFF_ALLMULTI;
 

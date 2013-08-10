@@ -356,13 +356,12 @@ void
 if_free_sadl(struct ifnet *ifp)
 {
 	struct ifaddr *ifa;
-	int s;
 
 	ifa = ifp->if_lladdr;
 	if (ifa == NULL)
 		return;
 
-	s = splnet();
+	crit_enter();
 	rtinit(ifa, RTM_DELETE, 0);
 #if 0
 	ifa_del(ifp, ifa);
@@ -370,28 +369,26 @@ if_free_sadl(struct ifnet *ifp)
 #endif
 	ifp->if_sadl = NULL;
 
-	splx(s);
+	crit_leave();
 }
 
 void
 if_attachdomain()
 {
 	struct ifnet *ifp;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_FOREACH(ifp, &ifnet, if_list)
 		if_attachdomain1(ifp);
-	splx(s);
+	crit_leave();
 }
 
 void
 if_attachdomain1(struct ifnet *ifp)
 {
 	struct domain *dp;
-	int s;
 
-	s = splnet();
+	crit_enter();
 
 	/* address family dependent data region */
 	bzero(ifp->if_afdata, sizeof(ifp->if_afdata));
@@ -401,7 +398,7 @@ if_attachdomain1(struct ifnet *ifp)
 			    (*dp->dom_ifattach)(ifp);
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -459,7 +456,7 @@ void
 if_start(struct ifnet *ifp)
 {
 
-	splassert(IPL_NET);
+	CRIT_ASSERT();
 
 	if (ifp->if_snd.ifq_len >= min(8, ifp->if_snd.ifq_maxlen) &&
 	    !ISSET(ifp->if_flags, IFF_OACTIVE)) {
@@ -482,15 +479,14 @@ void
 nettxintr(void)
 {
 	struct ifnet *ifp;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	while ((ifp = TAILQ_FIRST(&iftxlist)) != NULL) {
 		TAILQ_REMOVE(&iftxlist, ifp, if_txlist);
 		CLR(ifp->if_xflags, IFXF_TXREADY);
 		ifp->if_start(ifp);
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -504,9 +500,9 @@ if_detach(struct ifnet *ifp)
 {
 	struct ifaddr *ifa;
 	struct ifg_list *ifg;
-	int s = splnet();
 	struct domain *dp;
 
+	crit_enter();
 	ifp->if_flags &= ~IFF_OACTIVE;
 	ifp->if_start = if_detached_start;
 	ifp->if_ioctl = if_detached_ioctl;
@@ -628,7 +624,7 @@ do { \
 	rt_ifannouncemsg(ifp, IFAN_DEPARTURE);
 
 	ifindex2ifnet[ifp->if_index] = NULL;
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -698,7 +694,6 @@ if_clone_destroy(const char *name)
 {
 	struct if_clone *ifc;
 	struct ifnet *ifp;
-	int s;
 
 	ifc = if_clone_lookup(name, NULL);
 	if (ifc == NULL)
@@ -712,9 +707,9 @@ if_clone_destroy(const char *name)
 		return (EOPNOTSUPP);
 
 	if (ifp->if_flags & IFF_UP) {
-		s = splnet();
+		crit_enter();
 		if_down(ifp);
-		splx(s);
+		crit_leave();
 	}
 
 	return ((*ifc->ifc_destroy)(ifp));
@@ -1020,9 +1015,8 @@ if_downall(void)
 {
 	struct ifreq ifrq;	/* XXX only partly built */
 	struct ifnet *ifp;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	TAILQ_FOREACH(ifp, &ifnet, if_list) {
 		if ((ifp->if_flags & IFF_UP) == 0)
 			continue;
@@ -1035,7 +1029,7 @@ if_downall(void)
 			    (caddr_t)&ifrq);
 		}
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1155,7 +1149,7 @@ if_slowtimo(void *arg)
 {
 	struct timeout *to = (struct timeout *)arg;
 	struct ifnet *ifp;
-	int s = splnet();
+	crit_enter();
 
 	TAILQ_FOREACH(ifp, &ifnet, if_list) {
 		if (ifp->if_timer == 0 || --ifp->if_timer)
@@ -1163,7 +1157,7 @@ if_slowtimo(void *arg)
 		if (ifp->if_watchdog)
 			(*ifp->if_watchdog)(ifp);
 	}
-	splx(s);
+	crit_leave();
 	timeout_add(to, hz / IFNET_SLOWHZ);
 }
 
@@ -1278,18 +1272,14 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 		if ((error = suser(p, 0)) != 0)
 			return (error);
 		if (ifp->if_flags & IFF_UP && (ifr->ifr_flags & IFF_UP) == 0) {
-			int s = splnet();
 			crit_enter();
 			if_down(ifp);
 			crit_leave();
-			splx(s);
 		}
 		if (ifr->ifr_flags & IFF_UP && (ifp->if_flags & IFF_UP) == 0) {
-			int s = splnet();
 			crit_enter();
 			if_up(ifp);
 			crit_leave();
-			splx(s);
 		}
 		ifp->if_flags = (ifp->if_flags & IFF_CANTCHANGE) |
 			(ifr->ifr_flags & ~IFF_CANTCHANGE);
@@ -1304,22 +1294,18 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef INET6
 		if (ifr->ifr_flags & IFXF_NOINET6 &&
 		    !(ifp->if_xflags & IFXF_NOINET6)) {
-			int s = splnet();
 			crit_enter();
 			in6_ifdetach(ifp);
 			crit_leave();
-			splx(s);
 		}
 		if (ifp->if_xflags & IFXF_NOINET6 &&
 		    !(ifr->ifr_flags & IFXF_NOINET6)) {
 			ifp->if_xflags &= ~IFXF_NOINET6;
 			if (ifp->if_flags & IFF_UP) {
 				/* configure link-local address */
-				int s = splnet();
 				crit_enter();
 				in6_if_up(ifp);
 				crit_leave();
-				splx(s);
 			}
 		}
 #endif
@@ -1327,23 +1313,19 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef MPLS
 		if (ISSET(ifr->ifr_flags, IFXF_MPLS) &&
 		    !ISSET(ifp->if_xflags, IFXF_MPLS)) {
-			int s = splnet();
 			crit_enter();
 			ifp->if_xflags |= IFXF_MPLS;
 			ifp->if_ll_output = ifp->if_output; 
 			ifp->if_output = mpls_output;
 			crit_leave();
-			splx(s);
 		}
 		if (ISSET(ifp->if_xflags, IFXF_MPLS) &&
 		    !ISSET(ifr->ifr_flags, IFXF_MPLS)) {
-			int s = splnet();
 			crit_enter();
 			ifp->if_xflags &= ~IFXF_MPLS;
 			ifp->if_output = ifp->if_ll_output; 
 			ifp->if_ll_output = NULL;
 			crit_leave();
-			splx(s);
 		}
 #endif
 
@@ -1351,23 +1333,19 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 		if (ifp->if_capabilities & IFCAP_WOL) {
 			if (ISSET(ifr->ifr_flags, IFXF_WOL) &&
 			    !ISSET(ifp->if_xflags, IFXF_WOL)) {
-				int s = splnet();
 				crit_enter();
 				ifp->if_xflags |= IFXF_WOL;
 				error = ifp->if_wol(ifp, 1);
 				crit_leave();
-				splx(s);
 				if (error)
 					return (error);
 			}
 			if (ISSET(ifp->if_xflags, IFXF_WOL) &&
 			    !ISSET(ifr->ifr_flags, IFXF_WOL)) {
-				int s = splnet();
 				crit_enter();
 				ifp->if_xflags &= ~IFXF_WOL;
 				error = ifp->if_wol(ifp, 0);
 				crit_leave();
-				splx(s);
 				if (error)
 					return (error);
 			}
@@ -1537,7 +1515,6 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 			in_ifdetach(ifp);
 #endif
 			crit_leave();
-			splx(s);
 		}
 
 		/* Let devices like enc(4) or mpe(4) know about the change */
@@ -1674,11 +1651,9 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef INET6
 		if (!(ifp->if_xflags & IFXF_NOINET6) &&
 		    (ifp->if_flags & IFF_UP) != 0) {
-			int s = splnet();
 			crit_enter();
 			in6_if_up(ifp);
 			crit_leave();
-			splx(s);
 		}
 #endif
 	}
@@ -2315,9 +2290,7 @@ ifnewlladdr(struct ifnet *ifp)
 	struct ifaddr *ifa;
 	struct ifreq ifrq;
 	short up;
-	int s;
 
-	s = splnet();
 	crit_enter();
 	up = ifp->if_flags & IFF_UP;
 
@@ -2360,5 +2333,4 @@ ifnewlladdr(struct ifnet *ifp)
 		(*ifp->if_ioctl)(ifp, SIOCSIFFLAGS, (caddr_t)&ifrq);
 	}
 	crit_leave();
-	splx(s);
 }

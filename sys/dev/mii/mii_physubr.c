@@ -213,18 +213,18 @@ void
 mii_phy_auto_timeout(void *arg)
 {
 	struct mii_softc *sc = arg;
-	int s, bmsr;
+	int bmsr;
 
 	if ((sc->mii_dev.dv_flags & DVF_ACTIVE) == 0)
 		return;
 
-	s = splnet();
+	crit_enter();
 	sc->mii_flags &= ~MIIF_DOINGAUTO;
 	bmsr = PHY_READ(sc, MII_BMSR);
 
 	/* Update the media status. */
 	(void) PHY_SERVICE(sc, sc->mii_pdata, MII_POLLSTAT);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -332,7 +332,7 @@ mii_phy_update(struct mii_softc *sc, int cmd)
 {
 	struct mii_data *mii = sc->mii_pdata;
 	struct ifnet *ifp = mii->mii_ifp;
-	int announce, s;
+	int announce;
 
 	if (sc->mii_media_active != mii->mii_media_active ||
 	    sc->mii_media_status != mii->mii_media_status ||
@@ -343,9 +343,9 @@ mii_phy_update(struct mii_softc *sc, int cmd)
 		sc->mii_media_status = mii->mii_media_status;
 
 		if (announce) {
-			s = splnet();
+			crit_enter();
 			if_link_state_change(ifp);
-			splx(s);
+			crit_leave();
 		}
 	}
 }

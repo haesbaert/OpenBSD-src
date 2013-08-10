@@ -424,9 +424,9 @@ ixgbe_ioctl(struct ifnet * ifp, u_long command, caddr_t data)
 	struct ix_softc	*sc = ifp->if_softc;
 	struct ifaddr	*ifa = (struct ifaddr *) data;
 	struct ifreq	*ifr = (struct ifreq *) data;
-	int		s, error = 0;
+	int		error = 0;
 
-	s = splnet();
+	crit_enter();
 
 	switch (command) {
 	case SIOCSIFADDR:
@@ -484,7 +484,7 @@ ixgbe_ioctl(struct ifnet * ifp, u_long command, caddr_t data)
 		error = 0;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -565,11 +565,11 @@ ixgbe_init(void *arg)
 	struct ifnet	*ifp = &sc->arpcom.ac_if;
 	struct rx_ring	*rxr = sc->rx_rings;
 	uint32_t	 k, txdctl, rxdctl, rxctrl, mhadd, gpie, itr;
-	int		 i, s, err;
+	int		 i, err;
 
 	INIT_DEBUGOUT("ixgbe_init: begin");
 
-	s = splnet();
+	crit_enter();
 
 	ixgbe_stop(sc);
 
@@ -587,7 +587,7 @@ ixgbe_init(void *arg)
 		printf("%s: Could not setup transmit structures\n",
 		    ifp->if_xname);
 		ixgbe_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -609,7 +609,7 @@ ixgbe_init(void *arg)
 		printf("%s: Could not setup receive structures\n",
 		    ifp->if_xname);
 		ixgbe_stop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -735,7 +735,7 @@ ixgbe_init(void *arg)
 		err = sc->hw.phy.ops.identify(&sc->hw);
 		if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
 			printf("Unsupported SFP+ module type was detected.\n");
-			splx(s);
+			crit_leave();
 			return;
 		}
 	}
@@ -785,7 +785,7 @@ ixgbe_init(void *arg)
 	ifp->if_flags |= IFF_RUNNING;
 	ifp->if_flags &= ~IFF_OACTIVE;
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1207,9 +1207,8 @@ ixgbe_local_timer(void *arg)
 #ifdef IX_DEBUG
 	struct ifnet	*ifp = &sc->arpcom.ac_if;
 #endif
-	int		 s;
 
-	s = splnet();
+	crit_enter();
 
 	/* Check for pluggable optics */
 	if (sc->sfp_probe)
@@ -1227,7 +1226,7 @@ out:
 #endif
 	timeout_add_sec(&sc->timer, 1);
 
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2579,16 +2578,15 @@ ixgbe_rxrefill(void *xsc)
 {
 	struct ix_softc *sc = xsc;
 	struct ix_queue *que = sc->queues;
-	int s;
 
-	s = splnet();
+	crit_enter();
 	if (ixgbe_rxfill(que->rxr)) {
 		/* Advance the Rx Queue "Tail Pointer" */
 		IXGBE_WRITE_REG(&sc->hw, IXGBE_RDT(que->rxr->me),
 		    que->rxr->last_desc_filled);
 	} else
 		timeout_add(&sc->rx_refill, 1);
-	splx(s);
+	crit_leave();
 }
 
 /*********************************************************************

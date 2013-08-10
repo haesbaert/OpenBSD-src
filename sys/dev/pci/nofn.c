@@ -44,6 +44,7 @@
 #include <sys/device.h>
 #include <sys/queue.h>
 #include <sys/timeout.h>
+#include <sys/proc.h>
 
 #include <crypto/cryptodev.h>
 #include <crypto/cryptosoft.h>
@@ -259,13 +260,13 @@ nofn_rng_tick(vsc)
 	void *vsc;
 {
 	struct nofn_softc *sc = vsc;
-	int s, r;
+	int r;
 
-	s = splnet();
+	crit_enter();
 	r = nofn_rng_read(sc);
 	if (r != -1)
 		timeout_add(&sc->sc_rngto, sc->sc_rngtick);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -420,7 +421,6 @@ nofn_pk_process(krp)
 {
 	struct nofn_softc *sc;
 	struct nofn_pk_q *q;
-	int s;
 
 	if (krp == NULL || krp->krp_callback == NULL)
 		return (EINVAL);
@@ -442,10 +442,10 @@ nofn_pk_process(krp)
 		q->q_start = nofn_modexp_start;
 		q->q_finish = nofn_modexp_finish;
 		q->q_krp = krp;
-		s = splnet();
+		crit_enter();
 		SIMPLEQ_INSERT_TAIL(&sc->sc_pk_queue, q, q_next);
 		nofn_pk_feed(sc);
-		splx(s);
+		crit_leave();
 		return (0);
 	default:
 		printf("%s: kprocess: invalid op 0x%x\n",
