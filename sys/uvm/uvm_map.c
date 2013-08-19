@@ -972,7 +972,7 @@ uvm_map(struct vm_map *map, vaddr_t *addr, vsize_t sz,
 	if ((map->flags & VM_MAP_INTRSAFE) == 0)
 		splassert(IPL_NONE);
 	else
-		splassert(IPL_VM);
+		CRIT_ASSERT();
 
 	/*
 	 * We use pmap_align and pmap_offset as alignment and offset variables.
@@ -1510,15 +1510,14 @@ struct vm_map_entry *
 uvm_mapent_alloc(struct vm_map *map, int flags)
 {
 	struct vm_map_entry *me, *ne;
-	int s, i;
-	int pool_flags;
+	int i, pool_flags;
 
 	pool_flags = PR_WAITOK;
 	if (flags & UVM_FLAG_TRYLOCK)
 		pool_flags = PR_NOWAIT;
 
 	if (map->flags & VM_MAP_INTRSAFE || cold) {
-		s = splvm();
+		crit_enter();
 		me = uvm.kentry_free;
 		if (me == NULL) {
 			ne = km_alloc(PAGE_SIZE, &kv_page, &kp_dirty,
@@ -1539,7 +1538,7 @@ uvm_mapent_alloc(struct vm_map *map, int flags)
 		}
 		uvm.kentry_free = RB_LEFT(me, daddrs.addr_entry);
 		uvmexp.kmapent++;
-		splx(s);
+		crit_leave();
 		me->flags = UVM_MAP_STATIC;
 	} else if (map == kernel_map) {
 		splassert(IPL_NONE);
@@ -1573,14 +1572,12 @@ out:
 void
 uvm_mapent_free(struct vm_map_entry *me)
 {
-	int s;
-
 	if (me->flags & UVM_MAP_STATIC) {
-		s = splvm();
+		crit_enter();
 		RB_LEFT(me, daddrs.addr_entry) = uvm.kentry_free;
 		uvm.kentry_free = me;
 		uvmexp.kmapent--;
-		splx(s);
+		crit_leave();
 	} else if (me->flags & UVM_MAP_KMEM) {
 		splassert(IPL_NONE);
 		pool_put(&uvm_map_entry_kmem_pool, me);
@@ -1814,7 +1811,7 @@ uvm_unmap_remove(struct vm_map *map, vaddr_t start, vaddr_t end,
 	if ((map->flags & VM_MAP_INTRSAFE) == 0)
 		splassert(IPL_NONE);
 	else
-		splassert(IPL_VM);
+		CRIT_ASSERT();
 
 	/*
 	 * Find first affected entry.
