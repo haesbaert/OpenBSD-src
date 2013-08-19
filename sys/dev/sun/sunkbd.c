@@ -84,7 +84,7 @@ sunkbd_attach(struct sunkbd_softc *sc, struct wskbddev_attach_args *waa)
 void
 sunkbd_bell(struct sunkbd_softc *sc, u_int period, u_int pitch, u_int volume)
 {
-	int ticks, s;
+	int ticks;
 	u_int8_t c = SKBD_CMD_BELLON;
 
 #if NTCTRL > 0
@@ -92,14 +92,14 @@ sunkbd_bell(struct sunkbd_softc *sc, u_int period, u_int pitch, u_int volume)
 		return;
 #endif
 
-	s = spltty();
+	crit_enter();
 	if (sc->sc_bellactive) {
 		if (sc->sc_belltimeout == 0)
 			timeout_del(&sc->sc_bellto);
 	}
 	if (pitch == 0 || period == 0) {
 		sunkbd_bellstop(sc);
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if (sc->sc_bellactive == 0) {
@@ -112,22 +112,21 @@ sunkbd_bell(struct sunkbd_softc *sc, u_int period, u_int pitch, u_int volume)
 		(*sc->sc_sendcmd)(sc, &c, 1);
 		timeout_add(&sc->sc_bellto, ticks);
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
 sunkbd_bellstop(void *v)
 {
 	struct sunkbd_softc *sc = v;
-	int s;
 	u_int8_t c;
 
-	s = spltty();
+	crit_enter();
 	sc->sc_belltimeout = 0;
 	c = SKBD_CMD_BELLOFF;
 	(*sc->sc_sendcmd)(v, &c, 1);
 	sc->sc_bellactive = 0;
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -200,18 +199,18 @@ sunkbd_input(struct sunkbd_softc *sc, u_int8_t *buf, u_int buflen)
 			rlen++;
 		}
 
-		s = spltty();
+		crit_enter();
 		wskbd_rawinput(sc->sc_wskbddev, rbuf, rlen);
-		splx(s);
+		crit_leave();
 	} else
 #endif
 	{
-		s = spltty();
+		crit_enter();
 		while (buflen-- != 0) {
 			(*sc->sc_decode)(*buf++, &type, &value);
 			wskbd_input(sc->sc_wskbddev, type, value);
 		}
-		splx(s);
+		crit_leave();
 	}
 }
 

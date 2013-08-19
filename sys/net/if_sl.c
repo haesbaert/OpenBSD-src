@@ -281,7 +281,7 @@ slopen(dev, tp)
 {
 	struct proc *p = curproc;		/* XXX */
 	struct sl_softc *sc;
-	int error, s;
+	int error;
 
 	if ((error = suser(p, 0)) != 0)
 		return (error);
@@ -296,9 +296,9 @@ slopen(dev, tp)
 			tp->t_sc = (caddr_t)sc;
 			sc->sc_ttyp = tp;
 			sc->sc_if.if_baudrate = tp->t_ospeed;
-			s = spltty();
+			crit_enter();
 			tp->t_state |= TS_ISOPEN | TS_XCLUDE;
-			splx(s);
+			crit_leave();
 			ttyflush(tp, FREAD | FWRITE);
 			/*
 			 * make sure tty output queue is large enough
@@ -308,7 +308,7 @@ slopen(dev, tp)
 			 * of possible escapes), and add two on for frame
 			 * ends.
 			 */
-			s = spltty();
+			crit_enter();
 			if (tp->t_outq.c_cn < 2*SLMTU+2) {
 				sc->sc_oldbufsize = tp->t_outq.c_cn;
 				sc->sc_oldbufquot = tp->t_outq.c_cq != 0;
@@ -317,7 +317,7 @@ slopen(dev, tp)
 				clalloc(&tp->t_outq, 3*SLMTU, 0);
 			} else
 				sc->sc_oldbufsize = sc->sc_oldbufquot = 0;
-			splx(s);
+			crit_leave();
 			return (0);
 		}
 	return (ENXIO);
@@ -332,13 +332,12 @@ slclose(tp)
 	struct tty *tp;
 {
 	struct sl_softc *sc;
-	int s;
 
 	ttywflush(tp);
 	tp->t_line = 0;
 	sc = (struct sl_softc *)tp->t_sc;
 	if (sc != NULL) {
-		s = spltty();
+		crit_enter();
 
 		if_down(&sc->sc_if);
 		sc->sc_ttyp = NULL;
@@ -353,7 +352,7 @@ slclose(tp)
 			clfree(&tp->t_outq);
 			clalloc(&tp->t_outq, sc->sc_oldbufsize, sc->sc_oldbufquot);
 		}
-		splx(s);
+		crit_leave();
 	}
 }
 
@@ -397,7 +396,7 @@ sloutput(ifp, m, dst, rtp)
 {
 	struct sl_softc *sc = ifp->if_softc;
 	struct ip *ip;
-	int s, error;
+	int error;
 
 	/*
 	 * `Cannot happen' (see slioctl).  Someday we will extend
@@ -435,7 +434,6 @@ sloutput(ifp, m, dst, rtp)
 		return (ENETRESET);		/* XXX ? */
 	}
 	crit_enter();
-	s = spltty();
 	if (sc->sc_oqlen && sc->sc_ttyp->t_outq.c_cc == sc->sc_oqlen) {
 		struct timeval tv, tm;
 
@@ -451,7 +449,6 @@ sloutput(ifp, m, dst, rtp)
 	IFQ_ENQUEUE(&sc->sc_if.if_snd, m, NULL, error);
 	if (error) {
 		crit_leave();
-		splx(s);
 		sc->sc_if.if_oerrors++;
 		return (error);
 	}
@@ -459,7 +456,6 @@ sloutput(ifp, m, dst, rtp)
 	getmicrotime(&sc->sc_lastpacket);
 	if ((sc->sc_oqlen = sc->sc_ttyp->t_outq.c_cc) == 0)
 		slstart(sc->sc_ttyp);
-	splx(s);
 	crit_leave();
 	return (0);
 }

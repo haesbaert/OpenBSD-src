@@ -40,6 +40,7 @@
 #include <sys/kernel.h>
 #include <sys/device.h>
 #include <sys/ioctl.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbhid.h>
@@ -334,7 +335,7 @@ hidms_input(struct hidms *ms, uint8_t *data, u_int len)
 	int dx, dy, dz, dw;
 	u_int32_t buttons = 0;
 	int flags;
-	int i, s;
+	int i;
 
 	DPRINTFN(5,("hidms_input: len=%d\n", len));
 
@@ -404,10 +405,10 @@ hidms_input(struct hidms *ms, uint8_t *data, u_int len)
 			dx, dy, dz, dw, buttons));
 		ms->sc_buttons = buttons;
 		if (ms->sc_wsmousedev != NULL) {
-			s = spltty();
+			crit_enter();
 			wsmouse_input(ms->sc_wsmousedev, buttons,
 			    dx, dy, dz, dw, flags);
-			splx(s);
+			crit_leave();
 		}
 	}
 }

@@ -476,7 +476,7 @@ ucycom_intr(struct uhidev *addr, void *ibuf, u_int len)
 	extern void ucomreadcb(struct usbd_xfer *, void *, usbd_status);
 	struct ucycom_softc *sc = (struct ucycom_softc *)addr;
 	uint8_t *cp = ibuf;
-	int n, st, s;
+	int n, st;
 
 	/* not accepting data anymore.. */
 	if (sc->sc_ibuf == NULL)
@@ -515,13 +515,13 @@ ucycom_intr(struct uhidev *addr, void *ibuf, u_int len)
 #endif
 
 	if (n > 0 || st != sc->sc_msr) {
-		s = spltty();
+		crit_enter();
 		sc->sc_newmsr = st;
 		bcopy(cp, sc->sc_ibuf, n);
 		sc->sc_icnt = n;
 		ucomreadcb(addr->sc_parent->sc_ixfer, sc->sc_subdev,
 		    USBD_NORMAL_COMPLETION);
-		splx(s);
+		crit_leave();
 	}
 }
 

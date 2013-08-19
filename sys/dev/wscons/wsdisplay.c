@@ -374,7 +374,6 @@ wsdisplay_addscreen(struct wsdisplay_softc *sc, int idx,
 	int ccol, crow;
 	long defattr;
 	struct wsscreen *scr;
-	int s;
 
 	if (idx < 0 || idx >= WSDISPLAY_MAXSCREEN)
 		return (EINVAL);
@@ -399,14 +398,14 @@ wsdisplay_addscreen(struct wsdisplay_softc *sc, int idx,
 	sc->sc_scr[idx] = scr;
 
 	/* if no screen has focus yet, activate the first we get */
-	s = spltty();
+	crit_enter();
 	if (!sc->sc_focus) {
 		(*sc->sc_accessops->show_screen)(sc->sc_accesscookie,
 		    scr->scr_dconf->emulcookie, 0, 0, 0);
 		sc->sc_focusidx = idx;
 		sc->sc_focus = scr;
 	}
-	splx(s);
+	crit_leave();
 
 #ifdef HAVE_WSMOUSED_SUPPORT
 	allocate_copybuffer(sc); /* enlarge the copy buffer if necessary */
@@ -470,7 +469,6 @@ int
 wsdisplay_delscreen(struct wsdisplay_softc *sc, int idx, int flags)
 {
 	struct wsscreen *scr;
-	int s;
 	void *cookie;
 
 	if (idx < 0 || idx >= WSDISPLAY_MAXSCREEN)
@@ -491,7 +489,7 @@ wsdisplay_delscreen(struct wsdisplay_softc *sc, int idx, int flags)
 	 * delete pointers, so neither device entries
 	 * nor keyboard input can reference it anymore
 	 */
-	s = spltty();
+	crit_enter();
 	if (sc->sc_focus == scr) {
 		sc->sc_focus = 0;
 #ifdef WSDISPLAY_COMPAT_RAWKBD
@@ -499,7 +497,7 @@ wsdisplay_delscreen(struct wsdisplay_softc *sc, int idx, int flags)
 #endif
 	}
 	sc->sc_scr[idx] = 0;
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Wake up processes waiting for the screen to
@@ -909,12 +907,10 @@ wsdisplayclose(dev_t dev, int flag, int mode, struct proc *p)
 
 	if (WSSCREEN_HAS_TTY(scr)) {
 		if (scr->scr_hold_screen) {
-			int s;
-
 			/* XXX RESET KEYBOARD LEDS, etc. */
-			s = spltty();	/* avoid conflict with keyboard */
+			crit_enter();	/* avoid conflict with keyboard */
 			wsdisplay_kbdholdscr(scr, 0);
-			splx(s);
+			crit_leave();
 		}
 		tp = scr->scr_tty;
 		(*linesw[tp->t_line].l_close)(tp, flag, p);
@@ -1449,7 +1445,7 @@ wsdisplaystart(struct tty *tp)
 {
 	struct wsdisplay_softc *sc;
 	struct wsscreen *scr;
-	int s, n, done, unit;
+	int n, done, unit;
 	u_char *buf;
 
 	unit = WSDISPLAYUNIT(tp->t_dev);
@@ -1457,25 +1453,25 @@ wsdisplaystart(struct tty *tp)
 	    (sc = wsdisplay_cd.cd_devs[unit]) == NULL)
 		return;
 
-	s = spltty();
+	crit_enter();
 	if (tp->t_state & (TS_TIMEOUT | TS_BUSY | TS_TTSTOP)) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if (tp->t_outq.c_cc == 0 && tp->t_wsel.si_selpid == 0)
 		goto low;
 
 	if ((scr = sc->sc_scr[WSDISPLAYSCREEN(tp->t_dev)]) == NULL) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if (scr->scr_hold_screen) {
 		tp->t_state |= TS_TIMEOUT;
-		splx(s);
+		crit_leave();
 		return;
 	}
 	tp->t_state |= TS_BUSY;
-	splx(s);
+	crit_leave();
 
 	/*
 	 * Drain output from ring buffer.
@@ -1521,7 +1517,7 @@ wsdisplaystart(struct tty *tp)
 		}
 	}
 
-	s = spltty();
+	crit_enter();
 	tp->t_state &= ~TS_BUSY;
 	/* Come back if there's more to do */
 	if (tp->t_outq.c_cc) {
@@ -1530,19 +1526,17 @@ wsdisplaystart(struct tty *tp)
 	}
 low:
 	ttwakeupwr(tp);
-	splx(s);
+	crit_leave();
 }
 
 int
 wsdisplaystop(struct tty *tp, int flag)
 {
-	int s;
-
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_BUSY))
 		if (!ISSET(tp->t_state, TS_TTSTOP))
 			SET(tp->t_state, TS_FLUSH);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }
@@ -1643,28 +1637,28 @@ int
 wsdisplay_update_rawkbd(struct wsdisplay_softc *sc, struct wsscreen *scr)
 {
 #if NWSKBD > 0
-	int s, raw, data, error;
+	int raw, data, error;
 	struct wsevsrc *inp;
 
-	s = spltty();
+	crit_enter();
 
 	raw = (scr ? scr->scr_rawkbd : 0);
 
 	if (scr != sc->sc_focus || sc->sc_rawkbd == raw) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
 	data = raw ? WSKBD_RAW : WSKBD_TRANSLATED;
 	inp = sc->sc_input;
 	if (inp == NULL) {
-		splx(s);
+		crit_leave();
 		return (ENXIO);
 	}
 	error = wsevsrc_display_ioctl(inp, WSKBDIO_SETMODE, &data, FWRITE, 0);
 	if (!error)
 		sc->sc_rawkbd = raw;
-	splx(s);
+	crit_leave();
 	return (error);
 #else
 	return (0);
@@ -1838,7 +1832,7 @@ int
 wsdisplay_switch(struct device *dev, int no, int waitok)
 {
 	struct wsdisplay_softc *sc = (struct wsdisplay_softc *)dev;
-	int s, res = 0;
+	int res = 0;
 	struct wsscreen *scr;
 
 	if (no != WSDISPLAY_NULLSCREEN) {
@@ -1848,30 +1842,30 @@ wsdisplay_switch(struct device *dev, int no, int waitok)
 			return (ENXIO);
 	}
 
-	s = spltty();
+	crit_enter();
 
 	while (sc->sc_resumescreen != WSDISPLAY_NULLSCREEN && res == 0)
 		res = tsleep(&sc->sc_resumescreen, PCATCH, "wsrestore", 0);
 	if (res) {
-		splx(s);
+		crit_leave();
 		return (res);
 	}
 
 	if ((sc->sc_focus && no == sc->sc_focusidx) ||
 	    (sc->sc_focus == NULL && no == WSDISPLAY_NULLSCREEN)) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
 	if (ISSET(sc->sc_flags, SC_SWITCHPENDING)) {
-		splx(s);
+		crit_leave();
 		return (EBUSY);
 	}
 
 	SET(sc->sc_flags, SC_SWITCHPENDING);
 	sc->sc_screenwanted = no;
 
-	splx(s);
+	crit_leave();
 
 	scr = sc->sc_focus;
 	if (!scr) {
@@ -2038,14 +2032,14 @@ int
 wsscreen_switchwait(struct wsdisplay_softc *sc, int no)
 {
 	struct wsscreen *scr;
-	int s, res = 0;
+	int res = 0;
 
 	if (no == WSDISPLAY_NULLSCREEN) {
-		s = spltty();
+		crit_enter();
 		while (sc->sc_focus && res == 0) {
 			res = tsleep(sc, PCATCH, "wswait", 0);
 		}
-		splx(s);
+		crit_leave();
 		return (res);
 	}
 
@@ -2055,7 +2049,7 @@ wsscreen_switchwait(struct wsdisplay_softc *sc, int no)
 	if (!scr)
 		return (ENXIO);
 
-	s = spltty();
+	crit_enter();
 	if (scr != sc->sc_focus) {
 		scr->scr_flags |= SCR_WAITACTIVE;
 		res = tsleep(scr, PCATCH, "wswait2", 0);
@@ -2064,7 +2058,7 @@ wsscreen_switchwait(struct wsdisplay_softc *sc, int no)
 		else
 			scr->scr_flags &= ~SCR_WAITACTIVE;
 	}
-	splx(s);
+	crit_leave();
 	return (res);
 }
 
@@ -2233,7 +2227,7 @@ wsdisplay_suspend_device(struct device *dev)
 {
 	struct wsdisplay_softc	*sc = (struct wsdisplay_softc *)dev;
 	struct wsscreen		*scr;
-	int			 active, idx, ret = 0, s;
+	int			 active, idx, ret = 0;
 	
 	if ((active = wsdisplay_getactivescreen(sc)) == WSDISPLAY_NULLSCREEN)
 		return;
@@ -2271,9 +2265,9 @@ retry:
 	} else if (ret)
 		return;
 
-	s = spltty();
+	crit_enter();
 	sc->sc_resumescreen = active; /* block other vt switches until resume */
-	splx(s);
+	crit_leave();
 	/*
 	 * This will either return ENXIO (invalid (shouldn't happen) or
 	 * wsdisplay disappeared (problem solved)), or EINTR/ERESTART.
@@ -2297,14 +2291,14 @@ void
 wsdisplay_resume_device(struct device *dev)
 {
 	struct wsdisplay_softc	*sc = (struct wsdisplay_softc *)dev;
-	int			 idx, s;
+	int			 idx;
 
 	if (sc->sc_resumescreen != WSDISPLAY_NULLSCREEN) {
-		s = spltty();
+		crit_enter();
 		idx = sc->sc_resumescreen;
 		sc->sc_resumescreen = WSDISPLAY_NULLSCREEN;
 		wakeup(&sc->sc_resumescreen);
-		splx(s);
+		crit_leave();
 		(void)wsdisplay_switch((struct device *)sc, idx, 1);
 	}
 }
@@ -2354,19 +2348,18 @@ void
 wsdisplay_burner(void *v)
 {
 	struct wsdisplay_softc *sc = v;
-	int s;
 
 	if (sc->sc_accessops->burn_screen) {
 		(*sc->sc_accessops->burn_screen)(sc->sc_accesscookie,
 		    sc->sc_burnman, sc->sc_burnflags);
-		s = spltty();
+		crit_enter();
 		if (sc->sc_burnman) {
 			sc->sc_burnout = sc->sc_burnoutintvl;
 			timeout_add(&sc->sc_burner, sc->sc_burnout);
 		} else
 			sc->sc_burnout = sc->sc_burninintvl;
 		sc->sc_burnman = !sc->sc_burnman;
-		splx(s);
+		crit_leave();
 	}
 }
 #endif
@@ -3344,12 +3337,12 @@ void
 allocate_copybuffer(struct wsdisplay_softc *sc)
 {
 	int nscreens = sc->sc_scrdata->nscreens;
-	int i, s;
+	int i;
 	const struct wsscreen_descr **screens_list = sc->sc_scrdata->screens;
 	const struct wsscreen_descr *current;
 	u_int size = sc->sc_copybuffer_size;
 
-	s = spltty();
+	crit_enter();
 	for (i = 0; i < nscreens; i++) {
 		current = *screens_list;
 		if ((current->ncols + 1) * current->nrows > size)
@@ -3367,7 +3360,7 @@ allocate_copybuffer(struct wsdisplay_softc *sc)
 		size = 0;
 	}
 	sc->sc_copybuffer_size = size;
-	splx(s);
+	crit_leave();
 }
 
 /* Remove selection and cursor on current screen */

@@ -327,7 +327,6 @@ acpiec_gpehandler(struct acpi_softc *acpi_sc, int gpe, void *arg)
 {
 	struct acpiec_softc	*sc = arg;
 	u_int8_t		mask, stat, en;
-	int			s;
 
 	KASSERT(sc->sc_ecbusy == 0);
 	dnprintf(10, "ACPIEC: got gpe\n");
@@ -348,11 +347,11 @@ acpiec_gpehandler(struct acpi_softc *acpi_sc, int gpe, void *arg)
 	} while (sc->sc_gotsci);
 
 	/* Unmask the GPE which was blocked at interrupt time */
-	s = spltty();
+	crit_enter();
 	mask = (1L << (gpe & 7));
 	en = acpi_read_pmreg(acpi_sc, ACPIREG_GPE_EN, gpe>>3);
 	acpi_write_pmreg(acpi_sc, ACPIREG_GPE_EN, gpe>>3, en | mask);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

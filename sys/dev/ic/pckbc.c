@@ -558,8 +558,6 @@ pckbc_set_poll(pckbc_tag_t self, pckbc_slot_t slot, int on)
 	t->t_slotdata[slot]->polling = on;
 
 	if (!on) {
-                int s;
-
                 /*
                  * If disabling polling on a device that's been configured,
                  * make sure there are no bytes left in the FIFO, holding up
@@ -567,9 +565,9 @@ pckbc_set_poll(pckbc_tag_t self, pckbc_slot_t slot, int on)
                  * interrupts.
                  */
 		if (t->t_sc) {
-			s = spltty();
+			crit_enter();
 			pckbcintr_internal(t, t->t_sc);
-			splx(s);
+			crit_leave();
 		}
 	}
 }
@@ -712,11 +710,10 @@ void
 pckbc_cleanup(void *self)
 {
 	struct pckbc_internal *t = self;
-	int s;
 
 	printf("pckbc: command timeout\n");
 
-	s = spltty();
+	crit_enter();
 
 	pckbc_cleanqueues(t);
 
@@ -727,7 +724,7 @@ pckbc_cleanup(void *self)
 
 	/* reset KBC? */
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -868,16 +865,16 @@ pckbc_enqueue_cmd(pckbc_tag_t self, pckbc_slot_t slot, u_char *cmd, int len,
 	struct pckbc_internal *t = self;
 	struct pckbc_slotdata *q = t->t_slotdata[slot];
 	struct pckbc_devcmd *nc;
-	int s, isactive, res = 0;
+	int isactive, res = 0;
 
 	if ((len > 4) || (responselen > 4))
 		return (EINVAL);
-	s = spltty();
+	crit_enter();
 	nc = TAILQ_FIRST(&q->freequeue);
 	if (nc) {
 		TAILQ_REMOVE(&q->freequeue, nc, next);
 	}
-	splx(s);
+	crit_leave();
 	if (!nc)
 		return (ENOMEM);
 
@@ -887,7 +884,7 @@ pckbc_enqueue_cmd(pckbc_tag_t self, pckbc_slot_t slot, u_char *cmd, int len,
 	nc->responselen = responselen;
 	nc->flags = (sync ? KBC_CMDFLAG_SYNC : 0);
 
-	s = spltty();
+	crit_enter();
 
 	if (q->polling && sync) {
 		/*
@@ -922,7 +919,7 @@ pckbc_enqueue_cmd(pckbc_tag_t self, pckbc_slot_t slot, u_char *cmd, int len,
 		TAILQ_INSERT_TAIL(&q->freequeue, nc, next);
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (res);
 }
@@ -951,12 +948,11 @@ void
 pckbc_poll(void *v)
 {
 	struct pckbc_internal *t = v;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	(void)pckbcintr_internal(t, t->t_sc);
 	timeout_add_sec(&t->t_poll, 1);
-	splx(s);
+	crit_leave();
 }
 
 int

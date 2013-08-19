@@ -190,9 +190,9 @@ pcppi_bell(self, pitch, period, slp)
 	int slp;
 {
 	struct pcppi_softc *sc = self;
-	int s1, s2;
+	int s;
 
-	s1 = spltty(); /* ??? */
+	crit_enter();; /* ??? */
 	if (sc->sc_bellactive) {
 		if (sc->sc_timeout) {
 			sc->sc_timeout = 0;
@@ -204,18 +204,18 @@ pcppi_bell(self, pitch, period, slp)
 	if (pitch == 0 || period == 0) {
 		pcppi_bell_stop(sc);
 		sc->sc_bellpitch = 0;
-		splx(s1);
+		crit_leave();
 		return;
 	}
 	if (!sc->sc_bellactive || sc->sc_bellpitch != pitch) {
-		s2 = splhigh();
+		s = splhigh();
 		bus_space_write_1(sc->sc_iot, sc->sc_pit1_ioh, TIMER_MODE,
 		    TIMER_SEL2 | TIMER_16BIT | TIMER_SQWAVE);
 		bus_space_write_1(sc->sc_iot, sc->sc_pit1_ioh, TIMER_CNTR2,
 		    TIMER_DIV(pitch) % 256);
 		bus_space_write_1(sc->sc_iot, sc->sc_pit1_ioh, TIMER_CNTR2,
 		    TIMER_DIV(pitch) / 256);
-		splx(s2);
+		splx(s);
 		/* enable speaker */
 		bus_space_write_1(sc->sc_iot, sc->sc_ppi_ioh, 0,
 			bus_space_read_1(sc->sc_iot, sc->sc_ppi_ioh, 0)
@@ -237,7 +237,7 @@ pcppi_bell(self, pitch, period, slp)
 			sc->sc_slp = 0;
 		}
 	}
-	splx(s1);
+	crit_leave();
 }
 
 static void
@@ -245,9 +245,8 @@ pcppi_bell_stop(arg)
 	void *arg;
 {
 	struct pcppi_softc *sc = arg;
-	int s;
 
-	s = spltty(); /* ??? */
+	crit_enter();; /* ??? */
 	sc->sc_timeout = 0;
 
 	/* disable bell */
@@ -257,7 +256,7 @@ pcppi_bell_stop(arg)
 	sc->sc_bellactive = 0;
 	if (sc->sc_slp)
 		wakeup(pcppi_bell_stop);
-	splx(s);
+	crit_leave();;
 }
 
 #if NPCKBD > 0 || NHIDKBD > 0

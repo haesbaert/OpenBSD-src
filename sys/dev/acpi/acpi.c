@@ -636,7 +636,6 @@ acpi_attach(struct device *parent, struct device *self, void *aux)
 	struct device *dev;
 	struct acpi_ac *ac;
 	struct acpi_bat *bat;
-	int s;
 #endif /* SMALL_KERNEL */
 	paddr_t facspa;
 
@@ -761,9 +760,9 @@ acpi_attach(struct device *parent, struct device *self, void *aux)
 
 #ifndef SMALL_KERNEL
 	/* Initialize GPE handlers */
-	s = spltty();
+	crit_enter();
 	acpi_init_gpes(sc);
-	splx(s);
+	crit_leave();
 
 	/* some devices require periodic polling */
 	timeout_set(&sc->sc_dev_timeout, acpi_poll, sc);
@@ -1309,7 +1308,6 @@ acpi_addtask(struct acpi_softc *sc, void (*handler)(void *, int),
     void *arg0, int arg1)
 {
 	struct acpi_taskq *wq;
-	int s;
 
 	wq = malloc(sizeof(*wq), M_DEVBUF, M_ZERO | M_NOWAIT);
 	if (wq == NULL)
@@ -1318,27 +1316,26 @@ acpi_addtask(struct acpi_softc *sc, void (*handler)(void *, int),
 	wq->arg0 = arg0;
 	wq->arg1 = arg1;
 	
-	s = spltty();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&acpi_taskq, wq, next);
-	splx(s);
+	crit_leave();
 }
 
 int
 acpi_dotask(struct acpi_softc *sc)
 {
 	struct acpi_taskq *wq;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (SIMPLEQ_EMPTY(&acpi_taskq)) {
-		splx(s);
+		crit_leave();
 
 		/* we don't have anything to do */
 		return (0);
 	}
 	wq = SIMPLEQ_FIRST(&acpi_taskq);
 	SIMPLEQ_REMOVE_HEAD(&acpi_taskq, next);
-	splx(s);
+	crit_leave();
 
 	wq->handler(wq->arg0, wq->arg1);
 
@@ -1513,16 +1510,15 @@ acpi_pbtn_task(void *arg0, int dummy)
 {
 	struct acpi_softc *sc = arg0;
 	uint16_t en;
-	int s;
 
 	dnprintf(1,"power button pressed\n");
 
 	/* Reset the latch and re-enable the GPE */
-	s = spltty();
+	crit_enter();
 	en = acpi_read_pmreg(sc, ACPIREG_PM1_EN, 0);
 	acpi_write_pmreg(sc, ACPIREG_PM1_EN,  0,
 	    en | ACPI_PM1_PWRBTN_EN);
-	splx(s);
+	crit_leave();
 
 	acpi_addtask(sc, acpi_powerdown_task, sc, 0);
 }
@@ -1532,17 +1528,16 @@ acpi_sbtn_task(void *arg0, int dummy)
 {
 	struct acpi_softc *sc = arg0;
 	uint16_t en;
-	int s;
 
 	dnprintf(1,"sleep button pressed\n");
 	aml_notify_dev(ACPI_DEV_SBD, 0x80);
 
 	/* Reset the latch and re-enable the GPE */
-	s = spltty();
+	crit_enter();
 	en = acpi_read_pmreg(sc, ACPIREG_PM1_EN, 0);
 	acpi_write_pmreg(sc, ACPIREG_PM1_EN,  0,
 	    en | ACPI_PM1_SLPBTN_EN);
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -2159,7 +2154,6 @@ acpi_thread(void *arg)
 	struct acpi_thread *thread = arg;
 	struct acpi_softc  *sc = thread->sc;
 	extern int aml_busy;
-	int s;
 
 	/* AML/SMI cannot be trusted -- only run on the BSP */
 	sched_peg_curproc(&cpu_info_primary);
@@ -2181,7 +2175,7 @@ acpi_thread(void *arg)
 		sc->sc_threadwaiting = 1;
 
 		/* Enable Sleep/Power buttons if they exist */
-		s = spltty();
+		crit_enter();
 		en = acpi_read_pmreg(sc, ACPIREG_PM1_EN, 0);
 		if (!(sc->sc_fadt->flags & FADT_PWR_BUTTON))
 			en |= ACPI_PM1_PWRBTN_EN;
@@ -2191,11 +2185,11 @@ acpi_thread(void *arg)
 
 		/* Enable handled GPEs here */
 		acpi_enable_rungpes(sc);
-		splx(s);
+		crit_leave();
 	}
 
 	while (thread->running) {
-		s = spltty();
+		crit_enter();
 		while (sc->sc_threadwaiting) {
 			dnprintf(10, "acpi going to sleep...\n");
 			rw_exit_write(&sc->sc_lck);
@@ -2203,7 +2197,7 @@ acpi_thread(void *arg)
 			rw_enter_write(&sc->sc_lck);
 		}
 		sc->sc_threadwaiting = 1;
-		splx(s);
+		crit_leave();
 		if (aml_busy) {
 			panic("thread woke up to find aml was busy");
 			continue;
@@ -2425,13 +2419,12 @@ acpiopen(dev_t dev, int flag, int mode, struct proc *p)
 {
 	int error = 0;
 	struct acpi_softc *sc;
-	int s;
 
 	if (!acpi_cd.cd_ndevs || APMUNIT(dev) != 0 ||
 	    !(sc = acpi_cd.cd_devs[APMUNIT(dev)]))
 		return (ENXIO);
 
-	s = spltty();
+	crit_enter();
 	switch (APMDEV(dev)) {
 	case APMDEV_CTL:
 		if (!(flag & FWRITE)) {
@@ -2455,7 +2448,7 @@ acpiopen(dev_t dev, int flag, int mode, struct proc *p)
 		error = ENXIO;
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2464,13 +2457,12 @@ acpiclose(dev_t dev, int flag, int mode, struct proc *p)
 {
 	int error = 0;
 	struct acpi_softc *sc;
-	int s;
 
 	if (!acpi_cd.cd_ndevs || APMUNIT(dev) != 0 ||
 	    !(sc = acpi_cd.cd_devs[APMUNIT(dev)]))
 		return (ENXIO);
 
-	s = spltty();
+	crit_enter();
 	switch (APMDEV(dev)) {
 	case APMDEV_CTL:
 		sc->sc_flags &= ~SCFLAG_OWRITE;
@@ -2482,7 +2474,7 @@ acpiclose(dev_t dev, int flag, int mode, struct proc *p)
 		error = ENXIO;
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2496,13 +2488,12 @@ acpiioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 	struct apm_power_info *pi = (struct apm_power_info *)data;
 	int bats;
 	unsigned int remaining, rem, minutes, rate;
-	int s;
 
 	if (!acpi_cd.cd_ndevs || APMUNIT(dev) != 0 ||
 	    !(sc = acpi_cd.cd_devs[APMUNIT(dev)]))
 		return (ENXIO);
 
-	s = spltty();
+	crit_enter();
 	/* fake APM */
 	switch (cmd) {
 	case APM_IOC_SUSPEND:
@@ -2598,7 +2589,7 @@ acpiioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 		error = ENOTTY;
 	}
 
-	splx(s);
+	crit_leave();
 	return (error);
 }
 
@@ -2626,11 +2617,10 @@ void
 acpi_filtdetach(struct knote *kn)
 {
 	struct acpi_softc *sc = kn->kn_hook;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	SLIST_REMOVE(sc->sc_note, kn, knote, kn_selnext);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -2646,7 +2636,6 @@ int
 acpikqfilter(dev_t dev, struct knote *kn)
 {
 	struct acpi_softc *sc;
-	int s;
 
 	if (!acpi_cd.cd_ndevs || APMUNIT(dev) != 0 ||
 	    !(sc = acpi_cd.cd_devs[APMUNIT(dev)]))
@@ -2662,9 +2651,9 @@ acpikqfilter(dev_t dev, struct knote *kn)
 
 	kn->kn_hook = sc;
 
-	s = spltty();
+	crit_enter();
 	SLIST_INSERT_HEAD(sc->sc_note, kn, kn_selnext);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

@@ -42,6 +42,7 @@
 #include <sys/device.h>
 #include <sys/ioctl.h>
 #include <sys/malloc.h>
+#include <sys/proc.h>
 
 #include <dev/usb/usb.h>
 #include <dev/usb/usbhid.h>
@@ -316,7 +317,6 @@ void
 hidkbd_decode(struct hidkbd *kbd, struct hidkbd_data *ud)
 {
 	u_int16_t ibuf[MAXKEYS];	/* chars events */
-	int s;
 	int nkeys, i, j;
 	int key;
 #define ADDKEY(c) ibuf[nkeys++] = (c)
@@ -423,7 +423,7 @@ hidkbd_decode(struct hidkbd *kbd, struct hidkbd_data *ud)
 				    cbuf[j]));
 			j++;
 		}
-		s = spltty();
+		crit_enter();
 		wskbd_rawinput(kbd->sc_wskbddev, cbuf, j);
 
 		/*
@@ -441,20 +441,20 @@ hidkbd_decode(struct hidkbd *kbd, struct hidkbd_data *ud)
 				break;
 			}
 		}
-		splx(s);
+		crit_leave();
 
 		return;
 	}
 #endif
 
-	s = spltty();
+	crit_enter();
 	for (i = 0; i < nkeys; i++) {
 		key = ibuf[i];
 		wskbd_input(kbd->sc_wskbddev,
 		    key&RELEASE ? WSCONS_EVENT_KEY_UP : WSCONS_EVENT_KEY_DOWN,
 		    key&CODEMASK);
 	}
-	splx(s);
+	crit_leave();
 #undef	ADDKEY
 }
 

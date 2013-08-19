@@ -90,8 +90,6 @@ struct wseventvar {
 	struct wscons_event *q;	/* circular buffer (queue) of events */
 };
 
-#define	splwsevent()	spltty()
-
 #define	WSEVENT_WAKEUP(ev) { \
 	selwakeup(&(ev)->sel); \
 	if ((ev)->wanted) { \

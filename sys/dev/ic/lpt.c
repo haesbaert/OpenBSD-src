@@ -250,11 +250,10 @@ void
 lptwakeup(void *arg)
 {
 	struct lpt_softc *sc = arg;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	lptintr(sc);
-	splx(s);
+	crit_leave();
 
 	if (sc->sc_state != 0)
 		timeout_add(&sc->sc_wakeup_tmo, STEP);
@@ -333,16 +332,14 @@ lptpushbytes(struct lpt_softc *sc)
 				sc->sc_spinmax--;
 		}
 	} else {
-		int s;
-
 		while (sc->sc_count > 0) {
 			/* if the printer is ready for a char, give it one */
 			if ((sc->sc_state & LPT_OBUSY) == 0) {
 				LPRINTF(("%s: write %d\n", sc->sc_dev.dv_xname,
 				    sc->sc_count));
-				s = spltty();
+				crit_enter();
 				(void) lptintr(sc);
-				splx(s);
+				crit_leave();
 			}
 			if (sc->sc_state == 0)
 				return (EIO);

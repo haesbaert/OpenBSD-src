@@ -65,6 +65,7 @@
 #include <sys/device.h>
 #include <sys/malloc.h>
 #include <sys/queue.h>
+#include <sys/proc.h>
 #include <machine/bus.h>
 
 #include <dev/ic/mc6845reg.h>
@@ -763,7 +764,6 @@ vga_doswitch(struct vga_config *vc)
 	struct vgascreen *scr, *oldscr;
 	struct vga_handle *vh = &vc->hdl;
 	const struct wsscreen_descr *type;
-	int s;
 
 	scr = vc->wantedscreen;
 	if (!scr) {
@@ -776,7 +776,7 @@ vga_doswitch(struct vga_config *vc)
 	oldscr = vc->active; /* can be NULL! */
 	if (scr == oldscr)
 		return;
-	s = spltty();
+	crit_enter();
 #ifdef DIAGNOSTIC
 	if (oldscr) {
 		if (!oldscr->pcs.active)
@@ -817,7 +817,7 @@ vga_doswitch(struct vga_config *vc)
 				scr->pcs.dispoffset, scr->pcs.mem,
 				type->ncols * type->nrows);
 	scr->pcs.active = 1;
-	splx(s);
+	crit_leave();
 
 	vc->active = scr;
 
@@ -1024,12 +1024,11 @@ vga_copyrows(void *id, int srcrow, int dstrow, int nrows)
 	bus_space_handle_t memh = scr->pcs.hdl->ph_memh;
 	int ncols = scr->pcs.type->ncols;
 	bus_size_t srcoff, dstoff;
-	int s;
 
 	srcoff = srcrow * ncols + 0;
 	dstoff = dstrow * ncols + 0;
 
-	s = spltty();
+	crit_enter();
 	if (scr->pcs.active) {
 		if (dstrow == 0 && (srcrow + nrows == scr->pcs.type->nrows)) {
 #ifdef PCDISPLAY_SOFTCURSOR
@@ -1072,7 +1071,7 @@ vga_copyrows(void *id, int srcrow, int dstrow, int nrows)
 	} else
 		bcopy(&scr->pcs.mem[srcoff], &scr->pcs.mem[dstoff],
 		      nrows * ncols * 2);
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -1133,13 +1132,12 @@ vga_putchar(void *c, int row, int col, u_int uc, long attr)
 {
 	struct vgascreen *scr = c;
 	int rc;
-	int s;
 	
-	s = spltty();
+	crit_enter();
 	if (scr->pcs.active && scr->pcs.visibleoffset != scr->pcs.dispoffset)
 		vga_scrollback(scr->cfg, scr, 0);
 	rc = pcdisplay_putchar(c, row, col, uc, attr);
-	splx(s);
+	crit_leave();
 
 	return rc;
 }

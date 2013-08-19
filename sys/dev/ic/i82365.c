@@ -672,13 +672,13 @@ pcic_poll_intr(arg)
 	void *arg;
 {
 	struct pcic_softc *sc = arg;
-	int i, s;
+	int i;
 
 	/*
 	 * Since we're polling, we aren't in interrupt context, so block any
 	 * actual interrupts coming from the pcic.
 	 */
-	s = spltty();
+	crit_enter();
 
 	for (i = 0; i < PCIC_NSLOTS; i++)
 		if (sc->handle[i].flags & PCIC_FLAG_SOCKETP)
@@ -686,7 +686,7 @@ pcic_poll_intr(arg)
 
 	timeout_add_msec(&sc->poll_timeout, 500);
 
-	splx(s);
+	crit_leave();
 }
 
 int

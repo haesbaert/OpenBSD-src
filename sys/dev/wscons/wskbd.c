@@ -96,6 +96,7 @@
 #include <sys/vnode.h>
 #include <sys/poll.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <ddb/db_var.h>
 
@@ -497,14 +498,14 @@ void
 wskbd_repeat(void *v)
 {
 	struct wskbd_softc *sc = (struct wskbd_softc *)v;
-	int s = spltty();
+	crit_enter();
 
 	if (sc->sc_repeating == 0) {
 		/*
 		 * race condition: a "key up" event came in when wskbd_repeat()
 		 * was already called but not yet spltty()'d
 		 */
-		splx(s);
+		crit_leave();
 		return;
 	}
 	if (sc->sc_translating) {
@@ -520,7 +521,7 @@ wskbd_repeat(void *v)
 	}
 	if (sc->sc_keyrepeat_data.delN != 0)
 		timeout_add_msec(&sc->sc_repeat_ch, sc->sc_keyrepeat_data.delN);
-	splx(s);
+	crit_leave();
 }
 #endif
 
@@ -548,7 +549,6 @@ wskbd_detach(struct device  *self, int flags)
 	struct wskbd_softc *sc = (struct wskbd_softc *)self;
 	struct wseventvar *evar;
 	int maj, mn;
-	int s;
 
 #if NWSMUX > 0
 	/* Tell parent mux we're leaving. */
@@ -570,7 +570,7 @@ wskbd_detach(struct device  *self, int flags)
 
 	evar = sc->sc_base.me_evp;
 	if (evar != NULL && evar->io != NULL) {
-		s = spltty();
+		crit_enter();
 		if (--sc->sc_refcnt >= 0) {
 			/* Wake everyone by generating a dummy event. */
 			if (++evar->put >= WSEVENT_QSIZE)
@@ -581,7 +581,7 @@ wskbd_detach(struct device  *self, int flags)
 				printf("wskbd_detach: %s didn't detach\n",
 				       sc->sc_base.me_dv.dv_xname);
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	/* locate the major number */
@@ -1122,7 +1122,7 @@ getkeyrepeat:
 					   flag, p);
 #ifdef WSDISPLAY_COMPAT_RAWKBD
 	if (!error && cmd == WSKBDIO_SETMODE && *(int *)data == WSKBD_RAW) {
-		int s = spltty();
+		crit_enter();
 		sc->id->t_modifiers &= ~(MOD_SHIFT_L | MOD_SHIFT_R
 					 | MOD_CONTROL_L | MOD_CONTROL_R
 					 | MOD_META_L | MOD_META_R
@@ -1134,7 +1134,7 @@ getkeyrepeat:
 			timeout_del(&sc->sc_repeat_ch);
 		}
 #endif
-		splx(s);
+		crit_leave();
 	}
 #endif
 	return (error);

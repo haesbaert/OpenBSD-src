@@ -279,7 +279,7 @@ cyopen(dev, flag, mode, p)
 	struct cy_softc *sc;
 	struct cy_port *cy;
 	struct tty *tp;
-	int s, error;
+	int error;
 
 	if (card >= cy_cd.cd_ndevs ||
 	    (sc = cy_cd.cd_devs[card]) == NULL) {
@@ -293,11 +293,11 @@ cyopen(dev, flag, mode, p)
 
 	cy = &sc->sc_ports[port];
 
-	s = spltty();
+	crit_enter();
 	if (cy->cy_tty == NULL) {
 		cy->cy_tty = ttymalloc(0);
 	}
-	splx(s);
+	crit_leave();
 
 	tp = cy->cy_tty;
 	tp->t_oproc = cystart;
@@ -319,7 +319,7 @@ cyopen(dev, flag, mode, p)
 		tp->t_lflag = TTYDEF_LFLAG;
 		tp->t_ispeed = tp->t_ospeed = TTYDEF_SPEED;
 
-		s = spltty();
+		crit_enter();
 
 		/*
 		 * Allocate input ring buffer if we don't already have one
@@ -329,7 +329,7 @@ cyopen(dev, flag, mode, p)
 			if (cy->cy_ibuf == NULL) {
 				printf("%s: (port %d) can't allocate input buffer\n",
 				       sc->sc_dev.dv_xname, port);
-				splx(s);
+				crit_leave();
 				return (ENOMEM);
 			}
 			cy->cy_ibuf_end = cy->cy_ibuf + IBUF_SIZE;
@@ -375,7 +375,7 @@ cyopen(dev, flag, mode, p)
 	} else if (ISSET(tp->t_state, TS_XCLUDE) && suser(p, 0) != 0) {
 		return (EBUSY);
 	} else {
-		s = spltty();
+		crit_enter();
 	}
 
 	/* wait for carrier if necessary */
@@ -386,14 +386,14 @@ cyopen(dev, flag, mode, p)
 			error = ttysleep(tp, &tp->t_rawq, TTIPRI | PCATCH,
 			    "cydcd", 0);
 			if (error != 0) {
-				splx(s);
+				crit_leave();
 				CLR(tp->t_state, TS_WOPEN);
 				return (error);
 			}
 		}
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (*linesw[tp->t_line].l_open)(dev, tp, p);
 }
@@ -412,7 +412,6 @@ cyclose(dev, flag, mode, p)
 	struct cy_softc *sc = cy_cd.cd_devs[card];
 	struct cy_port *cy = &sc->sc_ports[port];
 	struct tty *tp = cy->cy_tty;
-	int s;
 
 #ifdef CY_DEBUG
 	printf("%s close port %d, flag 0x%x, mode 0x%x\n", sc->sc_dev.dv_xname,
@@ -420,7 +419,7 @@ cyclose(dev, flag, mode, p)
 #endif
 
 	(*linesw[tp->t_line].l_close)(tp, flag, p);
-	s = spltty();
+	crit_enter();
 
 	if (ISSET(tp->t_cflag, HUPCL) &&
 	    !ISSET(cy->cy_openflags, TIOCFLAG_SOFTCAR)) {
@@ -435,7 +434,7 @@ cyclose(dev, flag, mode, p)
 	 */
 	CLR(tp->t_state, TS_BUSY | TS_FLUSH);
 
-	splx(s);
+	crit_leave();
 	ttyclose(tp);
 
 	return (0);
@@ -604,13 +603,12 @@ cystart(tp)
 	int port = CY_PORT(tp->t_dev);
 	struct cy_softc *sc = cy_cd.cd_devs[card];
 	struct cy_port *cy = &sc->sc_ports[port];
-	int s;
 
 #ifdef CY_DEBUG
 	printf("%s port %d start, tty 0x%x\n", sc->sc_dev.dv_xname, port, tp);
 #endif
 
-	s = spltty();
+	crit_enter();
 
 #ifdef CY_DEBUG1
 	cy->cy_start_count++;
@@ -626,7 +624,7 @@ cystart(tp)
 	}
 out:
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -641,14 +639,13 @@ cystop(tp, flag)
 	int port = CY_PORT(tp->t_dev);
 	struct cy_softc *sc = cy_cd.cd_devs[card];
 	struct cy_port *cy = &sc->sc_ports[port];
-	int s;
 
 #ifdef CY_DEBUG
 	printf("%s port %d stop tty 0x%x flag 0x%x\n", sc->sc_dev.dv_xname,
 	    port, tp, flag);
 #endif
 
-	s = spltty();
+	crit_enter();
 
 	if (ISSET(tp->t_state, TS_BUSY)) {
 		if (!ISSET(tp->t_state, TS_TTSTOP))
@@ -660,7 +657,7 @@ cystop(tp, flag)
 		 */
 		SET(cy->cy_flags, CYF_STOP);
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -678,7 +675,7 @@ cyparam(tp, t)
 	struct cy_softc *sc = cy_cd.cd_devs[card];
 	struct cy_port *cy = &sc->sc_ports[port];
 	int ibpr, obpr, i_clk_opt, o_clk_opt;
-	int s, opt;
+	int opt;
 
 #ifdef CY_DEBUG
 	printf("%s port %d param tty 0x%x termios 0x%x\n", sc->sc_dev.dv_xname,
@@ -694,7 +691,7 @@ cyparam(tp, t)
 	    cy_speed(t->c_ispeed, &i_clk_opt, &ibpr, cy->cy_clock) < 0)
 		return (EINVAL);
 
-	s = spltty();
+	crit_enter();
 
 	/* hang up the line is ospeed is zero, else turn DTR on */
 	cy_modem_control(cy, TIOCM_DTR, (t->c_ospeed == 0 ? DMBIC : DMBIS));
@@ -806,7 +803,7 @@ cyparam(tp, t)
 	 * XXX check MDMBUF handshaking like in com.c?
 	 */
 
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -824,9 +821,9 @@ cy_modem_control(cy, bits, howto)
 	int bits;
 	int howto;
 {
-	int s, msvr;
+	int msvr;
 
-	s = spltty();
+	crit_enter();
 
 	/* select channel */
 	cd_write_reg(cy, CD1400_CAR, cy->cy_port_num & CD1400_CAR_CHAN);
@@ -859,7 +856,7 @@ cy_modem_control(cy, bits, howto)
 		if (msvr & CD1400_MSVR2_RI)	/* not connected on
 						   Cyclom-8Y cards? */
 			bits |= TIOCM_RI;
-		splx(s);
+		crit_leave();
 		return (bits);
 
 	case DMSET: /* replace old values with new ones */
@@ -910,7 +907,7 @@ cy_modem_control(cy, bits, howto)
 #endif /* CY_HW_RTS */
 		break;
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -930,17 +927,15 @@ cy_poll(void *arg)
 	int did_something;
 #endif
 
-	int s;
-
-	s = spltty();
+	crit_enter();
 
 	if (sc->sc_events == 0 && ++counter < 200) {
-		splx(s);
+		crit_leave();
 		goto out;
 	}
 
 	sc->sc_events = 0;
-	splx(s);
+	crit_leave();
 
 #ifdef CY_DEBUG1
 	sc->sc_poll_count1++;
@@ -981,11 +976,11 @@ cy_poll(void *arg)
 
 			(*linesw[tp->t_line].l_rint)(chr, tp);
 
-			s = spltty(); /* really necessary? */
+			crit_enter(); /* really necessary? */
 			if ((cy->cy_ibuf_rd_ptr += 2) ==
 			    cy->cy_ibuf_end)
 				cy->cy_ibuf_rd_ptr = cy->cy_ibuf;
-			splx(s);
+			crit_leave();
 
 #ifdef CY_DEBUG1
 			did_something = 1;
@@ -1018,12 +1013,12 @@ cy_poll(void *arg)
 		/*
 		 * handle carrier changes
 		 */
-		s = spltty();
+		crit_enter();
 		if (ISSET(cy->cy_flags, CYF_CARRIER_CHANGED)) {
 			int carrier;
 
 			CLR(cy->cy_flags, CYF_CARRIER_CHANGED);
-			splx(s);
+			crit_leave();
 
 			carrier = ((cy->cy_carrier_stat &
 			    CD1400_MSVR2_CD) != 0);
@@ -1041,13 +1036,13 @@ cy_poll(void *arg)
 			did_something = 1;
 #endif
 		} else {
-			splx(s);
+			crit_leave();
 		}
 
-		s = spltty();
+		crit_enter();
 		if (ISSET(cy->cy_flags, CYF_START)) {
 			CLR(cy->cy_flags, CYF_START);
-			splx(s);
+			crit_leave();
 
 			(*linesw[tp->t_line].l_start)(tp);
 
@@ -1055,7 +1050,7 @@ cy_poll(void *arg)
 			did_something = 1;
 #endif
 		} else {
-			splx(s);
+			crit_leave();
 		}
 
 		/* could move this to even upper level... */
@@ -1355,12 +1350,11 @@ void
 cy_enable_transmitter(cy)
 	struct cy_port *cy;
 {
-	int s;
-	s = spltty();
+	crit_enter();
 	cd_write_reg(cy, CD1400_CAR, cy->cy_port_num & CD1400_CAR_CHAN);
 	cd_write_reg(cy, CD1400_SRER, cd_read_reg(cy, CD1400_SRER)
 	    | CD1400_SRER_TXRDY);
-	splx(s);
+	crit_leave();
 }
 
 /*

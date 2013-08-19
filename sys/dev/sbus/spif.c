@@ -334,7 +334,6 @@ sttyopen(dev, flags, mode, p)
 	struct tty *tp;
 	int card = SPIF_CARD(dev);
 	int port = SPIF_PORT(dev);
-	int s;
 
 	if (card >= stty_cd.cd_ndevs || card >= spif_cd.cd_ndevs)
 		return (ENXIO);
@@ -369,7 +368,7 @@ sttyopen(dev, flags, mode, p)
 
 		sp->sp_rput = sp->sp_rget = sp->sp_rbuf;
 
-		s = spltty();
+		crit_enter();
 
 		STC_WRITE(csc, STC_CAR, sp->sp_channel);
 		stty_write_ccr(csc, CD180_CCR_CMD_RESET|CD180_CCR_RESETCHAN);
@@ -389,7 +388,7 @@ sttyopen(dev, flags, mode, p)
 	else if (ISSET(tp->t_state, TS_XCLUDE) && suser(p, 0) != 0) {
 		return (EBUSY);
 	} else {
-		s = spltty();
+		crit_enter();
 	}
 
 	if (!ISSET(flags, O_NONBLOCK)) {
@@ -401,14 +400,14 @@ sttyopen(dev, flags, mode, p)
 			error = ttysleep(tp, &tp->t_rawq, TTIPRI | PCATCH,
 			    "sttycd", 0);
 			if (error != 0) {
-				splx(s);
+				crit_leave();
 				CLR(tp->t_state, TS_WOPEN);
 				return (error);
 			}
 		}
 	}
 
-	splx(s);
+	crit_leave();
 
 	return ((*linesw[tp->t_line].l_open)(dev, tp, p));
 }
@@ -425,10 +424,9 @@ sttyclose(dev, flags, mode, p)
 	struct spif_softc *csc = sp->sp_sc;
 	struct tty *tp = sp->sp_tty;
 	int port = SPIF_PORT(dev);
-	int s;
 
 	(*linesw[tp->t_line].l_close)(tp, flags, p);
-	s = spltty();
+	crit_enter();
 
 	if (ISSET(tp->t_cflag, HUPCL) || !ISSET(tp->t_state, TS_ISOPEN)) {
 		stty_modem_control(sp, 0, DMSET);
@@ -437,7 +435,7 @@ sttyclose(dev, flags, mode, p)
 		    CD180_CCR_CMD_RESET|CD180_CCR_RESETCHAN);
 	}
 
-	splx(s);
+	crit_leave();
 	ttyclose(tp);
 	return (0);
 }
@@ -522,9 +520,9 @@ stty_modem_control(sp, bits, how)
 {
 	struct spif_softc *csc = sp->sp_sc;
 	struct tty *tp = sp->sp_tty;
-	int s, msvr;
+	int msvr;
 
-	s = spltty();
+	crit_enter();
 	STC_WRITE(csc, STC_CAR, sp->sp_channel);
 
 	switch (how) {
@@ -567,7 +565,7 @@ stty_modem_control(sp, bits, how)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 	return (bits);
 }
 
@@ -580,7 +578,7 @@ stty_param(tp, t)
 	struct stty_port *sp = &st->sc_port[SPIF_PORT(tp->t_dev)];
 	struct spif_softc *sc = sp->sp_sc;
 	u_int8_t rbprl, rbprh, tbprl, tbprh;
-	int s, opt;
+	int opt;
 
 	if (t->c_ospeed &&
 	    stty_compute_baud(t->c_ospeed, sc->sc_osc, &tbprl, &tbprh))
@@ -590,7 +588,7 @@ stty_param(tp, t)
 	    stty_compute_baud(t->c_ispeed, sc->sc_osc, &rbprl, &rbprh))
 		return (EINVAL);
 
-	s = spltty();
+	crit_enter();
 
 	/* hang up line if ospeed is zero, otherwise raise DTR */
 	stty_modem_control(sp, TIOCM_DTR,
@@ -665,7 +663,7 @@ stty_param(tp, t)
 
 	sp->sp_carrier = STC_READ(sc, STC_MSVR) & CD180_MSVR_CD;
 
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -712,15 +710,14 @@ sttystop(tp, flags)
 {
 	struct stty_softc *sc = stty_cd.cd_devs[SPIF_CARD(tp->t_dev)];
 	struct stty_port *sp = &sc->sc_port[SPIF_PORT(tp->t_dev)];
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_BUSY)) {
 		if (!ISSET(tp->t_state, TS_TTSTOP))
 			SET(tp->t_state, TS_FLUSH);
 		SET(sp->sp_flags, STTYF_STOP);
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -731,9 +728,8 @@ stty_start(tp)
 	struct stty_softc *stc = stty_cd.cd_devs[SPIF_CARD(tp->t_dev)];
 	struct stty_port *sp = &stc->sc_port[SPIF_PORT(tp->t_dev)];
 	struct spif_softc *sc = sp->sp_sc;
-	int s;
 
-	s = spltty();
+	crit_enter();
 
 	if (!ISSET(tp->t_state, TS_TTSTOP | TS_TIMEOUT | TS_BUSY)) {
 		ttwakeupwr(tp);
@@ -747,7 +743,7 @@ stty_start(tp)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -924,7 +920,7 @@ spifsoftintr(vsc)
 {
 	struct spif_softc *sc = (struct spif_softc *)vsc;
 	struct stty_softc *stc = sc->sc_ttys;
-	int r = 0, i, data, s, flags;
+	int r = 0, i, data, flags;
 	u_int8_t stat, msvr;
 	struct stty_port *sp;
 	struct tty *tp;
@@ -961,10 +957,10 @@ spifsoftintr(vsc)
 			splx(s);
 
 			if (ISSET(flags, STTYF_CDCHG)) {
-				s = spltty();
+				crit_enter();
 				STC_WRITE(sc, STC_CAR, i);
 				msvr = STC_READ(sc, STC_MSVR);
-				splx(s);
+				crit_leave();
 
 				sp->sp_carrier = msvr & CD180_MSVR_CD;
 				(*linesw[tp->t_line].l_modem)(tp,

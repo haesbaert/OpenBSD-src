@@ -613,7 +613,7 @@ ptcpoll(dev_t dev, int events, struct proc *p)
 {
 	struct pt_softc *pti = pt_softc[minor(dev)];
 	struct tty *tp = pti->pt_tty;
-	int revents = 0, s;
+	int revents = 0;
 
 	if (!ISSET(tp->t_state, TS_ISOPEN) && ISSET(tp->t_state, TS_CARR_ON))
 		goto notopen;
@@ -622,12 +622,12 @@ ptcpoll(dev_t dev, int events, struct proc *p)
 		/*
 		 * Need to protect access to t_outq
 		 */
-		s = spltty();
+		crit_enter();
 		if ((tp->t_outq.c_cc && !ISSET(tp->t_state, TS_TTSTOP)) ||
 		    ((pti->pt_flags & PF_PKT) && pti->pt_send) ||
 		    ((pti->pt_flags & PF_UCNTL) && pti->pt_ucntl))
 			revents |= events & (POLLIN | POLLRDNORM);
-		splx(s);
+		crit_leave();
 	}
 	/* NOTE: POLLHUP and POLLOUT/POLLWRNORM are mutually exclusive */
 	if (!ISSET(tp->t_state, TS_CARR_ON)) {
@@ -661,11 +661,10 @@ void
 filt_ptcrdetach(struct knote *kn)
 {
 	struct pt_softc *pti = (struct pt_softc *)kn->kn_hook;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	SLIST_REMOVE(&pti->pt_selr.si_note, kn, knote, kn_selnext);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -691,11 +690,10 @@ void
 filt_ptcwdetach(struct knote *kn)
 {
 	struct pt_softc *pti = (struct pt_softc *)kn->kn_hook;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	SLIST_REMOVE(&pti->pt_selw.si_note, kn, knote, kn_selnext);
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -729,7 +727,6 @@ ptckqfilter(dev_t dev, struct knote *kn)
 {
 	struct pt_softc *pti = pt_softc[minor(dev)];
 	struct klist *klist;
-	int s;
 
 	switch (kn->kn_filter) {
 	case EVFILT_READ:
@@ -746,9 +743,9 @@ ptckqfilter(dev_t dev, struct knote *kn)
 
 	kn->kn_hook = (caddr_t)pti;
 
-	s = spltty();
+	crit_enter();
 	SLIST_INSERT_HEAD(klist, kn, kn_selnext);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

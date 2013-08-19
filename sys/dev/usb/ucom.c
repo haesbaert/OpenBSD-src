@@ -344,7 +344,7 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 	usbd_status err;
 	struct tty *tp;
 	struct termios t;
-	int error, s;
+	int error;
 
 	/* open the pipes if this is the first open */
 	ucom_lock(sc);
@@ -431,10 +431,10 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 		sc->sc_open = 1;
 	}
 	crit_leave();
-	s = spltty();
+	crit_enter();
 	ucom_unlock(sc);
 	tp = sc->sc_tty;
-	splx(s);
+	crit_leave();
 
 	DPRINTF(("ucomopen: unit=%d, tp=%p\n", unit, tp));
 
@@ -464,7 +464,7 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 		tp->t_oflag = TTYDEF_OFLAG;
 		tp->t_lflag = TTYDEF_LFLAG;
 
-		s = spltty();
+		crit_enter();
 		ttsetwater(tp);
 
 		/*
@@ -487,12 +487,12 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 	} else if (ISSET(tp->t_state, TS_XCLUDE) && suser(p, 0) != 0)
 		return (EBUSY);
 	else
-		s = spltty();
+		crit_enter();
 
 	if (UCOMCUA(dev)) {
 		if (ISSET(tp->t_state, TS_ISOPEN)) {
 			/* Someone is already dialed in */
-			splx(s);
+			crit_leave();
 			return (EBUSY);
 		}
 		sc->sc_cua = 1;
@@ -500,7 +500,7 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 		/* tty (not cua) device, wait for carrier */
 		if (ISSET(flag, O_NONBLOCK)) {
 			if (sc->sc_cua) {
-				splx(s);
+				crit_leave();
 				return (EBUSY);
 			}
 		} else {
@@ -517,13 +517,13 @@ ucom_do_open(dev_t dev, int flag, int mode, struct proc *p)
 				 */
 				if (error && ISSET(tp->t_state, TS_WOPEN)) {
 					CLR(tp->t_state, TS_WOPEN);
-					splx(s);
+					crit_leave();
 					goto bad;
 				}
 			}
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	error = (*LINESW(tp, l_open))(dev, tp, p);
 	if (error)
@@ -545,7 +545,7 @@ fail_1:
 	usbd_close_pipe(sc->sc_bulkin_pipe);
 	sc->sc_bulkin_pipe = NULL;
 fail_0:
-	splx(s);
+	crit_leave();
 	ucom_unlock(sc);
 	return (error);
 
@@ -578,7 +578,6 @@ int
 ucom_do_close(struct ucom_softc *sc, int flag, int mode, struct proc *p)
 {
 	struct tty *tp = sc->sc_tty;
-	int s;
 
 	if (!ISSET(tp->t_state, TS_ISOPEN))
 		return (0);
@@ -587,11 +586,11 @@ ucom_do_close(struct ucom_softc *sc, int flag, int mode, struct proc *p)
 	ucom_lock(sc);
 
 	(*LINESW(tp, l_close))(tp, flag, p);
-	s = spltty();
+	crit_enter();
 	CLR(tp->t_state, TS_BUSY | TS_FLUSH);
 	sc->sc_cua = 0;
 	ttyclose(tp);
-	splx(s);
+	crit_leave();
 	ucom_cleanup(sc);
 
 	if (sc->sc_methods->ucom_close != NULL)
@@ -675,7 +674,6 @@ ucom_do_ioctl(struct ucom_softc *sc, u_long cmd, caddr_t data,
 {
 	struct tty *tp = sc->sc_tty;
 	int error;
-	int s;
 
 	DPRINTF(("ucomioctl: cmd=0x%08lx\n", cmd));
 
@@ -697,7 +695,7 @@ ucom_do_ioctl(struct ucom_softc *sc, u_long cmd, caddr_t data,
 	error = 0;
 
 	DPRINTF(("ucomioctl: our cmd=0x%08lx\n", cmd));
-	s = spltty();
+	crit_enter();
 
 	switch (cmd) {
 	case TIOCSBRK:
@@ -742,7 +740,7 @@ ucom_do_ioctl(struct ucom_softc *sc, u_long cmd, caddr_t data,
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 
 	return (error);
 }
@@ -966,14 +964,13 @@ ucomstart(struct tty *tp)
 {
 	struct ucom_softc *sc = ucom_cd.cd_devs[UCOMUNIT(tp->t_dev)];
 	usbd_status err;
-	int s;
 	u_char *data;
 	int cnt;
 
 	if (sc == NULL || sc->sc_dying)
 		return;
 
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_BUSY | TS_TIMEOUT | TS_TTSTOP)) {
 		DPRINTFN(4,("ucomstart: no go, state=0x%x\n", tp->t_state));
 		goto out;
@@ -1030,7 +1027,7 @@ ucomstart(struct tty *tp)
 #endif
 
 out:
-	splx(s);
+	crit_leave();
 }
 
 int
@@ -1039,16 +1036,15 @@ ucomstop(struct tty *tp, int flag)
 	DPRINTF(("ucomstop: flag=%d\n", flag));
 #if 0
 	/*struct ucom_softc *sc = ucom_cd.cd_devs[UCOMUNIT(tp->t_dev)];*/
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_BUSY)) {
 		DPRINTF(("ucomstop: XXX\n"));
 		/* sc->sc_tx_stopped = 1; */
 		if (!ISSET(tp->t_state, TS_TTSTOP))
 			SET(tp->t_state, TS_FLUSH);
 	}
-	splx(s);
+	crit_leave();
 #endif
 	return (0);
 }
@@ -1059,7 +1055,6 @@ ucomwritecb(struct usbd_xfer *xfer, void *p, usbd_status status)
 	struct ucom_softc *sc = (struct ucom_softc *)p;
 	struct tty *tp = sc->sc_tty;
 	u_int32_t cc;
-	int s;
 
 	DPRINTFN(5,("ucomwritecb: %p %p status=%d\n", xfer, p, status));
 
@@ -1082,20 +1077,20 @@ ucomwritecb(struct usbd_xfer *xfer, void *p, usbd_status status)
 	/* convert from USB bytes to tty bytes */
 	cc -= sc->sc_opkthdrlen;
 
-	s = spltty();
+	crit_enter();
 	CLR(tp->t_state, TS_BUSY);
 	if (ISSET(tp->t_state, TS_FLUSH))
 		CLR(tp->t_state, TS_FLUSH);
 	else
 		ndflush(&tp->t_outq, cc);
 	(*LINESW(tp, l_start))(tp);
-	splx(s);
+	crit_leave();
 	return;
 
 error:
-	s = spltty();
+	crit_enter();
 	CLR(tp->t_state, TS_BUSY);
-	splx(s);
+	crit_leave();
 }
 
 usbd_status
@@ -1136,7 +1131,6 @@ ucomreadcb(struct usbd_xfer *xfer, void *p, usbd_status status)
 	usbd_status err;
 	u_int32_t cc;
 	u_char *cp;
-	int s;
 
 	DPRINTFN(5,("ucomreadcb: status=%d\n", status));
 
@@ -1144,10 +1138,10 @@ ucomreadcb(struct usbd_xfer *xfer, void *p, usbd_status status)
 	    sc->sc_dying) {
 		DPRINTF(("ucomreadcb: dying\n"));
 		/* Send something to wake upper layer */
-		s = spltty();
+		crit_enter();
 		(*rint)('\n', tp);
 		ttwakeup(tp);
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -1165,7 +1159,7 @@ ucomreadcb(struct usbd_xfer *xfer, void *p, usbd_status status)
 		sc->sc_methods->ucom_read(sc->sc_parent, sc->sc_portno,
 					  &cp, &cc);
 
-	s = spltty();
+	crit_enter();
 	/* Give characters to tty layer. */
 	while (cc-- > 0) {
 		DPRINTFN(7,("ucomreadcb: char=0x%02x\n", *cp));
@@ -1176,7 +1170,7 @@ ucomreadcb(struct usbd_xfer *xfer, void *p, usbd_status status)
 			break;
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	err = ucomstartread(sc);
 	if (err) {

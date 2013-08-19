@@ -522,13 +522,11 @@ aml_setbit(u_int8_t *pb, int bit, int val)
 void
 acpi_poll(void *arg)
 {
-	int s;
-
-	s = spltty();
+	crit_enter();
 	acpi_addtask(acpi_softc, acpi_poll_notify_task, NULL, 0);
 	acpi_softc->sc_threadwaiting = 0;
 	wakeup(acpi_softc);
-	splx(s);
+	crit_leave();
 
 	timeout_add_sec(&acpi_softc->sc_dev_timeout, 10);
 }
@@ -780,7 +778,7 @@ aml_lockfield(struct aml_scope *scope, struct aml_value *field)
 void
 aml_unlockfield(struct aml_scope *scope, struct aml_value *field)
 {
-	int st, x, s;
+	int st, x;
 
 	if (AML_FIELD_LOCK(field->v_field.flags) != AML_FIELD_LOCK_ON)
 		return;
@@ -795,11 +793,11 @@ aml_unlockfield(struct aml_scope *scope, struct aml_value *field)
 		return;
 
 	/* Signal others if someone waiting */
-	s = spltty();
+	crit_enter();
 	x = acpi_read_pmreg(acpi_softc, ACPIREG_PM1_CNT, 0);
 	x |= ACPI_PM1_GBL_RLS;
 	acpi_write_pmreg(acpi_softc, ACPIREG_PM1_CNT, 0, x);
-	splx(s);
+	crit_leave();
 
 	return;
 }

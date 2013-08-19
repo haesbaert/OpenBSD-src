@@ -542,7 +542,7 @@ akbd_input(struct akbd_softc *sc, int key)
 #ifdef WSDISPLAY_COMPAT_RAWKBD
 	} else if (sc->sc_rawkbd) {
 		char cbuf[2];
-		int c, j, s;
+		int c, j;
 
 		j = 0;
 
@@ -556,9 +556,9 @@ akbd_input(struct akbd_softc *sc, int key)
 		if (type == WSCONS_EVENT_KEY_UP)
 			cbuf[j] |= 0x80;
 		j++;
-		s = spltty();
+		crit_enter();
 		wskbd_rawinput(sc->sc_wskbddev, cbuf, j);
-		splx(s);
+		crit_leave();
 #endif
 	} else {
 		wskbd_input(sc->sc_wskbddev, type, val);

@@ -88,6 +88,7 @@
 #include <sys/device.h>
 #include <sys/vnode.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <dev/wscons/wscons_features.h>
 #include <dev/wscons/wsconsio.h>
@@ -244,7 +245,6 @@ wsmouse_detach(struct device *self, int flags)
 	struct wsmouse_softc *sc = (struct wsmouse_softc *)self;
 	struct wseventvar *evar;
 	int maj, mn;
-	int s;
 
 #if NWSMUX > 0
 	/* Tell parent mux we're leaving. */
@@ -257,7 +257,7 @@ wsmouse_detach(struct device *self, int flags)
 	/* If we're open ... */
 	evar = sc->sc_base.me_evp;
 	if (evar != NULL && evar->io != NULL) {
-		s = spltty();
+		crit_enter();
 		if (--sc->sc_refcnt >= 0) {
 			/* Wake everyone by generating a dummy event. */
 			if (++evar->put >= WSEVENT_QSIZE)
@@ -268,7 +268,7 @@ wsmouse_detach(struct device *self, int flags)
 				printf("wsmouse_detach: %s didn't detach\n",
 				       sc->sc_base.me_dv.dv_xname);
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	/* locate the major number */

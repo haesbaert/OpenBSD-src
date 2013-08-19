@@ -35,6 +35,7 @@
 #include <sys/systm.h>
 #include <sys/device.h>
 #include <sys/malloc.h>
+#include <sys/proc.h>
 
 #include <dev/pcmcia/pcmciareg.h>
 #include <dev/pcmcia/pcmciachip.h>
@@ -687,7 +688,7 @@ pcmcia_intr_establish(pf, ipl, ih_fct, ih_arg, xname)
 	char *xname;
 {
 	void *ret;
-	int s, ihcnt, hiipl, reg;
+	int ihcnt, hiipl, reg;
 	struct pcmcia_function *pf2;
 
 	/* Behave differently if this is a multifunction card. */
@@ -722,7 +723,7 @@ pcmcia_intr_establish(pf, ipl, ih_fct, ih_arg, xname)
 				panic("card has intr handler, "
 				    "but no function does");
 #endif
-			s = spltty();
+			crit_enter();
 
 			/* Set up the handler for the new function. */
 			pf->ih_fct = ih_fct;
@@ -732,7 +733,7 @@ pcmcia_intr_establish(pf, ipl, ih_fct, ih_arg, xname)
 			pf->sc->ih = pcmcia_chip_intr_establish(pf->sc->pct,
 			    pf->sc->pch, pf, ipl, pcmcia_card_intr, pf->sc,
 			    xname);
-			splx(s);
+			crit_leave();
 		} else if (ipl > hiipl) {
 #ifdef DIAGNOSTIC
 			if (pf->sc->ih == NULL)
@@ -740,7 +741,7 @@ pcmcia_intr_establish(pf, ipl, ih_fct, ih_arg, xname)
 				    "but the card does not");
 #endif
 
-			s = spltty();
+			crit_enter();
 
 			pcmcia_chip_intr_disestablish(pf->sc->pct, pf->sc->pch,
 			    pf->sc->ih);
@@ -754,16 +755,16 @@ pcmcia_intr_establish(pf, ipl, ih_fct, ih_arg, xname)
 			    pf->sc->pch, pf, ipl, pcmcia_card_intr, pf->sc,
 			    xname);
 
-			splx(s);
+			crit_leave();
 		} else {
-			s = spltty();
+			crit_enter();
 
 			/* Set up the handler for the new function. */
 			pf->ih_fct = ih_fct;
 			pf->ih_arg = ih_arg;
 			pf->ih_ipl = ipl;
 
-			splx(s);
+			crit_leave();
 		}
 
 		ret = pf->sc->ih;
@@ -789,7 +790,7 @@ pcmcia_intr_disestablish(pf, ih)
 	struct pcmcia_function *pf;
 	void *ih;
 {
-	int s, reg, ihcnt, hiipl;
+	int reg, ihcnt, hiipl;
 	struct pcmcia_function *pf2;
 
 	/* Behave differently if this is a multifunction card.  */
@@ -843,7 +844,7 @@ pcmcia_intr_disestablish(pf, ih)
 			if (pf->sc->ih == NULL)
 				panic("changing ih ipl, but card has no ih");
 #endif
-			s = spltty();
+			crit_enter();
 
 			pcmcia_chip_intr_disestablish(pf->sc->pct, pf->sc->pch,
 			    pf->sc->ih);
@@ -855,14 +856,14 @@ pcmcia_intr_disestablish(pf, ih)
 			pf->ih_fct = NULL;
 			pf->ih_arg = NULL;
 
-			splx(s);
+			crit_leave();
 		} else {
-			s = spltty();
+			crit_enter();
 
 			pf->ih_fct = NULL;
 			pf->ih_arg = NULL;
 
-			splx(s);
+			crit_leave();
 		}
 	} else
 		pcmcia_chip_intr_disestablish(pf->sc->pct, pf->sc->pch, ih);
