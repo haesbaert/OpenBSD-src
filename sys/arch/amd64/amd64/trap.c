@@ -503,7 +503,6 @@ syscall(struct trapframe *frame)
 	p = curproc;
 
 	KASSERT(CRIT_DEPTH == 0);
-	crit_enter();
 
 	code = frame->tf_rax;
 	callp = p->p_emul->e_sysent;
@@ -588,7 +587,6 @@ syscall(struct trapframe *frame)
 
 	mi_syscall_return(p, code, error, rval);
 
-	crit_leave();
 	KASSERT(CRIT_DEPTH == 0);
 }
 
