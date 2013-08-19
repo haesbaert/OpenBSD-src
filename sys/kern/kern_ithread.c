@@ -72,6 +72,8 @@ ithread(void *v_is)
 
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_UNLOCK();
+
+			ih->ih_count.ec_count++;
 		}
 
 		/* XXX */
