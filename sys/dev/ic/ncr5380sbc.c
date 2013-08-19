@@ -1299,7 +1299,7 @@ ncr5380_select(sc, sr)
 	struct ncr5380_softc *sc;
 	struct sci_req *sr;
 {
-	int timo, s, target_mask;
+	int timo, target_mask;
 	u_char data, icmd;
 
 	/* Check for reselect */
@@ -1335,7 +1335,7 @@ ncr5380_select(sc, sr)
 	 * after we enter arbitration up until we assert SEL.
 	 * Avoid long interrupts during this period.
 	 */
-	s = splvm();	/* XXX: Begin time-critical section */
+	crit_enter();	/* XXX: Begin time-critical section */
 
 	*(sc->sci_odata) = 0x80;	/* OUR_ID */
 	*(sc->sci_mode) = SCI_MODE_ARB;
@@ -1406,7 +1406,7 @@ ncr5380_select(sc, sr)
 		*sc->sci_icmd = 0;
 		*sc->sci_mode = 0;
 
-		splx(s);	/* XXX: End of time-critical section. */
+		crit_leave();;	/* XXX: End of time-critical section. */
 
 		/*
 		 * When we lose arbitration, it usually means
@@ -1420,7 +1420,7 @@ ncr5380_select(sc, sr)
 	*sc->sci_mode = 0;
 	*sc->sci_sel_enb = 0;
 
-	splx(s);	/* XXX: End of time-critical section. */
+	crit_leave();	/* XXX: End of time-critical section. */
 
 	/*
 	 * Arbitration is complete.  Now do selection:

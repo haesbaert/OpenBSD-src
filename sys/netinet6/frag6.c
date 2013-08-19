@@ -76,27 +76,23 @@ static __inline void ip6q_unlock(void);
 static __inline int
 ip6q_lock_try()
 {
-	int s;
-
-	/* Use splvm() due to mbuf allocation. */
-	s = splvm();
+	/* Use crit_enter() due to mbuf allocation. */
+	crit_enter();
 	if (ip6q_locked) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	ip6q_locked = 1;
-	splx(s);
+	crit_leave();
 	return (1);
 }
 
 static __inline void
 ip6q_unlock()
 {
-	int s;
-
-	s = splvm();
+	crit_enter();
 	ip6q_locked = 0;
-	splx(s);
+	crit_leave();
 }
 
 #ifdef DIAGNOSTIC

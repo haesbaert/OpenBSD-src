@@ -47,12 +47,12 @@ crypto_newsession(u_int64_t *sid, struct cryptoini *cri, int hard)
 	u_int32_t hid, lid, hid2 = -1;
 	struct cryptocap *cpc;
 	struct cryptoini *cr;
-	int err, s, turn = 0;
+	int err, turn = 0;
 
 	if (crypto_drivers == NULL)
 		return EINVAL;
 
-	s = splvm();
+	crit_enter();
 
 	/*
 	 * The algorithm we use here is pretty stupid; just use the
@@ -149,7 +149,7 @@ crypto_newsession(u_int64_t *sid, struct cryptoini *cri, int hard)
 	 */
 
 	if (hid == -1) {
-		splx(s);
+		crit_leave();
 		return EINVAL;
 	}
 
@@ -163,7 +163,7 @@ crypto_newsession(u_int64_t *sid, struct cryptoini *cri, int hard)
 		crypto_drivers[hid].cc_sessions++;
 	}
 
-	splx(s);
+	crit_leave();
 	return err;
 }
 
@@ -174,7 +174,7 @@ crypto_newsession(u_int64_t *sid, struct cryptoini *cri, int hard)
 int
 crypto_freesession(u_int64_t sid)
 {
-	int err = 0, s;
+	int err = 0;
 	u_int32_t hid;
 
 	if (crypto_drivers == NULL)
@@ -186,7 +186,7 @@ crypto_freesession(u_int64_t sid)
 	if (hid >= crypto_drivers_num)
 		return ENOENT;
 
-	s = splvm();
+	crit_enter();
 
 	if (crypto_drivers[hid].cc_sessions)
 		crypto_drivers[hid].cc_sessions--;
@@ -203,7 +203,7 @@ crypto_freesession(u_int64_t sid)
 	    crypto_drivers[hid].cc_sessions == 0)
 		explicit_bzero(&crypto_drivers[hid], sizeof(struct cryptocap));
 
-	splx(s);
+	crit_leave();
 	return err;
 }
 
@@ -214,9 +214,9 @@ int32_t
 crypto_get_driverid(u_int8_t flags)
 {
 	struct cryptocap *newdrv;
-	int i, s;
+	int i;
 	
-	s = splvm();
+	crit_enter();
 
 	if (crypto_drivers_num == 0) {
 		crypto_drivers_num = CRYPTO_DRIVERS_INITIAL;
@@ -224,7 +224,7 @@ crypto_get_driverid(u_int8_t flags)
 		    sizeof(struct cryptocap), M_CRYPTO_DATA, M_NOWAIT);
 		if (crypto_drivers == NULL) {
 			crypto_drivers_num = 0;
-			splx(s);
+			crit_leave();
 			return -1;
 		}
 
@@ -238,7 +238,7 @@ crypto_get_driverid(u_int8_t flags)
 		    crypto_drivers[i].cc_sessions == 0) {
 			crypto_drivers[i].cc_sessions = 1; /* Mark */
 			crypto_drivers[i].cc_flags = flags;
-			splx(s);
+			crit_leave();
 			return i;
 		}
 	}
@@ -246,14 +246,14 @@ crypto_get_driverid(u_int8_t flags)
 	/* Out of entries, allocate some more. */
 	if (i == crypto_drivers_num) {
 		if (crypto_drivers_num >= CRYPTO_DRIVERS_MAX) {
-			splx(s);
+			crit_leave();
 			return -1;
 		}
 
 		newdrv = malloc(2 * crypto_drivers_num *
 		    sizeof(struct cryptocap), M_CRYPTO_DATA, M_NOWAIT);
 		if (newdrv == NULL) {
-			splx(s);
+			crit_leave();
 			return -1;
 		}
 
@@ -268,12 +268,12 @@ crypto_get_driverid(u_int8_t flags)
 
 		free(crypto_drivers, M_CRYPTO_DATA);
 		crypto_drivers = newdrv;
-		splx(s);
+		crit_leave();
 		return i;
 	}
 
 	/* Shouldn't really get here... */
-	splx(s);
+	crit_leave();
 	return -1;
 }
 
@@ -285,13 +285,13 @@ int
 crypto_kregister(u_int32_t driverid, int *kalg,
     int (*kprocess)(struct cryptkop *))
 {
-	int s, i;
+	int i;
 
 	if (driverid >= crypto_drivers_num || kalg  == NULL ||
 	    crypto_drivers == NULL)
 		return EINVAL;
 
-	s = splvm();
+	crit_enter();
 
 	for (i = 0; i <= CRK_ALGORITHM_MAX; i++) {
 		/*
@@ -305,7 +305,7 @@ crypto_kregister(u_int32_t driverid, int *kalg,
 
 	crypto_drivers[driverid].cc_kprocess = kprocess;
 
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -315,14 +315,14 @@ crypto_register(u_int32_t driverid, int *alg,
     int (*newses)(u_int32_t *, struct cryptoini *),
     int (*freeses)(u_int64_t), int (*process)(struct cryptop *))
 {
-	int s, i;
+	int i;
 
 
 	if (driverid >= crypto_drivers_num || alg == NULL ||
 	    crypto_drivers == NULL)
 		return EINVAL;
 	
-	s = splvm();
+	crit_enter();
 
 	for (i = 0; i <= CRYPTO_ALGORITHM_MAX; i++) {
 		/*
@@ -340,7 +340,7 @@ crypto_register(u_int32_t driverid, int *alg,
 	crypto_drivers[driverid].cc_freesession = freeses;
 	crypto_drivers[driverid].cc_sessions = 0; /* Unmark */
 
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -354,17 +354,17 @@ crypto_register(u_int32_t driverid, int *alg,
 int
 crypto_unregister(u_int32_t driverid, int alg)
 {
-	int i = CRYPTO_ALGORITHM_MAX + 1, s;
+	int i = CRYPTO_ALGORITHM_MAX + 1;
 	u_int32_t ses;
 
-	s = splvm();
+	crit_enter();
 
 	/* Sanity checks. */
 	if (driverid >= crypto_drivers_num || crypto_drivers == NULL ||
 	    ((alg <= 0 || alg > CRYPTO_ALGORITHM_MAX) &&
 		alg != CRYPTO_ALGORITHM_MAX + 1) ||
 	    crypto_drivers[driverid].cc_alg[alg] == 0) {
-		splx(s);
+		crit_leave();
 		return EINVAL;
 	}
 
@@ -392,7 +392,7 @@ crypto_unregister(u_int32_t driverid, int alg)
 			crypto_drivers[driverid].cc_sessions = ses;
 		}
 	}
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -402,10 +402,9 @@ crypto_unregister(u_int32_t driverid, int alg)
 int
 crypto_dispatch(struct cryptop *crp)
 {
-	int s;
 	u_int32_t hid;
 
-	s = splvm();
+	crit_enter();
 	/*
 	 * Keep track of ops per driver, for coallescing purposes. If
 	 * we have been given an invalid hid, we'll deal with in the
@@ -414,7 +413,7 @@ crypto_dispatch(struct cryptop *crp)
 	hid = (crp->crp_sid >> 32) & 0xffffffff;
 	if (hid < crypto_drivers_num)
 		crypto_drivers[hid].cc_queued++;
-	splx(s);
+	crit_leave();
 
 	if (crypto_taskq) {
 		task_set(&crp->crp_task, (void (*))crypto_invoke, crp, NULL);
@@ -448,13 +447,12 @@ crypto_kinvoke(struct cryptkop *krp)
 	extern int cryptodevallowsoft;
 	u_int32_t hid;
 	int error;
-	int s;
 
 	/* Sanity checks. */
 	if (krp == NULL || krp->krp_callback == NULL)
 		return (EINVAL);
 
-	s = splvm();
+	crit_enter();
 	for (hid = 0; hid < crypto_drivers_num; hid++) {
 		if ((crypto_drivers[hid].cc_flags & CRYPTOCAP_F_SOFTWARE) &&
 		    cryptodevallowsoft == 0)
@@ -470,7 +468,7 @@ crypto_kinvoke(struct cryptkop *krp)
 	if (hid == crypto_drivers_num) {
 		krp->krp_status = ENODEV;
 		crypto_kdone(krp);
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
@@ -483,7 +481,7 @@ crypto_kinvoke(struct cryptkop *krp)
 		krp->krp_status = error;
 		crypto_kdone(krp);
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -497,17 +495,16 @@ crypto_invoke(struct cryptop *crp)
 	u_int64_t nid;
 	u_int32_t hid;
 	int error;
-	int s;
 
 	/* Sanity checks. */
 	if (crp == NULL || crp->crp_callback == NULL)
 		return EINVAL;
 
-	s = splvm();
+	crit_enter();
 	if (crp->crp_desc == NULL || crypto_drivers == NULL) {
 		crp->crp_etype = EINVAL;
 		crypto_done(crp);
-		splx(s);
+		crit_leave();
 		return 0;
 	}
 
@@ -539,7 +536,7 @@ crypto_invoke(struct cryptop *crp)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 	return 0;
 
  migrate:
@@ -552,7 +549,7 @@ crypto_invoke(struct cryptop *crp)
 
 	crp->crp_etype = EAGAIN;
 	crypto_done(crp);
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -563,12 +560,11 @@ void
 crypto_freereq(struct cryptop *crp)
 {
 	struct cryptodesc *crd;
-	int s;
 
 	if (crp == NULL)
 		return;
 
-	s = splvm();
+	crit_enter();
 
 	while ((crd = crp->crp_desc) != NULL) {
 		crp->crp_desc = crd->crd_next;
@@ -576,7 +572,7 @@ crypto_freereq(struct cryptop *crp)
 	}
 
 	pool_put(&cryptop_pool, crp);
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -587,13 +583,12 @@ crypto_getreq(int num)
 {
 	struct cryptodesc *crd;
 	struct cryptop *crp;
-	int s;
 	
-	s = splvm();
+	crit_enter();
 
 	crp = pool_get(&cryptop_pool, PR_NOWAIT);
 	if (crp == NULL) {
-		splx(s);
+		crit_leave();
 		return NULL;
 	}
 	bzero(crp, sizeof(struct cryptop));
@@ -601,7 +596,7 @@ crypto_getreq(int num)
 	while (num--) {
 		crd = pool_get(&cryptodesc_pool, PR_NOWAIT);
 		if (crd == NULL) {
-			splx(s);
+			crit_leave();
 			crypto_freereq(crp);
 			return NULL;
 		}
@@ -611,7 +606,7 @@ crypto_getreq(int num)
 		crp->crp_desc = crd;
 	}
 
-	splx(s);
+	crit_leave();
 	return crp;
 }
 

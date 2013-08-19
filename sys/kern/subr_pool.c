@@ -1431,7 +1431,7 @@ sysctl_dopool(int *name, u_int namelen, char *where, size_t *sizep)
 {
 	struct pool *pp, *foundpool = NULL;
 	size_t buflen = where != NULL ? *sizep : 0;
-	int npools = 0, s;
+	int npools = 0;
 	unsigned int lookfor;
 	size_t len;
 
@@ -1455,7 +1455,7 @@ sysctl_dopool(int *name, u_int namelen, char *where, size_t *sizep)
 		return (EINVAL);
 	}
 
-	s = splvm();
+	crit_enter();
 
 	SIMPLEQ_FOREACH(pp, &pool_head, pr_poollist) {
 		npools++;
@@ -1465,7 +1465,7 @@ sysctl_dopool(int *name, u_int namelen, char *where, size_t *sizep)
 		}
 	}
 
-	splx(s);
+	crit_leave();
 
 	if (*name != KERN_POOL_NPOOLS && foundpool == NULL)
 		return (ENOENT);
@@ -1562,15 +1562,14 @@ pool_large_alloc(struct pool *pp, int flags, int *slowdown)
 {
 	struct kmem_dyn_mode kd = KMEM_DYN_INITIALIZER;
 	void *v;
-	int s;
 
 	kd.kd_waitok = (flags & PR_WAITOK);
 	kd.kd_slowdown = slowdown;
 
-	s = splvm();
+	crit_enter();
 	v = km_alloc(pp->pr_alloc->pa_pagesz, &kv_intrsafe, pp->pr_crange,
 	    &kd);
-	splx(s);
+	crit_leave();
 
 	return (v);
 }
@@ -1578,11 +1577,9 @@ pool_large_alloc(struct pool *pp, int flags, int *slowdown)
 void
 pool_large_free(struct pool *pp, void *v)
 {
-	int s;
-
-	s = splvm();
+	crit_enter();
 	km_free(v, pp->pr_alloc->pa_pagesz, &kv_intrsafe, pp->pr_crange);
-	splx(s);
+	crit_leave();
 }
 
 void *

@@ -109,7 +109,7 @@ int
 debug_malloc(unsigned long size, int type, int flags, void **addr)
 {
 	struct debug_malloc_entry *md = NULL;
-	int s, wait = (flags & M_NOWAIT) == 0;
+	int wait = (flags & M_NOWAIT) == 0;
 
 	/* Careful not to compare unsigned long to int -1 */
 	if (((type != debug_malloc_type && debug_malloc_type != 0) ||
@@ -123,13 +123,13 @@ debug_malloc(unsigned long size, int type, int flags, void **addr)
 	if (size > PAGE_SIZE)
 		return (0);
 
-	s = splvm();
+	crit_enter();
 	if (debug_malloc_chunks_on_freelist < MALLOC_DEBUG_CHUNKS)
 		debug_malloc_allocate_free(wait);
 
 	md = TAILQ_FIRST(&debug_malloc_freelist);
 	if (md == NULL) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 	TAILQ_REMOVE(&debug_malloc_freelist, md, md_list);
@@ -137,7 +137,7 @@ debug_malloc(unsigned long size, int type, int flags, void **addr)
 
 	TAILQ_INSERT_HEAD(&debug_malloc_usedlist, md, md_list);
 	debug_malloc_allocs++;
-	splx(s);
+	crit_leave();
 
 	pmap_kenter_pa(md->md_va, md->md_pa, VM_PROT_READ|VM_PROT_WRITE);
 	pmap_update(pmap_kernel());
@@ -158,7 +158,6 @@ debug_free(void *addr, int type)
 {
 	struct debug_malloc_entry *md;
 	vaddr_t va;
-	int s;
 
 	if (type != debug_malloc_type && debug_malloc_type != 0 &&
 	    type != M_DEBUG)
@@ -169,7 +168,7 @@ debug_free(void *addr, int type)
 	 */
 	va = trunc_page((vaddr_t)addr);
 
-	s = splvm();
+	crit_enter();
 	TAILQ_FOREACH(md, &debug_malloc_usedlist, md_list)
 		if (md->md_va == va)
 			break;
@@ -185,7 +184,7 @@ debug_free(void *addr, int type)
 		TAILQ_FOREACH(md, &debug_malloc_freelist, md_list)
 			if (md->md_va == va)
 				panic("debug_free: already free");
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
@@ -199,7 +198,7 @@ debug_free(void *addr, int type)
 	 */
 	pmap_kremove(md->md_va, PAGE_SIZE);
 	pmap_update(pmap_kernel());
-	splx(s);
+	crit_leave();
 
 	return (1);
 }
@@ -234,7 +233,7 @@ debug_malloc_allocate_free(int wait)
 	struct vm_page *pg;
 	struct debug_malloc_entry *md;
 
-	splassert(IPL_VM);
+	CRIT_ASSERT();
 
 	md = pool_get(&debug_malloc_pool, wait ? PR_WAITOK : PR_NOWAIT);
 	if (md == NULL)

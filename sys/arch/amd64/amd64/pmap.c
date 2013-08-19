@@ -2449,7 +2449,7 @@ pmap_tlb_shootpage(struct pmap *pm, vaddr_t va)
 	}
 
 	if (wait > 0) {
-		int s = splvm();
+		crit_enter();
 
 		while (x86_atomic_cas_ul(&tlb_shoot_wait, 0, wait) != 0) {
 			while (tlb_shoot_wait != 0)
@@ -2462,7 +2462,7 @@ pmap_tlb_shootpage(struct pmap *pm, vaddr_t va)
 			if (x86_fast_ipi(ci, LAPIC_IPI_INVLPG) != 0)
 				panic("pmap_tlb_shootpage: ipi failed");
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	if (pmap_is_curpmap(pm))
@@ -2487,7 +2487,7 @@ pmap_tlb_shootrange(struct pmap *pm, vaddr_t sva, vaddr_t eva)
 	}
 
 	if (wait > 0) {
-		int s = splvm();
+		crit_enter();
 
 		while (x86_atomic_cas_ul(&tlb_shoot_wait, 0, wait) != 0) {
 			while (tlb_shoot_wait != 0)
@@ -2501,7 +2501,7 @@ pmap_tlb_shootrange(struct pmap *pm, vaddr_t sva, vaddr_t eva)
 			if (x86_fast_ipi(ci, LAPIC_IPI_INVLRANGE) != 0)
 				panic("pmap_tlb_shootrange: ipi failed");
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	if (pmap_is_curpmap(pm))
@@ -2525,7 +2525,7 @@ pmap_tlb_shoottlb(void)
 	}
 
 	if (wait) {
-		int s = splvm();
+		crit_enter();
 
 		while (x86_atomic_cas_ul(&tlb_shoot_wait, 0, wait) != 0) {
 			while (tlb_shoot_wait != 0)
@@ -2538,7 +2538,7 @@ pmap_tlb_shoottlb(void)
 			if (x86_fast_ipi(ci, LAPIC_IPI_INVLTLB) != 0)
 				panic("pmap_tlb_shoottlb: ipi failed");
 		}
-		splx(s);
+		crit_leave();
 	}
 
 	tlbflush();

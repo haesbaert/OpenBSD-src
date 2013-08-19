@@ -1160,7 +1160,7 @@ sr_crypto_rw(struct sr_workunit *wu)
 {
 	struct sr_crypto_wu	*crwu;
 	daddr_t			blk;
-	int			s, rv = 0;
+	int			rv = 0;
 
 	DNPRINTF(SR_D_DIS, "%s: sr_crypto_rw wu %p\n",
 	    DEVNAME(wu->swu_dis->sd_sc), wu);
@@ -1173,12 +1173,12 @@ sr_crypto_rw(struct sr_workunit *wu)
 		if (crwu == NULL)
 			return (1);
 		crwu->cr_crp->crp_callback = sr_crypto_write;
-		s = splvm();
+		crit_enter();
 		if (crypto_invoke(crwu->cr_crp))
 			rv = 1;
 		else
 			rv = crwu->cr_crp->crp_etype;
-		splx(s);
+		crit_leave();
 	} else
 		rv = sr_crypto_dev_rw(wu, NULL);
 
@@ -1247,7 +1247,6 @@ sr_crypto_done(struct sr_workunit *wu)
 	struct scsi_xfer	*xs = wu->swu_xs;
 	struct sr_crypto_wu	*crwu;
 	struct sr_ccb		*ccb;
-	int			s;
 
 	/* If this was a successful read, initiate decryption of the data. */
 	if (ISSET(xs->flags, SCSI_DATA_IN) && xs->error == XS_NOERROR) {
@@ -1262,9 +1261,9 @@ sr_crypto_done(struct sr_workunit *wu)
 		ccb->ccb_opaque = crwu;
 		DNPRINTF(SR_D_INTR, "%s: sr_crypto_intr: crypto_invoke %p\n",
 		    DEVNAME(wu->swu_dis->sd_sc), crwu->cr_crp);
-		s = splvm();
+		crit_enter();
 		crypto_invoke(crwu->cr_crp);
-		splx(s);
+		crit_leave();
 		return;
 	}
 

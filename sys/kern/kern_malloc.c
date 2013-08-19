@@ -165,7 +165,6 @@ malloc(unsigned long size, int type, int flags)
 	struct kmemusage *kup;
 	struct kmem_freelist *freep;
 	long indx, npg, allocsize;
-	int s;
 	caddr_t va, cp;
 #ifdef DIAGNOSTIC
 	int freshalloc;
@@ -212,11 +211,11 @@ malloc(unsigned long size, int type, int flags)
 
 	indx = BUCKETINDX(size);
 	kbp = &bucket[indx];
-	s = splvm();
+	crit_enter();
 #ifdef KMEMSTATS
 	while (ksp->ks_memuse >= ksp->ks_limit) {
 		if (flags & M_NOWAIT) {
-			splx(s);
+			crit_leave();
 			return (NULL);
 		}
 		if (ksp->ks_limblocks < 65535)
@@ -248,7 +247,7 @@ malloc(unsigned long size, int type, int flags)
 			 */
 			if ((flags & (M_NOWAIT|M_CANFAIL)) == 0)
 				panic("malloc: out of space in kmem_map");
-			splx(s);
+			crit_leave();
 			return (NULL);
 		}
 #ifdef KMEMSTATS
@@ -351,7 +350,7 @@ out:
 #else
 out:
 #endif
-	splx(s);
+	crit_leave();
 
 	if ((flags & M_ZERO) && va != NULL)
 		memset(va, 0, size);
@@ -368,7 +367,6 @@ free(void *addr, int type)
 	struct kmemusage *kup;
 	struct kmem_freelist *freep;
 	long size;
-	int s;
 #ifdef DIAGNOSTIC
 	long alloc;
 #endif
@@ -393,7 +391,7 @@ free(void *addr, int type)
 	kup = btokup(addr);
 	size = 1 << kup->ku_indx;
 	kbp = &bucket[kup->ku_indx];
-	s = splvm();
+	crit_enter();
 #ifdef DIAGNOSTIC
 	/*
 	 * Check for returns of data that do not point to the
@@ -420,7 +418,7 @@ free(void *addr, int type)
 		ksp->ks_inuse--;
 		kbp->kb_total -= 1;
 #endif
-		splx(s);
+		crit_leave();
 		return;
 	}
 	freep = (struct kmem_freelist *)addr;
@@ -465,7 +463,7 @@ free(void *addr, int type)
 	ksp->ks_inuse--;
 #endif
 	XSIMPLEQ_INSERT_TAIL(&kbp->kb_freelist, freep, kf_flist);
-	splx(s);
+	crit_leave();
 }
 
 /*

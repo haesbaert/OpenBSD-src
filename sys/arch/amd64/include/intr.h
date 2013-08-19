@@ -145,7 +145,6 @@ void softintr(int);
 /*
  * Miscellaneous
  */
-#define	splvm()		splraise(IPL_VM)
 #define	splhigh()	splraise(IPL_HIGH)
 #define	spl0()		spllower(IPL_NONE)
 #define	splsched()	splraise(IPL_SCHED)

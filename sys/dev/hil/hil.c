@@ -85,12 +85,6 @@
 
 #include "hilkbd.h"
 
-/*
- * splhigh is extremely conservative but insures atomic operation,
- * splvm (clock only interrupts) seems to be good enough in practice.
- */
-#define	splhil	splvm
-
 struct cfdriver hil_cd = {
 	NULL, "hil", DV_DULL
 };
@@ -445,12 +439,11 @@ void
 hil_thread(void *arg)
 {
 	struct hil_softc *sc = arg;
-	int s;
 
 	for (;;) {
-		s = splhil();
+		crit_enter();
 		if (sc->sc_pending == 0) {
-			splx(s);
+			crit_leave();
 			(void)tsleep(&sc->sc_pending, PWAIT, "hil_event", 0);
 			continue;
 		}
@@ -465,7 +458,7 @@ hil_thread(void *arg)
 			hilempty(sc);
 			break;
 		}
-		splx(s);
+		crit_leave();
 	}
 }
 
@@ -490,9 +483,9 @@ hilconfig(struct hil_softc *sc, u_int knowndevs)
 {
 	struct hil_attach_args ha;
 	u_int8_t db;
-	int id, s;
+	int id;
 
-	s = splhil();
+	crit_enter();
 
 	/*
 	 * Determine how many devices are on the loop.
@@ -573,7 +566,7 @@ hilconfig(struct hil_softc *sc, u_int knowndevs)
 
 	sc->sc_cmdbp = sc->sc_cmdbuf;
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -584,10 +577,10 @@ void
 hilempty(struct hil_softc *sc)
 {
 	u_int8_t db;
-	int id, s;
+	int id;
 	u_int oldmaxdev;
 
-	s = splhil();
+	crit_leave();
 
 	/*
 	 * Wait for the loop to be stable.
@@ -632,7 +625,7 @@ hilempty(struct hil_softc *sc)
 
 	sc->sc_cmdbp = sc->sc_cmdbuf;
 
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -648,15 +641,14 @@ send_hil_cmd(struct hil_softc *sc, u_int cmd, u_int8_t *data, u_int dlen,
     u_int8_t *rdata)
 {
 	u_int8_t status;
-	int s;
 	
-	s = splhil();
+	crit_enter();
 
 	if (hilwait(sc) == 0) {
 #ifdef HILDEBUG
 		printf("%s: no answer from the loop\n", sc->sc_dev.dv_xname);
 #endif
-		splx(s);
+		crit_leave();
 		return (EBUSY);
 	}
 
@@ -682,7 +674,7 @@ send_hil_cmd(struct hil_softc *sc, u_int cmd, u_int8_t *data, u_int dlen,
 			DELAY(1);
 		} while (((status >> HIL_SSHIFT) & HIL_SMASK) != HIL_68K);
 	}
-	splx(s);
+	crit_leave();
 	return (0);
 }
 
@@ -758,9 +750,9 @@ send_hildev_cmd(struct hildev_softc *dev, u_int cmd,
     u_int8_t *outbuf, u_int *outlen)
 {
 	struct hil_softc *sc = (struct hil_softc *)dev->sc_dev.dv_parent;
-	int s, rc;
+	int rc;
        
-	s = splhil();
+	crit_enter();
 
 	if ((rc = send_device_cmd(sc, dev->sc_code, cmd)) == 0) {
 		/*
@@ -772,7 +764,7 @@ send_hildev_cmd(struct hildev_softc *dev, u_int cmd,
 		}
 	}
 
-	splx(s);
+	crit_leave();
 	return (rc);
 }
 
