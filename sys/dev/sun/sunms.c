@@ -230,12 +230,10 @@ void
 sunms_abort_input(void *v)
 {
 	struct sunms_softc *sc = v;
-	int s;
-
 #ifdef DEBUG
 	printf("aborting incomplete packet\n");
 #endif
-	s = spltty();
+	crit_enter();
 	sc->sc_byteno = -1;
-	splx(s);
+	crit_leave();
 }

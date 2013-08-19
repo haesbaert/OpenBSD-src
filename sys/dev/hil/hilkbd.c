@@ -375,7 +375,7 @@ hilkbd_callback(struct hildev_softc *dev, u_int buflen, u_int8_t *buf)
 	struct hilkbd_softc *sc = (struct hilkbd_softc *)dev;
 	u_int type;
 	int kbdtype, key;
-	int i, s;
+	int i;
 
 	/*
 	 * Ignore packet if we don't need it
@@ -412,19 +412,19 @@ hilkbd_callback(struct hildev_softc *dev, u_int buflen, u_int8_t *buf)
 			j++;
 		}
 
-		s = spltty();
+		crit_enter();
 		wskbd_rawinput(sc->sc_wskbddev, cbuf, j);
-		splx(s);
+		crit_leave();
 	} else
 #endif
 	{
-		s = spltty();
+		crit_enter();
 		for (i = 1, buf++; i < buflen; i++) {
 			hilkbd_decode(sc, *buf++, &type, &key, kbdtype);
 			if (sc->sc_wskbddev != NULL)
 				wskbd_input(sc->sc_wskbddev, type, key);
 		}
-		splx(s);
+		crit_leave();
 	}
 }
 

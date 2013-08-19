@@ -232,7 +232,7 @@ int
 com_activate(struct device *self, int act)
 {
 	struct com_softc *sc = (struct com_softc *)self;
-	int s, rv = 0;
+	int rv = 0;
 
 	switch (act) {
 	case DVACT_DEACTIVATE:
@@ -245,12 +245,12 @@ com_activate(struct device *self, int act)
 			break;
 		}
 
-		s = spltty();
+		crit_enter();
 		if (sc->disable != NULL && sc->enabled != 0) {
 			(*sc->disable)(sc);
 			sc->enabled = 0;
 		}
-		splx(s);
+		crit_leave();
 		break;
 	}
 	return (rv);
@@ -264,7 +264,6 @@ comopen(dev_t dev, int flag, int mode, struct proc *p)
 	bus_space_tag_t iot;
 	bus_space_handle_t ioh;
 	struct tty *tp;
-	int s;
 	int error = 0;
 
 	if (unit >= com_cd.cd_ndevs)
@@ -281,12 +280,12 @@ comopen(dev_t dev, int flag, int mode, struct proc *p)
 		return (EBUSY);
 #endif /* KGDB */
 
-	s = spltty();
+	crit_enter();
 	if (!sc->sc_tty) {
 		tp = sc->sc_tty = ttymalloc(1000000);
 	} else
 		tp = sc->sc_tty;
-	splx(s);
+	crit_leave();
 
 	tp->t_oproc = comstart;
 	tp->t_param = comparam;
@@ -314,7 +313,7 @@ comopen(dev_t dev, int flag, int mode, struct proc *p)
 			SET(tp->t_cflag, MDMBUF);
 		tp->t_lflag = TTYDEF_LFLAG;
 
-		s = spltty();
+		crit_enter();
 
 		sc->sc_initialize = 1;
 		comparam(tp, &tp->t_termios);
@@ -426,12 +425,12 @@ comopen(dev_t dev, int flag, int mode, struct proc *p)
 	} else if (ISSET(tp->t_state, TS_XCLUDE) && suser(p, 0) != 0)
 		return EBUSY;
 	else
-		s = spltty();
+		crit_enter();
 
 	if (DEVCUA(dev)) {
 		if (ISSET(tp->t_state, TS_ISOPEN)) {
 			/* Ah, but someone already is dialed in... */
-			splx(s);
+			crit_leave();
 			return EBUSY;
 		}
 		sc->sc_cua = 1;		/* We go into CUA mode. */
@@ -440,7 +439,7 @@ comopen(dev_t dev, int flag, int mode, struct proc *p)
 		if (ISSET(flag, O_NONBLOCK)) {
 			if (sc->sc_cua) {
 				/* Opening TTY non-blocking... but the CUA is busy. */
-				splx(s);
+				crit_leave();
 				return EBUSY;
 			}
 		} else {
@@ -458,13 +457,13 @@ comopen(dev_t dev, int flag, int mode, struct proc *p)
 					CLR(tp->t_state, TS_WOPEN);
 					if (!sc->sc_cua && !ISSET(tp->t_state, TS_ISOPEN))
 						compwroff(sc);
-					splx(s);
+					crit_leave();
 					return error;
 				}
 			}
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	return (*linesw[tp->t_line].l_open)(dev, tp, p);
 }
@@ -477,7 +476,6 @@ comclose(dev_t dev, int flag, int mode, struct proc *p)
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
 	struct tty *tp = sc->sc_tty;
-	int s;
 
 #ifdef COM_CONSOLE
 	/* XXX This is for cons.c. */
@@ -489,7 +487,7 @@ comclose(dev_t dev, int flag, int mode, struct proc *p)
 		return 0;
 
 	(*linesw[tp->t_line].l_close)(tp, flag, p);
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_WOPEN)) {
 		/* tty device is waiting for carrier; drop dtr then re-raise */
 		CLR(sc->sc_mcr, MCR_DTR | MCR_RTS);
@@ -501,7 +499,7 @@ comclose(dev_t dev, int flag, int mode, struct proc *p)
 	}
 	CLR(tp->t_state, TS_BUSY | TS_FLUSH);
 	sc->sc_cua = 0;
-	splx(s);
+	crit_leave();
 	ttyclose(tp);
 
 #ifdef COM_CONSOLE
@@ -842,7 +840,7 @@ comioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 	return 0;
 }
 
-/* already called at spltty */
+/* already called at crit_enter() */
 int
 comparam(struct tty *tp, struct termios *t)
 {
@@ -988,9 +986,8 @@ comstart(struct tty *tp)
 	struct com_softc *sc = com_cd.cd_devs[DEVUNIT(tp->t_dev)];
 	bus_space_tag_t iot = sc->sc_iot;
 	bus_space_handle_t ioh = sc->sc_ioh;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_BUSY))
 		goto out;
 	if (ISSET(tp->t_state, TS_TIMEOUT | TS_TTSTOP) || sc->sc_halt > 0)
@@ -1028,7 +1025,7 @@ comstart(struct tty *tp)
 	} else if (tp->t_outq.c_cc != 0)
 		bus_space_write_1(iot, ioh, com_data, getc(&tp->t_outq));
 out:
-	splx(s);
+	crit_leave();
 	return;
 stopped:
 	if (ISSET(sc->sc_ier, IER_ETXRDY)) {
@@ -1050,7 +1047,7 @@ stopped:
 		}
 #endif
 	}
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -1059,13 +1056,11 @@ stopped:
 int
 comstop(struct tty *tp, int flag)
 {
-	int s;
-
-	s = spltty();
+	crit_enter();
 	if (ISSET(tp->t_state, TS_BUSY))
 		if (!ISSET(tp->t_state, TS_TTSTOP))
 			SET(tp->t_state, TS_FLUSH);
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -1074,15 +1069,14 @@ comdiag(void *arg)
 {
 	struct com_softc *sc = arg;
 	int overflows, floods;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	sc->sc_errors = 0;
 	overflows = sc->sc_overflows;
 	sc->sc_overflows = 0;
 	floods = sc->sc_floods;
 	sc->sc_floods = 0;
-	splx(s);
+	crit_leave();
 	log(LOG_WARNING, "%s: %d silo overflow%s, %d ibuf overflow%s\n",
 	    sc->sc_dev.dv_xname,
 	    overflows, overflows == 1 ? "" : "s",
@@ -1097,7 +1091,6 @@ comsoft(void *arg)
 	u_char *ibufp;
 	u_char *ibufend;
 	int c;
-	int s;
 	static int lsrmap[8] = {
 		0,      TTY_PE,
 		TTY_FE, TTY_PE|TTY_FE,
@@ -1110,13 +1103,13 @@ comsoft(void *arg)
 
 	tp = sc->sc_tty;
 
-	s = spltty();
+	crit_enter();
 
 	ibufp = sc->sc_ibuf;
 	ibufend = sc->sc_ibufp;
 
 	if (ibufp == ibufend) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
@@ -1126,7 +1119,7 @@ comsoft(void *arg)
 	sc->sc_ibufend = sc->sc_ibuf + COM_IBUFSIZE;
 
 	if (tp == NULL || !ISSET(tp->t_state, TS_ISOPEN)) {
-		splx(s);
+		crit_leave();
 		return (0);
 	}
 
@@ -1138,7 +1131,7 @@ comsoft(void *arg)
 		    sc->sc_mcr);
 	}
 
-	splx(s);
+	crit_leave();
 
 	while (ibufp < ibufend) {
 		c = *ibufp++;
@@ -1343,8 +1336,9 @@ com_common_getc(bus_space_tag_t iot, bus_space_handle_t ioh)
 void
 com_common_putc(bus_space_tag_t iot, bus_space_handle_t ioh, int c)
 {
-	int s = spltty();
 	int timo;
+
+	crit_enter();
 
 	/* Wait for any pending transmission to finish. */
 	timo = 2000;
@@ -1376,7 +1370,7 @@ com_common_putc(bus_space_tag_t iot, bus_space_handle_t ioh, int c)
 	}
 #endif
 
-	splx(s);
+	crit_leave();
 }
 
 void

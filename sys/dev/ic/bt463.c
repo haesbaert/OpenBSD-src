@@ -359,7 +359,7 @@ bt463_set_cmap(rc, cmapp)
 {
 	struct bt463data *data = (struct bt463data *)rc;
 	u_int count, index;
-	int s, error;
+	int error;
 
 	index = cmapp->index;
 	count = cmapp->count;
@@ -367,25 +367,25 @@ bt463_set_cmap(rc, cmapp)
 	if (index >= BT463_NCMAP_ENTRIES || count > BT463_NCMAP_ENTRIES - index)
 		return (EINVAL);
 
-	s = spltty();
+	crit_enter();
 
 	if ((error = copyin(cmapp->red, &data->cmap_r[index], count)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	if ((error = copyin(cmapp->green, &data->cmap_g[index], count)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	if ((error = copyin(cmapp->blue, &data->cmap_b[index], count)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 
 	data->changed |= DATA_CMAP_CHANGED;
 
 	data->ramdac_sched_update(data->cookie, bt463_update);
-	splx(s);
+	crit_leave();
 
 	return (0);
 }

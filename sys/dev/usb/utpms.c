@@ -429,7 +429,7 @@ utpms_intr(struct uhidev *addr, void *ibuf, unsigned int len)
 {
 	struct utpms_softc *sc = (struct utpms_softc *)addr;
 	unsigned char *data;
-	int dx, dy, dz, i, s;
+	int dx, dy, dz, i;
 	uint32_t buttons;
 
 	/* Ignore incomplete data packets. */
@@ -470,10 +470,10 @@ utpms_intr(struct uhidev *addr, void *ibuf, unsigned int len)
 	/* Report to wsmouse. */
 	if ((dx != 0 || dy != 0 || dz != 0 || buttons != sc->sc_buttons) &&
 	    sc->sc_wsmousedev != NULL) {
-		s = spltty();
+		crit_enter();
 		wsmouse_input(sc->sc_wsmousedev, buttons, dx, -dy, dz, 0,
 		    WSMOUSE_INPUT_DELTA);
-		splx(s);
+		crit_leave();
 	}
 	sc->sc_buttons = buttons;
 }

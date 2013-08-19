@@ -35,6 +35,7 @@
 #include <sys/ioctl.h>
 #include <sys/tty.h>
 #include <sys/malloc.h>
+#include <sys/proc.h>
 
 /*
  * If TTY_QUOTE functionality isn't required by a line discipline,
@@ -90,9 +91,8 @@ int
 getc(struct clist *clp)
 {
 	int c = -1;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (clp->c_cc == 0)
 		goto out;
 
@@ -108,7 +108,7 @@ getc(struct clist *clp)
 	if (--clp->c_cc == 0)
 		clp->c_cf = clp->c_cl = (u_char *)0;
 out:
-	splx(s);
+	crit_leave();
 	return c;
 }
 
@@ -121,9 +121,8 @@ q_to_b(struct clist *clp, u_char *cp, int count)
 {
 	int cc;
 	u_char *p = cp;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	/* optimize this while loop */
 	while (count > 0 && clp->c_cc > 0) {
 		cc = clp->c_cl - clp->c_cf;
@@ -144,7 +143,7 @@ q_to_b(struct clist *clp, u_char *cp, int count)
 	}
 	if (clp->c_cc == 0)
 		clp->c_cf = clp->c_cl = (u_char *)0;
-	splx(s);
+	crit_leave();
 	return p - cp;
 }
 
@@ -158,9 +157,8 @@ ndqb(struct clist *clp, int flag)
 	int count = 0;
 	int i;
 	int cc;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if ((cc = clp->c_cc) == 0)
 		goto out;
 
@@ -187,7 +185,7 @@ ndqb(struct clist *clp, int flag)
 		}
 	}
 out:
-	splx(s);
+	crit_leave();
 	return count;
 }
 
@@ -198,9 +196,8 @@ void
 ndflush(struct clist *clp, int count)
 {
 	int cc;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (count == clp->c_cc) {
 		clp->c_cc = 0;
 		clp->c_cf = clp->c_cl = (u_char *)0;
@@ -222,7 +219,7 @@ ndflush(struct clist *clp, int count)
 	if (clp->c_cc == 0)
 		clp->c_cf = clp->c_cl = (u_char *)0;
 out:
-	splx(s);
+	crit_leave();
 }
 
 /*
@@ -232,11 +229,10 @@ int
 putc(int c, struct clist *clp)
 {
 	int i;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (clp->c_cc == clp->c_cn) {
-		splx(s);
+		crit_leave();
 		return -1;
 	}
 
@@ -262,7 +258,7 @@ putc(int c, struct clist *clp)
 	clp->c_cl++;
 	if (clp->c_cl == clp->c_ce)
 		clp->c_cl = clp->c_cs;
-	splx(s);
+	crit_leave();
 	return 0;
 }
 
@@ -314,12 +310,11 @@ b_to_q(u_char *cp, int count, struct clist *clp)
 {
 	int cc;
 	u_char *p = cp;
-	int s;
 
 	if (count <= 0)
 		return 0;
 
-	s = spltty();
+	crit_enter();
 	if (clp->c_cc == clp->c_cn)
 		goto out;
 
@@ -351,7 +346,7 @@ b_to_q(u_char *cp, int count, struct clist *clp)
 			clp->c_cl = clp->c_cs;
 	}
 out:
-	splx(s);
+	crit_leave();
 	return count;
 }
 
@@ -423,9 +418,8 @@ int
 unputc(struct clist *clp)
 {
 	unsigned int c = -1;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (clp->c_cc == 0)
 		goto out;
 
@@ -445,7 +439,7 @@ unputc(struct clist *clp)
 	if (clp->c_cc == 0)
 		clp->c_cf = clp->c_cl = (u_char *)0;
 out:
-	splx(s);
+	crit_leave();
 	return c;
 }
 
@@ -456,11 +450,10 @@ void
 catq(struct clist *from, struct clist *to)
 {
 	int c;
-	int s;
 
-	s = spltty();
+	crit_enter();
 	if (from->c_cc == 0) {	/* nothing to move */
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -474,10 +467,10 @@ catq(struct clist *from, struct clist *to)
 		tmp = *from;
 		*from = *to;
 		*to = tmp;
-		splx(s);
+		crit_leave();
 		return;
 	}
-	splx(s);
+	crit_leave();
 
 	while ((c = getc(from)) != -1)
 		putc(c, to);

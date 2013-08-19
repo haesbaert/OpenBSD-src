@@ -56,6 +56,7 @@
 #include <sys/signalvar.h>
 #include <sys/device.h>
 #include <sys/poll.h>
+#include <sys/proc.h>
 
 #include <dev/wscons/wsconsio.h>
 #include <dev/wscons/wsksymdef.h>
@@ -362,7 +363,7 @@ wsmux_do_ioctl(struct device *dv, u_long cmd, caddr_t data, int flag,
 	struct wsmux_softc *sc = (struct wsmux_softc *)dv;
 	struct wsevsrc *me;
 	int error, ok;
-	int s, put, get, n;
+	int put, get, n;
 	struct wseventvar *evar;
 	struct wscons_event *ev;
 	struct wsmux_device_list *l;
@@ -392,13 +393,13 @@ wsmux_do_ioctl(struct device *dv, u_long cmd, caddr_t data, int flag,
 			return (0);
 		}
 
-		s = spltty();
+		crit_enter();
 		get = evar->get;
 		put = evar->put;
 		ev = &evar->q[put];
 		if (++put % WSEVENT_QSIZE == get) {
 			put--;
-			splx(s);
+			crit_leave();
 			return (ENOSPC);
 		}
 		if (put >= WSEVENT_QSIZE)
@@ -407,7 +408,7 @@ wsmux_do_ioctl(struct device *dv, u_long cmd, caddr_t data, int flag,
 		nanotime(&ev->time);
 		evar->put = put;
 		WSEVENT_WAKEUP(evar);
-		splx(s);
+		crit_leave();
 		return (0);
 	case WSMUXIO_ADD_DEVICE:
 #define d ((struct wsmux_device *)data)

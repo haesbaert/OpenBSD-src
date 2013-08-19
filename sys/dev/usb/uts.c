@@ -26,6 +26,7 @@
 #include <sys/timeout.h>
 #include <sys/conf.h>
 #include <sys/device.h>
+#include <sys/proc.h>
 
 #include <machine/bus.h>
 #include <machine/endian.h>
@@ -453,7 +454,6 @@ uts_intr(struct usbd_xfer *xfer, void *addr, usbd_status status)
 {
 	struct uts_softc *sc = addr;
 	u_int32_t len;
-	int s;
 	struct uts_pos tp;
 
 	if (status == USBD_CANCELLED)
@@ -468,14 +468,14 @@ uts_intr(struct usbd_xfer *xfer, void *addr, usbd_status status)
 
 	usbd_get_xfer_status(xfer, NULL, NULL, &len, NULL);
 
-	s = spltty();
+	crit_enter();
 
 	uts_get_pos(sc, &tp);
 
 	if (len != sc->sc_pkts) {
 		DPRINTF(("%s: bad input length %d != %d\n",
 		    sc->sc_dev.dv_xname, len, sc->sc_isize));
-		splx(s);
+		crit_leave();
 		return;
 	}
 
@@ -488,5 +488,5 @@ uts_intr(struct usbd_xfer *xfer, void *addr, usbd_status status)
 	sc->sc_oldy = tp.y;
 	sc->sc_oldx = tp.x;
 
-	splx(s);
+	crit_leave();
 }

@@ -224,7 +224,6 @@ mc68681_start(struct tty *tp)
 {
 	struct mc68681_softc *sc;
 	dev_t dev;
-	int s;
 	int port, tries;
 	int c;
 	uint ptaddr;
@@ -239,7 +238,7 @@ mc68681_start(struct tty *tp)
 	ptaddr = port ? MC68681_B_BASE : MC68681_A_BASE;
 	imrbit = port ? DART_ISR_TXB : DART_ISR_TXA;
 
-	s = spltty();
+	crit_enter();
 
 	if (tp->t_state & (TS_TIMEOUT | TS_BUSY | TS_TTSTOP))
 		goto bail;
@@ -270,20 +269,18 @@ mc68681_start(struct tty *tp)
 	tp->t_state &= ~TS_BUSY;
 
 bail:
-	splx(s);
+	crit_leave();
 }
 
 int
 dartstop(struct tty *tp, int flag)
 {
-	int s;
-
-	s = spltty();
+	crit_enter();
 	if (tp->t_state & TS_BUSY) {
 		if ((tp->t_state & TS_TTSTOP) == 0)
 			tp->t_state |= TS_FLUSH;
 	}
-	splx(s);
+	crit_leave();
 
 	return 0;
 }
@@ -298,11 +295,10 @@ mc68681_mctl(struct mc68681_softc *sc, int port, int flags, int how)
 {
 	int op, newflags = 0;
 	struct mc68681_line *line;
-	int s;
 
 	line = &sc->sc_line[port];
 
-	s = spltty();
+	crit_enter();
 
 	if (flags & TIOCM_DTR) {
 		op = sc->sc_hw[port].dtr_op;
@@ -335,7 +331,7 @@ mc68681_mctl(struct mc68681_softc *sc, int port, int flags, int how)
 		break;
 	}
 
-	splx(s);
+	crit_leave();
 	return flags;
 }
 
@@ -414,7 +410,7 @@ dartioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 int
 mc68681_param(struct tty *tp, struct termios *t)
 {
-	int unit, port, s, acrupdate;
+	int unit, port, acrupdate;
 	const struct mc68681_s *spd;
 	uint8_t acr, mr1, mr2;
 	struct mc68681_line *line;
@@ -544,9 +540,9 @@ mc68681_param(struct tty *tp, struct termios *t)
 		}
 
 		if (acrupdate != 0) {
-			s = spltty();
+			crit_enter();
 			mc68681_set_acr(sc);
-			splx(s);
+			crit_leave();
 		}
 	}
 
@@ -631,7 +627,7 @@ darttty(dev_t dev)
 int
 dartopen(dev_t dev, int flag, int mode, struct proc *p)
 {
-	int s, unit, port;
+	int unit, port;
 	struct mc68681_line *line;
 	struct mc68681_softc *sc;
 	struct tty *tp;
@@ -645,7 +641,7 @@ dartopen(dev_t dev, int flag, int mode, struct proc *p)
 	port = DART_PORT(dev);
 	line = &sc->sc_line[port];
 
-	s = spltty();
+	crit_enter();
 	if (line->tty != NULL)
 		tp = line->tty;
 	else
@@ -672,11 +668,11 @@ dartopen(dev_t dev, int flag, int mode, struct proc *p)
 		(void)mc68681_mctl(sc, port, TIOCM_DTR | TIOCM_RTS, DMSET);
 		tp->t_state |= TS_CARR_ON;
 	} else if (tp->t_state & TS_XCLUDE && suser(p, 0) != 0) {
-		splx(s);
+		crit_leave();
 		return EBUSY;
 	}
 
-	splx(s);
+	crit_leave();
 	return (*linesw[tp->t_line].l_open)(dev, tp, p);
 }
 

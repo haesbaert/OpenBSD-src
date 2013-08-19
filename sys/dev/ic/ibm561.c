@@ -269,7 +269,6 @@ ibm561_set_cmap(rc, cmapp)
 	struct ibm561data *data = (struct ibm561data *)rc;
 	u_int count, index;
 	int error;
-	int s;
 
 	index = cmapp->index;
 	count = cmapp->count;
@@ -278,22 +277,22 @@ ibm561_set_cmap(rc, cmapp)
 	    count > IBM561_NCMAP_ENTRIES - index)
 		return (EINVAL);
 
-	s = spltty();
+	crit_enter();
 	if ((error = copyin(cmapp->red, &data->cmap_r[index], count)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	if ((error = copyin(cmapp->green, &data->cmap_g[index], count)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	if ((error = copyin(cmapp->blue, &data->cmap_b[index], count)) != 0) {
-		splx(s);
+		crit_leave();
 		return (error);
 	}
 	data->changed |= CHANGED_CMAP;
 	data->ramdac_sched_update(data->cookie, ibm561_update);
-	splx(s);
+	crit_leave();
 	return (0);
 }
 

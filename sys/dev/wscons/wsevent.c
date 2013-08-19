@@ -128,24 +128,24 @@ wsevent_fini(struct wseventvar *ev)
 int
 wsevent_read(struct wseventvar *ev, struct uio *uio, int flags)
 {
-	int s, n, cnt, error;
+	int n, cnt, error;
 
 	/*
 	 * Make sure we can return at least 1.
 	 */
 	if (uio->uio_resid < sizeof(struct wscons_event))
 		return (EMSGSIZE);	/* ??? */
-	s = splwsevent();
+	crit_enter();
 	while (ev->get == ev->put) {
 		if (flags & IO_NDELAY) {
-			splx(s);
+			crit_leave();
 			return (EWOULDBLOCK);
 		}
 		ev->wanted = 1;
 		error = tsleep(ev, PWSEVENT | PCATCH,
 		    "wsevent_read", 0);
 		if (error) {
-			splx(s);
+			crit_leave();
 			return (error);
 		}
 	}
@@ -157,7 +157,7 @@ wsevent_read(struct wseventvar *ev, struct uio *uio, int flags)
 		cnt = WSEVENT_QSIZE - ev->get;	/* events in [get..QSIZE) */
 	else
 		cnt = ev->put - ev->get;	/* events in [get..put) */
-	splx(s);
+	crit_leave();
 	n = howmany(uio->uio_resid, sizeof(struct wscons_event));
 	if (cnt > n)
 		cnt = n;
@@ -184,7 +184,7 @@ int
 wsevent_poll(struct wseventvar *ev, int events, struct proc *p)
 {
 	int revents = 0;
-	int s = splwsevent();
+	crit_enter();
 
 	if (events & (POLLIN | POLLRDNORM)) {
 		if (ev->get != ev->put)
@@ -193,6 +193,6 @@ wsevent_poll(struct wseventvar *ev, int events, struct proc *p)
 			selrecord(p, &ev->sel);
 	}
 
-	splx(s);
+	crit_leave();
 	return (revents);
 }

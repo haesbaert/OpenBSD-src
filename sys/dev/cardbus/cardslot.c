@@ -195,7 +195,6 @@ void
 cardslot_event_throw(struct cardslot_softc *sc, int ev)
 {
 	struct cardslot_event *ce;
-	int s;
 
 	DPRINTF(("cardslot_event_throw: an event %s comes\n",
 	    ev == CARDSLOT_EVENT_INSERTION_CB ? "CardBus Card inserted" :
@@ -208,9 +207,9 @@ cardslot_event_throw(struct cardslot_softc *sc, int ev)
 		return;
 	ce->ce_type = ev;
 
-	s = spltty();
+	crit_enter();
 	SIMPLEQ_INSERT_TAIL(&sc->sc_events, ce, ce_q);
-	splx(s);
+	crit_leave();
 
 	workq_add_task(NULL, 0, cardslot_event, sc, NULL);
 }
@@ -227,11 +226,11 @@ cardslot_event(void *arg1, void *arg2)
 {
 	struct cardslot_softc *sc = arg1;
 	struct cardslot_event *ce;
-	int s, ev;
+	int ev;
 
-	s = spltty();
+	crit_enter();
 	if ((ce = SIMPLEQ_FIRST(&sc->sc_events)) == NULL) {
-		splx(s);
+		crit_leave();
 		return;
 	}
 	SIMPLEQ_REMOVE_HEAD(&sc->sc_events, ce_q);
@@ -263,7 +262,7 @@ cardslot_event(void *arg1, void *arg2)
 			}
 		}
 	}
-	splx(s);
+	crit_leave();
 
 	ev = ce->ce_type;
 	pool_put(&cardsloteventpool, ce);
