@@ -435,7 +435,7 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 				pflow_sendout_v9_tmpl(sc);
 				crit_leave();
 			} else if (sc->sc_version == PFLOW_PROTO_10) {
-				crit_enter()
+				crit_enter();
 				pflow_sendout_ipfix_tmpl(sc);
 				crit_leave();
 			}
@@ -972,7 +972,7 @@ copy_flow_v9_4_to_m(struct pflow_v9_flow4 *flow, struct pflow_softc *sc)
 	if (sc->sc_mbuf == NULL) {
 		if ((sc->sc_mbuf =
 		    pflow_get_mbuf(sc, PFLOW_V9_TMPL_IPV4_ID)) == NULL) {
-			splx(s);
+			crit_leave();
 			return (ENOBUFS);
 		}
 		sc->sc_count4 = 0;
@@ -989,20 +989,20 @@ copy_flow_v9_4_to_m(struct pflow_v9_flow4 *flow, struct pflow_softc *sc)
 
 	if (sc->sc_count4 >= sc->sc_maxcount4)
 		ret = pflow_sendout_v9(sc, AF_INET);
-	splx(s);
+	crit_leave();
 	return(ret);
 }
 
 int
 copy_flow_v9_6_to_m(struct pflow_v9_flow6 *flow, struct pflow_softc *sc)
 {
-	int		s, ret = 0;
+	int		ret = 0;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_mbuf6 == NULL) {
 		if ((sc->sc_mbuf6 =
 		    pflow_get_mbuf(sc, PFLOW_V9_TMPL_IPV6_ID)) == NULL) {
-			splx(s);
+			crit_leave();
 			return (ENOBUFS);
 		}
 		sc->sc_count6 = 0;
@@ -1020,20 +1020,20 @@ copy_flow_v9_6_to_m(struct pflow_v9_flow6 *flow, struct pflow_softc *sc)
 	if (sc->sc_count6 >= sc->sc_maxcount6)
 		ret = pflow_sendout_v9(sc, AF_INET6);
 
-	splx(s);
+	crit_leave();
 	return(ret);
 }
 
 int
 copy_flow_ipfix_4_to_m(struct pflow_ipfix_flow4 *flow, struct pflow_softc *sc)
 {
-	int		s, ret = 0;
+	int		ret = 0;
 
-	s = splnet();
+	crit_enter();
 	if (sc->sc_mbuf == NULL) {
 		if ((sc->sc_mbuf =
 		    pflow_get_mbuf(sc, PFLOW_IPFIX_TMPL_IPV4_ID)) == NULL) {
-			splx(s);
+			crit_leave();
 			return (ENOBUFS);
 		}
 		sc->sc_count4 = 0;
