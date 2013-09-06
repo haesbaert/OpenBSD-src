@@ -100,7 +100,6 @@ ithread(void *v_is)
 			ithread_sleep(is);
 			DPRINTF(20, "ithread %u woke up\n", curproc->p_pid);
 		}
-		splx(s);
 	}
 }
 
