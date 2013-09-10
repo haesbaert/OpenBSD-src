@@ -89,6 +89,7 @@ struct cpu_info {
 	int		ci_idepth;
 	u_int64_t	ci_imask[NIPL];
 	u_int64_t	ci_iunmask[NIPL];
+	u_int64_t	ci_req;
 #ifdef DIAGNOSTIC
 	int		ci_mutex_level;
 #endif
@@ -233,10 +234,7 @@ extern struct cpu_info cpu_info_primary;
 
 /*
  * Arguments to hardclock, softclock and statclock
- * encapsulate the previous machine state in an opaque
- * clockframe; for now, use generic intrframe.
  */
-#define clockframe intrframe
 
 #define	CLKF_USERMODE(frame)	USERMODE((frame)->if_cs, (frame)->if_rflags)
 #define CLKF_PC(frame)		((frame)->if_rip)

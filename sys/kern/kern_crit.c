@@ -18,6 +18,8 @@
 #include <sys/systm.h>
 #include <sys/proc.h>
 
+#include <machine/cpufunc.h>
+
 /* XXX we need to make sure we have a process context soon, for now just keep
  * this counter so that we can hunt it. */
 u_int crit_escaped;
@@ -39,6 +41,17 @@ crit_leave(void)
 		crit_escaped++;
 		return;
 	}
+	if (curproc->p_crit == 1) {
+		long rf = read_rflags(); /* XXX or psl ? */
+
+		disable_intr();
+
+		if (curcpu()->ci_req)
+			Xfakeclock();
+
+		write_rflags(rf);
+	}
+
 	curproc->p_crit--;
 	KASSERT(curproc->p_crit >= 0);
 }
