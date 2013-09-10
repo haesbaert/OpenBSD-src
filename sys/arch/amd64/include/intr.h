@@ -108,6 +108,7 @@ struct intrhand {
 #define IUNMASK(ci,level) (ci)->ci_iunmask[(level)]
 
 extern void Xspllower(int);
+extern void Xfakeclock(void);
 
 int splraise(int);
 int spllower(int);
