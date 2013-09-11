@@ -457,7 +457,7 @@ mi_switch(void)
 #endif
 }
 
-static __inline void
+void
 resched_proc(struct proc *p, u_char pri)
 {
 	struct cpu_info *ci;
