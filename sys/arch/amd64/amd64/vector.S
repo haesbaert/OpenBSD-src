@@ -314,14 +314,14 @@ calltrap:
 #ifdef MULTIPROCESSOR
 IDTVEC(recurse_lapic_ipi)
 	INTR_RECURSE_HWFRAME
-	pushq	$0		
+	pushq	$0
 	pushq	$T_ASTFLT
-	INTRENTRY		
+	INTRENTRY
 	jmp	1f
 IDTVEC(intr_lapic_ipi)
-	pushq	$0		
+	pushq	$0
 	pushq	$T_ASTFLT
-	INTRENTRY		
+	INTRENTRY
 	movl	$0,_C_LABEL(local_apic)+LAPIC_EOI
 	movl	CPUVAR(ILEVEL),%ebx
 	cmpl	$IPL_IPI,%ebx
@@ -330,7 +330,7 @@ IDTVEC(resume_lapic_ipi)
 1:
 	incl	CPUVAR(IDEPTH)
 	movl	$IPL_IPI,CPUVAR(ILEVEL)
-        sti
+	sti
 	pushq	%rbx
 	call	_C_LABEL(x86_ipi_handler)
 	jmp	_C_LABEL(Xdoreti)
@@ -389,27 +389,26 @@ IDTVEC(ipi_invlrange)
 	iretq
 
 #endif /* MULTIPROCESSOR */
-	
+
 	/*
 	 * Interrupt from the local APIC timer.
 	 */
 IDTVEC(recurse_lapic_ltimer)
 	INTR_RECURSE_HWFRAME
-	pushq	$0		
+	pushq	$0
 	pushq	$T_ASTFLT
-	INTRENTRY		
+	INTRENTRY
 	jmp	1f
 IDTVEC(intr_lapic_ltimer)
-	pushq	$0		
+	pushq	$0
 	pushq	$T_ASTFLT
-	INTRENTRY		
+	INTRENTRY
 	movl	$0,_C_LABEL(local_apic)+LAPIC_EOI
 	movl	CPUVAR(ILEVEL),%ebx
 	cmpl	$IPL_CLOCK,%ebx
 	jae	2f
 	movq	CPUVAR(CURPROC),%rax
-	movl	P_CRIT(%rax),%eax
-	testl	%eax,%eax
+	testl	$0,P_CRIT(%rax)
 	jnz	2f
 IDTVEC(resume_lapic_ltimer)
 1:
