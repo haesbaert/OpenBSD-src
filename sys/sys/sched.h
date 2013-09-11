@@ -145,6 +145,7 @@ void sched_idle(void *);
 void sched_exit(struct proc *);
 void mi_switch(void);
 void cpu_switchto(struct proc *, struct proc *);
+void resched_proc(struct proc *, u_char);
 struct proc *sched_chooseproc(void);
 struct cpu_info *sched_choosecpu(struct proc *);
 struct cpu_info *sched_choosecpu_fork(struct proc *parent, int);

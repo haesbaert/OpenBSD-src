@@ -153,6 +153,7 @@ ithread_run(struct intrsource *is)
 		 * SCHED_LOCK crap.
 		 */
 		setrunqueue(p);
+		resched_proc(p, p->p_priority);
 		break;
 	default:
 		SCHED_UNLOCK(s);
