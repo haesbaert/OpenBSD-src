@@ -1966,3 +1966,18 @@ check_context(const struct reg *regs, struct trapframe *tf)
 
 	return 0;
 }
+
+u_int64_t
+bsrq(u_int64_t mask)
+{
+	u_int64_t result;
+
+	__asm __volatile("bsrq %1,%0" : "=r" (result) : "rm" (mask));
+	return (result);
+}
+
+int
+flsq(u_int64_t mask)
+{
+	return (mask == 0 ? mask : (int)bsrq(mask) + 1);
+}

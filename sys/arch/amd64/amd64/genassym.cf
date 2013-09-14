@@ -112,7 +112,6 @@ member	CPU_INFO_IDEPTH		ci_idepth
 member	CPU_INFO_ISOURCES	ci_isources
 member	CPU_INFO_IPENDING	ci_ipending
 member	CPU_INFO_IUNMASK	ci_iunmask
-member	CPU_INFO_REQ		ci_req
 ifdef DIAGNOSTIC
 member	CPU_INFO_MUTEX_LEVEL	ci_mutex_level
 endif
