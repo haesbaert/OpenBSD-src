@@ -420,7 +420,6 @@ IDTVEC(resume_lapic_ltimer)
 	call	_C_LABEL(lapic_clockintr)
 	jmp	_C_LABEL(Xdoreti)
 2:
-	orq	$1, CPUVAR(REQ)
 	movq	$(1 << LIR_TIMER),%rax
 	orq	%rax,CPUVAR(IPENDING)
 	sti
@@ -462,6 +461,9 @@ IDTVEC(intr_##name##num)						;\
 	movl	CPUVAR(ILEVEL),%r13d					;\
 	cmpl	%ebx,%r13d						;\
 	jae	10f			/* currently masked; hold it */	;\
+	movq	CPUVAR(CURPROC),%rax					;\
+	testl	$0,P_CRIT(%rax)						;\
+	jnz	10f							;\
 	incl	_C_LABEL(uvmexp)+V_INTR	/* statistical info */		;\
 1:									\
 	pushq	%r13							;\

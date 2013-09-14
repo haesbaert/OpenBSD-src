@@ -140,11 +140,8 @@ IDTVEC(spllower)
 
 IDTVEC(fakeclock)
 	INTR_FAKECLKFRAME_ENTER
-	incl	CPUVAR(IDEPTH)
 	xorq	%rdi,%rdi
 	call	_C_LABEL(lapic_clockintr_clkframe)
-	movq	$0, CPUVAR(REQ)
-	decl	CPUVAR(IDEPTH)
 	INTR_FAKECLKFRAME_LEAVE
 	ret
 

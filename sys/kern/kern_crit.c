@@ -17,8 +17,16 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
+#include <sys/ithread.h>
 
 #include <machine/cpufunc.h>
+
+static void	crit_rundeferred(void);
+
+//#define CRITCOUNTERS
+#ifdef CRITCOUNTERS
+uint64_t defclock, defother;
+#endif
 
 /* XXX we need to make sure we have a process context soon, for now just keep
  * this counter so that we can hunt it. */
@@ -34,6 +42,7 @@ crit_enter(void)
 	curproc->p_crit++;
 }
 
+
 void
 crit_leave(void)
 {
@@ -43,15 +52,48 @@ crit_leave(void)
 	}
 	if (curproc->p_crit == 1) {
 		long rf = read_rflags(); /* XXX or psl ? */
-
 		disable_intr();
 
-		if (curcpu()->ci_req)
-			Xfakeclock();
+		crit_rundeferred();
 
+		curproc->p_crit--;
 		write_rflags(rf);
+	} else
+		curproc->p_crit--;
+
+	KASSERT(curproc->p_crit >= 0);
+}
+
+/*
+ * Must always run with interrupts disabled, ci_ipending is protect by blocking
+ * interrupts.
+ */
+#define IPENDING_ISSET(ci, slot) (ci->ci_ipending & (1ull << slot))
+#define IPENDING_CLR(ci, slot) (ci->ci_ipending &= ~(1ull << slot))
+#define IPENDING_NEXT(ci, slot) (flsq(ci->ci_ipending) - 1)
+static void
+crit_rundeferred(void)
+{
+	struct cpu_info *ci = curcpu();
+	int i;
+
+	ci->ci_idepth++;
+	if (IPENDING_ISSET(ci, LIR_TIMER)) {
+#ifdef CRITCOUNTERS
+		defclock++;
+#endif
+		Xfakeclock();
+		IPENDING_CLR(ci, LIR_TIMER);
 	}
 
-	curproc->p_crit--;
-	KASSERT(curproc->p_crit >= 0);
+	/* LIR_IPI dance temporary until ipi is out of IPL */
+	while (ci->ci_ipending & ~(1ull << LIR_IPI)) {
+#ifdef CRITCOUNTERS
+		defother++;
+#endif
+		i = flsq(ci->ci_ipending & ~(1ull << LIR_IPI)) - 1;
+		ithread_run(ci->ci_isources[i]);
+		IPENDING_CLR(ci, i);
+	}
+	ci->ci_idepth--;
 }

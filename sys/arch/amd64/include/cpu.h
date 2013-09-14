@@ -89,7 +89,6 @@ struct cpu_info {
 	int		ci_idepth;
 	u_int64_t	ci_imask[NIPL];
 	u_int64_t	ci_iunmask[NIPL];
-	u_int64_t	ci_req;
 #ifdef DIAGNOSTIC
 	int		ci_mutex_level;
 #endif
