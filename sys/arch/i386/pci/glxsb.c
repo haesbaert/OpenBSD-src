@@ -32,7 +32,7 @@
 #include <sys/timeout.h>
 
 #include <machine/bus.h>
-#include <machine/pctr.h>
+#include <machine/cpufunc.h>
 
 #include <dev/rndvar.h>
 #include <dev/pci/pcivar.h>

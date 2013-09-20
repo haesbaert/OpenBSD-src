@@ -276,6 +276,8 @@ mfence(void)
 	__asm __volatile("mfence" : : : "memory");
 }
 
+#endif /* _KERNEL */
+
 static __inline u_int64_t
 rdtsc(void)
 {
@@ -293,6 +295,8 @@ rdpmc(u_int pmc)
 	__asm __volatile("rdpmc" : "=d" (hi), "=a" (lo) : "c" (pmc));
 	return (((uint64_t)hi << 32) | (uint64_t) lo);
 }
+
+#ifdef _KERNEL
 
 /* Break into DDB/KGDB. */
 static __inline void

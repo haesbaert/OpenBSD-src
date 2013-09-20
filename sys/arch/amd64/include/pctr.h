@@ -51,38 +51,7 @@ struct pctrst {
 
 #define _PATH_PCTR	"/dev/pctr"
 
-#define rdtsc()							\
-({								\
-	u_int32_t hi, lo;					\
-	__asm __volatile("rdtsc" : "=d" (hi), "=a" (lo));	\
-	((u_int64_t)hi << 32) | (u_int64_t)lo;			\
-})
-
-#define rdpmc(pmc)						\
-({								\
-	u_int32_t hi, lo;					\
-	__asm __volatile("rdpmc"				\
-	    : "=d" (hi), "=a" (lo) : "c" (pmc));		\
-	hi &= 0xffffff;						\
-	(((u_int64_t)hi << 32) | (u_int64_t)lo);		\
-})
-
 #ifdef _KERNEL
-
-#define rdmsr(msr)						\
-({								\
-	u_int32_t hi, lo;					\
-	__asm __volatile("rdmsr"				\
-	     : "=d" (hi), "=a" (lo) : "c" (msr));		\
-	((u_int64_t)hi << 32) | (u_int64_t) lo;			\
-})
-
-#define wrmsr(msr, v)						\
-({								\
-	__asm __volatile("wrmsr" :				\
-	    : "a" ((u_int64_t)v & 0xffffffff),			\
-	      "d" ((u_int64_t)v >> 32), "c" (msr));		\
-})
 
 void	pctrattach(int);
 int	pctropen(dev_t, int, int, struct proc *);

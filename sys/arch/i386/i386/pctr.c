@@ -20,6 +20,7 @@
 #include <machine/psl.h>
 #include <machine/pctr.h>
 #include <machine/cpu.h>
+#include <machine/cpufunc.h>
 #include <machine/specialreg.h>
 
 #define PCTR_AMD_NUM	PCTR_NUM

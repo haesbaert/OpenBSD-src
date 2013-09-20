@@ -287,4 +287,23 @@ breakpoint(void)
 void amd64_errata(struct cpu_info *);
 
 #endif /* _KERNEL */
+
+static __inline u_int64_t
+rdtsc(void)
+{
+	uint32_t hi, lo;
+
+	__asm __volatile("rdtsc" : "=d" (hi), "=a" (lo));
+	return (((uint64_t)hi << 32) | (uint64_t) lo);
+}
+
+static __inline u_int64_t
+rdpmc(u_int pmc)
+{
+	uint32_t hi, lo;
+
+	__asm __volatile("rdpmc" : "=d" (hi), "=a" (lo) : "c" (pmc));
+	return (((uint64_t)hi << 32) | (uint64_t) lo);
+}
+
 #endif /* !_MACHINE_CPUFUNC_H_ */

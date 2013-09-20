@@ -55,34 +55,7 @@ struct pctrst {
 
 #define _PATH_PCTR "/dev/pctr"
 
-#define rdtsc()							\
-({								\
-	pctrval v;						\
-	__asm __volatile ("rdtsc" : "=A" (v));			\
-	v;							\
-})
-
-/* Read the performance counters (Pentium Pro only) */
-#define rdpmc(ctr)						\
-({								\
-	pctrval v;						\
-	__asm __volatile ("rdpmc\n"				\
-	    "\tandl $0xff, %%edx"				\
-	    : "=A" (v) : "c" (ctr));				\
-	v;							\
-})
-
 #ifdef _KERNEL
-
-#define rdmsr(msr)						\
-({								\
-	pctrval v;						\
-	__asm __volatile ("rdmsr" : "=A" (v) : "c" (msr));	\
-	v;							\
-})
-
-#define wrmsr(msr, v) \
-	__asm __volatile ("wrmsr" :: "A" ((u_int64_t) (v)), "c" (msr));
 
 void	pctrattach(int);
 int	pctropen(dev_t, int, int, struct proc *);

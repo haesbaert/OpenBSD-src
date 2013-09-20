@@ -32,6 +32,7 @@
 #include <sys/ioctl.h>
 
 #include <machine/cpu.h>
+#include <machine/cpufunc.h>
 #include <machine/pctr.h>
 #include <machine/specialreg.h>
 
