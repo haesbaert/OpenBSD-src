@@ -108,16 +108,16 @@ tsleep(const volatile void *ident, int priority, const char *wmesg, int timo)
 	int error, error1;
 
 	if (cold || panicstr) {
-		int s;
+		int c = curproc->p_crit;
 		/*
 		 * After a panic, or during autoconfiguration,
 		 * just give interrupts a chance, then just return;
 		 * don't run any other procs or panic below,
 		 * in case this is the idle process and already asleep.
 		 */
-		s = splhigh();
-		splx(safepri);
-		splx(s);
+		curproc->p_crit = 1;
+		crit_leave();
+		curproc->p_crit = c;
 		return (0);
 	}
 
@@ -145,36 +145,30 @@ msleep(const volatile void *ident, struct mutex *mtx, int priority,
     const char *wmesg, int timo)
 {
 	struct sleep_state sls;
-	int error, error1, spl;
+	int error, error1;
+
+	crit_enter();
 
 	sleep_setup(&sls, ident, priority, wmesg);
 	sleep_setup_timeout(&sls, timo);
 	sleep_setup_signal(&sls, priority);
 
-	if (mtx) {
-		/* XXX - We need to make sure that the mutex doesn't
-		 * unblock splsched. This can be made a bit more 
-		 * correct when the sched_lock is a mutex.
-		 */
-		spl = MUTEX_OLDIPL(mtx);
-		MUTEX_OLDIPL(mtx) = splsched();
+	if (mtx)
 		mtx_leave(mtx);
-	}
 
 	sleep_finish(&sls, 1);
 	error1 = sleep_finish_timeout(&sls);
 	error = sleep_finish_signal(&sls);
 
 	if (mtx) {
-		if ((priority & PNORELOCK) == 0) {
+		if ((priority & PNORELOCK) == 0)
 			mtx_enter(mtx);
-			MUTEX_OLDIPL(mtx) = spl; /* put the ipl back */
-		} else
-			splx(spl);
 	}
 	/* Signal errors are higher priority than timeouts. */
 	if (error == 0 && error1 != 0)
 		error = error1;
+
+	crit_leave();
 
 	return (error);
 }
@@ -366,7 +360,7 @@ wakeup_n(const volatile void *ident, int n)
 		pnext = TAILQ_NEXT(p, p_runq);
 #ifdef DIAGNOSTIC
 		if (p->p_stat != SSLEEP && p->p_stat != SSTOP)
-			panic("wakeup: p_stat is %d", (int)p->p_stat);
+			panic("wakeup: p_stat is %d pid %llu", (int)p->p_stat, p->p_pid);
 #endif
 		if (p->p_wchan == ident) {
 			--n;
