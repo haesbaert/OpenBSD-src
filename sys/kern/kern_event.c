@@ -567,7 +567,7 @@ kqueue32_scan(struct kqueue *kq, int maxevents, struct kevent32 *ulistp,
 	struct kevent32 *kevp;
 	struct timeval atv, rtv, ttv;
 	struct knote *kn, marker;
-	int s, count, timeout, nkev = 0, error = 0;
+	int count, timeout, nkev = 0, error = 0;
 
 	count = maxevents;
 	if (count == 0)
@@ -615,7 +615,7 @@ start:
 	}
 
 	kevp = k32;
-	s = splhigh();
+	crit_enter();
 	if (kq->kq_count == 0) {
 		if (timeout < 0) {
 			error = EWOULDBLOCK;
@@ -623,7 +623,7 @@ start:
 			kq->kq_state |= KQ_SLEEP;
 			error = tsleep(kq, PSOCK | PCATCH, "kqread", timeout);
 		}
-		splx(s);
+		crit_leave();
 		if (error == 0)
 			goto retry;
 		/* don't restart after signals... */
@@ -639,7 +639,7 @@ start:
 		kn = TAILQ_FIRST(&kq->kq_head);
 		TAILQ_REMOVE(&kq->kq_head, kn, kn_tqe);
 		if (kn == &marker) {
-			splx(s);
+			crit_leave();
 			if (count == maxevents)
 				goto retry;
 			goto done;
@@ -666,10 +666,10 @@ start:
 		if (kn->kn_flags & EV_ONESHOT) {
 			kn->kn_status &= ~KN_QUEUED;
 			kq->kq_count--;
-			splx(s);
+			crit_leave();
 			kn->kn_fop->f_detach(kn);
 			knote_drop(kn, p, p->p_fd);
-			s = splhigh();
+			crit_enter();
 		} else if (kn->kn_flags & EV_CLEAR) {
 			kn->kn_data = 0;
 			kn->kn_fflags = 0;
@@ -680,18 +680,18 @@ start:
 		}
 		count--;
 		if (nkev == KQ_NEVENTS) {
-			splx(s);
+			crit_leave();
 			error = copyout(k32, ulistp, sizeof(*k32) * nkev);
 			ulistp += nkev;
 			nkev = 0;
 			kevp = k32;
-			s = splhigh();
+			crit_enter();
 			if (error)
 				break;
 		}
 	}
 	TAILQ_REMOVE(&kq->kq_head, &marker, kn_tqe);
-	splx(s);
+	crit_leave();
 done:
 	if (nkev != 0)
 		error = copyout(k32, ulistp, sizeof(*k32) * nkev);
@@ -808,7 +808,7 @@ kqueue_register(struct kqueue *kq, struct kevent *kev, struct proc *p)
 	struct filterops *fops = NULL;
 	struct file *fp = NULL;
 	struct knote *kn = NULL;
-	int s, error = 0;
+	int error = 0;
 
 	if (kev->filter < 0) {
 		if (kev->filter + EVFILT_SYSCOUNT < 0)
@@ -899,10 +899,10 @@ kqueue_register(struct kqueue *kq, struct kevent *kev, struct proc *p)
 			kn->kn_kevent.udata = kev->udata;
 		}
 
-		s = splhigh();
+		crit_enter();
 		if (kn->kn_fop->f_event(kn, 0))
 			KNOTE_ACTIVATE(kn);
-		splx(s);
+		crit_leave();
 
 	} else if (kev->flags & EV_DELETE) {
 		kn->kn_fop->f_detach(kn);
@@ -912,18 +912,18 @@ kqueue_register(struct kqueue *kq, struct kevent *kev, struct proc *p)
 
 	if ((kev->flags & EV_DISABLE) &&
 	    ((kn->kn_status & KN_DISABLED) == 0)) {
-		s = splhigh();
+		crit_enter();
 		kn->kn_status |= KN_DISABLED;
-		splx(s);
+		crit_leave();
 	}
 
 	if ((kev->flags & EV_ENABLE) && (kn->kn_status & KN_DISABLED)) {
-		s = splhigh();
+		crit_enter();
 		kn->kn_status &= ~KN_DISABLED;
 		if ((kn->kn_status & KN_ACTIVE) &&
 		    ((kn->kn_status & KN_QUEUED) == 0))
 			knote_enqueue(kn);
-		splx(s);
+		crit_leave();
 	}
 
 done:
@@ -939,7 +939,7 @@ kqueue_scan(struct kqueue *kq, int maxevents, struct kevent *ulistp,
 	struct kevent *kevp;
 	struct timeval atv, rtv, ttv;
 	struct knote *kn, marker;
-	int s, count, timeout, nkev = 0, error = 0;
+	int count, timeout, nkev = 0, error = 0;
 
 	count = maxevents;
 	if (count == 0)
@@ -987,7 +987,7 @@ start:
 	}
 
 	kevp = kq->kq_kev;
-	s = splhigh();
+	crit_enter();
 	if (kq->kq_count == 0) {
 		if (timeout < 0) {
 			error = EWOULDBLOCK;
@@ -995,7 +995,7 @@ start:
 			kq->kq_state |= KQ_SLEEP;
 			error = tsleep(kq, PSOCK | PCATCH, "kqread", timeout);
 		}
-		splx(s);
+		crit_leave();
 		if (error == 0)
 			goto retry;
 		/* don't restart after signals... */
@@ -1011,7 +1011,7 @@ start:
 		kn = TAILQ_FIRST(&kq->kq_head);
 		TAILQ_REMOVE(&kq->kq_head, kn, kn_tqe);
 		if (kn == &marker) {
-			splx(s);
+			crit_leave();
 			if (count == maxevents)
 				goto retry;
 			goto done;
@@ -1033,10 +1033,10 @@ start:
 		if (kn->kn_flags & EV_ONESHOT) {
 			kn->kn_status &= ~KN_QUEUED;
 			kq->kq_count--;
-			splx(s);
+			crit_leave();
 			kn->kn_fop->f_detach(kn);
 			knote_drop(kn, p, p->p_fd);
-			s = splhigh();
+			crit_enter();
 		} else if (kn->kn_flags & EV_CLEAR) {
 			kn->kn_data = 0;
 			kn->kn_fflags = 0;
@@ -1047,19 +1047,19 @@ start:
 		}
 		count--;
 		if (nkev == KQ_NEVENTS) {
-			splx(s);
+			crit_leave();
 			error = copyout((caddr_t)&kq->kq_kev, (caddr_t)ulistp,
 			    sizeof(struct kevent) * nkev);
 			ulistp += nkev;
 			nkev = 0;
 			kevp = kq->kq_kev;
-			s = splhigh();
+			crit_enter();
 			if (error)
 				break;
 		}
 	}
 	TAILQ_REMOVE(&kq->kq_head, &marker, kn_tqe);
-	splx(s);
+	crit_leave();
 done:
 	if (nkev != 0)
 		error = copyout((caddr_t)&kq->kq_kev, (caddr_t)ulistp,
@@ -1100,7 +1100,7 @@ kqueue_poll(struct file *fp, int events, struct proc *p)
 {
 	struct kqueue *kq = (struct kqueue *)fp->f_data;
 	int revents = 0;
-	int s = splhigh();
+	crit_enter();
 
 	if (events & (POLLIN | POLLRDNORM)) {
 		if (kq->kq_count) {
@@ -1110,7 +1110,7 @@ kqueue_poll(struct file *fp, int events, struct proc *p)
 			kq->kq_state |= KQ_SEL;
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (revents);
 }
 
@@ -1318,14 +1318,14 @@ void
 knote_enqueue(struct knote *kn)
 {
 	struct kqueue *kq = kn->kn_kq;
-	int s = splhigh();
 
+	crit_enter();
 	KASSERT((kn->kn_status & KN_QUEUED) == 0);
 
 	TAILQ_INSERT_TAIL(&kq->kq_head, kn, kn_tqe);
 	kn->kn_status |= KN_QUEUED;
 	kq->kq_count++;
-	splx(s);
+	crit_leave();
 	kqueue_wakeup(kq);
 }
 
@@ -1333,14 +1333,14 @@ void
 knote_dequeue(struct knote *kn)
 {
 	struct kqueue *kq = kn->kn_kq;
-	int s = splhigh();
 
+	crit_enter();
 	KASSERT(kn->kn_status & KN_QUEUED);
 
 	TAILQ_REMOVE(&kq->kq_head, kn, kn_tqe);
 	kn->kn_status &= ~KN_QUEUED;
 	kq->kq_count--;
-	splx(s);
+	crit_leave();
 }
 
 void

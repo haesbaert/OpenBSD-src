@@ -2241,7 +2241,7 @@ vaddr_t
 pmap_growkernel(vaddr_t maxkvaddr)
 {
 	struct pmap *kpm = pmap_kernel(), *pm;
-	int s, i;
+	int i;
 	unsigned newpdes;
 	long needed_kptp[PTP_LEVELS], target_nptp, old;
 
@@ -2266,7 +2266,7 @@ pmap_growkernel(vaddr_t maxkvaddr)
 	}
 
 
-	s = splhigh();	/* to be safe */
+	crit_enter();;	/* to be safe */
 	pmap_alloc_level(normal_pdes, pmap_maxkvaddr, PTP_LEVELS,
 	    needed_kptp);
 
@@ -2289,7 +2289,7 @@ pmap_growkernel(vaddr_t maxkvaddr)
 		pmap_pdp_cache_generation++;
 	}
 	pmap_maxkvaddr = maxkvaddr;
-	splx(s);
+	crit_leave();
 
 	return maxkvaddr;
 }

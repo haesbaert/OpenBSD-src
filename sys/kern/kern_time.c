@@ -478,14 +478,13 @@ sys_getitimer(struct proc *p, void *v, register_t *retval)
 		syscallarg(struct itimerval *) itv;
 	} */ *uap = v;
 	struct itimerval aitv;
-	int s;
 	int which;
 
 	which = SCARG(uap, which);
 
 	if (which < ITIMER_REAL || which > ITIMER_PROF)
 		return (EINVAL);
-	s = splclock();
+	crit_enter();
 	aitv = p->p_p->ps_timer[which];
 
 	if (which == ITIMER_REAL) {
@@ -506,7 +505,7 @@ sys_getitimer(struct proc *p, void *v, register_t *retval)
 				    &aitv.it_value);
 		}
 	}
-	splx(s);
+	crit_leave();
 	return (copyout(&aitv, SCARG(uap, itv), sizeof (struct itimerval)));
 }
 
@@ -559,16 +558,14 @@ sys_setitimer(struct proc *p, void *v, register_t *retval)
 		}
 		pr->ps_timer[ITIMER_REAL] = aitv;
 	} else {
-		int s;
-
 		itimerround(&aitv.it_interval);
-		s = splclock();
+		crit_enter();
 		pr->ps_timer[which] = aitv;
 		if (which == ITIMER_VIRTUAL)
 			timeout_del(&pr->ps_virt_to);
 		if (which == ITIMER_PROF)
 			timeout_del(&pr->ps_prof_to);
-		splx(s);
+		crit_leave();
 	}
 
 	return (0);
@@ -1009,14 +1006,13 @@ t32_sys_getitimer(struct proc *p, void *v, register_t *retval)
 	} */ *uap = v;
 	struct itimerval aitv;
 	struct itimerval32 aitv32;
-	int s;
 	int which;
 
 	which = SCARG(uap, which);
 
 	if (which < ITIMER_REAL || which > ITIMER_PROF)
 		return (EINVAL);
-	s = splclock();
+	crit_enter();
 	aitv = p->p_p->ps_timer[which];
 
 	if (which == ITIMER_REAL) {
@@ -1037,7 +1033,7 @@ t32_sys_getitimer(struct proc *p, void *v, register_t *retval)
 				    &aitv.it_value);
 		}
 	}
-	splx(s);
+	crit_leave();
 	ITIMERVAL_TO_32(&aitv32, &aitv);
 	return (copyout(&aitv32, SCARG(uap, itv), sizeof(aitv32)));
 }
@@ -1092,16 +1088,14 @@ t32_sys_setitimer(struct proc *p, void *v, register_t *retval)
 		}
 		pr->ps_timer[ITIMER_REAL] = aitv;
 	} else {
-		int s;
-
 		itimerround(&aitv.it_interval);
-		s = splclock();
+		crit_enter();
 		pr->ps_timer[which] = aitv;
 		if (which == ITIMER_VIRTUAL)
 			timeout_del(&pr->ps_virt_to);
 		if (which == ITIMER_PROF)
 			timeout_del(&pr->ps_prof_to);
-		splx(s);
+		crit_leave();
 	}
 
 	return (0);

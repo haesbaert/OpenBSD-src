@@ -35,6 +35,7 @@
 #include <sys/systm.h>
 #include <sys/time.h>
 #include <sys/workq.h>
+#include <sys/proc.h>
 
 #include <machine/endian.h>
 
@@ -281,9 +282,9 @@ rasops_init(struct rasops_info *ri, int wantrows, int wantcols)
 int
 rasops_reconfig(struct rasops_info *ri, int wantrows, int wantcols)
 {
-	int l, bpp, s;
+	int l, bpp;
 
-	s = splhigh();
+	crit_enter();
 
 	if (ri->ri_font->fontwidth > 32 || ri->ri_font->fontwidth < 4)
 		panic("rasops_init: fontwidth assumptions botched!");
@@ -435,7 +436,7 @@ rasops_reconfig(struct rasops_info *ri, int wantrows, int wantcols)
 #endif
 	default:
 		ri->ri_flg &= ~RI_CFGDONE;
-		splx(s);
+		crit_leave();
 		return (-1);
 	}
 
@@ -451,7 +452,7 @@ rasops_reconfig(struct rasops_info *ri, int wantrows, int wantcols)
 #endif
 
 	ri->ri_flg |= RI_CFGDONE;
-	splx(s);
+	crit_leave();
 	return (0);
 }
 

@@ -2004,7 +2004,6 @@ int
 acpi_sleep_state(struct acpi_softc *sc, int state)
 {
 	int error = ENXIO;
-	int s;
 
 	switch (state) {
 	case ACPI_STATE_S0:
@@ -2041,7 +2040,7 @@ acpi_sleep_state(struct acpi_softc *sc, int state)
 
 	resettodr();
 
-	s = splhigh();
+	crit_enter();
 	disable_intr();	/* PSL_I for resume; PIC/APIC broken until repair */
 	cold = 1;	/* Force other code to delay() instead of tsleep() */
 
@@ -2083,7 +2082,7 @@ fail_pts:
 fail_suspend:
 	cold = 0;
 	enable_intr();
-	splx(s);
+	crit_leave();
 
 	inittodr(time_second);
 
@@ -2123,13 +2122,13 @@ acpi_wakeup(void *arg)
 void
 acpi_powerdown(void)
 {
-	int state = ACPI_STATE_S5, s;
+	int state = ACPI_STATE_S5;
 	struct acpi_softc *sc = acpi_softc;
 
 	if (acpi_enabled == 0)
 		return;
 
-	s = splhigh();
+	crit_enter();
 	disable_intr();
 	cold = 1;
 

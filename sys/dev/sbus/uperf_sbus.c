@@ -163,9 +163,8 @@ u_int32_t
 uperf_sbus_read_reg(struct uperf_sbus_softc *sc, bus_size_t r)
 {
 	u_int32_t v;
-	int s;
 
-	s = splhigh();
+	crit_enter();
 	bus_space_write_1(sc->sc_bus_t, sc->sc_bus_h, USC_ADDR, r);
 	bus_space_barrier(sc->sc_bus_t, sc->sc_bus_h, USC_ADDR, 1,
 	    BUS_SPACE_BARRIER_WRITE);
@@ -191,7 +190,7 @@ uperf_sbus_read_reg(struct uperf_sbus_softc *sc, bus_size_t r)
 	bus_space_barrier(sc->sc_bus_t, sc->sc_bus_h, USC_DATA + 3, 1,
 	    BUS_SPACE_BARRIER_READ);
 
-	splx(s);
+	crit_leave();
 	return (v);
 }
 
@@ -201,9 +200,7 @@ uperf_sbus_read_reg(struct uperf_sbus_softc *sc, bus_size_t r)
 void
 uperf_sbus_write_reg(struct uperf_sbus_softc *sc, bus_size_t r, u_int32_t v)
 {
-	int s;
-
-	s = splhigh();
+	crit_enter();
 	bus_space_write_1(sc->sc_bus_t, sc->sc_bus_h, USC_ADDR, r);
 	bus_space_barrier(sc->sc_bus_t, sc->sc_bus_h, USC_ADDR, 1,
 	    BUS_SPACE_BARRIER_WRITE);
@@ -229,7 +226,7 @@ uperf_sbus_write_reg(struct uperf_sbus_softc *sc, bus_size_t r, u_int32_t v)
 	    (v >> 0) & 0xff);
 	bus_space_barrier(sc->sc_bus_t, sc->sc_bus_h, USC_DATA + 3, 1,
 	    BUS_SPACE_BARRIER_WRITE);
-	splx(s);
+	crit_leave();
 }
 
 int

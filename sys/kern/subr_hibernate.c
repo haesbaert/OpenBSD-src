@@ -1205,7 +1205,6 @@ hibernate_resume(void)
 	if (config_suspend(TAILQ_FIRST(&alldevs), DVACT_QUIESCE) != 0)
 		goto fail;
 
-	(void) splhigh();
 	hibernate_disable_intr_machdep();
 	cold = 1;
 

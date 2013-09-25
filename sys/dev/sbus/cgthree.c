@@ -499,10 +499,9 @@ void
 cgthree_burner(void *vsc, u_int on, u_int flags)
 {
 	struct cgthree_softc *sc = vsc;
-	int s;
 	u_int8_t fbc;
 
-	s = splhigh();
+	crit_enter();
 	fbc = FBC_READ(sc, CG3_FBC_CTRL);
 	if (on)
 		fbc |= FBC_CTRL_VENAB | FBC_CTRL_TIME;
@@ -512,5 +511,5 @@ cgthree_burner(void *vsc, u_int on, u_int flags)
 			fbc &= ~FBC_CTRL_TIME;
 	}
 	FBC_WRITE(sc, CG3_FBC_CTRL, fbc);
-	splx(s);
+	crit_leave();
 }
