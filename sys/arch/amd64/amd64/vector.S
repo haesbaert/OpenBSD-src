@@ -408,7 +408,7 @@ IDTVEC(intr_lapic_ltimer)
 	cmpl	$IPL_CLOCK,%ebx
 	jae	2f
 	movq	CPUVAR(CURPROC),%rax
-	testl	$0,P_CRIT(%rax)
+	testl	$-1,P_CRIT(%rax)
 	jnz	2f
 IDTVEC(resume_lapic_ltimer)
 1:
@@ -462,7 +462,7 @@ IDTVEC(intr_##name##num)						;\
 	cmpl	%ebx,%r13d						;\
 	jae	10f			/* currently masked; hold it */	;\
 	movq	CPUVAR(CURPROC),%rax					;\
-	testl	$0,P_CRIT(%rax)						;\
+	testl	$-1,P_CRIT(%rax)					;\
 	jnz	10f							;\
 	incl	_C_LABEL(uvmexp)+V_INTR	/* statistical info */		;\
 1:									\
