@@ -782,7 +782,7 @@ boot(int howto)
 	delay(4*1000000);	/* XXX */
 
 	uvm_shutdown();
-	splhigh();		/* Disable interrupts. */
+	crit_enter();		/* Disable preemption/interrupts. */
 
 	/* Do a dump if requested. */
 	if (howto & RB_DUMP)

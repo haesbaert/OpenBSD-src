@@ -967,11 +967,7 @@ pccbbintr_function(struct pccbb_softc *sc)
 			s = splserial();
 		} else if (pil->pil_level == IPL_HIGH) {
 #endif
-		if (pil->pil_level == IPL_HIGH) {
-			s = splhigh();
-		} else if (pil->pil_level == IPL_CLOCK) {
-			s = splclock();
-		} else if (pil->pil_level == IPL_AUDIO) {
+		if (pil->pil_level == IPL_AUDIO) {
 			s = splaudio();
 #if 0
 		} else if (pil->pil_level == IPL_SOFTSERIAL) {

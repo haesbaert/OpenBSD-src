@@ -190,7 +190,6 @@ pcppi_bell(self, pitch, period, slp)
 	int slp;
 {
 	struct pcppi_softc *sc = self;
-	int s;
 
 	crit_enter();; /* ??? */
 	if (sc->sc_bellactive) {
@@ -208,14 +207,14 @@ pcppi_bell(self, pitch, period, slp)
 		return;
 	}
 	if (!sc->sc_bellactive || sc->sc_bellpitch != pitch) {
-		s = splhigh();
+		crit_enter();
 		bus_space_write_1(sc->sc_iot, sc->sc_pit1_ioh, TIMER_MODE,
 		    TIMER_SEL2 | TIMER_16BIT | TIMER_SQWAVE);
 		bus_space_write_1(sc->sc_iot, sc->sc_pit1_ioh, TIMER_CNTR2,
 		    TIMER_DIV(pitch) % 256);
 		bus_space_write_1(sc->sc_iot, sc->sc_pit1_ioh, TIMER_CNTR2,
 		    TIMER_DIV(pitch) / 256);
-		splx(s);
+		crit_leave();
 		/* enable speaker */
 		bus_space_write_1(sc->sc_iot, sc->sc_ppi_ioh, 0,
 			bus_space_read_1(sc->sc_iot, sc->sc_ppi_ioh, 0)

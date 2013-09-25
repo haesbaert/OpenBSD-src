@@ -331,15 +331,13 @@ tstohz(const struct timespec *ts)
 void
 startprofclock(struct process *pr)
 {
-	int s;
-
 	if ((pr->ps_flags & PS_PROFIL) == 0) {
 		atomic_setbits_int(&pr->ps_flags, PS_PROFIL);
 		if (++profprocs == 1 && stathz != 0) {
-			s = splstatclock();
+			crit_enter();
 			psdiv = pscnt = psratio;
 			setstatclockrate(profhz);
-			splx(s);
+			crit_leave();
 		}
 	}
 }
@@ -350,15 +348,13 @@ startprofclock(struct process *pr)
 void
 stopprofclock(struct process *pr)
 {
-	int s;
-
 	if (pr->ps_flags & PS_PROFIL) {
 		atomic_clearbits_int(&pr->ps_flags, PS_PROFIL);
 		if (--profprocs == 0 && stathz != 0) {
-			s = splstatclock();
+			crit_enter();
 			psdiv = pscnt = 1;
 			setstatclockrate(stathz);
-			splx(s);
+			crit_leave();
 		}
 	}
 }

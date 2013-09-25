@@ -133,8 +133,6 @@ void softintr(int);
  * Hardware interrupt masks
  */
 #define	splaudio()	splraise(IPL_AUDIO)
-#define	splclock()	splraise(IPL_CLOCK)
-#define	splstatclock()	splclock()
 #define	splipi()	splraise(IPL_IPI)
 
 /*
@@ -145,10 +143,7 @@ void softintr(int);
 /*
  * Miscellaneous
  */
-#define	splhigh()	splraise(IPL_HIGH)
 #define	spl0()		spllower(IPL_NONE)
-#define	splsched()	splraise(IPL_SCHED)
-#define spllock() 	splhigh()
 #define	splx(x)		spllower(x)
 
 /* SPL asserts */

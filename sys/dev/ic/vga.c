@@ -1148,9 +1148,8 @@ vga_burner(void *v, u_int on, u_int flags)
 	struct vga_config *vc = v;
 	struct vga_handle *vh = &vc->hdl;
 	u_int8_t r;
-	int s;
 
-	s = splhigh();
+	crit_enter();
 	vga_ts_write(vh, syncreset, 0x01);
 	if (on) {
 		vga_ts_write(vh, mode, (vga_ts_read(vh, mode) & ~0x20));
@@ -1166,7 +1165,7 @@ vga_burner(void *v, u_int on, u_int flags)
 		}
 	}
 	vga_ts_write(vh, syncreset, 0x03);
-	splx(s);
+	crit_leave();
 }
 
 int

@@ -284,10 +284,9 @@ bwtwo_burner(vsc, on, flags)
 	u_int on, flags;
 {
 	struct bwtwo_softc *sc = vsc;
-	int s;
 	u_int8_t fbc;
 
-	s = splhigh();
+	crit_enter();
 	fbc = FBC_READ(sc, FBC_CTRL);
 	if (on)
 		fbc |= FBC_CTRL_VENAB | FBC_CTRL_TIME;
@@ -297,5 +296,5 @@ bwtwo_burner(vsc, on, flags)
 			fbc &= ~FBC_CTRL_TIME;
 	}
 	FBC_WRITE(sc, FBC_CTRL, fbc);
-	splx(s);
+	crit_leave();
 }

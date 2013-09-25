@@ -739,10 +739,9 @@ void
 cgsix_burner(void *vsc, u_int on, u_int flags)
 {
 	struct cgsix_softc *sc = vsc;
-	int s;
 	u_int32_t thcm;
 
-	s = splhigh();
+	crit_enter();
 	thcm = THC_READ(sc, CG6_THC_MISC);
 	if (on)
 		thcm |= THC_MISC_VIDEN | THC_MISC_SYNCEN;
@@ -752,7 +751,7 @@ cgsix_burner(void *vsc, u_int on, u_int flags)
 			thcm &= ~THC_MISC_SYNCEN;
 	}
 	THC_WRITE(sc, CG6_THC_MISC, thcm);
-	splx(s);
+	crit_leave();
 }
 
 int

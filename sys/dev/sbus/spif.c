@@ -950,11 +950,11 @@ spifsoftintr(vsc)
 				r = 1;
 			}
 
-			s = splhigh();
+			crit_enter();
 			flags = sp->sp_flags;
 			CLR(sp->sp_flags, STTYF_DONE | STTYF_CDCHG |
 			    STTYF_RING_OVERFLOW);
-			splx(s);
+			crit_leave();
 
 			if (ISSET(flags, STTYF_CDCHG)) {
 				crit_enter();

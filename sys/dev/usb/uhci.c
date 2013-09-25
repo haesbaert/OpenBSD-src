@@ -1272,9 +1272,9 @@ uhci_idone(struct uhci_intr_info *ii)
 	DPRINTFN(12, ("uhci_idone: ii=%p\n", ii));
 #ifdef DIAGNOSTIC
 	{
-		int s = splhigh();
+		crit_enter();
 		if (ii->isdone) {
-			splx(s);
+			crit_leave();
 #ifdef UHCI_DEBUG
 			printf("uhci_idone: ii is done!\n   ");
 			uhci_dump_ii(ii);
@@ -1284,7 +1284,7 @@ uhci_idone(struct uhci_intr_info *ii)
 			return;
 		}
 		ii->isdone = 1;
-		splx(s);
+		crit_leave();
 	}
 #endif
 

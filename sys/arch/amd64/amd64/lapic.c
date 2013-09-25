@@ -507,9 +507,9 @@ x86_ipi_init(int target)
 int
 x86_ipi(int vec, int target, int dl)
 {
-	int result, s;
+	int result;
 
-	s = splhigh();
+	crit_enter();
 
 	i82489_icr_wait();
 
@@ -523,7 +523,7 @@ x86_ipi(int vec, int target, int dl)
 
 	result = (i82489_readreg(LAPIC_ICRLO) & LAPIC_DLSTAT_BUSY) ? EBUSY : 0;
 
-	splx(s);
+	crit_leave();
 
 	return result;
 }
