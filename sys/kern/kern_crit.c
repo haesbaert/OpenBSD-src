@@ -21,7 +21,7 @@
 
 #include <machine/cpufunc.h>
 
-static void	crit_rundeferred(void);
+void	crit_rundeferred(void);
 
 //#define CRITCOUNTERS
 #ifdef CRITCOUNTERS
@@ -71,28 +71,26 @@ crit_leave(void)
 #define IPENDING_ISSET(ci, slot) (ci->ci_ipending & (1ull << slot))
 #define IPENDING_CLR(ci, slot) (ci->ci_ipending &= ~(1ull << slot))
 #define IPENDING_NEXT(ci, slot) (flsq(ci->ci_ipending) - 1)
-static void
+void
 crit_rundeferred(void)
 {
 	struct cpu_info *ci = curcpu();
 	int i;
 
 	ci->ci_idepth++;
-	if (IPENDING_ISSET(ci, LIR_TIMER)) {
-#ifdef CRITCOUNTERS
-		defclock++;
-#endif
-		Xfakeclock();
-		IPENDING_CLR(ci, LIR_TIMER);
-	}
-
 	/* LIR_IPI dance temporary until ipi is out of IPL */
 	while (ci->ci_ipending & ~(1ull << LIR_IPI)) {
 #ifdef CRITCOUNTERS
 		defother++;
 #endif
 		i = flsq(ci->ci_ipending & ~(1ull << LIR_IPI)) - 1;
-		ithread_run(ci->ci_isources[i]);
+		if (i == LIR_TIMER) {
+#ifdef CRITCOUNTERS
+			defclock++;
+#endif
+			Xfakeclock();
+		} else
+			ithread_run(ci->ci_isources[i]);
 		IPENDING_CLR(ci, i);
 	}
 	ci->ci_idepth--;

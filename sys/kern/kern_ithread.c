@@ -128,7 +128,9 @@ ithread_run(struct intrsource *is)
 		return (0);
 	}
 
+#if 0	/* Not sure about this until spls are completely gone */
 	splassert(is->is_maxlevel);
+#endif
 
 	DPRINTF(10, "ithread accepted interrupt pin %d "
 	    "(ilevel = %d, maxlevel = %d)\n",
