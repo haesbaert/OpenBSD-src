@@ -544,7 +544,6 @@ void	proc_finish_wait(struct proc *, struct proc *);
 void	proc_zap(struct proc *);
 
 struct sleep_state {
-	int sls_s;
 	int sls_catch;
 	int sls_do_sleep;
 	int sls_sig;

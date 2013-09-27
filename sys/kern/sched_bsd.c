@@ -203,7 +203,6 @@ schedcpu(void *arg)
 	struct timeout *to = (struct timeout *)arg;
 	fixpt_t loadfac = loadfactor(averunnable.ldavg[0]);
 	struct proc *p;
-	int s;
 	unsigned int newcpu;
 	int phz;
 
@@ -232,7 +231,7 @@ schedcpu(void *arg)
 		 */
 		if (p->p_slptime > 1)
 			continue;
-		SCHED_LOCK(s);
+		SCHED_LOCK();
 		/*
 		 * p_pctcpu is only for ps.
 		 */
@@ -259,7 +258,7 @@ schedcpu(void *arg)
 			} else
 				p->p_priority = p->p_usrpri;
 		}
-		SCHED_UNLOCK(s);
+		SCHED_UNLOCK();
 	}
 	uvm_meter();
 	wakeup(&lbolt);
@@ -298,15 +297,14 @@ void
 yield(void)
 {
 	struct proc *p = curproc;
-	int s;
 
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	p->p_priority = p->p_usrpri;
 	p->p_stat = SRUN;
 	setrunqueue(p);
 	p->p_ru.ru_nvcsw++;
 	mi_switch();
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 }
 
 /*
@@ -319,7 +317,6 @@ void
 preempt(struct proc *newp)
 {
 	struct proc *p = curproc;
-	int s;
 
 	/*
 	 * XXX Switching to a specific process is not supported yet.
@@ -327,14 +324,14 @@ preempt(struct proc *newp)
 	if (newp != NULL)
 		panic("preempt: cpu_preempt not yet implemented");
 
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	p->p_priority = p->p_usrpri;
 	p->p_stat = SRUN;
 	p->p_cpu = sched_choosecpu(p);
 	setrunqueue(p);
 	p->p_ru.ru_nivcsw++;
 	mi_switch();
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 }
 
 void
@@ -556,12 +553,10 @@ resetpriority(struct proc *p)
 void
 schedclock(struct proc *p)
 {
-	int s;
-
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	p->p_estcpu = ESTCPULIM(p->p_estcpu + 1);
 	resetpriority(p);
 	if (p->p_priority >= PUSER)
 		p->p_priority = p->p_usrpri;
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 }

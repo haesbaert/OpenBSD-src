@@ -207,7 +207,6 @@ fork1(struct proc *curp, int exitsig, int flags, void *stack, pid_t *tidptr,
 	struct vmspace *vm;
 	int count;
 	vaddr_t uaddr;
-	int s;
 	struct  ptrace_state *newptstat = NULL;
 #if NSYSTRACE > 0
 	void *newstrp = NULL;
@@ -469,11 +468,11 @@ fork1(struct proc *curp, int exitsig, int flags, void *stack, pid_t *tidptr,
 	 * Make child runnable and add to run queue.
 	 */
 	if ((flags & FORK_IDLE) == 0) {
-		SCHED_LOCK(s);
+		SCHED_LOCK();
 		p->p_stat = SRUN;
 		p->p_cpu = sched_choosecpu_fork(curp, flags);
 		setrunqueue(p);
-		SCHED_UNLOCK(s);
+		SCHED_UNLOCK();
 	} else
 		p->p_cpu = arg;
 
