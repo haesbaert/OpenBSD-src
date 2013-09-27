@@ -186,7 +186,6 @@ donice(struct proc *curp, struct process *chgpr, int n)
 {
 	struct pcred *pcred = curp->p_cred;
 	struct proc *p;
-	int s;
 
 	if (pcred->pc_ucred->cr_uid && pcred->p_ruid &&
 	    pcred->pc_ucred->cr_uid != chgpr->ps_cred->pc_ucred->cr_uid &&
@@ -200,10 +199,10 @@ donice(struct proc *curp, struct process *chgpr, int n)
 	if (n < chgpr->ps_nice && suser(curp, 0))
 		return (EACCES);
 	chgpr->ps_nice = n;
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	TAILQ_FOREACH(p, &chgpr->ps_threads, p_thr_link)
 		(void)resetpriority(p);
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 	return (0);
 }
 
@@ -363,11 +362,9 @@ tuagg_unlocked(struct process *pr, struct proc *p)
 void
 tuagg(struct process *pr, struct proc *p)
 {
-	int s;
-
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	tuagg_unlocked(pr, p);
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 }
 
 /*

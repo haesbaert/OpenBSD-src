@@ -117,7 +117,6 @@ ithread_run(struct intrsource *is)
 	struct cpu_info *ci = curcpu();
 #endif
 	struct proc *p = is->is_proc;
-	int s;
 
 	crit_enter();
 	if (p == NULL) {
@@ -138,7 +137,7 @@ ithread_run(struct intrsource *is)
 
 	is->is_scheduled = 1;
 
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	switch (p->p_stat) {
 	case SRUN:
 	case SONPROC:
@@ -158,10 +157,10 @@ ithread_run(struct intrsource *is)
 		resched_proc(p, p->p_priority);
 		break;
 	default:
-		SCHED_UNLOCK(s);
+		SCHED_UNLOCK();
 		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
 	}
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 	crit_leave();
 
 	return (0);
@@ -277,12 +276,11 @@ void
 ithread_sleep(struct intrsource *is)
 {
 	struct proc *p = is->is_proc;
-	int s;
 
 	KASSERT(curproc == p);
 	KASSERT(p->p_stat == SONPROC);
 
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	if (!is->is_scheduled) {
 		p->p_wchan = p;
 		p->p_wmesg = "softintr";
@@ -292,5 +290,5 @@ ithread_sleep(struct intrsource *is)
 		p->p_stat = SSLEEP;
 		mi_switch();
 	}
-	SCHED_UNLOCK(s);
+	SCHED_UNLOCK();
 }

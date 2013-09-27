@@ -934,7 +934,6 @@ void
 selwakeup(struct selinfo *sip)
 {
 	struct proc *p;
-	int s;
 
 	KNOTE(&sip->si_note, 0);
 	if (sip->si_selpid == 0)
@@ -947,7 +946,7 @@ selwakeup(struct selinfo *sip)
 	p = pfind(sip->si_selpid);
 	sip->si_selpid = 0;
 	if (p != NULL) {
-		SCHED_LOCK(s);
+		SCHED_LOCK();
 		if (p->p_wchan == (caddr_t)&selwait) {
 			if (p->p_stat == SSLEEP)
 				setrunnable(p);
@@ -955,7 +954,7 @@ selwakeup(struct selinfo *sip)
 				unsleep(p);
 		} else if (p->p_flag & P_SELECT)
 			atomic_clearbits_int(&p->p_flag, P_SELECT);
-		SCHED_UNLOCK(s);
+		SCHED_UNLOCK();
 	}
 }
 

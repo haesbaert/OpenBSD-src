@@ -573,7 +573,6 @@ void
 cpu_hatch(void *v)
 {
 	struct cpu_info *ci = (struct cpu_info *)v;
-	int s;
 
 	cpu_init_idt();
 	lapic_enable();
@@ -600,7 +599,7 @@ cpu_hatch(void *v)
 	nanouptime(&ci->ci_schedstate.spc_runtime);
 	splx(s);
 
-	SCHED_LOCK(s);
+	SCHED_LOCK();
 	cpu_switchto(NULL, sched_chooseproc());
 }
 

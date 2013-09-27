@@ -191,17 +191,15 @@ extern struct __mp_lock sched_lock;
 
 #define	SCHED_LOCK_INIT()	__mp_lock_init(&sched_lock)
 
-#define	SCHED_LOCK(s)							\
+#define	SCHED_LOCK()							\
 do {									\
-	s++;								\
 	crit_enter();							\
 	__mp_lock(&sched_lock);						\
 } while (/* CONSTCOND */ 0)
 
-#define	SCHED_UNLOCK(s)							\
+#define	SCHED_UNLOCK()							\
 do {									\
 	__mp_unlock(&sched_lock);					\
-	s--;								\
 	crit_leave();							\
 } while (/* CONSTCOND */ 0)
 
@@ -212,8 +210,8 @@ do {									\
 
 #define	SCHED_LOCK_INIT()		/* nothing */
 
-#define	SCHED_LOCK(s)			s = splsched()
-#define	SCHED_UNLOCK(s)			splx(s)
+#define	SCHED_LOCK()			crit_enter();
+#define	SCHED_UNLOCK()			crit_leave();
 
 #endif /* MULTIPROCESSOR || LOCKDEBUG */
 
