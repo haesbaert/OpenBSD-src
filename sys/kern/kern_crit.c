@@ -50,16 +50,8 @@ crit_leave(void)
 		crit_escaped++;
 		return;
 	}
-	if (curproc->p_crit == 1) {
-		long rf = read_rflags(); /* XXX or psl ? */
-		disable_intr();
-
+	if (--curproc->p_crit == 0)
 		crit_rundeferred();
-
-		curproc->p_crit--;
-		write_rflags(rf);
-	} else
-		curproc->p_crit--;
 
 	KASSERT(curproc->p_crit >= 0);
 }
@@ -76,22 +68,41 @@ crit_rundeferred(void)
 {
 	struct cpu_info *ci = curcpu();
 	int i;
+	long rf;
+
+	rf = read_rflags(); /* XXX or psl ? */
+	disable_intr();
 
 	ci->ci_idepth++;
-	/* LIR_IPI dance temporary until ipi is out of IPL */
-	while (ci->ci_ipending & ~(1ull << LIR_IPI)) {
-#ifdef CRITCOUNTERS
-		defother++;
-#endif
-		i = flsq(ci->ci_ipending & ~(1ull << LIR_IPI)) - 1;
-		if (i == LIR_TIMER) {
+	while (ci->ci_ipending) {
+		/* XXX can be optimized by having a btrq based flsq */
+		i = flsq(ci->ci_ipending) - 1;
+		IPENDING_CLR(ci, i);
+		enable_intr();
+		switch(i) {
+		case LIR_TIMER:
 #ifdef CRITCOUNTERS
 			defclock++;
 #endif
+			crit_enter();
 			Xfakeclock();
-		} else
+			crit_leave(); /* may recurse, better be working ! we
+				       * can look at ci->ci_idepth to see if
+				       * we're too deep */
+			break;
+		case LIR_IPI:
+			/*
+			 * XXX used to run with interrupts enabled, can this be
+			 * a problem ?
+			 */
+			x86_ipi_handler();
+			break;
+		default:
 			ithread_run(ci->ci_isources[i]);
-		IPENDING_CLR(ci, i);
+			break;
+		}
+		disable_intr();
 	}
 	ci->ci_idepth--;
+	write_rflags(rf);
 }

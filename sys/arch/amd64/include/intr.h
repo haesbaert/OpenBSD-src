@@ -133,7 +133,6 @@ void softintr(int);
  * Hardware interrupt masks
  */
 #define	splaudio()	splraise(IPL_AUDIO)
-#define	splipi()	splraise(IPL_IPI)
 
 /*
  * Software interrupt masks
