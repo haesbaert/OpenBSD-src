@@ -56,19 +56,20 @@ ithread(void *v_is)
 
 		/* XXX */
 		KASSERT(CRIT_DEPTH == 0);
-		crit_enter();
 		
 		if (is->is_maxlevel > IPL_CRIT)
 			s = splraise(is->is_maxlevel);
 
 		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
-			is->is_scheduled = 0; /* protected by is->is_maxlevel */
-
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_LOCK();
 
+			is->is_scheduled = 0; /* protected by is->is_maxlevel */
+
 			KASSERT(ih->ih_level <= is->is_maxlevel);
+			crit_enter();
 			rc |= (*ih->ih_fun)(ih->ih_arg);
+			crit_leave();
 
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_UNLOCK();
@@ -80,7 +81,6 @@ ithread(void *v_is)
 		if (is->is_maxlevel > IPL_CRIT)
 			splx(s);
 			
-		crit_leave();
 		KASSERT(CRIT_DEPTH == 0);
 
 		if (!rc)
@@ -118,12 +118,10 @@ ithread_run(struct intrsource *is)
 #endif
 	struct proc *p = is->is_proc;
 
-	crit_enter();
 	if (p == NULL) {
 		is->is_scheduled = 1;
 		DPRINTF(1, "received interrupt pin %d before ithread is ready",
 		    is->is_pin);
-		crit_leave();
 		return (0);
 	}
 
@@ -135,9 +133,10 @@ ithread_run(struct intrsource *is)
 	    "(ilevel = %d, maxlevel = %d)\n",
 	    is->is_pin, ci->ci_ilevel, is->is_maxlevel);
 
+	SCHED_LOCK();		/* implies crit_enter() ! */
+	
 	is->is_scheduled = 1;
 
-	SCHED_LOCK();
 	switch (p->p_stat) {
 	case SRUN:
 	case SONPROC:
@@ -161,7 +160,6 @@ ithread_run(struct intrsource *is)
 		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
 	}
 	SCHED_UNLOCK();
-	crit_leave();
 
 	return (0);
 }

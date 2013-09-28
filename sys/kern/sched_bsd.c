@@ -348,6 +348,7 @@ mi_switch(void)
 	int hold_count;
 	int sched_count;
 #endif
+	int crit_count;
 
 	assertwaitok();
 	KASSERT(p->p_stat != SONPROC);
@@ -448,8 +449,14 @@ mi_switch(void)
 	 * released the scheduler lock to avoid deadlock, and before
 	 * we reacquire the interlock and the scheduler lock.
 	 */
-	if (hold_count)
+	if (hold_count) {
+		crit_count = CRIT_DEPTH;
+		while (CRIT_DEPTH)
+			crit_leave();
 		__mp_acquire_count(&kernel_lock, hold_count);
+		while (crit_count--)
+			crit_enter();
+	}
 	__mp_acquire_count(&sched_lock, sched_count + 1);
 #endif
 }
