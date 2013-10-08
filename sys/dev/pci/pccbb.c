@@ -950,7 +950,6 @@ pccbbintr_function(struct pccbb_softc *sc)
 {
 	int retval = 0, val;
 	struct pccbb_intrhand_list *pil;
-	int s, splchanged;
 
 	for (pil = sc->sc_pil; pil != NULL; pil = pil->pil_next) {
 		/*
@@ -961,30 +960,11 @@ pccbbintr_function(struct pccbb_softc *sc)
 		 * implementation.
 		 */
 		crit_enter();
-		splchanged = 1;
-#if 0
-		if (pil->pil_level == IPL_SERIAL) {
-			s = splserial();
-		} else if (pil->pil_level == IPL_HIGH) {
-#endif
-		if (pil->pil_level == IPL_AUDIO) {
-			s = splaudio();
-#if 0
-		} else if (pil->pil_level == IPL_SOFTSERIAL) {
-			s = splsoftserial();
-#endif
-		} else {
-			splchanged = 0;
-			/* XXX: ih lower than IPL_BIO runs w/ IPL_BIO. */
-		}
 
 		val = (*pil->pil_func)(pil->pil_arg);
 		if (val != 0)
 			pil->pil_count.ec_count++;
 
-		if (splchanged != 0) {
-			splx(s);
-		}
 		crit_leave();
 
 		retval = retval == 1 ? 1 :

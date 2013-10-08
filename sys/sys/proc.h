@@ -516,7 +516,9 @@ int	fork1(struct proc *, int, int, void *, pid_t *, void (*)(void *),
 	    void *, register_t *, struct proc **);
 int	groupmember(gid_t, struct ucred *);
 void	crit_enter(void);
+void	crit_reenter(int);
 void	crit_leave(void);
+int	crit_leave_all(void);
 #define CRIT_DEPTH	(curproc->p_crit)
 #ifdef DIAGNOSTIC
 #define CRIT_ASSERT() do {						\

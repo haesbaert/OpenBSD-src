@@ -197,7 +197,6 @@ uvm_pageout(void *arg)
 	 */
 
 	uvm.pagedaemon_proc = curproc;
-	(void) spl0();
 	uvm_lock_pageq();
 	npages = uvmexp.npages;
 	uvmpd_tune();

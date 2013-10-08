@@ -110,7 +110,6 @@ struct intrhand {
 extern void Xspllower(int);
 extern void Xfakeclock(void);
 
-int splraise(int);
 int spllower(int);
 void softintr(int);
 
@@ -128,22 +127,6 @@ void softintr(int);
  */
 
 #define	__splbarrier() __asm __volatile("":::"memory")
-
-/*
- * Hardware interrupt masks
- */
-#define	splaudio()	splraise(IPL_AUDIO)
-
-/*
- * Software interrupt masks
- */
-#define	splsofttty()	splraise(IPL_SOFTTTY)
-
-/*
- * Miscellaneous
- */
-#define	spl0()		spllower(IPL_NONE)
-#define	splx(x)		spllower(x)
 
 /* SPL asserts */
 #ifdef DIAGNOSTIC
