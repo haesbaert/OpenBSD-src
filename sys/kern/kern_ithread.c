@@ -42,7 +42,7 @@ ithread(void *v_is)
 	struct intrsource *is = v_is;
 	struct pic *pic = is->is_pic;
 	struct intrhand *ih;
-	int rc, s;
+	int rc;
 
 	KASSERT(curproc == is->is_proc);
 	sched_peg_curproc(&cpu_info_primary);
@@ -57,9 +57,6 @@ ithread(void *v_is)
 		/* XXX */
 		KASSERT(CRIT_DEPTH == 0);
 		
-		if (is->is_maxlevel > IPL_CRIT)
-			s = splraise(is->is_maxlevel);
-
 		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_LOCK();
@@ -77,10 +74,6 @@ ithread(void *v_is)
 			ih->ih_count.ec_count++;
 		}
 
-		/* XXX */
-		if (is->is_maxlevel > IPL_CRIT)
-			splx(s);
-			
 		KASSERT(CRIT_DEPTH == 0);
 
 		if (!rc)

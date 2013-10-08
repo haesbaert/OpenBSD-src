@@ -668,23 +668,6 @@ intr_printconfig(void)
 }
 
 /*
- * Add a mask to cpl, and return the old value of cpl.
- */
-int
-splraise(int nlevel)
-{
-	int olevel;
-	struct cpu_info *ci = curcpu();
-
-	if (nlevel <= IPL_CRIT)
-		panic("splraise(%d)!!!\n", nlevel);
-
-	olevel = ci->ci_ilevel;
-	ci->ci_ilevel = MAX(ci->ci_ilevel, nlevel);
-	return (olevel);
-}
-
-/*
  * Restore a value to cpl (unmasking interrupts).  If any unmasked
  * interrupts are pending, call Xspllower() to process them.
  */

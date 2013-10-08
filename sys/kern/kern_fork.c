@@ -598,7 +598,8 @@ proc_trampoline_mp(void)
 
 	SCHED_ASSERT_LOCKED();
 	__mp_unlock(&sched_lock);
-	spl0();
+	KASSERT(CRIT_DEPTH == 0);
+	crit_leave_all();	/* for the side effects */
 	SCHED_ASSERT_UNLOCKED();
 	KASSERT(__mp_lock_held(&kernel_lock) == 0);
 

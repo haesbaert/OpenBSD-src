@@ -136,7 +136,6 @@ cpu_configure(void)
 #endif
 
 	lcr8(0);
-	spl0();
 	cold = 0;
 
 	/*
