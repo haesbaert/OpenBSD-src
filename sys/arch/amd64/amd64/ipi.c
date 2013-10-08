@@ -35,6 +35,7 @@
 #include <sys/param.h> 
 #include <sys/device.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
  
 #include <machine/intr.h>
 #include <machine/atomic.h>

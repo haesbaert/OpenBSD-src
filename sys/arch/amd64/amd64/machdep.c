@@ -1559,7 +1559,7 @@ init_x86_64(paddr_t first_avail)
 	intr_default_setup();
 	fpuinit(&cpu_info_primary);
 
-	splraise(IPL_IPI);
+	crit_enter();		/* XXX need to think this through */
 	enable_intr();
 
 #ifdef DDB
