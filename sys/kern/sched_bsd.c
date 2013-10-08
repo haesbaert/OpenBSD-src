@@ -450,12 +450,9 @@ mi_switch(void)
 	 * we reacquire the interlock and the scheduler lock.
 	 */
 	if (hold_count) {
-		crit_count = CRIT_DEPTH;
-		while (CRIT_DEPTH)
-			crit_leave();
+		crit_count = crit_leave_all();
 		__mp_acquire_count(&kernel_lock, hold_count);
-		while (crit_count--)
-			crit_enter();
+		crit_reenter(crit_count);
 	}
 	__mp_acquire_count(&sched_lock, sched_count + 1);
 #endif

@@ -42,6 +42,14 @@ crit_enter(void)
 	curproc->p_crit++;
 }
 
+/*
+ * The pair for crit_leave_all()
+ */
+void
+crit_reenter(int c)
+{
+	curproc->p_crit += c;
+}
 
 void
 crit_leave(void)
@@ -54,6 +62,24 @@ crit_leave(void)
 		crit_rundeferred();
 
 	KASSERT(curproc->p_crit >= 0);
+}
+
+/*
+ * If you don't know when to use this, don't use it.
+ * This is intended for paths where it is totally safe to lose atomicity, be it
+ * sleep or anything else. The critical level must be saved on the stack and
+ * restored with crit_reenter().
+ */
+int
+crit_leave_all(void)
+{
+	struct proc *p = curproc;
+	int c = p->p_crit;
+
+	p->p_crit = 0;
+	crit_rundeferred();
+
+	return (c);
 }
 
 /*
