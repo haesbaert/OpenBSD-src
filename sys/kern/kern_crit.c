@@ -62,7 +62,7 @@ crit_leave(void)
  */
 #define IPENDING_ISSET(ci, slot) (ci->ci_ipending & (1ull << slot))
 #define IPENDING_CLR(ci, slot) (ci->ci_ipending &= ~(1ull << slot))
-#define IPENDING_NEXT(ci, slot) (flsq(ci->ci_ipending) - 1)
+#define IPENDING_NEXT(ci) (flsq(ci->ci_ipending) - 1)
 void
 crit_rundeferred(void)
 {
@@ -76,7 +76,7 @@ crit_rundeferred(void)
 	ci->ci_idepth++;
 	while (ci->ci_ipending) {
 		/* XXX can be optimized by having a btrq based flsq */
-		i = flsq(ci->ci_ipending) - 1;
+		i = IPENDING_NEXT(ci);
 		IPENDING_CLR(ci, i);
 		enable_intr();
 		switch(i) {
