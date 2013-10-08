@@ -292,7 +292,6 @@ sched_chooseproc(void)
 		return (p);
 	}
 
-again:
 	if (spc->spc_whichqs) {
 		queue = ffs(spc->spc_whichqs) - 1;
 		p = TAILQ_FIRST(&spc->spc_qs[queue]);
@@ -301,21 +300,8 @@ again:
 		KASSERT(p->p_stat == SRUN);
 	} else if ((p = sched_steal_proc(curcpu())) == NULL) {
 		p = spc->spc_idleproc;
-		if (p == NULL) {
-			/*
-			 * We get here if someone decides to switch during
-			 * boot before forking kthreads, bleh.
-			 * This is kind of like a stupid idle loop.
-			 */
-#ifdef MULTIPROCESSOR
-			__mp_unlock(&sched_lock);
-#endif
-			spl0();
-			delay(10);
-			SCHED_LOCK();
-			goto again;
-                }
-		KASSERT(p);
+		if (p == NULL)
+			panic("switching before idle threads are forked");
 		p->p_stat = SRUN;
 	} 
 
