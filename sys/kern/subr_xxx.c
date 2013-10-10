@@ -159,10 +159,15 @@ blktochr(dev_t dev)
 void
 assertwaitok(void)
 {
-	splassert(IPL_NONE);
+	struct cpu_info *ci = curcpu();
+
+	if (__predict_false(in_intr()))
+		panic("assertwaitok: non-zero idepth: %d",
+		    ci->ci_idepth);
+
 #ifdef DIAGNOSTIC
-	if (curcpu()->ci_mutex_level != 0)
+	if (__predict_false(ci->ci_mutex_level != 0))
 		panic("assertwaitok: non-zero mutex count: %d",
-		    curcpu()->ci_mutex_level);
+		    ci->ci_mutex_level);
 #endif
 }

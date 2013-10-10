@@ -128,26 +128,6 @@ void softintr(int);
 
 #define	__splbarrier() __asm __volatile("":::"memory")
 
-/* SPL asserts */
-#ifdef DIAGNOSTIC
-/*
- * Although this function is implemented in MI code, it must be in this MD
- * header because we don't want this header to include MI includes.
- */
-void splassert_fail(int, int, const char *);
-extern int splassert_ctl;
-void splassert_check(int, const char *);
-#define splassert(__wantipl) do {					\
-		if (__wantipl <= IPL_CRIT && __wantipl > IPL_NONE) {	\
-			CRIT_ASSERT();					\
-		} else if (splassert_ctl > 0) {				\
-			splassert_check(__wantipl, __func__);		\
-		}							\
-	} while (0)
-#else
-#define splassert(wantipl)	do { /* nada */ } while (0)
-#endif
-
 #define IPLSHIFT 4			/* The upper nibble of vectors is the IPL.      */
 #define IPL(level) ((level) >> IPLSHIFT)	/* Extract the IPL.    */
 

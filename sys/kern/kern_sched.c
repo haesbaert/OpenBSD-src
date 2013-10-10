@@ -167,7 +167,7 @@ sched_idle(void *v)
 			}
 		}
 
-		splassert(IPL_NONE);
+		assertwaitok();
 
 		cpuset_add(&sched_idle_cpus, ci);
 		cpu_idle_enter();
