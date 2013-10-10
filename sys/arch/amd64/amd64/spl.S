@@ -77,67 +77,6 @@
 
 	.text
 
-#if 0
-#if defined(PROF) || defined(GPROF)
-/*
- * XXXX TODO
- */
-	.globl	_C_LABEL(splhigh), _C_LABEL(splx)
-
-	ALIGN_TEXT
-_C_LABEL(splhigh):
-	movl	$IPL_HIGH,%eax
-	xchgl	%eax,CPUVAR(ILEVEL)
-	ret
-
-	ALIGN_TEXT
-_C_LABEL(splx):
-	movl	4(%esp),%eax
-	movl	%eax,CPUVAR(ILEVEL)
-	testl	%eax,%eax
-	jnz	_C_LABEL(Xspllower)
-	ret
-#endif /* PROF || GPROF */
-#endif
-	
-/*
- * Process pending interrupts.
- *
- * Important registers:
- *   ebx - cpl
- *   r13 - address to resume loop at
- *
- * It is important that the bit scan instruction is bsr, it will get
- * the highest 2 bits (currently the IPI and clock handlers) first,
- * to avoid deadlocks where one CPU sends an IPI, another one is at
- * splipi() and defers it, lands in here via splx(), and handles
- * a lower-prio one first, which needs to take the kernel lock -->
- * the sending CPU will never see the that CPU accept the IPI
- */
-IDTVEC(spllower)
-	_PROF_PROLOGUE
-	pushq	%rbx
-	pushq	%r13
-	pushq	%r12
-	movl	%edi,%ebx
-	leaq	1f(%rip),%r13		# address to resume loop at
-1:	movl	%ebx,%eax		# get cpl
-	movq	CPUVAR(IUNMASK)(,%rax,8),%rax
-	cli
-	andq	CPUVAR(IPENDING),%rax		# any non-masked bits left?
-	jz	2f
-	bsrq	%rax,%rax
-	btrq	%rax,CPUVAR(IPENDING)
-	movq	CPUVAR(ISOURCES)(,%rax,8),%rax
-	jmp	*IS_RECURSE(%rax)
-2:
-	movl	%ebx,CPUVAR(ILEVEL)
-	sti
-	popq	%r12
-	popq	%r13
-	popq	%rbx
-	ret
-
 IDTVEC(fakeclock)
 	INTR_FAKECLKFRAME_ENTER
 	xorq	%rdi,%rdi
