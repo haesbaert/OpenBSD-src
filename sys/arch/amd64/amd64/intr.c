@@ -668,33 +668,6 @@ intr_printconfig(void)
 }
 
 /*
- * Restore a value to cpl (unmasking interrupts).  If any unmasked
- * interrupts are pending, call Xspllower() to process them.
- */
-int
-spllower(int nlevel)
-{
-	int olevel;
-	struct cpu_info *ci = curcpu();
-	u_int64_t imask;
-	u_long psl;
-
-	imask = IUNMASK(ci, nlevel);
-	olevel = ci->ci_ilevel;
-
-	psl = read_psl();
-	disable_intr();
-
-	if (ci->ci_ipending & imask) {
-		Xspllower(nlevel);
-	} else {
-		ci->ci_ilevel = nlevel;
-		write_psl(psl);
-	}
-	return (olevel);
-}
-
-/*
  * Software interrupt registration
  *
  * We hand-code this to ensure that it's atomic.
