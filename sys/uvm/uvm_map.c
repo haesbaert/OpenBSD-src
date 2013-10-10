@@ -970,7 +970,7 @@ uvm_map(struct vm_map *map, vaddr_t *addr, vsize_t sz,
 	vaddr_t			 hint;
 
 	if ((map->flags & VM_MAP_INTRSAFE) == 0)
-		splassert(IPL_NONE);
+		assert_not_in_intr();
 	else
 		CRIT_ASSERT();
 
@@ -1541,13 +1541,13 @@ uvm_mapent_alloc(struct vm_map *map, int flags)
 		crit_leave();
 		me->flags = UVM_MAP_STATIC;
 	} else if (map == kernel_map) {
-		splassert(IPL_NONE);
+		assert_not_in_intr();
 		me = pool_get(&uvm_map_entry_kmem_pool, pool_flags);
 		if (me == NULL)
 			goto out;
 		me->flags = UVM_MAP_KMEM;
 	} else {
-		splassert(IPL_NONE);
+		assert_not_in_intr();
 		me = pool_get(&uvm_map_entry_pool, pool_flags);
 		if (me == NULL)
 			goto out;
@@ -1579,10 +1579,10 @@ uvm_mapent_free(struct vm_map_entry *me)
 		uvmexp.kmapent--;
 		crit_leave();
 	} else if (me->flags & UVM_MAP_KMEM) {
-		splassert(IPL_NONE);
+		assert_not_in_intr();
 		pool_put(&uvm_map_entry_kmem_pool, me);
 	} else {
-		splassert(IPL_NONE);
+		assert_not_in_intr();
 		pool_put(&uvm_map_entry_pool, me);
 	}
 }
@@ -1809,7 +1809,7 @@ uvm_unmap_remove(struct vm_map *map, vaddr_t start, vaddr_t end,
 		return;
 
 	if ((map->flags & VM_MAP_INTRSAFE) == 0)
-		splassert(IPL_NONE);
+		assert_not_in_intr();
 	else
 		CRIT_ASSERT();
 

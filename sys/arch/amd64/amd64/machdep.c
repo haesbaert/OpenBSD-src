@@ -1781,22 +1781,6 @@ idt_vec_free(int vec)
 	simple_unlock(&idt_lock);
 }
 
-#ifdef DIAGNOSTIC
-void
-splassert_check(int wantipl, const char *func)
-{
-	int cpl = curcpu()->ci_ilevel;
-
-	if (cpl < wantipl) {
-		splassert_fail(wantipl, cpl, func);
-	}
-
-	if (wantipl == IPL_NONE && curcpu()->ci_idepth != 0) {
-		splassert_fail(-1, curcpu()->ci_idepth, func);
-	}
-}
-#endif
-
 void
 getbootinfo(char *bootinfo, int bootinfo_size)
 {

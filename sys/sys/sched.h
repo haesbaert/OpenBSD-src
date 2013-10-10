@@ -160,6 +160,15 @@ void sched_stop_secondary_cpus(void);
 #endif
 
 #define curcpu_is_idle()	(curcpu()->ci_schedstate.spc_whichqs == 0)
+#define in_intr()		(curcpu()->ci_idepth != 0)
+#define assert_in_intr() do {						\
+		if (__predict_false(curcpu()->ci_idepth == 0))		\
+			panic("%s:%d in interrupt\n", __func__, __LINE__); \
+	} while (0)
+#define assert_not_in_intr() do {					\
+		if (__predict_false(curcpu()->ci_idepth != 0))		\
+			panic("%s:%d in interrupt\n", __func__, __LINE__); \
+	} while (0)
 
 void sched_init_runqueues(void);
 void setrunqueue(struct proc *);
@@ -205,7 +214,7 @@ do {									\
 
 #else /* ! MULTIPROCESSOR || LOCKDEBUG */
 
-#define	SCHED_ASSERT_LOCKED()		splassert(IPL_SCHED);
+#define	SCHED_ASSERT_LOCKED()		CRIT_ASSERT();
 #define	SCHED_ASSERT_UNLOCKED()		/* nothing */
 
 #define	SCHED_LOCK_INIT()		/* nothing */
