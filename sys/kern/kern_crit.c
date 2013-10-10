@@ -96,6 +96,8 @@ crit_rundeferred(void)
 	int i;
 	long rf;
 
+	KASSERT(CRIT_DEPTH == 0);
+
 	rf = read_rflags(); /* XXX or psl ? */
 	disable_intr();
 
