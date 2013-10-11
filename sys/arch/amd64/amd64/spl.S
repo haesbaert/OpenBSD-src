@@ -96,17 +96,14 @@ IDTVEC(doreti)
 	decl	CPUVAR(IDEPTH)
 	leaq	1f(%rip),%r13
 1:	movl	%ebx,%eax
-	movq	CPUVAR(IUNMASK)(,%rax,8),%rax
-	cli
-	andq	CPUVAR(IPENDING),%rax
-	jz	2f
-	bsrq    %rax,%rax               # slow, but not worth optimizing
-	btrq    %rax,CPUVAR(IPENDING)
-	movq	CPUVAR(ISOURCES)(,%rax, 8),%rax
-	jmp	*IS_RESUME(%rax)
-2:	/* Check for ASTs on exit to user mode. */
-	movl	%ebx,CPUVAR(ILEVEL)
-5:	CHECK_ASTPENDING(%r11)
+2:      cli
+        testq	$-1,CPUVAR(IPENDING)
+        jz	3f
+        sti
+	call	_C_LABEL(crit_rundeferred)
+	jmp	2b		/* Old code wanted ipending to always be 0 at cli on ret */
+3:      movl	%ebx,CPUVAR(ILEVEL)
+5:	CHECK_ASTPENDING(%r11) /* Check for ASTs on exit to user mode. */
 	je	3f
 	testb   $SEL_RPL,TF_CS(%rsp)
 	jz	3f

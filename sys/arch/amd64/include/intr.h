@@ -60,8 +60,6 @@
 
 struct intrstub {
 	void *ist_entry;
-	void *ist_recurse;
-	void *ist_resume;
 };
 
 struct intrsource {
