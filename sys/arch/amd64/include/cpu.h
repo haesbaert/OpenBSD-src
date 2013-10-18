@@ -86,8 +86,6 @@ struct cpu_info {
 	struct intrsource *ci_isources[MAX_INTR_SOURCES];
 	u_int64_t	ci_ipending;
 	int		ci_idepth;
-	u_int64_t	ci_imask[NIPL];
-	u_int64_t	ci_iunmask[NIPL];
 #ifdef DIAGNOSTIC
 	int		ci_mutex_level;
 #endif

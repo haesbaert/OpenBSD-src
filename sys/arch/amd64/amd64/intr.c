@@ -155,11 +155,7 @@ intr_calculatemasks(struct cpu_info *ci)
 		for (irq = 0; irq < MAX_INTR_SOURCES; irq++)
 			if (intrlevel[irq] & (1 << level))
 				irqs |= (1UL << irq);
-		ci->ci_imask[level] = irqs | unusedirqs;
 	}
-
-	for (level = 0; level< (NIPL - 1); level++)
-		ci->ci_imask[level + 1] |= ci->ci_imask[level];
 
 	for (irq = 0; irq < MAX_INTR_SOURCES; irq++) {
 		int maxlevel = IPL_NONE;
@@ -177,9 +173,6 @@ intr_calculatemasks(struct cpu_info *ci)
 		ci->ci_isources[irq]->is_maxlevel = maxlevel;
 		ci->ci_isources[irq]->is_minlevel = minlevel;
 	}
-
-	for (level = 0; level < NIPL; level++)
-		ci->ci_iunmask[level] = ~ci->ci_imask[level];
 }
 
 int
