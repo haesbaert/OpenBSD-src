@@ -92,21 +92,19 @@ IDTVEC(fakeclock)
  *   r13 - address to resume loop at
  */
 IDTVEC(doreti)
-	popq	%rbx			# get previous priority
 	decl	CPUVAR(IDEPTH)
 	leaq	1f(%rip),%r13
 1:	movl	%ebx,%eax
-2:      cli
-        testq	$-1,CPUVAR(IPENDING)
-        jz	3f
-        sti
+2:	cli
+	testq	$-1,CPUVAR(IPENDING)
+	jz	3f
+	sti
 	call	_C_LABEL(crit_rundeferred)
 	jmp	2b		/* Old code wanted ipending to always be 0 at cli on ret */
-3:      movl	%ebx,CPUVAR(ILEVEL)
-5:	CHECK_ASTPENDING(%r11) /* Check for ASTs on exit to user mode. */
-	je	3f
-	testb   $SEL_RPL,TF_CS(%rsp)
-	jz	3f
+3:	CHECK_ASTPENDING(%r11) /* Check for ASTs on exit to user mode. */
+	je	5f
+	testb	$SEL_RPL,TF_CS(%rsp)
+	jz	5f
 4:	CLEAR_ASTPENDING(%r11)
 	sti
 	movl	$T_ASTFLT,TF_TRAPNO(%rsp)	/* XXX undo later.. */
@@ -114,5 +112,5 @@ IDTVEC(doreti)
 	movq	%rsp, %rdi
 	call	_C_LABEL(trap)
 	cli
-	jmp	5b
-3: 	INTRFASTEXIT
+	jmp	3b
+5:	INTRFASTEXIT

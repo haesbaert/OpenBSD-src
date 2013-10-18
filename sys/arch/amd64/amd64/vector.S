@@ -247,7 +247,8 @@ NENTRY(alltraps)
 	sti
 calltrap:
 #ifdef DIAGNOSTIC
-	movl	CPUVAR(ILEVEL),%ebx
+        movq	CPUVAR(CURPROC),%rax
+        movl	P_CRIT(%rax),%ebx
 #endif /* DIAGNOSTIC */
 	movq	%rsp, %rdi
 	call	_C_LABEL(trap)
@@ -266,21 +267,17 @@ calltrap:
 #ifndef DIAGNOSTIC
 1:	INTRFASTEXIT
 #else /* DIAGNOSTIC */
-1:	cmpl	CPUVAR(ILEVEL),%ebx
+1:	movq	CPUVAR(CURPROC),%rax
+	cmpl	P_CRIT(%rax),%ebx
 	jne	3f
 	INTRFASTEXIT
 3:	sti
 	movabsq	$4f,%rdi
-	movl	CPUVAR(ILEVEL),%esi
+	movl	P_CRIT(%rax),%esi
 	movl	%ebx,%edx
 	xorq	%rax,%rax
-	call	_C_LABEL(printf)
-#ifdef DDB
-	int	$3
-#endif /* DDB */
-	movl	%ebx,CPUVAR(ILEVEL)
-	jmp	2b
-4:	.asciz	"WARNING: SPL NOT LOWERED ON TRAP EXIT %x %x\n"
+	call	_C_LABEL(panic)
+4:	.asciz	"PANIC: CRIT DEPTH DOES NOT MATCH ON TRAP EXIT %x %x\n"
 #endif /* DIAGNOSTIC */
 
 
@@ -317,16 +314,11 @@ IDTVEC(intr_lapic_ipi)
 	pushq	$T_ASTFLT
 	INTRENTRY
 	movl	$0,_C_LABEL(local_apic)+LAPIC_EOI
-	movl	CPUVAR(ILEVEL),%ebx
-	cmpl	$IPL_IPI,%ebx
-	jae	2f
 	movq	CPUVAR(CURPROC),%rax
 	testl	$-1,P_CRIT(%rax)
 	jnz	2f
 	incl	CPUVAR(IDEPTH)
-	movl	$IPL_IPI,CPUVAR(ILEVEL)
 	sti
-	pushq	%rbx
 	call	_C_LABEL(x86_ipi_handler)
 	jmp	_C_LABEL(Xdoreti)
 2:
@@ -393,16 +385,11 @@ IDTVEC(intr_lapic_ltimer)
 	pushq	$T_ASTFLT
 	INTRENTRY
 	movl	$0,_C_LABEL(local_apic)+LAPIC_EOI
-	movl	CPUVAR(ILEVEL),%ebx
-	cmpl	$IPL_CLOCK,%ebx
-	jae	2f
 	movq	CPUVAR(CURPROC),%rax
 	testl	$-1,P_CRIT(%rax)
 	jnz	2f
 	incl	CPUVAR(IDEPTH)
-	movl	$IPL_CLOCK,CPUVAR(ILEVEL)
 	sti
-	pushq	%rbx
 	xorq	%rdi,%rdi
 	call	_C_LABEL(lapic_clockintr)
 	jmp	_C_LABEL(Xdoreti)
@@ -433,17 +420,11 @@ IDTVEC(intr_##name##num)						;\
 	early_ack(num)			/* and allow other intrs */	;\
 	testq	%r14,%r14						;\
 	jz	9f			/* stray */			;\
-	movl	IS_MAXLEVEL(%r14),%ebx					;\
-	movl	CPUVAR(ILEVEL),%r13d					;\
-	cmpl	%ebx,%r13d						;\
-	jae	10f			/* currently masked; hold it */	;\
 	movq	CPUVAR(CURPROC),%rax					;\
 	testl	$-1,P_CRIT(%rax)					;\
 	jnz	10f							;\
 	incl	_C_LABEL(uvmexp)+V_INTR	/* statistical info */		;\
 1:									\
-	pushq	%r13							;\
-	movl	%ebx,CPUVAR(ILEVEL)					;\
 	cli								;\
 	level_mask(num)							;\
 	incl	CPUVAR(IDEPTH)						;\
