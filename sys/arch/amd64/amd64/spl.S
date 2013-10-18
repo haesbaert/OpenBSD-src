@@ -87,30 +87,25 @@ IDTVEC(fakeclock)
 /*
  * Handle return from interrupt after device handler finishes.
  *
- * Important registers:
- *   ebx - cpl to restore
- *   r13 - address to resume loop at
  */
 IDTVEC(doreti)
 	decl	CPUVAR(IDEPTH)
-	leaq	1f(%rip),%r13
-1:	movl	%ebx,%eax
-2:	cli
+1:	cli
 	testq	$-1,CPUVAR(IPENDING)
-	jz	3f
+	jz	2f
 	sti
 	call	_C_LABEL(crit_rundeferred)
-	jmp	2b		/* Old code wanted ipending to always be 0 at cli on ret */
-3:	CHECK_ASTPENDING(%r11) /* Check for ASTs on exit to user mode. */
-	je	5f
+	jmp	1b		/* Old code wanted ipending to always be 0 at cli on ret */
+2:	CHECK_ASTPENDING(%r11) /* Check for ASTs on exit to user mode. */
+	je	4f
 	testb	$SEL_RPL,TF_CS(%rsp)
-	jz	5f
-4:	CLEAR_ASTPENDING(%r11)
+	jz	4f
+3:	CLEAR_ASTPENDING(%r11)
 	sti
 	movl	$T_ASTFLT,TF_TRAPNO(%rsp)	/* XXX undo later.. */
 	/* Pushed T_ASTFLT into tf_trapno on entry. */
 	movq	%rsp, %rdi
 	call	_C_LABEL(trap)
 	cli
-	jmp	3b
-5:	INTRFASTEXIT
+	jmp	2b
+4:      INTRFASTEXIT
