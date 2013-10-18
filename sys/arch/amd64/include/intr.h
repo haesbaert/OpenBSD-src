@@ -67,8 +67,6 @@ struct intrsource {
 	int is_pin;			/* IRQ for legacy; pin for IO APIC */
 	struct intrhand *is_handlers;	/* handler chain */
 	struct pic *is_pic;		/* originating PIC */
-	void *is_recurse;		/* entry for spllower */
-	void *is_resume;		/* entry for doreti */
 	char is_evname[32];		/* event counter name */
 	int is_flags;			/* see below */
 	int is_type;			/* level, edge */

@@ -119,8 +119,6 @@ member	CPU_INFO_GDT		ci_gdt
 member	CPU_INFO_TSS		ci_tss
 
 struct	intrsource
-member	is_recurse
-member	is_resume
 member	is_handlers
 member	is_pic
 member	is_flags
