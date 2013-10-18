@@ -455,7 +455,7 @@ intr_establish(int legacy_irq, struct pic *pic, int pin, int type, int level,
 
 	simple_unlock(&ci->ci_slock);
 
-	if (source->is_resume == NULL || source->is_idtvec != idt_vec) {
+	if (source->is_idtvec != idt_vec) {
 		if (source->is_idtvec != 0 && source->is_idtvec != idt_vec)
 			idt_vec_free(source->is_idtvec);
 		source->is_idtvec = idt_vec;
