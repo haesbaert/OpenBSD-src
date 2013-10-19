@@ -319,6 +319,7 @@ IDTVEC(intr_lapic_ipi)
 	jnz	2f
 	incl	CPUVAR(IDEPTH)
 	sti
+	pushq	%rbx
 	call	_C_LABEL(x86_ipi_handler)
 	jmp	_C_LABEL(Xdoreti)
 2:
@@ -390,6 +391,7 @@ IDTVEC(intr_lapic_ltimer)
 	jnz	2f
 	incl	CPUVAR(IDEPTH)
 	sti
+	pushq	%rbx
 	xorq	%rdi,%rdi
 	call	_C_LABEL(lapic_clockintr)
 	jmp	_C_LABEL(Xdoreti)
@@ -425,6 +427,7 @@ IDTVEC(intr_##name##num)						;\
 	jnz	10f							;\
 	incl	_C_LABEL(uvmexp)+V_INTR	/* statistical info */		;\
 1:									\
+	pushq	%r13							;\
 	cli								;\
 	level_mask(num)							;\
 	incl	CPUVAR(IDEPTH)						;\

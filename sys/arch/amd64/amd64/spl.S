@@ -89,6 +89,7 @@ IDTVEC(fakeclock)
  *
  */
 IDTVEC(doreti)
+	popq    %rbx		      # get previous priority
 	decl	CPUVAR(IDEPTH)
 1:	cli
 	testq	$-1,CPUVAR(IPENDING)
