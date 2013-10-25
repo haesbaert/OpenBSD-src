@@ -347,8 +347,8 @@ mi_switch(void)
 #ifdef MULTIPROCESSOR
 	int hold_count;
 	int sched_count;
-#endif
 	int crit_count;
+#endif
 
 	assertwaitok();
 	KASSERT(p->p_stat != SONPROC);
