@@ -118,6 +118,7 @@ crit_rundeferred(void)
 				       * can look at ci->ci_idepth to see if
 				       * we're too deep */
 			break;
+#ifdef MULTIPROCESSOR
 		case LIR_IPI:
 			/*
 			 * XXX used to run with interrupts enabled, can this be
@@ -125,6 +126,7 @@ crit_rundeferred(void)
 			 */
 			x86_ipi_handler();
 			break;
+#endif
 		default:
 			ithread_run(ci->ci_isources[i]);
 			break;
