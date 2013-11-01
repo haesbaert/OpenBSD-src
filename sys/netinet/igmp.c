@@ -523,7 +523,7 @@ igmp_checktimer(struct ifnet *ifp)
 	struct in_multi *inm;
 	struct in_ifaddr *ia;
 
-	splsoftassert(IPL_SOFTNET);
+	CRIT_ASSERT();
 
 	IN_FOREACH_MULTI(ia, ifp, inm) {
 		if (inm->inm_timer == 0) {

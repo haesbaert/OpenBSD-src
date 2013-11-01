@@ -340,9 +340,9 @@ void
 mld6_checktimer(struct ifnet *ifp)
 {
 	struct in6_multi *in6m;
-	struct in6_ifaddr *ia;					\
+	struct in6_ifaddr *ia;
 
-	splsoftassert(IPL_SOFTNET);
+	CRIT_ASSERT();
 
 	IN6_FOREACH_MULTI(ia, ifp, in6m) {
 		if (in6m->in6m_timer == 0) {

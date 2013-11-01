@@ -1356,7 +1356,7 @@ ip6_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 	extern int ip6_mrtproto;
 	extern struct mrt6stat mrt6stat;
 #endif
-	int error, s;
+	int error;
 
 	/* All sysctl names at this level are terminal. */
 	if (namelen != 1)
@@ -1391,10 +1391,10 @@ ip6_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 		error = sysctl_int(oldp, oldlenp, newp, newlen,
 		   &ip6_mtudisc_timeout);
 		if (icmp6_mtudisc_timeout_q != NULL) {
-			s = splsoftnet();
+			crit_enter();
 			rt_timer_queue_change(icmp6_mtudisc_timeout_q,
 					      ip6_mtudisc_timeout);
-			splx(s);
+			crit_leave();
 		}
 		return (error);
 	default:

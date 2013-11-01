@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
 
 #include <net/bpf.h>
 #include <net/if.h>

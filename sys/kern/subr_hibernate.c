@@ -1172,7 +1172,7 @@ hibernate_resume(void)
 	    hiber_info.sig_offset - hiber_info.swap_offset,
 	    hiber_info.secsize, (vaddr_t)&disk_hiber_info, 0)) {
 		DPRINTF("error in hibernate read");
-		splx(s);
+		crit_leave();
 		return;
 	}
 

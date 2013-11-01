@@ -725,7 +725,7 @@ in_purgeaddr(struct ifaddr *ifa)
 	struct ifnet *ifp = ifa->ifa_ifp;
 	struct in_ifaddr *ia = ifatoia(ifa);
 
-	splsoftassert(IPL_SOFTNET);
+	CRIT_ASSERT();
 
 	in_ifscrub(ifp, ia);
 

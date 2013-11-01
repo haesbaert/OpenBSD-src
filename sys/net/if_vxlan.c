@@ -28,6 +28,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/ioctl.h>
+#include <sys/proc.h>
 
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -156,11 +157,10 @@ int
 vxlan_clone_destroy(struct ifnet *ifp)
 {
 	struct vxlan_softc	*sc = ifp->if_softc;
-	int			 s;
 
-	s = splnet();
+	crit_enter();
 	vxlan_multicast_cleanup(ifp);
-	splx(s);
+	crit_leave();
 
 	vxlan_enable--;
 	LIST_REMOVE(sc, sc_entry);
@@ -256,12 +256,11 @@ void
 vxlanstart(struct ifnet *ifp)
 {
 	struct mbuf		*m;
-	int			 s;
 
 	for (;;) {
-		s = splnet();
+		crit_enter();
 		IFQ_DEQUEUE(&ifp->if_snd, m);
-		splx(s);
+		crit_leave();
 
 		if (m == NULL)
 			return;
@@ -340,7 +339,7 @@ vxlanioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	struct ifreq		*ifr = (struct ifreq *)data;
 	struct if_laddrreq	*lifr = (struct if_laddrreq *)data;
 	struct proc		*p = curproc;
-	int			 error = 0, s;
+	int			 error = 0;
 
 	switch (cmd) {
 	case SIOCSIFADDR:
@@ -371,22 +370,22 @@ vxlanioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 	case SIOCSLIFPHYADDR:
 		if ((error = suser(p, 0)) != 0)
 			break;
-		s = splnet();
+		crit_enter();
 		error = vxlan_config(ifp,
 		    (struct sockaddr *)&lifr->addr,
 		    (struct sockaddr *)&lifr->dstaddr);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCDIFPHYADDR:
 		if ((error = suser(p, 0)) != 0)
 			break;
-		s = splnet();
+		crit_enter();
 		vxlan_multicast_cleanup(ifp);
 		bzero(&sc->sc_src, sizeof(sc->sc_src));
 		bzero(&sc->sc_dst, sizeof(sc->sc_dst));
 		sc->sc_dstport = htons(VXLAN_PORT);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCGLIFPHYADDR:
@@ -409,10 +408,10 @@ vxlanioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			error = EINVAL;
 			break;
 		}
-		s = splnet();
+		crit_enter();
 		sc->sc_rtableid = ifr->ifr_rdomainid;
 		(void)vxlan_config(ifp, NULL, NULL);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCGLIFPHYRTABLE:
@@ -428,10 +427,10 @@ vxlanioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		}
 		if (sc->sc_ttl == (u_int8_t)ifr->ifr_ttl)
 			break;
-		s = splnet();
+		crit_enter();
 		sc->sc_ttl = (u_int8_t)(ifr->ifr_ttl);
 		(void)vxlan_config(ifp, NULL, NULL);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCGLIFPHYTTL:
@@ -445,10 +444,10 @@ vxlanioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			error = EINVAL;
 			break;
 		}
-		s = splnet();
+		crit_enter();
 		sc->sc_vnetid = (u_int32_t)ifr->ifr_vnetid;
 		(void)vxlan_config(ifp, NULL, NULL);
-		splx(s);
+		crit_leave();
 		break;
 
 	case SIOCGVNETID:
@@ -649,13 +648,13 @@ vxlan_addr_change(void *arg)
 {
 	struct vxlan_softc	*sc = arg;
 	struct ifnet		*ifp = &sc->sc_ac.ac_if;
-	int			 s, error;
+	int			 error;
 
 	/*
 	 * Reset the configuration after resume or any possible address
 	 * configuration changes.
 	 */
-	s = splnet();
+	crit_enter();
 	if ((error = vxlan_config(ifp, NULL, NULL))) {
 		/*
 		 * The source address of the tunnel can temporarily disappear,
@@ -663,7 +662,7 @@ vxlan_addr_change(void *arg)
 		 * so keep it configured.
 		 */
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -671,18 +670,18 @@ vxlan_if_change(void *arg)
 {
 	struct vxlan_softc	*sc = arg;
 	struct ifnet		*ifp = &sc->sc_ac.ac_if;
-	int			 s, error;
+	int			 error;
 
 	/*
 	 * Reset the configuration after the parent interface disappeared.
 	 */
-	s = splnet();
+	crit_enter();
 	if ((error = vxlan_config(ifp, NULL, NULL)) != 0) {
 		/* The configured tunnel addresses are invalid, remove them */
 		bzero(&sc->sc_src, sizeof(sc->sc_src));
 		bzero(&sc->sc_dst, sizeof(sc->sc_dst));
 	}
-	splx(s);
+	crit_leave();
 }
 
 void
@@ -690,14 +689,13 @@ vxlan_link_change(void *arg)
 {
 	struct vxlan_softc	*sc = arg;
 	struct ifnet		*ifp = &sc->sc_ac.ac_if;
-	int			 s;
 
 	/*
 	 * The machine might have lost its multicast associations after
 	 * link state changes.  This fixes a problem with VMware after
 	 * suspend/resume of the host or guest.
 	 */
-	s = splnet();
+	crit_enter();
 	(void)vxlan_config(ifp, NULL, NULL);
-	splx(s);
+	crit_leave();
 }

@@ -510,13 +510,13 @@ pflowioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			ifp->if_flags |= IFF_RUNNING;
 			sc->sc_gcounter=pflowstats.pflow_flows;
 			if (sc->sc_version == PFLOW_PROTO_9) {
-				s = splnet();
+				crit_enter();
 				pflow_sendout_v9_tmpl(sc);
-				splx(s);
+				crit_leave();
 			} else if (sc->sc_version == PFLOW_PROTO_10) {
-				s = splnet();
+				crit_enter();
 				pflow_sendout_ipfix_tmpl(sc);
-				splx(s);
+				crit_leave();
 			}
 		} else
 			ifp->if_flags &= ~IFF_RUNNING;
