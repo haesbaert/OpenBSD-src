@@ -1250,6 +1250,7 @@ init_x86_64(paddr_t first_avail)
 
 	proc0.p_addr = proc0paddr;
 	cpu_info_primary.ci_curpcb = &proc0.p_addr->u_pcb;
+	cpu_info_primary.ci_curproc = &proc0;
 
 	x86_bus_space_init();
 
