@@ -20,7 +20,7 @@
 struct intrsource;
 
 void	ithread(void *);
-int	ithread_run(struct intrsource *);
+void	ithread_run(struct intrsource *);
 void	ithread_sleep(struct intrsource *);
 void	ithread_register(struct intrsource *);
 void	ithread_deregister(struct intrsource *);

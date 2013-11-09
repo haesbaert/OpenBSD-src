@@ -103,7 +103,7 @@ ithread(void *v_is)
  * to schedule the interrupt source to run.
  * XXX intr_shared_edge is not being used, and we're being pessimistic.
  */
-int
+void
 ithread_run(struct intrsource *is)
 {
 #ifdef ITHREAD_DEBUG
@@ -115,7 +115,7 @@ ithread_run(struct intrsource *is)
 		is->is_scheduled = 1;
 		DPRINTF(1, "received interrupt pin %d before ithread is ready",
 		    is->is_pin);
-		return (0);
+		return;
 	}
 
 #if 0	/* Not sure about this until spls are completely gone */
@@ -152,9 +152,8 @@ ithread_run(struct intrsource *is)
 		SCHED_UNLOCK();
 		panic("ithread_handler: unexpected thread state %d\n", p->p_stat);
 	}
-	SCHED_UNLOCK();
 
-	return (0);
+	SCHED_UNLOCK();
 }
 
 void
@@ -168,6 +167,8 @@ ithread_register(struct intrsource *is)
 			return;
 	}
 
+	is->is_run = ithread_run;
+
 	DPRINTF(1, "ithread_register intrsource pin %d\n", is->is_pin);
 
 	TAILQ_INSERT_TAIL(&ithreads, is, entry);
@@ -177,6 +178,8 @@ void
 ithread_deregister(struct intrsource *is)
 {
 	DPRINTF(1, "ithread_deregister intrsource pin %d\n", is->is_pin);
+
+	is->is_run = NULL;
 
 	TAILQ_REMOVE(&ithreads, is, entry);
 }

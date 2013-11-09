@@ -97,28 +97,7 @@ crit_rundeferred(void)
 		i = IPENDING_NEXT(ci);
 		IPENDING_CLR(ci, i);
 		enable_intr();
-		switch(i) {
-		case LIR_TIMER:
-#ifdef CRITCOUNTERS
-			defclock++;
-#endif
-			crit_enter();
-			Xfakeclock();
-			crit_leave(); /* may recurse, better be working ! we
-				       * can look at ci->ci_idepth to see if
-				       * we're too deep */
-			break;
-		case LIR_IPI:
-			/*
-			 * XXX used to run with interrupts enabled, can this be
-			 * a problem ?
-			 */
-			x86_ipi_handler();
-			break;
-		default:
-			ithread_run(ci->ci_isources[i]);
-			break;
-		}
+		ci->ci_isources[i]->is_run(ci->ci_isources[i]);
 		disable_intr();
 	}
 	ci->ci_idepth--;

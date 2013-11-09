@@ -65,6 +65,7 @@ struct intrstub {
 struct intrsource {
 	int is_maxlevel;		/* max. IPL for this source */
 	int is_pin;			/* IRQ for legacy; pin for IO APIC */
+	void (*is_run)(struct intrsource *);	/* Run callback to this source */
 	struct intrhand *is_handlers;	/* handler chain */
 	struct pic *is_pic;		/* originating PIC */
 	char is_evname[32];		/* event counter name */
@@ -104,7 +105,7 @@ struct intrhand {
 #define IUNMASK(ci,level) (ci)->ci_iunmask[(level)]
 
 extern void Xspllower(int);
-extern void Xfakeclock(void);
+extern void Xfakeclock(struct intrsource *);
 
 int spllower(int);
 void softintr(int);
@@ -165,7 +166,7 @@ void intr_printconfig(void);
 int x86_send_ipi(struct cpu_info *, int);
 int x86_fast_ipi(struct cpu_info *, int);
 void x86_broadcast_ipi(int);
-void x86_ipi_handler(void);
+void x86_ipi_handler(struct intrsource *);
 void x86_softintlock(void);
 void x86_softintunlock(void);
 void x86_setperf_ipi(struct cpu_info *);

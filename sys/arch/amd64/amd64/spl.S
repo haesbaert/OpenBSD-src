@@ -78,10 +78,12 @@
 	.text
 
 IDTVEC(fakeclock)
+	call	_C_LABEL(crit_enter)
 	INTR_FAKECLKFRAME_ENTER
 	xorq	%rdi,%rdi
 	call	_C_LABEL(lapic_clockintr_clkframe)
 	INTR_FAKECLKFRAME_LEAVE
+	call	_C_LABEL(crit_leave)
 	ret
 
 /*

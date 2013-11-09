@@ -592,6 +592,7 @@ cpu_intr_init(struct cpu_info *ci)
 	fake_ipi_intrhand.ih_level = IPL_IPI;
 	isp->is_handlers = &fake_ipi_intrhand;
 	isp->is_pic = &local_pic;
+	isp->is_run = x86_ipi_handler;
 	ci->ci_isources[LIR_IPI] = isp;
 #endif
 	isp = malloc(sizeof (struct intrsource), M_DEVBUF, M_NOWAIT|M_ZERO);
@@ -600,6 +601,7 @@ cpu_intr_init(struct cpu_info *ci)
 	fake_timer_intrhand.ih_level = IPL_CLOCK;
 	isp->is_handlers = &fake_timer_intrhand;
 	isp->is_pic = &local_pic;
+	isp->is_run = Xfakeclock;
 	ci->ci_isources[LIR_TIMER] = isp;
 #endif
 
