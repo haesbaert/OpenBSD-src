@@ -42,7 +42,7 @@ ithread(void *v_is)
 	struct intrsource *is = v_is;
 	struct pic *pic = is->is_pic;
 	struct intrhand *ih;
-	int rc;
+	int irc, stray;
 
 	KASSERT(curproc == is->is_proc);
 	sched_peg_curproc(&cpu_info_primary);
@@ -52,42 +52,41 @@ ithread(void *v_is)
 	    curproc->p_pid, is->is_pin);
 
 	for (; ;) {
-		rc = 0;
+		stray = 1;
 
-		/* XXX */
-		KASSERT(CRIT_DEPTH == 0);
-		
 		for (ih = is->is_handlers; ih != NULL; ih = ih->ih_next) {
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_LOCK();
 
 			is->is_scheduled = 0; /* protected by is->is_maxlevel */
 
-			KASSERT(ih->ih_level <= is->is_maxlevel);
 			crit_enter();
-			rc |= (*ih->ih_fun)(ih->ih_arg);
+			irc = (*ih->ih_fun)(ih->ih_arg);
 			crit_leave();
 
 			if ((ih->ih_flags & IPL_MPSAFE) == 0)
 				KERNEL_UNLOCK();
 
-			ih->ih_count.ec_count++;
+			if (intr_shared_edge == 0 && irc > 0) {
+				ih->ih_count.ec_count++;
+				stray = 0;
+				break;
+			}
 		}
 
 		KASSERT(CRIT_DEPTH == 0);
 
-		if (!rc)
+		if (stray)
 			printf("stray interrupt pin %d ?\n", is->is_pin);
 
 		pic->pic_hwunmask(pic, is->is_pin);
 
 		/*
-		 * Since we do splx, we might have just run the handler which
-		 * wakes us up, therefore, is_scheduled might be set now, in the
-		 * future we should have 3 values, so that the handler could
-		 * save the wakeup() but still set is_scheduled. We need to
-		 * raise the IPL again so that the check for is_scheduled and
-		 * the tsleep call is atomic.
+		 * is->is_scheduled might have been set again (we got another
+		 * interrupt), there would be a race here from checking
+		 * is_scheduled and calling ithread_sleep(), but ithread sleep
+		 * will double check this with a critical section, recovering
+		 * from the race.
 		 */
 		if (!is->is_scheduled) {
 			ithread_sleep(is);
@@ -98,9 +97,7 @@ ithread(void *v_is)
 
 
 /*
- * We're called with interrupts disabled, so no need to protect anything. This
- * is the code that gets called when get a real interrupt, it's sole purpose is
- * to schedule the interrupt source to run.
+ * This is the hook that gets called in the interrupt frame.
  * XXX intr_shared_edge is not being used, and we're being pessimistic.
  */
 void
@@ -117,10 +114,6 @@ ithread_run(struct intrsource *is)
 		    is->is_pin);
 		return;
 	}
-
-#if 0	/* Not sure about this until spls are completely gone */
-	splassert(is->is_maxlevel);
-#endif
 
 	DPRINTF(10, "ithread accepted interrupt pin %d "
 	    "(ilevel = %d, maxlevel = %d)\n",
