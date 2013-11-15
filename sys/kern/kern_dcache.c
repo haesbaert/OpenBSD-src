@@ -31,24 +31,20 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#include <sys/proc.h>
+#include <sys/malloc.h>
+#include <sys/dcache.h>
+
+#include <uvm/uvm.h>
 
 #define MAG_CAPACITY		256
 #define MAG_EMPTY(dm)		(dm->dm_rounds == 0)
 #define MAG_FULL(dm)		(dm->dm_rounds == MAG_CAPACITY)
 #define MAG_POPOBJ(dm)		((dm)->dm_objs[--(dm)->dm_rounds])
 #define MAG_PUTOBJ(dm, obj)	((dm)->dm_objs[(dm)->dm_rounds++] = obj)
+#define	MAG_SWAP(x, y)		({ struct dcache_mag *t = (x); (x) = (y); (y) = (t); })
 
-struct dcache {
-	u_int				dc_maxobjs;
-	size_t				dc_objsize;
-	struct mutex			dc_mtx; /* Protects emptymags and fullmags */
-	int				dc_sleeper;
-	SLIST_HEAD(, dcache_mag)	dc_emptymags;
-	SLIST_HEAD(, dcache_mag)	dc_fullmags;
-	struct dcache_pcpu *		dc_pcpu[MAXCPUS];
-};
-
-struct dcache_pcpu * {
+struct dcache_pcpu {
 	struct dcache_mag *		dp_loadedmag;
 	struct dcache_mag *		dp_prevmag;
 	int				dp_sleeper;
@@ -60,19 +56,29 @@ struct dcache_mag {
 	void *				dm_objs[MAG_CAPACITY];
 };
 
-struct dache_obj {
-	TAILQ_ENTRY(dcache_obj)		do_entry;
-	/* Storage follows */
+struct dcache {
+	u_int				dc_maxobjs;
+	size_t				dc_objsize;
+	struct mutex			dc_mtx; /* Protects emptymags and fullmags */
+	int				dc_sleeper;
+	SLIST_HEAD(, dcache_mag)	dc_emptymags;
+	SLIST_HEAD(, dcache_mag)	dc_fullmags;
+	struct dcache_pcpu		dc_pcpu[MAXCPUS];
 };
 
-struct dcache *
+void	dcache_add_mag(struct dcache *, int);
+void	dcache_mag_prime(struct dcache *, struct dcache_mag *);
+
+void
 dcache_init(struct dcache *dc, size_t objsize, u_int maxobjs)
 {
 	struct dcache_pcpu *dp;
 	int i, nemptymags, nfullmags;
 
-	if (ncpu <= 1)
+#ifdef MULTIPROCESSOR
+	if (ncpus <= 1)
 		panic("Creating dcache before ncpu is set ?");
+#endif
 
 	bzero(dc, sizeof(*dc));
 
@@ -81,7 +87,7 @@ dcache_init(struct dcache *dc, size_t objsize, u_int maxobjs)
 	dc->dc_maxobjs = maxobjs;
 
 	/* We need at least these emptymags to avoid worst case */
-	nemptymags = (ncpu - 1) * 2; /* may be 0 */
+	nemptymags = (ncpus - 1) * 2; /* may be 0 */
 	while (nemptymags--)
 		dcache_add_mag(dc, 1);
 
@@ -98,10 +104,10 @@ dcache_init(struct dcache *dc, size_t objsize, u_int maxobjs)
 		dp = &dc->dc_pcpu[i];
 
 		dp->dp_loadedmag = SLIST_FIRST(&dc->dc_fullmags);
-		SLIST_REMOVE_HEAD(&dc->dc_fullmags);
+		SLIST_REMOVE_HEAD(&dc->dc_fullmags, dm_entry);
 
 		dp->dp_prevmag = SLIST_FIRST(&dc->dc_emptymags);
-		SLIST_REMOVE_HEAD(&dc->dc_emptymags);
+		SLIST_REMOVE_HEAD(&dc->dc_emptymags, dm_entry);
 	}
 	mtx_leave(&dc->dc_mtx);
 }
@@ -115,7 +121,7 @@ dcache_add_mag(struct dcache *dc, int empty)
 
 	if (empty) {
 		mtx_enter(&dc->dc_mtx);
-		SLIST_INSERT_HEAD(&dc->dc_emptymags, dm, entry);
+		SLIST_INSERT_HEAD(&dc->dc_emptymags, dm, dm_entry);
 		mtx_leave(&dc->dc_mtx);
 		return;
 	}
@@ -126,22 +132,20 @@ dcache_add_mag(struct dcache *dc, int empty)
 void
 dcache_mag_prime(struct dcache *dc, struct dcache_mag *dm)
 {
-	int i;
 	char *p, *end;
-	struct dcache_obj *do;
+	size_t sz;
 	struct kmem_dyn_mode kd = KMEM_DYN_INITIALIZER;
 
 	kd.kd_waitok = 1;
 
-	sz = round_page(sizeof(dc->objsize) * MAG_CAPACITY);
+	sz = round_page(sizeof(dc->dc_objsize) * MAG_CAPACITY);
 	/* KERNEL_LOCK() */
 	p = km_alloc(sz, &kv_intrsafe, &kp_dma_zero, &kd);
 	/* KERNEL_UNLOCK() */
 	end = p + sz;
 
-	while (p < sz) {
-		do = (struct dcache_obj *) p;
-		dm->dm_objs[dm->dm_rounds++] = do;
+	while (p < end) {
+		dm->dm_objs[dm->dm_rounds++] = p;
 		p += dc->dc_objsize;
 
 		if (dm->dm_rounds > MAG_CAPACITY)
@@ -149,23 +153,19 @@ dcache_mag_prime(struct dcache *dc, struct dcache_mag *dm)
 	}
 
 	mtx_enter(&dc->dc_mtx);
-	SLIST_INSERT_HEAD(&dc->dc_fullmags, dm, entry);
+	SLIST_INSERT_HEAD(&dc->dc_fullmags, dm, dm_entry);
 	mtx_leave(&dc->dc_mtx);
 }
-
-#define	swap(x, y)	({ struct dcache_mag *t = x; x = y; y = t; })
 
 void *
 dcache_get(struct dcache *dc, int waitok)
 {
 	void *obj;
 	struct dcache_pcpu *dp = &dc->dc_pcpu[curcpu()->ci_cpuid];
-	struct dcache_mag *loaded, *prev;
 
 	crit_enter();
 again:
 
-	loaded = dp->dp_loadedmag;
 	/* 1st Fast path, we have an object in the loaded magazine */
 	if (!MAG_FULL(dp->dp_loadedmag)) {
 		obj = MAG_POPOBJ(dp->dp_loadedmag);
@@ -178,7 +178,7 @@ again:
 	 * swap and retry
 	 */
 	if (!MAG_FULL(dp->dp_prevmag)) {
-		swap(dp->dp_loadedmag, dp->dp_prevmag);
+		MAG_SWAP(dp->dp_loadedmag, dp->dp_prevmag);
 		goto again;
 	}
 
@@ -201,9 +201,9 @@ again:
 		dc->dc_sleeper--;
 		dp->dp_sleeper--;
 	}
-	SLIST_INSERT_HEAD(&dc->dc_emptymags, dp->dp_loadedmag, entry);
+	SLIST_INSERT_HEAD(&dc->dc_emptymags, dp->dp_loadedmag, dm_entry);
 	dp->dp_loadedmag = SLIST_FIRST(&dc->dc_fullmags);
-	SLIST_REMOVE_HEAD(&dc->dc_fullmags);
+	SLIST_REMOVE_HEAD(&dc->dc_fullmags, dm_entry);
 	mtx_leave(&dc->dc_mtx);
 
 	goto again;
@@ -228,7 +228,7 @@ dcache_put(struct dcache *dc, void *obj)
 	/* 2nd Fast path, we have a slot in the prev mag */
 	if (!MAG_FULL(dp->dp_prevmag)) {
 		MAG_PUTOBJ(dp->dp_prevmag, obj);
-		swap(dp->dp_loadedmag, dp->dp_prevmag);
+		MAG_SWAP(dp->dp_loadedmag, dp->dp_prevmag);
 		if (dp->dp_sleeper)
 			wakeup(dc);
 		crit_leave();
@@ -241,9 +241,9 @@ dcache_put(struct dcache *dc, void *obj)
 	mtx_enter(&dc->dc_mtx);
 	if (SLIST_EMPTY(&dc->dc_emptymags))
 		panic("No more emptymags, this can never happen, wrong math!");
-	SLIST_INSERT_HEAD(&dc->dc_fullmags, dp->dp_loadedmag, entry);
+	SLIST_INSERT_HEAD(&dc->dc_fullmags, dp->dp_loadedmag, dm_entry);
 	dp->dp_loadedmag = SLIST_FIRST(&dc->dc_emptymags);
-	SLIST_REMOVE_HEAD(&dc->dc_emptymags);
+	SLIST_REMOVE_HEAD(&dc->dc_emptymags, dm_entry);
 	if (dc->dc_sleeper)
 		wakeup(dc);
 	mtx_leave(&dc->dc_mtx);
